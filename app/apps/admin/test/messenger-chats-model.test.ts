@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MESSENGER_VIEWS } from "@hub/contract/messenger-panel";
 import type { HiddenDialogDto, RecentDialogDto } from "@hub/contract/messengers";
-import { movedLine, unlinkedIntro, unlinkSentence, unnamedHiddenLine, VIEW_LABEL, VIEW_ORDER, wroteLine } from "../src/features/messengers/labels";
+import { movedLine, unlinkedHeading, unlinkedIntro, unlinkSentence, unnamedHiddenLine, VIEW_LABEL, VIEW_ORDER, wroteLine } from "../src/features/messengers/labels";
 import { channelOptions, effectiveChannel, foldOlder, hiddenRows, linkCounts, notLinkedRows, unlinkedRows, viewCounts } from "../src/features/messengers/unlinked/chats-model";
 
 // P84c: Messengers ▸ Chats, the channel filter and the views (owner, 2026-11-20; P102 adds Not linked).
@@ -57,6 +57,9 @@ describe("Chats: channel filter and views", () => {
     // P88: with no linked chat the same one line says so; there is no second paragraph.
     expect(unlinkedIntro({ freshDays: 14, count: 1, noLinked: true })).toBe("No linked chats yet · 1 new chat of the last 14 days is not linked to a client: link or hide each.");
     expect(unlinkedIntro({ freshDays: null, count: 2, noLinked: false })).toBe("2 chats the Hub has seen since it started (any age) are not linked to a client: link or hide each.");
+    // P138 verdict 9: the group heading is short; the sentence above is its tooltip.
+    expect(unlinkedHeading({ count: 2, noLinked: false })).toBe("Not linked · 2");
+    expect(unlinkedHeading({ count: 1, noLinked: true })).toBe("No linked chats yet · Not linked · 1");
     expect(unlinkSentence({ name: "Anna", client: "Anna Lee", stored: 12, hide: false })).toBe("Unlink Anna from Anna Lee: its 12 stored messages and its draft are deleted. Linking again reloads the last 30 days.");
     expect(unlinkSentence({ name: "Anna", client: "Anna Lee", stored: 1, hide: true })).toBe("Unlink and hide Anna (not a client): its 1 stored message and its draft are deleted. The Hub never links it by itself again. Linking again reloads the last 30 days.");
     expect(movedLine({ name: "Anna", to: "Bob" })).toBe("Moved Anna to Bob");

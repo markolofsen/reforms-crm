@@ -10,7 +10,7 @@ const CHANNEL_WORD = { telegram_user: "Telegram", whatsapp: "WhatsApp" } as cons
 const plural = (n: number) => (n === 1 ? "1 chat" : `${n} chats`);
 
 /**
- * P128 X5 ("sort the chats"): the agent's proposed hides, said once above the unlinked chats, and ONE review dialog that names every
+ * P128 X5 ("sort the chats"): the agent's proposed hides, one Hide all… on the unlinked group's heading line (P138 verdict 9), and ONE review dialog that names every
  * chat with the agent's reason (`ReviewDialog`, P105; ui-specifications 5f). Keep on a line drops that chat's proposal; Hide hides
  * every chat left, and one toast's Undo unhides them all (rule 5d). Hiding keeps a keyed hash of the chat and deletes nothing.
  */
@@ -41,12 +41,9 @@ export function ProposedHides({ project, proposals }: { project: string; proposa
     });
   };
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2" data-testid="proposed-hides">
-      <p className="me-auto min-w-0 text-sm">
-        The agent proposes hiding {plural(proposals.length)} as not clients.
-      </p>
-      <ActionButton onClick={() => setOpen(true)} size="s" variant="secondary">
-        Review<span className="sr-only"> the {plural(proposals.length)} the agent proposes to hide</span>
+    <div className="flex items-center" data-testid="proposed-hides">
+      <ActionButton onClick={() => setOpen(true)} size="s" tooltip={`The agent proposes hiding ${plural(proposals.length)} as not clients`} variant="secondary">
+        Hide all<span className="sr-only"> the {plural(proposals.length)} the agent proposes to hide</span>…
       </ActionButton>
       <ReviewDialog
         cancelLabel="Not now"

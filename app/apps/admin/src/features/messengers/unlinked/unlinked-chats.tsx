@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { InfoIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import type { RecentDialogDto } from "@hub/contract/messengers";
 import { sentence } from "@/lib/api/client";
 import { ago } from "@/lib/format";
 import { ChannelIcon } from "../channel/channel-icon";
-import { unlinkedIntro, whyLine, wroteLine } from "../labels";
+import { unlinkedHeading, unlinkedIntro, whyLine, wroteLine } from "../labels";
 import { StatusMenu, type StatusAction } from "../status/status-menu";
 import type { useChatMoves } from "../status/use-moves";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -67,13 +68,24 @@ function UnlinkedRow({ project, r, now, moves }: { project: string; r: RecentDia
 /**
  * The unlinked chats (P84, P84c, P102; decision 0036 point 3 as amended): on To do the fresh private chats nobody decided on, on
  * Not linked every chat the autolink remembers, of any age; from the server's memory only (nothing of an unlinked chat is stored; a
- * restart empties the list). Said once above them: why they are here (P128 X5 dropped the "since the server started" count).
+ * restart empties the list). Under one group heading, "Not linked · N" (P138 verdict 9), why they are here in its tooltip (P128 X5
+ * dropped the "since the server started" count).
  */
-export function UnlinkedChats({ project, rows, freshDays, now, noLinked, moves }: { project: string; rows: RecentDialogDto[]; freshDays: number | null; now: number; /** No linked chat at all: the line says so (P88). */ noLinked: boolean; moves: Moves }) {
+export function UnlinkedChats({ project, rows, freshDays, now, noLinked, moves, action }: { project: string; rows: RecentDialogDto[]; freshDays: number | null; now: number; /** No linked chat at all: the heading says so (P88). */ noLinked: boolean; moves: Moves; /** P138 verdict 9: the agent's proposed hides, on the heading's line. */ action?: ReactNode }) {
   if (rows.length === 0) return null;
+  const rule = unlinkedIntro({ freshDays, count: rows.length, noLinked: false });
   return (
-    <section aria-label="Chats not linked" className="flex flex-col gap-2" data-testid="unlinked-chats">
-      <p className="text-muted-foreground text-sm">{unlinkedIntro({ freshDays, count: rows.length, noLinked })}</p>
+    <section aria-labelledby="unlinked-heading" className="flex flex-col" data-testid="unlinked-chats">
+      {/* P138 verdict 9: a group heading with the list's padding, the rule in its tooltip; the proposed hides on the same line. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1 border-b bg-muted/30 px-3 py-1" data-testid="unlinked-heading">
+        <h4 className="min-w-0 font-medium text-muted-foreground text-xs" id="unlinked-heading">
+          {unlinkedHeading({ count: rows.length, noLinked })}
+        </h4>
+        <ActionButton aria-label={`Why: ${rule}`} icon size="s" tooltip={rule} variant="quiet">
+          <InfoIcon aria-hidden="true" />
+        </ActionButton>
+        {action && <div className="ms-auto flex items-center gap-1">{action}</div>}
+      </div>
       <ConversationList ariaLabel="New chats">
         {rows.map((r) => (
           <UnlinkedRow key={`${r.channel}:${r.chatId}`} moves={moves} now={now} project={project} r={r} />

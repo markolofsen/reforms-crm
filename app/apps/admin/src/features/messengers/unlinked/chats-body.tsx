@@ -96,10 +96,7 @@ function UnlinkedPart(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkSt
     const fresh = unlinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
     if (fresh.length === 0) return null;
     return (
-      <>
-        {proposed}
-        <UnlinkedChats freshDays={st.freshDays} moves={moves} noLinked={!p.linkedShown && p.d.counts.all === 0} now={now} project={project} rows={fresh} />
-      </>
+      <UnlinkedChats action={proposed} freshDays={st.freshDays} moves={moves} noLinked={!p.linkedShown && p.d.counts.all === 0} now={now} project={project} rows={fresh} />
     );
   }
   const all = notLinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
@@ -107,8 +104,8 @@ function UnlinkedPart(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkSt
   if (shown.length === 0 && older === 0) return null;
   return (
     <>
-      {proposed}
-      {shown.length > 0 && <UnlinkedChats freshDays={searchQuery !== "" ? null : NOT_LINKED_DAYS} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
+      {shown.length === 0 && proposed}
+      {shown.length > 0 && <UnlinkedChats action={proposed} freshDays={searchQuery !== "" ? null : NOT_LINKED_DAYS} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
       {older > 0 && (
         <p className="px-3 py-2 text-muted-foreground text-sm" data-testid="not-linked-older">
           {shown.length > 0 ? "and " : ""}

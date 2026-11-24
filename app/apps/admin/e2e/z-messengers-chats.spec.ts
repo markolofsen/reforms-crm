@@ -9,8 +9,8 @@ import { at, confirmReview } from "./support";
 
 const P = "lisbon-realty";
 const view = (page: Page) => page.getByRole("button", { name: /^View:/ });
-/** P123 U3b: the link state is its own filter beside the view. */
-const link = (page: Page) => page.getByRole("button", { name: /^Link:/ });
+/** P123 U3b, P138 verdict 10: the link state lives in the filter button beside the search (Any is no filter). */
+const link = (page: Page) => page.getByRole("button", { name: /^Filter chats/ });
 const pickIn = async (page: Page, menu: (page: Page) => ReturnType<typeof view>, name: RegExp) => {
   await menu(page).click();
   await page.getByRole("menuitemradio", { name }).click();
@@ -36,7 +36,9 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await page.goto(at(P, "/messengers"));
   await expect(page.getByRole("list", { name: "Chats", exact: true }).getByRole("listitem", { name: "Rita Falsa" })).toBeVisible();
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/]);
-  await expect(page.getByText("3 new chats of the last 14 days are not linked to a client: link or hide each.", { exact: true })).toHaveCount(1);
+  // P138 verdict 9: one padded group heading, the rule in its tooltip (the Why button's name).
+  await expect(page.getByTestId("unlinked-heading").getByRole("heading")).toHaveText("Not linked · 3");
+  await expect(page.getByRole("button", { name: "Why: 3 new chats of the last 14 days are not linked to a client: link or hide each." })).toHaveCount(1);
   await expect(page.getByText("No client in Notion has its phone or username.")).toHaveCount(0);
   await expect(fresh(page).getByRole("listitem", { name: "Joana" }).getByText(/^wrote 2 h ago$/)).toBeVisible();
   const tomas = fresh(page).getByRole("listitem", { name: "Tomas Viera" });
@@ -51,14 +53,14 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect(page.getByRole("menuitemradio")).toHaveText([/Needs you\s*4/, /Waiting\s*\d+/, /All\s*6/]);
   await closeMenu(page, view(page));
   await link(page).click();
-  await expect(page.getByRole("menuitemradio")).toHaveText([/Any link\s*6/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
+  await expect(page.getByRole("menuitemradio")).toHaveText([/^Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
   await closeMenu(page, link(page));
   await pickIn(page, view, /^All/);
   await pickIn(page, link, /Not linked/);
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=all&link=unlinked");
   // P128 X5: Not linked lists the last 14 days; the 20-day-old chat is one line, and a search still finds it.
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/]);
-  await expect(page.getByText("3 new chats of the last 14 days are not linked to a client: link or hide each.")).toBeVisible();
+  await expect(page.getByTestId("unlinked-heading").getByRole("heading")).toHaveText("Not linked · 3");
   await expect(page.getByTestId("not-linked-older")).toHaveText("and 1 older, untouched. Search finds them.");
   await page.getByRole("searchbox", { name: "Search chats" }).fill("Olga");
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Old Olga/]);
@@ -101,8 +103,9 @@ test("chats: the agent's proposed hides, one dialog naming each chat, Keep one, 
   });
   await page.goto(at(P, "/messengers"));
   const line = page.getByTestId("proposed-hides");
-  await expect(line).toContainText("The agent proposes hiding 2 chats as not clients.");
-  await line.getByRole("button", { name: /^Review/ }).click();
+  // P138 verdict 9: the proposed hides are one Hide all… on the Not linked heading's line.
+  await expect(page.getByTestId("unlinked-heading").getByTestId("proposed-hides")).toHaveCount(1);
+  await line.getByRole("button", { name: "Hide all the 2 chats the agent proposes to hide…" }).click();
   const dialog = page.getByTestId("review-dialog");
   await expect(dialog.getByRole("heading", { name: "Hide 2 chats: not clients?" })).toBeVisible();
   await expect(dialog).toContainText("Delivery bot fan (Telegram): A delivery service's notices.");
@@ -222,7 +225,9 @@ test("chats: a hidden chat can be linked, and Link a chat… starts from the cli
   expect(s.posts.find((p) => p.path.endsWith("/autolink/link"))?.body).toEqual({ channel: "whatsapp", account: "351900000001", chatId: "+351922000222", key: "n-evg", title: "Spam Sender" });
 
   await page.goto(at(P, "/messengers"));
-  await page.getByRole("button", { name: "Link a chat", exact: true }).click();
+  // P138 verdict 10: Link a chat… is an item of the list's ⋯, not a "+" of its own.
+  await page.getByRole("button", { name: "More chat actions" }).click();
+  await page.getByRole("menuitem", { name: "Link a chat…" }).click();
   const box = page.getByRole("region", { name: "Link a chat" });
   await box.getByRole("searchbox", { name: /A client in Notion/ }).fill("suenot@");
   await box.getByRole("list", { name: "Matching clients in Notion" }).getByRole("button").click();

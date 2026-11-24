@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { PlusIcon } from "lucide-react";
+import { EllipsisIcon } from "lucide-react";
 import type { MessengerChannelFilter, MessengerLinkFilter, MessengerView as View } from "@hub/contract/messenger-panel";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationEmptyState } from "@hub/ui/product/conversation/frame";
 import { SearchField } from "@hub/ui/product/list/search-field";
@@ -11,11 +12,12 @@ import { useDebounced } from "@/hooks/use-debounced";
 import { shortcutsOn } from "@/hooks/use-shortcuts";
 import type { Channel } from "@/components/conversation/adapter";
 import { ConversationWorkspace } from "@/components/conversation/workspace";
+import { ListFilterButton } from "@/features/mail/list/filter-menu";
 import { useClock } from "@/lib/clock";
 import { useAutolinkState, useMessengerChats, useTelegramUser, useWhatsApp } from "@/lib/data/messengers";
 import { dest } from "@/routes/paths";
 import { MESSENGERS_SEARCH } from "@/routes/search";
-import { CHANNEL_FILTER_LABEL, emptyLine, LINK_LABEL, LINK_ORDER, VIEW_LABEL, VIEW_ORDER } from "./labels";
+import { emptyLine, LINK_LABEL, LINK_ORDER, VIEW_LABEL, VIEW_ORDER } from "./labels";
 import { LinkChat } from "./status/link-chat";
 import { useChatMoves } from "./status/use-moves";
 import { ChatsBody } from "./unlinked/chats-body";
@@ -24,14 +26,30 @@ import { useChatActions } from "./use-chat-actions";
 import { MessengerConversationPane } from "./conversation/pane";
 import { useMessengerUndoKey } from "./conversation/keys";
 
-/** The View menu; its trigger is the list's title (P128 X4): "Messengers · Needs you 3", or the channel chosen in the sidebar, "WhatsApp · Needs you 1". */
-function ChatViewMenu({ value, counts, onChange, where }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void; where: string }) {
-  return <ListFilterMenu name="View" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: counts?.[v] }))} tooltip="Filter chats by view" value={value} where={where} />;
+/** The View menu; its trigger is the list's title (P128 X4), the channel already chosen in the sidebar (P138 verdict 10): "Needs you 3". */
+function ChatViewMenu({ value, counts, onChange }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void }) {
+  return <ListFilterMenu name="View" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: counts?.[v] }))} tooltip="Filter chats by view" value={value} />;
 }
 
-/** P123 U3b: the link state as a filter beside the view (Any link, Linked, Not linked, Hidden), each with its count. */
-function LinkMenu({ value, counts, onChange }: { value: MessengerLinkFilter; counts: Record<MessengerLinkFilter, number> | undefined; onChange: (v: string) => void }) {
-  return <ListFilterMenu name="Link" onChange={onChange} options={LINK_ORDER.map((v) => ({ value: v, label: LINK_LABEL[v], count: counts?.[v] }))} tooltip="Filter chats by link" value={value} />;
+/** P123 U3b, P138 verdict 10: the link state (Linked, Not linked, Hidden; Any is no filter) in the filter button, with counts. */
+function LinkFilter({ value, counts, onChange }: { value: MessengerLinkFilter; counts: Record<MessengerLinkFilter, number> | undefined; onChange: (v: MessengerLinkFilter) => void }) {
+  const filters = LINK_ORDER.filter((v) => v !== "any").map((v) => ({ value: v, label: LINK_LABEL[v], count: counts?.[v] }));
+  const pick = (v: string | null) => onChange(LINK_ORDER.find((x) => x === v) ?? "any");
+  return <ListFilterButton brand={null} brands={[]} filter={value === "any" ? null : value} filters={filters} onBrand={() => undefined} onFilter={pick} what="chats" />;
+}
+
+/** P138 verdict 10: the list's ⋯, holding Link a chat… (not a primary action, so not its own "+" in the header). */
+function ChatsMore({ linking, onLinking }: { linking: boolean; onLinking: () => void }) {
+  return (
+    <Menu>
+      <MenuTrigger aria-label="More chat actions" render={<ActionButton icon size="s" variant="secondary" />}>
+        <EllipsisIcon aria-hidden="true" />
+      </MenuTrigger>
+      <MenuPopup align="end">
+        <MenuItem onClick={onLinking}>{linking ? "Close link a chat" : "Link a chat…"}</MenuItem>
+      </MenuPopup>
+    </Menu>
+  );
 }
 
 /**
@@ -86,17 +104,13 @@ export function MessengersWorkspace({ project, filter, link, channel: asked, cha
   };
   const toolbar = (
     <ListToolbar ariaLabel="Chat filters and actions">
-      <ListToolbarRow>
-        <ChatViewMenu counts={viewCounts(d?.counts, st, channel, link)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
-        <LinkMenu counts={linkCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ link: v })} value={link} />
-        <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
+      <ListToolbarRow className="flex-nowrap">
+        <ChatViewMenu counts={viewCounts(d?.counts, st, channel, link)} onChange={(v) => setSearch({ filter: v })} value={filter} />
+        <div className="min-w-0 flex-1">
           <SearchField inputRef={searchRef} label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />
         </div>
-        {accounts.length > 0 && (
-          <ActionButton aria-expanded={linking} aria-label={linking ? "Close link a chat" : "Link a chat"} className="ms-auto" icon onClick={() => setLinking((v) => !v)} size="s" tooltip={linking ? "Close link a chat" : "Link a chat"} variant="secondary">
-            <PlusIcon aria-hidden="true" />
-          </ActionButton>
-        )}
+        <LinkFilter counts={linkCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ link: v })} value={link} />
+        {accounts.length > 0 && <ChatsMore linking={linking} onLinking={() => setLinking((v) => !v)} />}
         {d && q.isFetching && <Refreshing />}
       </ListToolbarRow>
     </ListToolbar>

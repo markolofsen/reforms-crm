@@ -121,8 +121,13 @@ export function whyLine(r: Pick<RecentDialogDto, "why" | "by" | "candidates">): 
   }
 }
 
+/** P138 verdict 9: the unlinked chats' group heading, "Not linked · 2" (the rule is the heading's tooltip, `unlinkedIntro`). */
+export function unlinkedHeading(o: { count: number; noLinked: boolean }): string {
+  return `${o.noLinked ? "No linked chats yet · " : ""}Not linked · ${o.count}`;
+}
+
 /**
- * P84c, P88: the one line above the unlinked rows, said once instead of once per row ("none" rows say nothing of their own), and
+ * P84c, P88, P138: the rule of the unlinked group, the tooltip of its heading, said once instead of once per row ("none" rows say nothing of their own), and
  * with no linked chat yet it says that too, in the same line (`admin-principles.md` rule 3: one status line, no paragraphs).
  */
 export function unlinkedIntro(o: { freshDays: number | null; count: number; noLinked: boolean }): string {
