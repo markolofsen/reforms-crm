@@ -28,4 +28,6 @@ export type AutopilotProjectChatsItem = {
   pausedReason: string | null;
   /** @nullable */
   pausedWords: string | null;
+  /** @nullable */
+  note: string | null;
 };

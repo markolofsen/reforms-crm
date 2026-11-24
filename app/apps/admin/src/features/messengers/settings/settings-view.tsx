@@ -10,6 +10,7 @@ import { SettingsGroup as Group } from "../../settings/group";
 import { ChatRules } from "./chat-rules";
 import { TelegramAccount } from "./telegram-account";
 import { WhatsAppAccount } from "./whatsapp/whatsapp-account";
+import { AutopilotSettings } from "../autopilot/settings";
 
 /** The send guards of a user account (decision 0036 point 7), read only: the send door applies them to Telegram and WhatsApp. */
 export const GUARDS: readonly string[] = [
@@ -77,13 +78,16 @@ export function MessengerSettings({ project }: { project: string }) {
         <Group id="linked-chats" title="Linked chats">
           <LinkedChats project={project} query={chats} />
         </Group>
+        <Group id="autopilot" title="Autopilot">
+          <AutopilotSettings project={project} />
+        </Group>
         <Group id="guards" title="Send guards">
           <ul className="measure flex list-disc flex-col gap-1 ps-5 text-sm">
             {GUARDS.map((g) => (
               <li key={g}>{g}</li>
             ))}
           </ul>
-          <p className="text-muted-foreground text-xs">They apply to every send on Telegram and WhatsApp: your Send and the agent&apos;s send on your word go through the same door.</p>
+          <p className="text-muted-foreground text-xs">They apply to every send on Telegram and WhatsApp: your Send, the agent&apos;s send on your word and the autopilot go through the same door.</p>
         </Group>
       </div>
     </Page>

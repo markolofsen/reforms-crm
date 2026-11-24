@@ -19,6 +19,7 @@ Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one 
 - Only chats the owner linked exist for you: a chat the hub does not know is `not_linked`, never searched for. Nothing of an unlinked chat reaches the hub (decision 0036 point 3).
 - The whole project: the clients come from the owner's words, the focus (`focus`: "этот клиент" is the focused client) or the clients he names; for each, `messenger_history` with `client` = its id. One chat: use `chat` with the numeric id from a focused `chat:<id>` ref; otherwise use `channel` and the external `chat_id` from focus.
 - Owner names no one and the focus shows no client: ask in one line which clients (there is no list of every chat to read).
+- A chat on autopilot (decision 0048: its `open_draft.autopilot` is true, or the owner says so) is the server's: skip it (`skipped:autopilot`) unless the owner names that chat.
 
 ## 2. Per chat (in this order)
 1. `messenger_history` of the chat. It returns the messages newest first, the chat's `rules`, `owner_instruction` (the owner's own words for this chat), `open_draft` and `can_draft`. With the chat's pre-analysis on (P71 M-P), messages a cheap model judged `closing`, `automated` or `personal` are left out and counted in `prefilter` (`hidden` by reason, `left_out_below`); `include_hidden: true` returns them marked `hidden`. A message it could not judge is shown as usual.

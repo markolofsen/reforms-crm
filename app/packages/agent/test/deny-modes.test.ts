@@ -10,6 +10,8 @@ import { codexConfigToml } from "../src/codex";
 import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, deniedTools, deniedToolsOf, denyRules, SEND_LIKE_TOOL } from "../src/deny";
 import { createHubMcpServer, HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../src/mcp/server";
 import { httpAgentSend, MESSENGER_SEND_TOOL, sentLine, type AgentSendPort } from "../src/messenger/send-tool";
+import { AUTOPILOT_HUB_TOOLS } from "@hub/config/autopilot";
+import { AUTOPILOT_ALLOWED, autopilotDisallowed } from "../src/autopilot";
 
 // Decision 0046 (P132 B1-3): `messenger_send` exists only in an attended session. Unattended it is absent from `hub mcp`, on
 // Claude's deny list and `--disallowedTools`, in Codex's `disabled_tools`; attended it is the one send tool, and Mail has none.
@@ -112,5 +114,25 @@ describe("hub mcp offers messenger_send only with the attended port", () => {
     expect(await none("acme", 7, 3)).toMatchObject({ ok: false, reason: "unavailable" });
     expect(seen).toHaveLength(1);
     expect(sentLine({ to: "Bo", channel: "whatsapp", text: "a\nb", at: "2026-11-23T09:05:00.000Z" })).toBe('Sent to Bo on WhatsApp at 09:05 UTC: "a b"');
+  });
+});
+
+describe("decision 0048: an autopilot turn has no send tool (P139 A3, verdict 28)", () => {
+  it("its hub mcp registers exactly the five bound tools, none send-like, attended port or not", async () => {
+    const server = createHubMcpServer(createRepos(h.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), autopilotChat: 1, agentSend: async () => ({ ok: false, status: 409, reason: "no_owner_word", error: "Not sent.", next: "Ask." }) });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await server.connect(a);
+    const client = new Client({ name: "t", version: "0" });
+    await client.connect(b);
+    const names = (await client.listTools()).tools.map((t) => t.name).sort();
+    expect(names).toEqual([...AUTOPILOT_HUB_TOOLS].sort());
+    expect(names).not.toContain("messenger_send");
+  });
+
+  it("its CLI denies messenger_send and every other hub tool by name, and the unattended deny list", () => {
+    const denied = autopilotDisallowed();
+    expect(denied).toContain(SEND);
+    for (const t of deniedTools(true)) expect(denied).toContain(t);
+    expect(AUTOPILOT_ALLOWED.filter((t) => SEND_LIKE_TOOL.test(t.replace("mcp__hub__", "")) && t !== "mcp__hub__messenger_draft_write")).toEqual([]);
   });
 });

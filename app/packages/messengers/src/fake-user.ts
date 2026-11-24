@@ -85,6 +85,11 @@ export class FakeMtClient implements MtClient {
     this.sent.push({ chatId, text, id });
     return { id, date: new Date("2026-11-20T12:00:00.000Z") };
   }
+  /** Decision 0048: the chats a typing status was shown in, in order. */
+  typed: number[] = [];
+  async typing(chatId: number): Promise<void> {
+    this.typed.push(chatId);
+  }
   async close(): Promise<void> {
     this.closed++;
     this.onMessage = null;

@@ -7,12 +7,13 @@ import type { LiveTopic } from "@hub/contract/live";
 import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
 import type { AutolinkLinkedDto, AutolinkRecordDto, ChatMovedDto, UserLoginStartBody, WaConnectStepDto } from "@hub/contract/messengers";
 import { sentence } from "@/lib/api/client";
+import { autopilotApi } from "@/lib/api/messengers/autopilot";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { messengerSendApi } from "@/lib/api/messengers/send";
 import { telegramUserApi } from "@/lib/api/messengers/telegram-user";
 import { whatsappApi } from "@/lib/api/messengers/whatsapp";
 import { keys } from "@/lib/cache/keys";
-import { useCommand, useRefreshTopics } from "@/lib/cache/topics";
+import { invalidateTopics, useCommand, useRefreshTopics } from "@/lib/cache/topics";
 import { useSendDoor } from "./send-door";
 
 /**
@@ -265,3 +266,30 @@ export const useCreateRecord = (project: string, onSuccess: (res: AutolinkLinked
 /** P141 C4: "Add email…" on a chat's client known only by the chat (the server merges when another client has the address). */
 export const useAddClientEmail = (project: string, chatId: number, onSuccess: (r: { merged: boolean }) => void) =>
   useCommand({ project, touches: MESSENGERS, run: (email: string) => messengersApi.addClientEmail(project, chatId, email), onSuccess });
+
+// P139 A5: the autopilot's switches on screen (decision 0048 point 2). Every write fetches its single-use ticket first
+// (`autopilotApi`), then reads the project's view and the instance switch again, and the panel's chats (their marks).
+
+type ProjectChange = Parameters<typeof autopilotApi.setProject>[1];
+
+/** A project's autopilot: its mode, disclose, quiet hours, every linked chat's state, and the last day's counts. */
+export const useProjectAutopilot = (project: string | null) => useQuery({ queryKey: keys.autopilot(project ?? ""), queryFn: () => autopilotApi.project(project ?? ""), enabled: !!project, retry: false });
+
+export const useAutopilotInstance = () => useQuery({ queryKey: keys.autopilotInstance(), queryFn: autopilotApi.instance, retry: false });
+
+function useRefresh(project: string | null) {
+  const qc = useQueryClient();
+  return () => Promise.all([qc.invalidateQueries({ queryKey: keys.autopilotInstance() }), project ? qc.invalidateQueries({ queryKey: keys.autopilot(project) }) : Promise.resolve(), invalidateTopics(qc, project, ["messengers"])]).then(() => undefined);
+}
+
+/** One change of a project's block (its mode, a chat's switch, disclose, quiet hours). */
+export function useSetProjectAutopilot(project: string) {
+  const refresh = useRefresh(project);
+  return useMutation({ mutationFn: (change: ProjectChange) => autopilotApi.setProject(project, change), onSettled: refresh });
+}
+
+/** The switch of this Mac. */
+export function useSetAutopilotInstance(project: string | null) {
+  const refresh = useRefresh(project);
+  return useMutation({ mutationFn: (on: boolean) => autopilotApi.setInstance(on), onSettled: refresh });
+}

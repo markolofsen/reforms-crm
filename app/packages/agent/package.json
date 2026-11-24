@@ -13,6 +13,7 @@
     "./detect": "./src/detect.ts",
     "./focus": "./src/focus/index.ts",
     "./mcp": "./src/mcp/server.ts",
+    "./autopilot": "./src/autopilot/index.ts",
     "./session-rules": "./src/session-rules.ts",
     "./mcp-stdio": "./src/mcp/stdio.ts",
     "./mcp-binding": "./src/mcp/binding.ts",

@@ -1,4 +1,5 @@
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
+import { AUTOPILOT_ACCOUNT_SHARE } from "@hub/config/autopilot";
 import { RepoError, usageRefusal, type MessengerChannel, type Repos, type SendRow } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";
 import { AdapterError, type SendingAdapter } from "./adapter";
@@ -21,9 +22,10 @@ export type { MessengerAuthority } from "./authorization";
 //   4. audit (`audit`): the `send_log` row first, its Stop sending, cap, spacing and one-reference-per-send re-checked in the write;
 //   5. delivery (`deliver`): the confirm and the one send, each re-checking the authorization's text hash on the stored row; no retry.
 // The ticket is not a stage here: it proves an `owner_click` and is taken by the route before the door is called. Who may ask
-// is `MessengerAuthority` (`./authorization.ts`): the owner's click, or the agent on the owner's word (decision 0046), never a
-// default. A server-side authority (decision 0048's autopilot, P139) joins that union and passes the same five stages; the
-// door knows no session mode, so an unattended instance's deny lists (which bind the model's processes) do not reach it.
+// is `MessengerAuthority` (`./authorization.ts`): the owner's click, the agent on the owner's word (decision 0046), or the
+// server's autopilot in a chat the owner switched on (decision 0048), never a default. All pass the same five stages; the
+// autopilot's audit row is also held to its share of the account. The door knows no session mode, so an unattended
+// instance's deny lists (which bind the model's processes) do not reach it.
 
 /** The live send of each connected account, from the server's supervisors; nothing else holds one. */
 export interface MessengerSenders {
@@ -53,6 +55,8 @@ export interface MessengerDoorDeps {
 const KIND = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" } as const;
 const WORD: Record<MessengerChannel, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
 const LIMITS = { dailyCap: MESSENGER_DAILY_CAP, spacingSeconds: MESSENGER_SPACING_SECONDS };
+/** The audit stage's limits for an authority: autopilot's sends also stop at its share of the account (verdict 11). */
+const limitsOf = (a: MessengerAuthority) => (a.kind === "autopilot" ? { ...LIMITS, actorCap: AUTOPILOT_ACCOUNT_SHARE } : LIMITS);
 const log = ops("send");
 
 export interface MessengerAssessment {
@@ -153,7 +157,7 @@ function finalChecks(deps: MessengerDoorDeps, auth: SendAuthorization): Refused 
 async function audit(deps: MessengerDoorDeps, auth: SendAuthorization, p: Preview): Promise<{ row: SendRow } | Refused> {
   const at = (deps.now ?? (() => new Date()))().toISOString();
   try {
-    const row = await deps.repos.sends.beginMessage({ project: auth.project, channel: auth.channel, messengerDraftId: auth.draftId, account: auth.account, to: `${KIND[auth.channel]}:${auth.chatId}`, name: p.to, text: p.text, actor: actorOf(auth.authority), at, limits: LIMITS, ownerWord: referenceOf(auth.authority) });
+    const row = await deps.repos.sends.beginMessage({ project: auth.project, channel: auth.channel, messengerDraftId: auth.draftId, account: auth.account, to: `${KIND[auth.channel]}:${auth.chatId}`, name: p.to, text: p.text, actor: actorOf(auth.authority), at, limits: limitsOf(auth.authority), ownerWord: referenceOf(auth.authority) });
     return { row };
   } catch (e) {
     if (e instanceof RepoError) return { refused: [e.message] };

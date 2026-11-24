@@ -52,8 +52,21 @@ export const autopilotChatDto = z.strictObject({
   /** A code of `PAUSING_REASONS`, and its words. */
   pausedReason: z.string().nullable(),
   pausedWords: z.string().nullable(),
+  /** P139 A6: the newest turn's note (the model's reason for a hand-back, or the door's), when it has one. */
+  note: z.string().nullable(),
 });
 export type AutopilotChatDto = z.infer<typeof autopilotChatDto>;
+
+/** P139 A6: what the turns of the last 24 hours came to, and autopilot's share used per account (verdict 22). */
+export const autopilotTodayDto = z.strictObject({
+  sent: z.number().int().nonnegative(),
+  handedBack: z.number().int().nonnegative(),
+  refused: z.number().int().nonnegative(),
+  dryRun: z.number().int().nonnegative(),
+  lastTurnAt: z.string().nullable(),
+  accounts: z.array(z.strictObject({ channel: z.enum(AUTOPILOT_CHANNELS), account: z.string(), used: z.number().int().nonnegative(), share: z.number().int().positive() })),
+});
+export type AutopilotTodayDto = z.infer<typeof autopilotTodayDto>;
 
 /** A project's block and every linked chat's state. `error`: the send policy does not parse (nothing is written over it). */
 export const autopilotProjectDto = z.strictObject({
@@ -65,5 +78,6 @@ export const autopilotProjectDto = z.strictObject({
   updatedAt: z.string().nullable(),
   error: z.string().nullable(),
   chats: z.array(autopilotChatDto),
+  today: autopilotTodayDto,
 });
 export type AutopilotProjectDto = z.infer<typeof autopilotProjectDto>;

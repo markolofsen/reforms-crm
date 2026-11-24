@@ -332,6 +332,17 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       }
     },
 
+    async typing(chatId: string) {
+      await refreshKnown();
+      if (!known.has(chatId)) throw new AdapterError("unknown", "chat_not_known: the chat is not known to the Hub");
+      if (!sock) throw new AdapterError("network", "whatsapp: not connected right now");
+      try {
+        await sock.typing(addressOf(chatId));
+      } catch (err) {
+        throw toWaAdapterError(err);
+      }
+    },
+
     async logout() {
       await sock?.logout();
     },

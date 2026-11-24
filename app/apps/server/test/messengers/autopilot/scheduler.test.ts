@@ -59,7 +59,7 @@ let outcomes: Outcome[];
 let cap: { lines: OpsLine[]; stop: () => void };
 
 function scheduler(o: Partial<SchedulerDeps> & Pick<SchedulerDeps, "run">) {
-  return new AutopilotScheduler({ precheck: async () => ({ mode: "dry_run" }), onOutcome: (x) => void outcomes.push(x), clock, ...o });
+  return new AutopilotScheduler({ precheck: async () => ({ mode: "dry_run", revise: null, disclose: false }), onOutcome: (x) => void outcomes.push(x), clock, ...o });
 }
 
 beforeEach(() => {
@@ -268,13 +268,13 @@ describe("cancelling (verdicts 9, 16) and the wall clock (verdict 19)", () => {
       [(s: AutopilotScheduler) => s.outbound(chat(1)), ["handed_back", "owner_replied"]],
     ] as const) {
       outcomes = [];
-      let release: (v: { mode: "dry_run" }) => void = () => undefined;
+      let release: (v: { mode: "dry_run"; revise: null; disclose: false }) => void = () => undefined;
       const m = manualRuns();
       const s = scheduler({ run: m.run, precheck: () => new Promise((r) => (release = r)) });
       s.inbound(chat(1));
       await clock.advance(8_000);
       act(s);
-      release({ mode: "dry_run" });
+      release({ mode: "dry_run", revise: null, disclose: false });
       await s.idle();
       expect(m.started).toHaveLength(0);
       expect(outcomes.map((o) => [o.outcome, o.reason])).toEqual([want]);
@@ -290,6 +290,44 @@ describe("cancelling (verdicts 9, 16) and the wall clock (verdict 19)", () => {
     await s.idle();
     expect(m.started[0]?.signal.aborted).toBe(true);
     expect(outcomes.map((o) => [o.outcome, o.reason])).toEqual([["refused", "timeout"]]);
+  });
+
+  it("a send at the door is never aborted: the wall clock or a switch running out during it still reports sent, and its echo does not pause", async () => {
+    let finish: () => void = () => undefined;
+    const s = scheduler({
+      run: async (turn) => {
+        turn.sending();
+        await new Promise<void>((r) => (finish = r));
+        return { outcome: "sent", reason: null, sendId: 9 };
+      },
+      limits: { timeoutMs: 1_000 },
+    });
+    s.inbound(chat(1));
+    await clock.advance(8_000);
+    await clock.advance(5_000);
+    s.cancel(() => true);
+    finish();
+    await s.idle();
+    expect(outcomes.map((o) => [o.outcome, o.reason, o.sendId])).toEqual([["sent", null, 9]]);
+    s.outbound(chat(1));
+    await s.idle();
+    expect(outcomes).toHaveLength(1);
+  });
+
+  it("the wall clock is the model's: once the brain returned, the pacing is not cut by it", async () => {
+    const s = scheduler({
+      run: async (turn) => {
+        turn.brainReturned();
+        await turn.wait(5_000);
+        return { outcome: "dry_run", reason: null };
+      },
+      limits: { timeoutMs: 1_000 },
+    });
+    s.inbound(chat(1));
+    await clock.advance(8_000);
+    await clock.advance(6_000);
+    await s.idle();
+    expect(outcomes.map((o) => o.outcome)).toEqual(["dry_run"]);
   });
 
   it("a precheck skip runs no turn and counts no turn", async () => {

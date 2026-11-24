@@ -95,6 +95,9 @@ export function mtcuteSessionClient(s: UserSession): MtClient {
       const m = await tg.sendText(chatId, text);
       return { id: m.id, date: m.date };
     },
+    async typing(chatId) {
+      await tg.sendTyping(chatId, "typing");
+    },
     async close() {
       if (handlers) {
         tg.onNewMessage.remove(handlers.message);

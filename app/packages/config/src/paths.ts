@@ -153,6 +153,8 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
 }
 
 /** `<projects>/<slug>`: one project's folder. */
+/** The database is not the instance's own `<home>/data/app.db`: a `HUB_DB` override, which only a throwaway (e2e, a drill) sets. */
+export const throwawayDb = (paths: Pick<HubPaths, "home" | "db">): boolean => resolve(paths.db) !== join(paths.home, "data", "app.db");
 export const projectFolder = (slug: string, o: HubPathsOptions = {}): string => join(hubPaths(o).projects, slug);
 
 /**

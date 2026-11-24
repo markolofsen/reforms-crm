@@ -119,3 +119,30 @@ export const AUTOPILOT_OFF_WORDS: Record<AutopilotOff, string> = {
   reply_mode: "Autopilot needs the reply mode Draft replies",
   stopped: "Stop sending is on",
 };
+
+/** Minutes since midnight of `now` in `tz`; null for a zone the runtime does not know. */
+function minutesIn(now: Date, tz: string): number | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
+    const h = Number(parts.find((p) => p.type === "hour")?.value);
+    const m = Number(parts.find((p) => p.type === "minute")?.value);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verdict 12: whether `now` falls in the project's quiet hours (`from` to `to` in `tz`, across midnight when `from` is later).
+ * A zone the runtime does not know counts as quiet: nothing is sent on a setting the Hub cannot read.
+ */
+export function inQuietHours(quiet: AutopilotPolicy["quiet"], now: Date): boolean {
+  if (!quiet) return false;
+  const at = minutesIn(now, quiet.tz);
+  if (at === null) return true;
+  const clock = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const from = clock(quiet.from);
+  const to = clock(quiet.to);
+  if (from === to) return false;
+  return from < to ? at >= from && at < to : at >= from || at < to;
+}

@@ -20,6 +20,16 @@ import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
 import { logStoreOf, readEvents } from "@hub/log/store";
 import { ops } from "@hub/log/ops";
 import { bindProject } from "./binding";
+import { AUTOPILOT_CHAT_ENV } from "@hub/config/autopilot";
+
+/** Decision 0048 (verdict 20): the chat an autopilot turn's server is bound to (`HUB_AUTOPILOT_CHAT`, a row id), or none. */
+export function autopilotChatOf(env: NodeJS.ProcessEnv): number | undefined {
+  const raw = env[AUTOPILOT_CHAT_ENV]?.trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  // A value that is not a row id binds to no chat at all (0 matches no row), never to "every chat".
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
 
 /**
  * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` with `HUB_PROJECT_CAPABILITY` (P112 S3: the
@@ -91,8 +101,10 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   };
   // P92: the owner's test addresses while the project's send policy is test mode (read per call: the policy may change).
   const testRecipients = (slug: string) => testRecipientsOf(projectStore({ projects: paths.projects, stateProjects: paths.stateProjects }).config(slug), readAllowList(paths.configFile));
+  // Decision 0048: an autopilot turn's server serves one chat, has no send port and no chat sort, attended instance or not.
+  const autopilotChat = autopilotChatOf(env);
   // Decision 0046: `messenger_send` exists only in an attended instance (read at start; the server refuses an unattended one anyway).
-  const attended = !instanceFeatures(paths).agent.unattended;
+  const attended = autopilotChat === undefined && !instanceFeatures(paths).agent.unattended;
   const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};
   // P128 X5: sorting the chats proposes hides only, so it is not gated on attendance.
   const chatSort = httpChatSort({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) });
@@ -113,7 +125,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // P112 S3: the slug binds only with its capability, once, for this process's life.
   const binding = bindProject(paths, env);
   if (binding.refusal) ops("agent").warn("hub mcp started unbound: HUB_PROJECT came without a valid project capability", { reason: binding.refusal });
-  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, chatSort, records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat === undefined ? { chatSort } : { autopilotChat }), records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

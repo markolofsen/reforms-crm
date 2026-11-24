@@ -88,6 +88,11 @@ export class FakeWaSocket implements WaSocket {
     this.sent.push({ chatId: chat.chatId, jid: chat.jid, text, id });
     return { id, at: new Date("2026-11-20T12:00:00.000Z") };
   }
+  /** Decision 0048: the chats a typing presence was shown in, in order. */
+  typed: string[] = [];
+  async typing(chat: WaAddress): Promise<void> {
+    this.typed.push(chat.chatId);
+  }
   async requestHistory(chat: WaAddress, anchor: WaAnchor, count: number): Promise<void> {
     this.historyRequests.push({ chatId: chat.chatId, jid: chat.jid, anchor, count });
     const answer = this.historyAnswer.get(chat.chatId);

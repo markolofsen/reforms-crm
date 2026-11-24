@@ -9,6 +9,7 @@ import { createLive, folderSignature, logSignatures } from "../live/live";
 import { projectsRoot } from "../projects/overview";
 import { start as startMessengers } from "../messengers/start";
 import { openWaAppReader } from "@hub/messengers";
+import { autopilotBrainOf } from "../messengers/autopilot/brain";
 import { start as startMail } from "../mail/start";
 import { start as startTerminal } from "../terminal/start";
 import { start as startAgent } from "../agent/start";
@@ -30,7 +31,8 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
   // P126 P3: the one reader of project.md with its send policy; every server module reads a project's config through it.
   const projects = projectStore({ projects: projectsDir, stateProjects: paths.stateProjects });
   // P141 W3: only the real composition reads the owner's WhatsApp app database (read only); tests never pass it.
-  const messengers = await startMessengers({ repos, autopilotFiles: { switchFile: paths.autopilot, policyDir: paths.stateProjects, projectsDir }, waAppReader: () => openWaAppReader() });
+  // P139 A3: the autopilot's brain is chosen here, once (the real one only for a real instance, never in a test or an e2e run).
+  const messengers = await startMessengers({ repos, autopilotFiles: { switchFile: paths.autopilot, policyDir: paths.stateProjects, projectsDir }, autopilotBrain: autopilotBrainOf({ env: process.env, paths, repos }), allowList: readAllowList(paths.configFile), waAppReader: () => openWaAppReader() });
   const linker = messengers.handles.autolink;
   const busy: { now: () => boolean } = { now: () => false };
   const mail = startMail({

@@ -61,6 +61,11 @@ export interface MessengerAdapter {
 /** An adapter with `send`, which takes only a `ConfirmedDraft`. */
 export interface SendingAdapter extends MessengerAdapter {
   send(draft: ConfirmedDraft): Promise<SentReceipt>;
+  /**
+   * Decision 0048 (P139 A4, verdict 13): the channel's typing status in a chat the Hub knows, before an autopilot send. Sends
+   * no message; best-effort (the caller logs a failure and sends anyway). Absent on a channel without one.
+   */
+  typing?(chatId: string): Promise<void>;
 }
 
 /**

@@ -1,16 +1,16 @@
 import type { AutopilotBrain, BrainResult } from "@hub/config/autopilot";
 import type { Turn, TurnResult } from "./scheduler";
 
-// One autopilot turn after the scheduler started it (P139 A2): the brain writes a draft and gives its verdict; this maps the
-// verdict to the turn's outcome. It sends nothing. The send is A4's `deliver` (the code guard, the pre-send re-checks, the read
-// delay, the typing status, then `applyMessenger` with the `autopilot` authority); until it exists, a `send` verdict in mode `on`
-// ends as `skipped: no_sender` and the draft waits for the owner's Send, as in a dry run.
+// One autopilot turn after the scheduler started it (P139 A2, A3): the brain writes a draft and gives its verdict; this maps the
+// verdict to the turn's outcome. It sends nothing itself. A `send` verdict in mode `on` goes to A4's `deliver` (`deliver.ts`: the
+// mechanical limits, the pre-send re-checks, the read delay, the typing status, then `applyMessenger` with the `autopilot`
+// authority). No code judges the text: the `autopilot-reply` skill's rules do (owner, 2026-11-24).
 
 /** A4's step after a `send` verdict in mode `on`: everything up to and through the door. */
 export type AutopilotDeliver = (turn: Turn, draft: Extract<BrainResult, { kind: "draft" }>, signal: AbortSignal) => Promise<TurnResult>;
 
 export interface TurnRunnerDeps {
-  /** Absent: this server has no brain yet (until A3), and every turn is `skipped: no_brain`. */
+  /** Absent: this server has no brain (a test's wiring), and every turn is `skipped: no_brain`. */
   brain?: AutopilotBrain | undefined;
   deliver?: AutopilotDeliver | undefined;
 }
@@ -18,14 +18,16 @@ export interface TurnRunnerDeps {
 export function turnRunner(d: TurnRunnerDeps): (turn: Turn, signal: AbortSignal) => Promise<TurnResult> {
   return async (turn, signal) => {
     if (!d.brain) return { outcome: "skipped", reason: "no_brain" };
-    const r = await d.brain.turn({ chat: turn.chat, actionId: turn.actionId, burst: turn.burst, mode: turn.mode }, signal);
+    const r = await d.brain.turn({ chat: turn.chat, actionId: turn.actionId, burst: turn.burst, mode: turn.mode, revise: turn.revise, disclose: turn.disclose }, signal);
+    // The wall clock is the model's (verdict 19): the pacing and the door after it are never cut by it.
+    turn.brainReturned();
     switch (r.kind) {
       case "failed":
-        return { outcome: "refused", reason: "brain_failed" };
+        return { outcome: "refused", reason: "brain_failed", note: r.detail, costUsd: r.costUsd ?? null };
       case "no_draft":
-        return { outcome: "handed_back", reason: "model_hand_back", costUsd: r.costUsd };
+        return { outcome: "handed_back", reason: "model_hand_back", note: r.reason, costUsd: r.costUsd };
       case "draft": {
-        const base = { costUsd: r.costUsd, draftId: r.draftId };
+        const base = { costUsd: r.costUsd, draftId: r.draftId, note: r.reason };
         if (r.verdict === "hand_back") return { ...base, outcome: "handed_back", reason: "model_hand_back" };
         if (turn.mode === "dry_run") return { ...base, outcome: "dry_run", reason: null };
         if (!d.deliver) return { ...base, outcome: "skipped", reason: "no_sender" };

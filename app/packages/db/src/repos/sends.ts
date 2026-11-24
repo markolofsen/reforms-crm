@@ -44,8 +44,11 @@ export type NewMessengerSend = {
   text: string;
   actor: string;
   at: string;
-  /** The guards of one account (decision 0036 point 7), re-checked inside the write so two sends cannot both pass. */
-  limits: { dailyCap: number; spacingSeconds: number };
+  /**
+   * The guards of one account (decision 0036 point 7), re-checked inside the write so two sends cannot both pass. `actorCap`
+   * (decision 0048): this actor's own live rows on the account in 24 h stop at it (the autopilot's share of the cap).
+   */
+  limits: { dailyCap: number; spacingSeconds: number; actorCap?: number };
   /** Decision 0046: the session-log reference of the owner's word an agent send goes out on; one send per word. */
   ownerWord?: string | null;
 };
@@ -159,6 +162,16 @@ export function sendsRepo(db: Db) {
       return usage(db, channel, account, at);
     },
 
+    /** Decision 0048: the live messenger sends (sending, sent) of one actor since `since`, oldest first (autopilot's budgets, its Overview part). */
+    async messengerSendsOf(actor: string, since: string): Promise<Array<Pick<SendRow, "id" | "project" | "channel" | "sender" | "toAddr" | "createdAt" | "status">>> {
+      return db
+        .select({ id: sendLog.id, project: sendLog.project, channel: sendLog.channel, sender: sendLog.sender, toAddr: sendLog.toAddr, createdAt: sendLog.createdAt, status: sendLog.status })
+        .from(sendLog)
+        .where(and(eq(sendLog.actor, actor), inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since), sql`${sendLog.channel} is not null`))
+        .orderBy(sendLog.createdAt)
+        .all();
+    },
+
     /**
      * Starts a messenger send (P71 M4): Stop all, the daily cap and the spacing are checked again inside the same write
      * transaction that inserts the `sending` row, so the audit row exists before anything leaves and two sends cannot race
@@ -170,6 +183,12 @@ export function sendsRepo(db: Db) {
         const u = usage(tx, input.channel, input.account, input.at);
         const refused = usageRefusal(u, input.limits, input.at);
         if (refused) throw new RepoError("wrong_state", refused);
+        if (input.limits.actorCap !== undefined) {
+          const since = new Date(new Date(input.at).getTime() - DAY_MS).toISOString();
+          const mine = tx.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(eq(sendLog.channel, input.channel), eq(sendLog.sender, input.account), eq(sendLog.actor, input.actor), inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
+          const n = Number(mine?.n ?? 0);
+          if (n >= input.limits.actorCap) throw new RepoError("wrong_state", `${input.actor} sent ${n} messages on this account in the last 24 hours, its share of the cap is ${input.limits.actorCap}`);
+        }
         const word = input.ownerWord ?? null;
         if (word !== null && tx.select({ id: sendLog.id }).from(sendLog).where(eq(sendLog.ownerWord, word)).get()) throw new RepoError("wrong_state", "this word of the owner was already used for a send: one send per word");
         try {

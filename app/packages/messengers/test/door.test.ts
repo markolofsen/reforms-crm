@@ -98,6 +98,25 @@ describe("the messenger door's stages (P112 S2)", () => {
     expect(adapter.sent).toHaveLength(1);
   });
 
+  it("decision 0048: the autopilot authority passes the same stages, spends its turn id once, and stops at its share of the account", async () => {
+    const ap = (turn: string) => ({ kind: "autopilot", actor: "autopilot", turn }) as const;
+    const a = await draft();
+    expect(await applyMessenger(depsWith(() => open), "p", a, confirm, ap("t-one"))).toEqual({ sendId: expect.any(Number) });
+    expect((await env.repos.sends.list("p"))[0]).toMatchObject({ actor: "autopilot", ownerWord: "t-one" });
+    // The same turn never sends twice.
+    const b = await draft("Again?");
+    const later = (min: number) => ({ ...depsWith(() => open), now: () => new Date(NOW.getTime() + min * 60_000) });
+    expect(await applyMessenger(later(1), "p", b, { chatId: "100", text: "Again?" }, ap("t-one"))).toMatchObject({ refused: [expect.stringMatching(/already used/)] });
+    // Its share of the account (20 of the 30): the 21st autopilot send of the day is refused at the audit, the owner's click is not.
+    for (let i = 2; i <= 20; i++) {
+      const d = await draft(`Reply ${i}`);
+      expect(await applyMessenger(later(i), "p", d, { chatId: "100", text: `Reply ${i}` }, ap(`t-${i}`))).toEqual({ sendId: expect.any(Number) });
+    }
+    const over = await draft("Reply 21");
+    expect(await applyMessenger(later(30), "p", over, { chatId: "100", text: "Reply 21" }, ap("t-21"))).toEqual({ refused: ["autopilot sent 20 messages on this account in the last 24 hours, its share of the cap is 20"] });
+    expect(await applyMessenger(later(31), "p", over, { chatId: "100", text: "Reply 21" }, CLICK)).toEqual({ sendId: expect.any(Number) });
+  });
+
   it("the door knows no session mode: nothing in it reads an unattended switch (decision 0048: deny lists bind the model, not the server)", async () => {
     const { readFileSync } = await import("node:fs");
     for (const f of ["../src/door.ts", "../src/authorization.ts", "../src/send-confirmed.ts"]) expect(readFileSync(new URL(f, import.meta.url), "utf8")).not.toMatch(/unattended\s*[(:=]|instanceFeatures|agent\.unattended/);

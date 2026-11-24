@@ -93,6 +93,12 @@ export interface HubMcpEnv {
   syncClientMap?: (slug: string, m: { email: string; source: string; at: string }) => Promise<{ state: string }>;
   /** P129 verdict 7: whether these words are in one of this project's owner prompts of the last 12 hours (the P54 log). Absent: not checked. */
   ownerWords?: (slug: string, words: string) => boolean;
+  /**
+   * Decision 0048 (P139 A3, verdict 20): the one chat (its `messenger_chats` row id, `HUB_AUTOPILOT_CHAT`) an autopilot turn's
+   * `hub mcp` serves. Set, the server registers only `AUTOPILOT_HUB_TOOLS`, every tool refuses another chat or client
+   * (`autopilot_other_chat`), no owner words admit anything, and `messenger_draft_write` records the turn's verdict.
+   */
+  autopilotChat?: number;
 }
 
 export type NotionClientCheck = { state: "client" | "not_client" | "do_not_contact" } | { state: "lead"; pageId: string } | { state: "unavailable"; reason: string };

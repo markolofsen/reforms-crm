@@ -11,6 +11,7 @@ import { sentence } from "@/lib/api/client";
 import { useSaveChatRules } from "@/lib/data/messengers";
 import { agentRef } from "@/lib/focus";
 import { chatName, CHANNEL_LABEL, prefilterNote, triageLine } from "../labels";
+import { AutopilotChatSwitch } from "../autopilot/chat-switch";
 
 const LABEL = "text-sm";
 const HINT = "text-muted-foreground text-xs";
@@ -46,6 +47,7 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
           {CHANNEL_LABEL[c.channel]} · {REPLY_MODE_LABELS[r.replyMode]} · {r.instruction ? "own instruction" : "no instruction"}
           {r.language ? ` · ${r.language}` : ""}
         </span>
+        <AutopilotChatSwitch chatId={c.id} compact project={project} />
         <ActionButton aria-expanded={editing} onClick={() => setEditing((v) => !v)} size="s" variant="quiet">
           {editing ? "Done" : "Edit"}
           <span className="sr-only"> the rules for {name}</span>

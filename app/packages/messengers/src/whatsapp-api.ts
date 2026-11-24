@@ -284,6 +284,9 @@ export function baileysSocket(store: WaAuthFiles, version?: WAVersion): WaSocket
       const m = await sock.sendMessage(jidOf(chat), { text });
       return { id: m?.key.id ?? "", at: m ? new Date(secondsOf(m.messageTimestamp) * 1000 || Date.now()) : new Date() };
     },
+    async typing(chat) {
+      await sock.sendPresenceUpdate("composing", jidOf(chat));
+    },
     async requestHistory(chat, anchor, count) {
       // Baileys' `oldestMsgTimestampMs` is milliseconds (P141 Defect 1), and the chat is named by its real JID (Defect 4).
       await sock.fetchMessageHistory(count, { remoteJid: jidOf(chat), id: anchor.id, fromMe: anchor.fromMe }, anchor.at.getTime());

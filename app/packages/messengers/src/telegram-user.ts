@@ -54,6 +54,8 @@ export interface MtClient {
   history(chatId: number, o: { since: Date; minId: number; limit: number }): Promise<MtMessage[]>;
   /** Sends one plain text to a private chat (P71 M4): only the adapter's `send` calls it, with a confirmed draft. */
   sendText(chatId: number, text: string): Promise<{ id: number; date: Date }>;
+  /** The "typing…" status in a private chat (mtcute `sendTyping`); sends no message (decision 0048, verdict 13). */
+  typing(chatId: number): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -303,6 +305,16 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserS
         if (!known.has(draft.chatId)) throw new AdapterError("unknown", "chat_not_known: the chat is not known to the Hub");
         const m = await client.sendText(Number(draft.chatId), draft.text);
         return { remoteMessageId: String(m.id), at: m.date.toISOString() };
+      } catch (err) {
+        throw toUserAdapterError(err);
+      }
+    },
+
+    async typing(chatId: string) {
+      await refreshKnown();
+      if (!known.has(chatId)) throw new AdapterError("unknown", "chat_not_known: the chat is not known to the Hub");
+      try {
+        await client.typing(Number(chatId));
       } catch (err) {
         throw toUserAdapterError(err);
       }

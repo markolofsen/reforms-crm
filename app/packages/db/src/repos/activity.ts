@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { AGENT_WORD_SEND_ACTOR, AGENT_WORD_SEND_LABEL, BATCH_SEND_ACTOR } from "@hub/config";
+import { AUTOPILOT_SEND_ACTOR } from "@hub/config/autopilot";
 import type { Db } from "../client";
 import { agentEvents, clients, drafts, inboxRows, messengerChats, messengerDrafts, sendLog } from "../schema";
 
@@ -103,7 +104,8 @@ function olderThan(before: string | null | undefined): (r: Pos) => boolean {
 const CHANNEL_WORD: Record<string, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
 /** How a send went, in the words of Activity ▸ Sends: Batch, By hand, Autosend, Agent (your word); a message names its messenger. */
 // Decision 0046: a messenger draft the agent sent on the owner's word says so: "Agent (your word) on Telegram".
-const messengerVia = (actor: string): string => (actor === AGENT_WORD_SEND_ACTOR ? AGENT_WORD_SEND_LABEL : actor === BATCH_SEND_ACTOR ? "Batch" : "By hand");
+// Decision 0048: a message the autopilot sent in a chat the owner switched on says "Autopilot on Telegram".
+const messengerVia = (actor: string): string => (actor === AGENT_WORD_SEND_ACTOR ? AGENT_WORD_SEND_LABEL : actor === AUTOPILOT_SEND_ACTOR ? "Autopilot" : actor === BATCH_SEND_ACTOR ? "Batch" : "By hand");
 const viaOf = (r: { actor: string; mode: string; channel: string }): string => (r.channel !== "mail" ? `${messengerVia(r.actor)} on ${CHANNEL_WORD[r.channel] ?? r.channel}` : r.actor === BATCH_SEND_ACTOR ? "Batch" : r.mode === "auto" ? "Autosend" : "By hand");
 
 export async function timelineOf(db: Db, project: string, q: TimelineQuery = {}): Promise<Activity> {

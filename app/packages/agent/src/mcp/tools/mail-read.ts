@@ -6,6 +6,7 @@ import { displayNameFor, headersFromText, resolveBrand, signatureFor, type Heade
 import { defineTool } from "../define";
 import { configOf } from "../ports";
 import { cut, ToolError } from "../result";
+import { otherChat } from "./messengers";
 
 // The read-only Mail tools of `hub mcp` (P129 A4): one client, one message with its brand, and the Mail list of conversations.
 
@@ -18,11 +19,17 @@ export const clientShowTool = defineTool({
   input: z.object({ id: z.number().int().positive().optional(), email: z.string().max(320).optional() }),
   output: z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable() }),
   effect: "read",
-  refusals: ["not_found"],
-  handler: async ({ repos, project }, { id, email }) => {
+  refusals: ["not_found", "autopilot_other_chat"],
+  handler: async ({ repos, project, env }, { id, email }) => {
     const slug = project();
     const cid = id ?? (email ? await repos.clients.findByIdentity(slug, "email", email.trim()) : undefined);
     if (cid === undefined) throw new ToolError("invalid", "Give the client's id or email.");
+    // Decision 0048 (verdict 20): an autopilot turn reads its chat's client only.
+    if (env.autopilotChat !== undefined) {
+      const row = await repos.messengers.chatById(slug, env.autopilotChat);
+      const own = row ? await repos.messengers.clientByIdentifier(slug, row.channel === "whatsapp" ? "whatsapp" : "telegram", row.chatId) : null;
+      if (own === null || own !== cid) throw otherChat(env.autopilotChat);
+    }
     const c = await repos.clients.card(slug, cid);
     if (!c) throw new ToolError("not_found", `No client ${id ?? email} in project ${slug}.`);
     const drafts = await repos.drafts.ofClient(slug, c.id);

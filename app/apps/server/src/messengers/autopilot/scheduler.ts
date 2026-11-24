@@ -45,10 +45,19 @@ export interface Turn {
   actionId: string;
   mode: Exclude<AutopilotMode, "off">;
   burst: { messages: number; firstAt: string };
+  /** What the precheck read for the brain: autopilot's own waiting draft to revise, and whether this reply carries the daily line. */
+  revise: number | null;
+  disclose: boolean;
   /** Waits until a send on `account` may go (the door's spacing as a schedule); rejects when the turn is aborted. A4 calls it before the send. */
   sendSlot(account: string, lastSentAt: number | null): Promise<void>;
-  /** A4 calls it right before the door: an outbound message from now on is this send's echo, not the owner taking over. */
+  /** Waits `ms` on the scheduler's clock (the read delay, the typing time); rejects when the turn is aborted. */
+  wait(ms: number): Promise<void>;
+  /** The runner calls it when the brain returned: the 120 s wall clock is the model's, so the pacing after it is never cut. */
+  brainReturned(): void;
+  /** A4 calls it right before the door, after every wait: from now on nothing aborts the turn, and an outbound message is this send's echo. */
   sending(): void;
+  /** Random in [0, 1) from the scheduler's clock (the pacing's jitter). */
+  random(): number;
 }
 
 export interface TurnResult {
@@ -56,6 +65,10 @@ export interface TurnResult {
   reason: AutopilotReason | null;
   costUsd?: number | null;
   draftId?: number | null;
+  /** The send's `send_log` row, when one was written. */
+  sendId?: number | null;
+  /** The model's own reason for its verdict, or the door's reasons, in words (Activity, the pause line). */
+  note?: string | null;
 }
 
 export interface Outcome extends TurnResult {
@@ -68,7 +81,7 @@ export interface Outcome extends TurnResult {
 
 export interface SchedulerDeps {
   /** Reads the switches and the chat when a turn is about to start (pure scheduling knows neither). */
-  precheck(chat: AutopilotChat): Promise<{ skip: AutopilotReason } | { mode: Exclude<AutopilotMode, "off"> }>;
+  precheck(chat: AutopilotChat): Promise<Precheck>;
   run(turn: Turn, signal: AbortSignal): Promise<TurnResult>;
   /** After each outcome's ops line: the wiring pauses the chat on a hand-back. Never throws back here. */
   onOutcome?(o: Outcome): Promise<void> | void;
@@ -78,6 +91,9 @@ export interface SchedulerDeps {
   pool?: number;
   limits?: Partial<{ debounceMs: number; burstMaxMs: number; timeoutMs: number; restartWindowMs: number; echoMs: number; budget: BudgetLimits }>;
 }
+
+/** What the precheck answers: why the turn does not run, or the mode it runs in with the facts the brain needs. */
+export type Precheck = { skip: AutopilotReason } | { mode: Exclude<AutopilotMode, "off">; revise: number | null; disclose: boolean };
 
 type Phase = "waiting" | "queued" | "running";
 
@@ -219,7 +235,8 @@ export class AutopilotScheduler {
   /** One end of a waiting, queued or running turn for `why`. A running one is aborted and reports when it settles. */
   private stop(e: Entry, why: AutopilotReason): void {
     if (e.phase === "running") {
-      if (e.abort && !e.abort.why) {
+      // Once the send is at the door nothing stops it: the door's own stages are the last word (and Stop sending is one of them).
+      if (e.abort && !e.abort.why && !e.sending) {
         e.abort.why = why;
         e.abort.ctl.abort();
       }
@@ -244,7 +261,7 @@ export class AutopilotScheduler {
     // The controller exists before the precheck: a switch turned off or the owner's message during it is kept, not dropped.
     const ctl = new AbortController();
     e.abort = { ctl, why: null, live: false };
-    let pre: Awaited<ReturnType<SchedulerDeps["precheck"]>>;
+    let pre: Precheck;
     try {
       pre = await withAction(e.actionId, () => this.d.precheck(e.chat));
     } catch (err) {
@@ -262,34 +279,42 @@ export class AutopilotScheduler {
     this.ledger.recordTurn(e.key, t0);
     e.abort.live = true;
     const timer = this.clock.setTimeout(() => {
-      if (e.abort && !e.abort.why) {
+      if (e.abort && !e.abort.why && !e.sending) {
         e.abort.why = "timeout";
         ctl.abort();
       }
     }, this.l.timeoutMs);
-    const result = await this.runOnce(e, pre.mode, ctl.signal);
-    this.clock.clearTimeout(timer);
+    const clockOff = () => this.clock.clearTimeout(timer);
+    const result = await this.runOnce(e, pre, ctl.signal, clockOff);
+    clockOff();
     const why = e.abort.why;
     e.abort = null;
-    if (why === "interrupted") return this.rerun(e);
-    if (why) return end({ outcome: OUTCOME_OF[why] ?? "skipped", reason: why }, this.clock.now() - t0);
+    // A send that went out is reported as sent, whatever came after it: it is counted, and its echo is not the owner's message.
     if (result.outcome === "sent") {
       this.ledger.recordSend(e.key, this.clock.now());
       this.lastSent.set(e.key, this.clock.now());
+      return end(result, this.clock.now() - t0);
     }
+    if (why === "interrupted") return this.rerun(e);
+    if (why) return end({ outcome: OUTCOME_OF[why] ?? "skipped", reason: why }, this.clock.now() - t0);
     return end(result, this.clock.now() - t0);
   }
 
-  private async runOnce(e: Entry, mode: Exclude<AutopilotMode, "off">, signal: AbortSignal): Promise<TurnResult> {
+  private async runOnce(e: Entry, pre: Extract<Precheck, { mode: unknown }>, signal: AbortSignal, brainReturned: () => void): Promise<TurnResult> {
     const turn: Turn = {
       chat: e.chat,
       actionId: e.actionId,
-      mode,
+      mode: pre.mode,
+      revise: pre.revise,
+      disclose: pre.disclose,
       burst: { messages: e.messages, firstAt: new Date(e.firstAt).toISOString() },
-      sendSlot: (account, lastSentAt) => this.slot(account, lastSentAt, signal),
+      sendSlot: (account, lastSentAt) => this.delay(this.spacing.reserve(account, lastSentAt, this.clock.now(), () => this.clock.random()) - this.clock.now(), signal),
+      wait: (ms) => this.delay(ms, signal),
+      brainReturned,
       sending: () => {
         e.sending = true;
       },
+      random: () => this.clock.random(),
     };
     try {
       return await withAction(e.actionId, () => this.d.run(turn, signal));
@@ -309,11 +334,10 @@ export class AutopilotScheduler {
     this.arm(e);
   }
 
-  private slot(account: string, lastSentAt: number | null, signal: AbortSignal): Promise<void> {
-    const at = this.spacing.reserve(account, lastSentAt, this.clock.now(), () => this.clock.random());
+  private delay(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       if (signal.aborted) return reject(new Error("aborted"));
-      const h = this.clock.setTimeout(resolve, Math.max(0, at - this.clock.now()));
+      const h = this.clock.setTimeout(resolve, Math.max(0, ms));
       signal.addEventListener(
         "abort",
         () => {
@@ -338,7 +362,7 @@ export class AutopilotScheduler {
   /** The one ops line of an outcome, inside its action id, then the wiring's own step (the pause). */
   private async finish(o: Outcome): Promise<void> {
     withAction(o.actionId, () => {
-      const fields = { project: o.chat.project, chat: o.chat.chat, channel: o.chat.channel, outcome: o.outcome, reason: o.reason, messages: o.messages, ...(o.ms !== null ? { ms: o.ms } : {}), ...(o.costUsd != null ? { costUsd: o.costUsd } : {}), ...(o.draftId != null ? { draft: o.draftId } : {}) };
+      const fields = { project: o.chat.project, chat: o.chat.chat, channel: o.chat.channel, outcome: o.outcome, reason: o.reason, messages: o.messages, ...(o.ms !== null ? { ms: o.ms } : {}), ...(o.costUsd != null ? { costUsd: o.costUsd } : {}), ...(o.draftId != null ? { draft: o.draftId } : {}), ...(o.sendId != null ? { send: o.sendId } : {}) };
       const words = o.reason ? `: ${AUTOPILOT_REASON_WORDS[o.reason]}` : "";
       if (o.outcome === "refused") this.log.warn(`turn ${o.outcome}${words}`, fields);
       else this.log.info(`turn ${o.outcome}${words}`, fields);

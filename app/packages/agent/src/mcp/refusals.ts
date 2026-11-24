@@ -67,6 +67,9 @@ export const REFUSAL_CODES = [
   "chat_unclear",
   "refused",
   "failed",
+  // decision 0048: an autopilot turn's hub mcp serves one chat (verdict 20)
+  "autopilot_other_chat",
+  "autopilot_verdict",
 ] as const;
 
 export type RefusalCode = (typeof REFUSAL_CODES)[number];
@@ -138,6 +141,8 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   chat_unclear: { retry: "after_owner", next: "Ask him in one line which chat he means." },
   refused: { retry: "no", next: "Leave the draft for the owner and say why in his words; never retry." },
   failed: { retry: "no", next: `${ONE_LINE} that the send failed and why; never retry.` },
+  autopilot_other_chat: { retry: "now", next: "This turn answers one chat: use its chat id and its client only (the prompt names them)." },
+  autopilot_verdict: { retry: "now", next: "Call messenger_draft_write once more with autopilot = {verdict, reason} as the skill says." },
 };
 
 export const isRefusalCode = (code: string): code is RefusalCode => (REFUSAL_CODES as readonly string[]).includes(code);

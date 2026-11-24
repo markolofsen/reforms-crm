@@ -4,6 +4,7 @@ import type { MessengerChatRow, Repos } from "@hub/db";
 import { autopilotOf, chatAutopilot, readAutopilotSwitch, setAutopilot, writeAutopilotSwitch, type AutopilotChange, type ChatAutopilot, type SwitchState } from "@hub/projects/autopilot";
 import { readSendPolicy, type AutopilotPolicy } from "@hub/projects/send-policy";
 import { projectStore } from "@hub/projects/store";
+import { todayOf } from "./record";
 
 // The three switches of decision 0048 point 2 as the server reads them, live on every call (never cached): the instance file,
 // the project's send-policy block, the chat's membership, then Stop sending, the chat's reply mode and its pause in `app.db`.
@@ -70,8 +71,9 @@ export function autopilotSwitches(o: AutopilotFiles & { repos: Repos }) {
       return (await o.repos.messengers.knownChats(slug)).filter((r) => r.linked && keys.has(autopilotChatKey(r.channel, r.chatId)));
     },
     /** The project's block and every linked chat's state, for the owner's route. */
-    async view(slug: string): Promise<AutopilotProjectDto> {
+    async view(slug: string, now: Date = new Date()): Promise<AutopilotProjectDto> {
       const p = project(slug);
+      const { today, notes } = await todayOf(o.repos, slug, now);
       const on = instance().value.on;
       const stopped = await o.repos.sends.isStopped(slug);
       const chats: AutopilotChatDto[] = [];
@@ -89,9 +91,10 @@ export function autopilotSwitches(o: AutopilotFiles & { repos: Repos }) {
           pausedAt: s.state === "paused" ? s.at : null,
           pausedReason: reason,
           pausedWords: reason === null ? null : isPausingReason(reason) ? AUTOPILOT_REASON_WORDS[reason] : reason,
+          note: notes.get(r.id) ?? null,
         });
       }
-      return { project: slug, instanceOn: on, mode: p.policy.mode, disclose: p.policy.disclose, quiet: p.policy.quiet, updatedAt: p.updatedAt, error: p.error, chats };
+      return { project: slug, instanceOn: on, mode: p.policy.mode, disclose: p.policy.disclose, quiet: p.policy.quiet, updatedAt: p.updatedAt, error: p.error, chats, today };
     },
     setInstance: (on: boolean, by: string, now: Date) => writeAutopilotSwitch(o.switchFile, on, by, now),
     setProject: (slug: string, change: AutopilotChange, by: string, now: Date) => setAutopilot(o.policyDir, slug, project(slug).kind, change, by, now),

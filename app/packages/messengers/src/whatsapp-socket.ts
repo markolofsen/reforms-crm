@@ -64,6 +64,8 @@ export interface WaSocket {
   listen(e: WaEvents): void;
   /** One plain text to a private chat (P71 M5): only the adapter's `send` calls it, with a confirmed draft. */
   sendText(chat: WaAddress, text: string): Promise<{ id: string; at: Date }>;
+  /** The "typing…" presence in a private chat (Baileys `sendPresenceUpdate("composing")`); sends no message (decision 0048). */
+  typing(chat: WaAddress): Promise<void>;
   /** Asks the phone for up to `count` messages older than `anchor` in this chat; they arrive as a `history` batch whenever it answers. */
   requestHistory(chat: WaAddress, anchor: WaAnchor, count: number): Promise<void>;
   /** Unlinks the device on WhatsApp's side (it leaves the phone's Linked devices list). */

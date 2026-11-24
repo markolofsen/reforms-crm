@@ -1,3 +1,4 @@
+import { AUTOPILOT_DRAFT_AUTHOR } from "@hub/config/autopilot";
 import { Hono, type Context } from "hono";
 import { chatRulesProblem, isHiddenLabel } from "@hub/config/chat-rules";
 import { sentenceOf } from "@hub/contract/errors";
@@ -93,7 +94,9 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
       gated(c, messengerDraftTextBody, async (b, slug) => {
         const id = idOf(c, "id");
         if (id === null) return c.json({ error: "Not a draft id.", code: "invalid" as const }, 400);
-        return c.json(draftOf(await repos.messengers.reviseDraft(slug, id, b.text)));
+        // Verdict 29: his edit of autopilot's draft makes it his; no later turn touches it.
+        const cur = await repos.messengers.getDraft(slug, id);
+        return c.json(draftOf(await repos.messengers.reviseDraft(slug, id, b.text, cur?.createdBy === AUTOPILOT_DRAFT_AUTHOR ? { createdBy: "owner" } : {})));
       }),
     )
     .post("/api/projects/:slug/messengers/drafts/:id/skip", (c) =>

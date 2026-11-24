@@ -20179,6 +20179,12 @@
                     "string",
                     "null"
                   ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -20191,10 +20197,87 @@
                 "off",
                 "pausedAt",
                 "pausedReason",
-                "pausedWords"
+                "pausedWords",
+                "note"
               ],
               "additionalProperties": false
             }
+          },
+          "today": {
+            "type": "object",
+            "properties": {
+              "sent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "handedBack": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "refused": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dryRun": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "lastTurnAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "accounts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "telegram_user",
+                        "telegram_bot",
+                        "whatsapp"
+                      ]
+                    },
+                    "account": {
+                      "type": "string"
+                    },
+                    "used": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "share": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "account",
+                    "used",
+                    "share"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "sent",
+              "handedBack",
+              "refused",
+              "dryRun",
+              "lastTurnAt",
+              "accounts"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -20205,7 +20288,8 @@
           "quiet",
           "updatedAt",
           "error",
-          "chats"
+          "chats",
+          "today"
         ],
         "additionalProperties": false
       },

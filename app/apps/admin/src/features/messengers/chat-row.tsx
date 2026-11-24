@@ -13,6 +13,7 @@ import { StatusMenu, type StatusAction } from "./status/status-menu";
 import type { useChatMoves } from "./status/use-moves";
 import { RecordSearch } from "./unlinked/record-search";
 import { dialogOf, useUnlinkedMoves } from "./unlinked/known-unlinked";
+import { autopilotMark, useChatAutopilot } from "./autopilot/chat-switch";
 
 /**
  * One linked chat on the panel (P71 M3, P102): a compact identity row with its channel mark, Notion state, newest message state
@@ -30,6 +31,8 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
   // P141 U3: a known chat that is not linked offers Link, Create and Hide (decision 0049), not the linked chat's moves.
   const unlinked = useUnlinkedMoves(project, dialogOf(c), moves);
   const notionState = notionIndicatorState(c);
+  // P139 A5 (verdict 6): "Autopilot" or "Autopilot paused" on the row's state line, a word and not only a colour.
+  const ap = autopilotMark(useChatAutopilot(project, c.id)?.c);
   const notionMarker = notionState ? <IntegrationStatus compact className="shrink-0" detail={notionIdentityLine(c) ?? undefined} label="Notion" state={notionState} /> : null;
   return (
     <ConversationRow
@@ -69,7 +72,7 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
         label: name,
         time: c.last ? ago(c.last.at, now) : undefined,
         strong: c.owed || c.draft !== null,
-        state: chatStateLine(c),
+        state: ap ? `${chatStateLine(c)} · ${ap}` : chatStateLine(c),
         preview: c.last ? lastText(c) : undefined,
         mark: <ChannelIcon channel={c.channel} />,
         marker: notionMarker,

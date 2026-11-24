@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AGENT_WORD_SEND_ACTOR } from "@hub/config";
+import type { AUTOPILOT_SEND_ACTOR } from "@hub/config/autopilot";
 import type { MessengerChannel } from "@hub/db";
 import { MessengersError } from "./errors";
 
@@ -13,13 +14,15 @@ import { MessengersError } from "./errors";
  * - `owner_word` (decision 0046): the agent of an attended session on the owner's word, which the agent-send route found in the
  *   session log; `ownerWord` is that word's log reference (one send per word, `send_log.owner_word`).
  *
- * The seam for decision 0048 (P139 A4): the server's messenger autopilot is a third member here (`autopilot`, with its own actor
- * and the turn it answers), and a case of its own in {@link actorOf} and {@link referenceOf}. The door and its stages take any
- * member; nothing else changes shape. Every switch below is exhaustive, so a new member fails the typecheck until it is handled.
+ * - `autopilot` (decision 0048, P139 A4): the server's messenger autopilot, in a chat whose three switches the owner turned on;
+ *   `turn` is the turn's action id (P137), the one reference its `send_log` row spends, so one turn sends at most once. The
+ *   audit stage holds it to its share of the account (`AUTOPILOT_ACCOUNT_SHARE` of the daily cap).
+ * Every switch below is exhaustive, so a new member fails the typecheck until it is handled.
  */
 export type MessengerAuthority =
   | { readonly kind: "owner_click"; readonly actor: "admin" }
-  | { readonly kind: "owner_word"; readonly actor: typeof AGENT_WORD_SEND_ACTOR; readonly ownerWord: string };
+  | { readonly kind: "owner_word"; readonly actor: typeof AGENT_WORD_SEND_ACTOR; readonly ownerWord: string }
+  | { readonly kind: "autopilot"; readonly actor: typeof AUTOPILOT_SEND_ACTOR; readonly turn: string };
 
 /** The `send_log.actor` (and the draft's `confirmed_by`) of an authority. */
 export function actorOf(a: MessengerAuthority): string {
@@ -27,6 +30,8 @@ export function actorOf(a: MessengerAuthority): string {
     case "owner_click":
       return a.actor;
     case "owner_word":
+      return a.actor;
+    case "autopilot":
       return a.actor;
     default:
       return unreachable(a);
@@ -40,6 +45,8 @@ export function referenceOf(a: MessengerAuthority): string | null {
       return null;
     case "owner_word":
       return a.ownerWord;
+    case "autopilot":
+      return a.turn;
     default:
       return unreachable(a);
   }

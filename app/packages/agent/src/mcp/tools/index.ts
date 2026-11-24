@@ -1,3 +1,4 @@
+import { AUTOPILOT_HUB_TOOLS } from "@hub/config/autopilot";
 import type { ToolDef } from "../define";
 import { chatsProposeHideTool, chatsUnlinkedTool } from "./chat-sort";
 import { clientMapTool, mapsDueTool } from "./client-map";
@@ -16,6 +17,9 @@ import { projectShowTool } from "./project";
 // P129 verdict 5 (A4): `project_show` replaced `project_notion` and `project_links`; `message_show` replaced `inbound_show`
 // and `mail_brand`; `mail_list` replaced `drafts_list`; the knowledge tools moved here from the `knowledge-mcp` server.
 export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool] as const satisfies readonly ToolDef[];
+
+/** Decision 0048 (verdict 28 as built): an autopilot turn's `hub mcp` registers exactly these, each bound to the turn's chat. */
+export const AUTOPILOT_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (AUTOPILOT_HUB_TOOLS as readonly string[]).includes(t.name));
 
 /** Decision 0046: registered only in an attended instance (the server's send port is passed); never unattended. */
 export const ATTENDED_TOOLS = [messengerSendTool] as const satisfies readonly ToolDef[];

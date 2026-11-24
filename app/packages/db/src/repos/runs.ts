@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { write } from "../tx";
@@ -56,6 +56,20 @@ export function runsRepo(db: Db) {
     },
     async finish(id: number, patch: Partial<Pick<NewRun, "finishedAt" | "status" | "tokensIn" | "tokensOut" | "costUsd">>) {
       db.update(agentRuns).set(patch).where(eq(agentRuns.id, id)).run();
+    },
+
+    /**
+     * Decision 0048 (P139 A6): the autopilot's turn rows since `since` (every project), oldest first, each with its event's
+     * detail: the ledger of the turn budgets after a restart, and Overview's counts. A turn is one run of trigger `autopilot`.
+     */
+    async autopilotTurns(since: string): Promise<Array<{ project: string; startedAt: string; detail: string | null }>> {
+      return db
+        .select({ project: agentRuns.project, startedAt: agentRuns.startedAt, detail: agentEvents.detail })
+        .from(agentRuns)
+        .leftJoin(agentEvents, eq(agentEvents.runId, agentRuns.id))
+        .where(and(eq(agentRuns.trigger, "autopilot"), gte(agentRuns.startedAt, since)))
+        .orderBy(asc(agentRuns.startedAt))
+        .all();
     },
 
     /** Appends an event; `seq` is the next number in the run (the gate writes events in order). */

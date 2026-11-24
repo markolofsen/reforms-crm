@@ -36,8 +36,9 @@ export const ATTENDED_SEND_TOOLS: readonly string[] = ["mcp__hub__messenger_send
  * The denied tools of a mode: {@link DENIED_TOOLS} in every mode, and in an unattended one also {@link ATTENDED_SEND_TOOLS}
  * (decision 0046 point 3: background and unattended sessions never send). Default unattended: the stricter list.
  * Every list in this file binds the MODEL's processes (the CLI, its shell and its MCP servers), never the server: the send door
- * (`@hub/messengers/door`) reads no session mode, so a server-side sender behind its own code guard (decision 0048's autopilot,
- * P139) is not reached by them; it still passes every stage of that door.
+ * (`@hub/messengers/door`) reads no session mode, so a server-side sender (decision 0048's autopilot, P139) is not reached by
+ * them; it still passes every stage of that door. The autopilot turn's own model process denies every hub tool but its five
+ * (`autopilotDisallowed`, `./autopilot/session.ts`).
  */
 export const deniedTools = (unattended = true): readonly string[] => (unattended ? [...DENIED_TOOLS, ...ATTENDED_SEND_TOOLS] : DENIED_TOOLS);
 

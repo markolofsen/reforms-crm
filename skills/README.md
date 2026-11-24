@@ -11,6 +11,8 @@ Start bound to a project: `hub agent <slug>` (a fresh Claude Code session with `
 
 **Layers (core and instance).** Skills are the **core** layer: universal, for any owner and project. Everything that belongs to one owner (projects, mailboxes, rules, history) lives in that owner's instance: `projects/<slug>/` under `HUB_HOME`. A skill reads an instance only through the slug and `project.md`, never by naming a client. Rule and instance steps: `@docs/LAYERS.md`. An instance carries its own skills: `hub agent` and `hub install --only skills.runtime` link every core skill into `<instance>/.claude/skills/` (and into each project's Codex home), and nothing goes to `~/.claude/skills`.
 
+**`autopilot-reply` is not yours to start.** The Hub's server runs it (decision 0048, P139): one headless turn per client burst in a linked chat you switched to autopilot (Settings ▸ Messengers ▸ Autopilot, the chat's header). It reads that chat, the client's card and the knowledge, and writes one draft with a verdict; the server sends a `send` verdict through the same door as your Send, or leaves the draft for you and pauses the chat. An owner session never runs it.
+
 **No skill ever sends mail.** Sending is the admin's Send button (or the owner's own `hub send`), never a skill (decision 0011); to whom is the project's send policy (`draft.recipients`, read with `project_show`).
 
 ## The skills

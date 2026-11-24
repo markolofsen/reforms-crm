@@ -3,7 +3,10 @@ import type { StoredChat, WaAppReader } from "@hub/messengers";
 import { createLlm } from "@hub/llm";
 import { errFields, ops } from "@hub/log/ops";
 import type { Runtime } from "../composition/runtime";
-import { messengerSenders } from "../send/messenger-senders";
+import { messengerSenders, messengerTyping } from "../send/messenger-senders";
+import { messengerPolicy } from "../send/messenger-policy";
+import type { AutopilotBrain } from "@hub/config/autopilot";
+import { autopilotDeliver } from "./autopilot/deliver";
 import { startMessengers } from "./bot";
 import { startTelegramUser, type TelegramUserHandle } from "./accounts/telegram-user";
 import { startWhatsApp, type WhatsAppHandle } from "./accounts/whatsapp";
@@ -24,7 +27,7 @@ export type MessengersRuntime = {
  * The messengers domain at start (P126 S1): the retention purge, the pre-analysis, the bot poller, the autolink, the Telegram user
  * accounts and the WhatsApp linked devices. Each line counts accounts, never names one.
  */
-export async function start({ repos, autopilotFiles, waAppReader }: { repos: Repos; autopilotFiles: AutopilotFiles; waAppReader?: () => WaAppReader }): Promise<MessengersRuntime> {
+export async function start({ repos, autopilotFiles, autopilotBrain, allowList = [], waAppReader }: { repos: Repos; autopilotFiles: AutopilotFiles; autopilotBrain?: AutopilotBrain | undefined; allowList?: string[]; waAppReader?: () => WaAppReader }): Promise<MessengersRuntime> {
   const log = ops("server");
   // P71 M2b: the messenger retention purge runs now and every hour, with or without a connected channel.
   const purge = startPurge({ repos });
@@ -33,9 +36,10 @@ export async function start({ repos, autopilotFiles, waAppReader }: { repos: Rep
   const llm = createLlm({ ledger: repos.llmCalls });
   const preanalysis = createPreanalysis({ repos, llm });
   log.info(`pre-analysis: ${preanalysis.standing().state === "no_key" ? "off (no OpenRouter key)" : llm.transport === "fake" ? "on, FAKE MODEL (HUB_LLM=fake): nothing leaves this process" : "ready (only chats whose switch is on)"}`);
-  // P139 A2 (decision 0048): the autopilot wakes inside the same poll, on the chats it stored in. No brain yet (A3) and no sender
-  // (A4): a turn in a chat whose three switches are on ends `skipped`, with its ops line; nothing is sent.
-  const autopilot = createAutopilot({ repos, files: autopilotFiles });
+  // P139 (decision 0048): the autopilot wakes inside the same poll, on the chats it stored in. Its brain is the composition's
+  // (`claude -p`, the fake of an e2e run, or none); its send is bound below, once the accounts it reaches have started.
+  const autopilot = createAutopilot({ repos, files: autopilotFiles, ...(autopilotBrain ? { brain: autopilotBrain } : {}) });
+  log.info(`autopilot: ${autopilotBrain ? `brain ${autopilotBrain.name}${autopilotBrain.name === "fake" ? " (HUB_AUTOPILOT_BRAIN=fake): no model" : ""}` : "no brain on this server"}; the instance switch is ${autopilot.switches.instance().value.on ? "on" : "off"}`);
   const onStored = (project: string, chats: StoredChat[]) => {
     preanalysis.after(project);
     autopilot.stored(project, chats);
@@ -78,6 +82,9 @@ export async function start({ repos, autopilotFiles, waAppReader }: { repos: Rep
   const wa = whatsapp.status();
   log.info(`whatsapp linked devices: ${wa.state === "on" ? `${wa.accounts.length} connected` : `off (${wa.reason ?? ""})`}`);
   const senders = messengerSenders(telegramUser, whatsapp);
+  // A4: the autopilot's send goes through the same door as the owner's Send, with its own authority; typing is its own port.
+  const doorPolicy = messengerPolicy({ projectsDir: autopilotFiles.projectsDir, policyDir: autopilotFiles.policyDir, allowList });
+  autopilot.useDeliver(autopilotDeliver({ repos, switches: autopilot.switches, door: () => (senders ? { repos, policy: doorPolicy, senders } : null), typing: messengerTyping(telegramUser, whatsapp) }));
   // Verdict 23: what the client wrote while the Hub was off is answered (under 15 minutes) or handed back, once, at start.
   void autopilot.scan().catch((e: unknown) => ops("autopilot").error("the autopilot restart scan failed", errFields(e)));
   return {

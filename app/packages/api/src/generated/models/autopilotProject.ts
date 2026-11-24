@@ -9,6 +9,7 @@ import type { AutopilotProjectChatsItem } from './autopilotProjectChatsItem';
 import type { AutopilotProjectDisclose } from './autopilotProjectDisclose';
 import type { AutopilotProjectMode } from './autopilotProjectMode';
 import type { AutopilotProjectQuiet } from './autopilotProjectQuiet';
+import type { AutopilotProjectToday } from './autopilotProjectToday';
 
 export interface AutopilotProject {
   /**
@@ -25,4 +26,5 @@ export interface AutopilotProject {
   /** @nullable */
   error: string | null;
   chats: AutopilotProjectChatsItem[];
+  today: AutopilotProjectToday;
 }

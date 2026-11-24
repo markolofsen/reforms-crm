@@ -2,6 +2,8 @@ import { Hono, type Context } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
 import { agentUnlinkedDto, autolinkProposalsDropBody, autolinkProposalsDroppedDto, autolinkProposeBody, autolinkProposedDto, autolinkCreateBody, autolinkDialogsBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkMoveBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatEmailBody, chatEmailDto, chatMovedDto, chatMoveUndoBody, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { IMPORT_DAYS } from "@hub/config/chat-rules";
+import { autopilotChatKey } from "@hub/config/autopilot";
+import { errFields, ops } from "@hub/log/ops";
 import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
 import { addClientEmail, forgetChat, humanActor, linkUserChatToRecord, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "@hub/messengers/human";
 import { findClientPages } from "@hub/notion";
@@ -19,12 +21,31 @@ import type { MessengersContext } from "../context";
 const DIALOGS_LIMIT = 200;
 
 /**
+ * Verdict 30 (decision 0048): Unlink, Never link and Change client take the chat off the project's autopilot in the same owner
+ * action, through the send policy's one writer; he switches it on again for the new client deliberately.
+ */
+function autopilotDrop(autopilot: MessengersContext["autopilot"], now: MessengersContext["now"]) {
+  return (slug: string, row: { channel: "telegram_user" | "telegram_bot" | "whatsapp"; chatId: string }, why: string) => {
+    if (!autopilot) return;
+    autopilot.scheduler.cancel((x) => x.project === slug && x.channel === row.channel && x.chatId === row.chatId);
+    try {
+      const key = autopilotChatKey(row.channel, row.chatId);
+      if (!autopilot.switches.project(slug).policy.chats.includes(key)) return;
+      autopilot.switches.setProject(slug, { kind: "chat", chat: key, on: false }, "owner", (now ?? (() => new Date()))());
+      ops("autopilot").info(`autopilot off for a chat: ${why}`, { project: slug, channel: row.channel });
+    } catch (e) {
+      ops("autopilot").warn("the chat could not be taken off the autopilot", { project: slug, channel: row.channel, ...errFields(e) });
+    }
+  };
+}
+
+/**
  * The autolink's doors (P84, decision 0036 point 3 as amended 2026-11-20). Every route is a POST behind the admin gate (the exact
  * admin Origin, a loopback Host, `Sec-Fetch-Site: same-origin`): the state names the owner's own contacts (in memory, never stored),
  * the records come from his Notion, and Link, Unlink and Never link change what the Hub reads. The preview is the dry run: counts
  * only, no name, number or text, and nothing written. Nothing here sends.
  */
-export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: MessengersContext) {
+export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken, autopilot, now }: MessengersContext) {
   async function guarded<T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string, al: ProjectAutolink) => Promise<Response>): Promise<Response> {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
@@ -73,6 +94,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: M
       await al.autolink.refuse(row.channel, row.chatId, name || row.title);
     }
     await unlinkIdentifier(repos, humanActor("admin"), { project: slug, kind, value: row.chatId });
+    autopilotDrop(autopilot, now)(slug, row, never ? "never link" : "unlinked");
     if (never) await forgetChat(repos, humanActor("admin"), { project: slug, channel: row.channel, chatId: row.chatId });
     return c.json(chatUnlinkedDto.parse({ ok: true, id, never }));
   }
@@ -207,6 +229,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: M
         const rec = al.autolink.record(b.key);
         if (!rec) return c.json({ error: "That client record is not in the directory now.", code: "wrong_state" as const }, 409);
         const r = await moveChatToRecord(repos, humanActor("admin"), { project: slug, channel: row.channel, chatId: row.chatId, client: { pageId: rec.key, email: rec.email, name: rec.name } });
+        autopilotDrop(autopilot, now)(slug, row, "moved to another client");
         const from = await repos.clients.get(slug, r.fromClientId);
         const notion = await fillCard(al, slug, rec.key, row.channel, row.chatId);
         return c.json(chatMovedDto.parse({ ok: true, id, fromClientId: r.fromClientId, fromName: from?.name || from?.email || "the old client", toName: rec.name || rec.email || "the new client", skippedDraftId: r.skippedDraftId, notion }));

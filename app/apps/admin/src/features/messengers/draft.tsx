@@ -1,3 +1,4 @@
+import { AUTOPILOT_DRAFT_AUTHOR } from "@hub/config/autopilot";
 import { useState } from "react";
 import { MESSENGER_TEXT_MAX } from "@hub/config/chat-rules";
 import { composerStateOf, type ComposerState } from "@hub/contract/composer";
@@ -28,7 +29,8 @@ export function MessengerDraft({ d, name, project, actions, embedded = false }: 
   const [editSaved, setEditSaved] = useState(false);
   const door = useMessengerSend(project, d);
   const shown = d.text;
-  const author = d.createdBy === "hub_llm" ? "Hub LLM" : d.createdBy === "runtime_agent" ? "the agent" : "agent";
+  // P139 A5: a draft autopilot wrote says so; in a dry run or after a hand-back it waits for his Send like any other.
+  const author = d.createdBy === AUTOPILOT_DRAFT_AUTHOR ? "Autopilot" : d.createdBy === "hub_llm" ? "Hub LLM" : d.createdBy === "runtime_agent" ? "the agent" : "agent";
   const editOk = editValue.trim().length > 0 && editValue.length <= MESSENGER_TEXT_MAX && editValue !== d.text;
   const composerState: ComposerState = composerStateOf({ body: editing ? editValue : shown, draftId: editing ? undefined : d.id, editing, error: actions.error });
   const closeEditor = () => {

@@ -63,6 +63,10 @@ export const keys = {
   messengerChatsOf: (project: string) => ["messenger-chats", project, "list"] as const,
   messengerConversations: (project: string) => ["messenger-chats", project, "conversation"] as const,
   messengerConversation: (project: string, chatId: number) => ["messenger-chats", project, "conversation", chatId] as const,
+  /** P139 A5: a project's autopilot and its chats' states, under the panel's prefix (a link, an unlink or a rules change reads it again). */
+  autopilot: (project: string) => ["messenger-chats", project, "autopilot"] as const,
+  /** P139 A5: the autopilot switch of this Mac (instance-wide). */
+  autopilotInstance: () => ["autopilot-instance"] as const,
   /** P84: the autolink's state (in memory on the server): under the panel's prefix, so a link or an unlink reads it again. */
   autolink: (project: string) => ["messenger-chats", project, "autolink"] as const,
   /** P102: one account's dialogs marked against a picked record (Link a chat…); under the autolink's prefix, so a link reads them again. */
