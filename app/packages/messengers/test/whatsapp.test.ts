@@ -197,10 +197,10 @@ describe("whatsapp: the picker and the import", () => {
     expect(Date.now() - started).toBeLessThan(1000);
     expect(r).toMatchObject({ imported: 0, importError: null });
     expect(sock.historyRequests).toEqual([{ chatId: ANNA, jid: null, anchor: { id: "N1", fromMe: false, at: new Date("2026-11-20T11:00:00.000Z") }, count: 500 }]);
-    // The phone's answer is a history batch: the next poll stores it (both rows: the import's window is the link's, not the poll's).
+    // The phone's answer is a history batch: the next poll stores what falls in the cache's 30 days, never older history (0049 point 1).
     await new Promise((resolve) => setTimeout(resolve, 0));
-    await pollOnce(deps(a));
-    expect((await rowsOf(ANNA)).map((m) => m.text).sort()).toEqual(["two months ago", "two weeks ago"]);
+    await pollOnce({ ...deps(a), retentionDays: 30 });
+    expect((await rowsOf(ANNA)).map((m) => m.text)).toEqual(["two weeks ago"]);
     expect(await env.repos.messengers.identifiersOf("p", env.clientId)).toEqual([expect.objectContaining({ kind: "whatsapp", value: ANNA })]);
     await a.close();
   });

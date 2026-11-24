@@ -62,7 +62,7 @@ export interface WhatsAppOptions {
    * not hidden. Off: an unlinked chat's messages stop here.
    */
   cacheUnlinked?: boolean;
-  /** The cache's window in days: a history message of an unlinked chat older than this is not queued (it would expire at once). */
+  /** The cache's window in days: a history message older than this is not queued (it would get a fresh TTL; decision 0049 point 1). */
   cacheDays?: number;
   /** P141 W3: the chat's messages since a time, from the Mac's WhatsApp app (read only), or none when that source is off. */
   appHistory?: (chat: WaAddress, since: Date) => InboundMessage[];
@@ -149,7 +149,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       if (!msg) continue;
       // Without the cache an unlinked chat stops here (0036 point 3); with it, ingest decides (decision 0049).
       if (!linked && !o.cacheUnlinked) continue;
-      if (!linked && source === "history" && oldest !== null && m.at.getTime() < oldest) continue;
+      if (source === "history" && oldest !== null && m.at.getTime() < oldest) continue;
       // Bounded: past the cap the oldest queued message goes (the Mac's app or the phone has it).
       if (queue.length >= max) queue.shift();
       queue.push(msg);

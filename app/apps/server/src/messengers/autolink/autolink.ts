@@ -378,7 +378,7 @@ export function startAutolink(o: StartAutolink): Autolink {
       const was = hidden.get(k);
       hidden.delete(k);
       // Back on Chats at once when the memory knows who it is; a linked chat hidden by Never link comes back when it writes again.
-      if (was?.account) await run(channel, was.account, was.identity ?? { chatId, title: was.title, phone: channel === "whatsapp" ? chatId : null, username: null }, was.last);
+      if (was?.account) await run(channel, was.account, was.identity ?? { chatId, title: was.title, phone: channel === "whatsapp" && !chatId.startsWith("lid:") ? chatId : null, username: null }, was.last);
       return gone || was !== undefined;
     },
     record(k) {
@@ -398,10 +398,11 @@ export function startAutolink(o: StartAutolink): Autolink {
     },
     identityOf(channel, chatId) {
       const r = recent.get(`${channel}:${chatId}`);
-      if (r) return { username: r.username, phone: r.phone ?? (channel === "whatsapp" ? chatId : null) };
+      if (r) return { username: r.username, phone: r.phone ?? (channel === "whatsapp" && !chatId.startsWith("lid:") ? chatId : null) };
       const h = hidden.get(`${channel}:${chatId}`);
-      if (h) return { username: h.identity?.username ?? null, phone: h.identity?.phone ?? (channel === "whatsapp" ? chatId : null) };
-      return channel === "whatsapp" ? { username: null, phone: chatId } : null;
+      if (h) return { username: h.identity?.username ?? null, phone: h.identity?.phone ?? (channel === "whatsapp" && !chatId.startsWith("lid:") ? chatId : null) };
+      // A `lid:` chat hides its number: it has no phone to fill or link by (P141 verdict 5).
+      return channel === "whatsapp" ? { username: null, phone: chatId.startsWith("lid:") ? null : chatId } : null;
     },
     adapterOf: (channel, account) => o.adapterOf(channel, account),
     async idle() {

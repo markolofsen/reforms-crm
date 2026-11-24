@@ -84,6 +84,8 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
 
   for (const m of messages) {
     const key = keyOf(m);
+    // History older than the cache's window would get a fresh TTL: the Mac's app or the messenger has it (decision 0049 point 1).
+    if ((m.backfill || m.source) && Date.parse(m.sentAt) < cacheSince) continue;
     let ok = linked.get(key);
     if (ok === undefined) {
       ok = await messengers.isAllowed(deps.project, m.channel, m.chatId);

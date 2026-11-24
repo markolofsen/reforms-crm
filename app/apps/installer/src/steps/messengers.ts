@@ -1,11 +1,11 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isTelegramToken, probeTelegram, TELEGRAM_FILE } from "@hub/connections";
 import path from "node:path";
+import { instancePorts } from "@hub/config/paths";
 import type { Step } from "../types";
 import { fail, pass, warn } from "./helpers";
 
 const TOKEN = (configDir: string) => path.join(configDir, TELEGRAM_FILE);
-const HEALTH = `http://127.0.0.1:${process.env.HUB_PORT ?? "4317"}/api/health`;
 const STALE_MS = 5 * 60_000;
 
 interface Health {
@@ -14,10 +14,10 @@ interface Health {
   whatsapp?: { state?: string; accounts?: unknown[]; appHistory?: { state?: string; reason?: string | null; detail?: string | null; fix?: string | null; cacheDays?: number } };
 }
 
-/** `GET /api/health` of the local server, or why it could not be read. */
-async function health(fetch: typeof globalThis.fetch): Promise<Health | string> {
+/** `GET /api/health` of this instance's server (its own API port, as `server.health` reads it), or why it could not be read. */
+async function health(ctx: Parameters<Step["check"]>[0]): Promise<Health | string> {
   try {
-    const r = await fetch(HEALTH, { signal: AbortSignal.timeout(4000) });
+    const r = await ctx.fetch(`http://127.0.0.1:${instancePorts(ctx.paths).api}/api/health`, { signal: AbortSignal.timeout(4000) });
     if (!r.ok) return `server answered ${r.status}`;
     return (await r.json()) as Health;
   } catch {
@@ -63,7 +63,7 @@ export const messengerSteps: Step[] = [
     verifies: "`GET /api/health` on the local server reports `messengers.state` = `running` with a poll in the last 5 minutes. WARN when the server is down or the feature is off without a token.",
     async check(ctx) {
       const hasToken = existsSync(TOKEN(ctx.configDir));
-      const h = await health(ctx.fetch);
+      const h = await health(ctx);
       if (typeof h === "string") return warn(h);
       const m = h.messengers;
       if (!m) return warn("the server does not report messengers: restart it on the current version");
@@ -81,7 +81,7 @@ export const messengerSteps: Step[] = [
     verifies: "`GET /api/health` reports `whatsapp.appHistory` as the server's own process found it (this check does not open the file itself: your shell's access says nothing about the server's). PASS when it is on; WARN with the one fix when macOS refused it, when the app is not installed, or when its database changed; PASS when no WhatsApp number is connected.",
     manual: { steps: ["If macOS refused it: System Settings ▸ Privacy & Security ▸ Full Disk Access, add the node binary the row names, then `./run.sh restart`."] },
     async check(ctx) {
-      const h = await health(ctx.fetch);
+      const h = await health(ctx);
       if (typeof h === "string") return warn(h);
       const w = h.whatsapp;
       if (!w || w.state !== "on") return pass("no WhatsApp number is connected here");

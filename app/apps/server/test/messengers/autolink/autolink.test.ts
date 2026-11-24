@@ -202,6 +202,20 @@ describe("autolink on a new inbound message", () => {
   });
 });
 
+describe("a WhatsApp chat whose number is hidden (P141 W1)", () => {
+  it("lid:<digits> is never taken for a phone: no number to fill into Notion, link by or keep on the chat row", async () => {
+    al.seen("whatsapp", "6281300000000", { chatId: "lid:555566667777888", title: "WhatsApp (number hidden)", phone: null, username: null }, true);
+    await al.idle();
+    expect(al.identityOf("whatsapp", "lid:555566667777888")).toEqual({ username: null, phone: null });
+    expect(al.identityOf("whatsapp", "lid:999")).toEqual({ username: null, phone: null });
+    expect(al.identityOf("whatsapp", "+6281300001111")).toEqual({ username: null, phone: "+6281300001111" });
+    // Hidden ("not a client"): the HMAC is of the chat id as seen, and the check reads it back.
+    await al.refuse("whatsapp", "lid:555566667777888");
+    expect(await al.hidden("whatsapp", "lid:555566667777888")).toBe(true);
+    expect(await al.hidden("whatsapp", "+6281300001111")).toBe(false);
+  });
+});
+
 describe("Unlink and Never link", () => {
   it("Never link unlinks, keeps only a keyed hash, and holds after a restart", async () => {
     await al.scan("telegram_user", "42");
