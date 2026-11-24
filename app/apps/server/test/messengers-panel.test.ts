@@ -106,13 +106,15 @@ describe("the Messengers panel", () => {
   });
 
   it("a chat's rules are set through setChatRules; out-of-bounds and another project's chat are refused", async () => {
-    const r = await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { replyMode: "on_request", mayNudge: true, nudgeAfterDays: 5, instruction: "Formal, short.", language: "en" });
+    const r = await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { replyMode: "on_request", instruction: "Formal, short.", language: "en" });
     expect(r.status).toBe(200);
-    expect((await r.json()) as unknown).toMatchObject({ rules: { replyMode: "on_request", mayNudge: true, nudgeAfterDays: 5, instruction: "Formal, short.", language: "en", prefilter: false } });
-    expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { nudgeAfterDays: 99 })).status).toBe(400);
+    expect((await r.json()) as unknown).toMatchObject({ rules: { replyMode: "on_request", instruction: "Formal, short.", language: "en", prefilter: false } });
+    expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { replyMode: "auto" })).status).toBe(400);
+    // The follow-up rule is gone (owner, 2026-11-24): the strict body refuses its old fields.
+    expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { mayNudge: true })).status).toBe(400);
     expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { instruction: "x".repeat(4001) })).status).toBe(400);
     expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, {})).status).toBe(400);
-    expect((await call("PUT", `/api/projects/q/messengers/chats/${chatRowId}/rules`, { mayNudge: true })).status).toBe(404);
-    expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { mayNudge: false }, { ...HEADERS, "sec-fetch-site": "same-site" })).status).toBe(403);
+    expect((await call("PUT", `/api/projects/q/messengers/chats/${chatRowId}/rules`, { replyMode: "off" })).status).toBe(404);
+    expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { replyMode: "off" }, { ...HEADERS, "sec-fetch-site": "same-site" })).status).toBe(403);
   });
 });

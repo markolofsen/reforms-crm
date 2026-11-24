@@ -28,7 +28,6 @@ export const chatName = (c: MessengerChatDto): string => c.client?.name || c.cli
 /** The chat's rules in one line for detail and diagnostics; the compact list does not render this legacy summary. */
 export function rulesLine(c: MessengerChatDto): string {
   const parts = [CHANNEL_LABEL[c.channel], REPLY_MODE_LABELS[c.rules.replyMode]];
-  if (c.rules.mayNudge) parts.push(`follow-up after ${c.rules.nudgeAfterDays} ${c.rules.nudgeAfterDays === 1 ? "day" : "days"}`);
   if (c.rules.language) parts.push(`in ${c.rules.language}`);
   return parts.join(" · ");
 }

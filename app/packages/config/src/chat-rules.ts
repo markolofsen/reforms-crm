@@ -10,9 +10,6 @@ export const REPLY_MODE_LABELS: Record<ReplyMode, string> = { off: "Never draft"
 
 /** The owner's words for one chat (`instruction`): at most this many characters. */
 export const CHAT_INSTRUCTION_MAX = 4000;
-/** Silence before a follow-up may be proposed, in days. */
-export const NUDGE_DAYS_MIN = 1;
-export const NUDGE_DAYS_MAX = 60;
 /** A messenger draft's text: Telegram's own message limit. */
 export const MESSENGER_TEXT_MAX = 4096;
 /** The owner's words that admit a draft in an `on_request` chat: long enough to be words, short enough to be a request. */
@@ -61,9 +58,6 @@ export const IMPORT_DAYS = 30;
 
 export interface ChatRules {
   replyMode: ReplyMode;
-  /** The agent may propose a follow-up after our own last message, in a chat the client already wrote in (never first contact). */
-  mayNudge: boolean;
-  nudgeAfterDays: number;
   /** The owner's text for this chat, written only by him; null: none. */
   instruction: string | null;
   /** BCP-47; null: reply in the client's language. */
@@ -73,14 +67,13 @@ export interface ChatRules {
 }
 
 /** A linked chat with no rule set by the owner. */
-export const DEFAULT_CHAT_RULES: Readonly<ChatRules> = Object.freeze({ replyMode: "draft", mayNudge: false, nudgeAfterDays: 3, instruction: null, language: null, prefilter: false });
+export const DEFAULT_CHAT_RULES: Readonly<ChatRules> = Object.freeze({ replyMode: "draft", instruction: null, language: null, prefilter: false });
 
 export const isReplyMode = (v: unknown): v is ReplyMode => typeof v === "string" && (REPLY_MODES as readonly string[]).includes(v);
 
 /** Why a rules change is refused, or null when it may be stored. One check for the setter and the admin (M3). */
 export function chatRulesProblem(r: Partial<ChatRules>): string | null {
   if (r.replyMode !== undefined && !isReplyMode(r.replyMode)) return `reply_mode must be one of ${REPLY_MODES.join(", ")}`;
-  if (r.nudgeAfterDays !== undefined && (!Number.isInteger(r.nudgeAfterDays) || r.nudgeAfterDays < NUDGE_DAYS_MIN || r.nudgeAfterDays > NUDGE_DAYS_MAX)) return `nudge_after_days must be a whole number from ${NUDGE_DAYS_MIN} to ${NUDGE_DAYS_MAX}`;
   if (r.instruction != null && r.instruction.length > CHAT_INSTRUCTION_MAX) return `instruction is ${r.instruction.length} characters, the limit is ${CHAT_INSTRUCTION_MAX}`;
   if (r.language != null && !/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(r.language)) return `language "${r.language}" is not a BCP-47 tag`;
   return null;

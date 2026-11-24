@@ -17,7 +17,7 @@ export interface ChatActivity {
 const now = () => new Date().toISOString();
 
 /** The rules of a chat row, in the shape `@hub/config/chat-rules` names. */
-export const rulesOf = (r: MessengerChatRow): ChatRules => ({ replyMode: r.replyMode, mayNudge: r.mayNudge, nudgeAfterDays: r.nudgeAfterDays, instruction: r.instruction, language: r.language, prefilter: r.prefilter });
+export const rulesOf = (r: MessengerChatRow): ChatRules => ({ replyMode: r.replyMode, instruction: r.instruction, language: r.language, prefilter: r.prefilter });
 
 /**
  * The linked chats themselves (P71 M2b): their rules, what they hold, and unlinking. Every query names the project, so a chat
@@ -48,8 +48,6 @@ export function messengerChatsRepo(db: Db) {
       if (problem) throw new RepoError("invalid", `invalid: ${problem}`);
       const set = {
         ...(patch.replyMode !== undefined ? { replyMode: patch.replyMode } : {}),
-        ...(patch.mayNudge !== undefined ? { mayNudge: patch.mayNudge } : {}),
-        ...(patch.nudgeAfterDays !== undefined ? { nudgeAfterDays: patch.nudgeAfterDays } : {}),
         ...(patch.instruction !== undefined ? { instruction: patch.instruction?.trim() || null } : {}),
         ...(patch.language !== undefined ? { language: patch.language || null } : {}),
         ...(patch.prefilter !== undefined ? { prefilter: patch.prefilter } : {}),

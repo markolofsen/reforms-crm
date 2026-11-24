@@ -57,8 +57,6 @@ export const REFUSAL_CODES = [
   "reply_off",
   "no_inbound",
   "not_requested",
-  "no_nudge",
-  "too_soon",
   // messenger_send (decision 0046: the server's agent send route and `messenger/owner-word.ts`)
   "forbidden",
   "unattended",
@@ -132,8 +130,6 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   reply_off: { retry: "no", next: "The owner set this chat to never draft: write nothing and say so in one line." },
   no_inbound: { retry: "no", next: "The hub never makes first contact: write nothing and say so in one line." },
   not_requested: { retry: "after_owner", next: "Draft here only when the owner asks for this chat; pass his words as owner_request." },
-  no_nudge: { retry: "no", next: "Nothing is owed in this chat (follow-ups are off); say so in one line." },
-  too_soon: { retry: "no", next: "A follow-up is not due yet (the message says when); say so in one line." },
   forbidden: { retry: "no", next: "Leave the draft for the owner on the Messengers panel; never retry." },
   unattended: { retry: "no", next: "Unattended sessions never send: leave the draft for the owner." },
   other_chat: { retry: "now", next: "Use the open_draft id messenger_history gives for this chat." },

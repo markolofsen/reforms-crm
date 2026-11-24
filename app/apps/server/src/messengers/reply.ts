@@ -54,7 +54,7 @@ export async function prepareMessengerReply(d: {
   const rules = effectiveRules(row, d.projectsDir, d.project, d.policyDir);
   const activity = await d.repos.messengers.activity(d.project, row.channel, row.chatId);
   const ownerRequest = d.body.ownerRequest?.trim() || undefined;
-  const verdict = draftVerdict({ rules, activity, ownerRequest, now: now() });
+  const verdict = draftVerdict({ rules, activity, ownerRequest });
   if (verdict.refusal) throw new MessengerReplyError("refused", verdict.refusal.message);
   const open = await d.repos.messengers.openDraft(d.project, row.channel, row.chatId);
   if (open) throw new MessengerReplyError("refused", `Draft ${open.id} already waits for review.`);

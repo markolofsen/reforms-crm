@@ -41,8 +41,6 @@ export const messengerChats = sqliteTable(
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     // The chat's rules (P71 M2b, migration 0025; bounds and defaults in `@hub/config/chat-rules`), set only by the owner.
     replyMode: text("reply_mode").$type<ReplyMode>().notNull().default("draft"),
-    mayNudge: integer("may_nudge", { mode: "boolean" }).notNull().default(false),
-    nudgeAfterDays: integer("nudge_after_days").notNull().default(3),
     instruction: text("instruction"),
     language: text("language"),
     prefilter: integer("prefilter", { mode: "boolean" }).notNull().default(false),

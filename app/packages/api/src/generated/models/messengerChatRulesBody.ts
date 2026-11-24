@@ -9,12 +9,6 @@ import type { MessengerChatRulesBodyReplyMode } from './messengerChatRulesBodyRe
 
 export interface MessengerChatRulesBody {
   replyMode?: MessengerChatRulesBodyReplyMode;
-  mayNudge?: boolean;
-  /**
-     * @minimum 1
-     * @maximum 60
-     */
-  nudgeAfterDays?: number;
   instruction?: string | null;
   language?: string | null;
   prefilter?: boolean;

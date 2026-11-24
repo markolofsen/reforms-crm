@@ -30,10 +30,10 @@ describe("chat rules", () => {
   });
 
   it("the setter stores a patch, trims the instruction and refuses values out of bounds", async () => {
-    const row = await repos.messengers.setChatRules("a", "telegram_user", "42", { replyMode: "on_request", mayNudge: true, nudgeAfterDays: 7, instruction: "  Formal.  ", language: "ru" }, "2026-11-20T00:00:00.000Z");
-    expect(rulesOf(row)).toEqual({ replyMode: "on_request", mayNudge: true, nudgeAfterDays: 7, instruction: "Formal.", language: "ru", prefilter: false });
+    const row = await repos.messengers.setChatRules("a", "telegram_user", "42", { replyMode: "on_request", instruction: "  Formal.  ", language: "ru" }, "2026-11-20T00:00:00.000Z");
+    expect(rulesOf(row)).toEqual({ replyMode: "on_request", instruction: "Formal.", language: "ru", prefilter: false });
     expect(row.rulesUpdatedAt).toBe("2026-11-20T00:00:00.000Z");
-    for (const bad of [{ nudgeAfterDays: 0 }, { nudgeAfterDays: 61 }, { instruction: "x".repeat(4001) }, { language: "not a tag" }]) {
+    for (const bad of [{ replyMode: "auto" as never }, { instruction: "x".repeat(4001) }, { language: "not a tag" }]) {
       await expect(repos.messengers.setChatRules("a", "telegram_user", "42", bad)).rejects.toMatchObject({ code: "invalid" });
     }
     await expect(repos.messengers.setChatRules("a", "telegram_user", "999", { replyMode: "off" })).rejects.toBeInstanceOf(RepoError);
@@ -43,7 +43,6 @@ describe("chat rules", () => {
   it("the migration's CHECKs refuse what the setter refuses, even written by hand", () => {
     const sql = handle.db.$client;
     expect(() => sql.prepare("update messenger_chats set reply_mode = 'auto'").run()).toThrow(/CHECK/);
-    expect(() => sql.prepare("update messenger_chats set nudge_after_days = 0").run()).toThrow(/CHECK/);
     expect(() => sql.prepare("update messenger_chats set instruction = ?").run("x".repeat(4001))).toThrow(/CHECK/);
   });
 });

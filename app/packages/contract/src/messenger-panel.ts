@@ -1,4 +1,4 @@
-import { CHAT_INSTRUCTION_MAX, HIDDEN_LABELS, MESSENGER_TEXT_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODES } from "@hub/config/chat-rules";
+import { CHAT_INSTRUCTION_MAX, HIDDEN_LABELS, MESSENGER_TEXT_MAX, REPLY_MODES } from "@hub/config/chat-rules";
 import { z } from "zod";
 import { contactLinksDto } from "./local";
 import { notionIdentityDto, type NotionIdentityDto } from "./notion";
@@ -50,8 +50,6 @@ export type MessengerChatsQuery = z.infer<typeof messengerChatsQuery>;
 
 export const chatRulesDto = z.strictObject({
   replyMode: z.enum(REPLY_MODES),
-  mayNudge: z.boolean(),
-  nudgeAfterDays: z.number().int(),
   instruction: z.string().nullable(),
   language: z.string().nullable(),
   prefilter: z.boolean(),
@@ -63,7 +61,7 @@ export const messengerDraftDto = z.strictObject({
   id: z.number().int(),
   text: z.string(),
   createdBy: z.string(),
-  /** A follow-up after our own last message (the chat's `may_nudge`). */
+  /** Written after our own last message (a follow-up), not in answer to an inbound one. */
   nudge: z.boolean(),
   /** The owner's words that admitted it in an `on_request` chat, else null. */
   ownerRequest: z.string().nullable(),
@@ -176,8 +174,6 @@ export type MessengerPrepareBody = z.infer<typeof messengerPrepareBody>;
 export const chatRulesBody = z
   .strictObject({
     replyMode: z.enum(REPLY_MODES).optional(),
-    mayNudge: z.boolean().optional(),
-    nudgeAfterDays: z.number().int().min(NUDGE_DAYS_MIN).max(NUDGE_DAYS_MAX).optional(),
     instruction: z.string().max(CHAT_INSTRUCTION_MAX).nullable().optional(),
     language: z.string().trim().max(35).nullable().optional(),
     prefilter: z.boolean().optional(),

@@ -9,12 +9,6 @@ import type { MessengerChatsChatsItemRulesReplyMode } from './messengerChatsChat
 
 export type MessengerChatsChatsItemRules = {
   replyMode: MessengerChatsChatsItemRulesReplyMode;
-  mayNudge: boolean;
-  /**
-     * @minimum -9007199254740991
-     * @maximum 9007199254740991
-     */
-  nudgeAfterDays: number;
   /** @nullable */
   instruction: string | null;
   /** @nullable */

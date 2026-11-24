@@ -18086,14 +18086,6 @@
                         "draft"
                       ]
                     },
-                    "mayNudge": {
-                      "type": "boolean"
-                    },
-                    "nudgeAfterDays": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
                     "instruction": {
                       "type": [
                         "string",
@@ -18112,8 +18104,6 @@
                   },
                   "required": [
                     "replyMode",
-                    "mayNudge",
-                    "nudgeAfterDays",
                     "instruction",
                     "language",
                     "prefilter"
@@ -18506,14 +18496,6 @@
                       "draft"
                     ]
                   },
-                  "mayNudge": {
-                    "type": "boolean"
-                  },
-                  "nudgeAfterDays": {
-                    "type": "integer",
-                    "minimum": -9007199254740991,
-                    "maximum": 9007199254740991
-                  },
                   "instruction": {
                     "type": [
                       "string",
@@ -18532,8 +18514,6 @@
                 },
                 "required": [
                   "replyMode",
-                  "mayNudge",
-                  "nudgeAfterDays",
                   "instruction",
                   "language",
                   "prefilter"
@@ -18953,14 +18933,6 @@
                   "draft"
                 ]
               },
-              "mayNudge": {
-                "type": "boolean"
-              },
-              "nudgeAfterDays": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
               "instruction": {
                 "type": [
                   "string",
@@ -18979,8 +18951,6 @@
             },
             "required": [
               "replyMode",
-              "mayNudge",
-              "nudgeAfterDays",
               "instruction",
               "language",
               "prefilter"
@@ -19280,14 +19250,6 @@
               "on_request",
               "draft"
             ]
-          },
-          "mayNudge": {
-            "type": "boolean"
-          },
-          "nudgeAfterDays": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 60
           },
           "instruction": {
             "anyOf": [

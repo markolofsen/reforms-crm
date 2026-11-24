@@ -90,7 +90,7 @@ describe("messenger_history", () => {
     const r = await call("messenger_history", chat42);
     expect(r.isError).toBe(false);
     const c = r.json.chats[0];
-    expect(c).toMatchObject({ channel: "telegram_user", chat_id: "42", client: { id: ids.ann, name: "Ann" }, rules: { reply_mode: "draft", may_nudge: false, nudge_after_days: 3, language: "ru", prefilter: false }, owner_instruction: { text: "Formal; never quote prices." }, can_draft: { ok: true, nudge: false }, open_draft: null });
+    expect(c).toMatchObject({ channel: "telegram_user", chat_id: "42", client: { id: ids.ann, name: "Ann" }, rules: { reply_mode: "draft", language: "ru", prefilter: false }, owner_instruction: { text: "Formal; never quote prices." }, can_draft: { ok: true, nudge: false }, open_draft: null });
     expect(c.messages.map((m: { direction: string }) => m.direction)).toEqual(["in", "out"]);
   });
 
@@ -201,10 +201,9 @@ describe("messenger_draft_write", () => {
     expect(await drafts()).toEqual([]);
   });
 
-  it("a chat with no inbound row is refused, even with follow-ups allowed: the hub never writes first (M2b done-when)", async () => {
-    await w.messengers.setChatRules("acme", "telegram_user", "43", { mayNudge: true, nudgeAfterDays: 1 });
+  it("a chat with no inbound row is refused, even on the owner's words: the hub never writes first (M2b done-when)", async () => {
     const call = await connect("acme");
-    expect((await call("messenger_draft_write", { channel: "telegram_user", chat_id: "43", text: "hi" })).json.error).toBe("no_inbound");
+    expect((await call("messenger_draft_write", { channel: "telegram_user", chat_id: "43", text: "hi", owner_request: "напиши ему" })).json.error).toBe("no_inbound");
     expect((await call("messenger_history", { channel: "telegram_user", chat_id: "43" })).json.chats[0].can_draft).toEqual({ ok: false, code: "no_inbound" });
     expect(await drafts()).toEqual([]);
   });
@@ -218,14 +217,12 @@ describe("messenger_draft_write", () => {
     expect((await drafts())[0]?.ownerRequest).toBe("ответь Анне про встречу");
   });
 
-  it("a follow-up after our own last message: refused with may_nudge off, too soon inside nudge_after_days, then admitted as a nudge", async () => {
+  it("a draft after our own last message is created at once, marked nudge (no follow-up rule, owner 2026-11-24)", async () => {
     await w.messengers.insertMessage(msg("42", "3", "out", "2026-11-19T10:00:00.000Z"));
     const call = await connect("acme");
-    expect((await call("messenger_draft_write", { ...chat42, text: "Напоминаю" })).json.error).toBe("no_nudge");
-    await w.messengers.setChatRules("acme", "telegram_user", "42", { mayNudge: true, nudgeAfterDays: 3 });
-    expect((await call("messenger_draft_write", { ...chat42, text: "Напоминаю" })).json.error).toBe("too_soon");
-    await w.messengers.setChatRules("acme", "telegram_user", "42", { nudgeAfterDays: 1 });
-    expect((await call("messenger_draft_write", { ...chat42, text: "Напоминаю" })).json).toMatchObject({ action: "created", nudge: true });
+    expect((await call("messenger_history", chat42)).json.chats[0].can_draft).toEqual({ ok: true, nudge: true });
+    expect((await call("messenger_draft_write", { ...chat42, text: "Напоминаю" })).json).toMatchObject({ action: "created", nudge: true, sent: false });
+    expect(await drafts()).toMatchObject([{ text: "Напоминаю", status: "draft", nudge: true }]);
   });
 
   it("an open draft makes a rerun already_drafted; draft=<id> revises it in place", async () => {
@@ -246,10 +243,12 @@ describe("messenger_draft_write", () => {
 
 describe("draftVerdict", () => {
   const act = (o: Partial<{ inbound: number; lastInAt: string | null; lastOutAt: string | null }> = {}) => ({ inbound: 1, lastInAt: "2026-11-19T09:00:00.000Z", lastOutAt: null, ...o });
-  it("off wins over everything; the owner's words never lift may_nudge", () => {
-    expect(draftVerdict({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "off" }, activity: act({ inbound: 0 }), now: NOW }).refusal?.code).toBe("reply_off");
-    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ lastOutAt: "2026-11-19T10:00:00.000Z" }), ownerRequest: "напомни ему", now: NOW }).refusal?.code).toBe("no_nudge");
-    expect(draftVerdict({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "on_request" }, activity: act(), ownerRequest: "ok", now: NOW }).refusal?.code).toBe("not_requested");
-    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act(), now: NOW })).toEqual({ refusal: null, nudge: false });
+  it("off wins over everything; first contact is refused; on_request needs the owner's words; our own last message is no bar", () => {
+    expect(draftVerdict({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "off" }, activity: act({ inbound: 0 }), ownerRequest: "ответь ему" }).refusal?.code).toBe("reply_off");
+    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ inbound: 0, lastInAt: null, lastOutAt: "2026-11-19T10:00:00.000Z" }), ownerRequest: "напиши ему" }).refusal?.code).toBe("no_inbound");
+    expect(draftVerdict({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "on_request" }, activity: act(), ownerRequest: "ok" }).refusal?.code).toBe("not_requested");
+    expect(draftVerdict({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "on_request" }, activity: act({ lastOutAt: "2026-11-19T10:00:00.000Z" }), ownerRequest: "напомни ему" })).toEqual({ refusal: null, nudge: true });
+    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ lastOutAt: "2026-11-19T10:00:00.000Z" }) })).toEqual({ refusal: null, nudge: true });
+    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act() })).toEqual({ refusal: null, nudge: false });
   });
 });

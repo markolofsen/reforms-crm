@@ -39,7 +39,7 @@ describe("messenger labels", () => {
 
   it("says the rules in one line, the follow-up days only while follow-ups are on", () => {
     expect(rulesLine(chat())).toBe("Telegram · Draft replies");
-    expect(rulesLine(chat({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "on_request", mayNudge: true, nudgeAfterDays: 1, language: "pt" } }))).toBe("Telegram · Only when I ask · follow-up after 1 day · in pt");
+    expect(rulesLine(chat({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "on_request", language: "pt" } }))).toBe("Telegram · Only when I ask · in pt");
   });
 
   it("says whose turn it is, and a message with no text by its kind", () => {

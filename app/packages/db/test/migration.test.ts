@@ -157,12 +157,43 @@ describe("migration 0025 (messenger chat rules, P71 M2b)", () => {
     sqlite.prepare("insert into messenger_chats (project, channel, chat_id, title) values ('p','telegram_user','42','Ann')").run();
     sqlite.prepare("insert into messenger_drafts (project, channel, chat_id, text, created_by) values ('p','telegram_user','42','hi','agent')").run();
 
-    migrate(db, { migrationsFolder: source }); // + 0025
+    migrate(db, { migrationsFolder: folderUpTo(26) }); // + 0025 (0040 drops may_nudge and nudge_after_days again)
 
     expect(sqlite.prepare("select reply_mode, may_nudge, nudge_after_days, instruction, language, prefilter, rules_updated_at from messenger_chats").get()).toEqual({ reply_mode: "draft", may_nudge: 0, nudge_after_days: 3, instruction: null, language: null, prefilter: 0, rules_updated_at: null });
     expect(sqlite.prepare("select text, owner_request, nudge from messenger_drafts").get()).toEqual({ text: "hi", owner_request: null, nudge: 0 });
     const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_messenger_%'").all() as { name: string }[]).map((t) => t.name);
     for (const t of ["messenger_chats", "messenger_drafts"]) for (const op of ["ai", "au", "ad"]) expect(triggers).toContain(`live_${t}_${op}`);
+    expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
+describe("migration 0040 (no follow-up rule, owner 2026-11-24)", () => {
+  it("drops may_nudge and nudge_after_days, keeps every chat with its other rules, the key and the three live triggers", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(40) }); // 0000 .. 0039
+    sqlite.prepare("insert into messenger_chats (project, channel, chat_id, title, reply_mode, may_nudge, nudge_after_days, instruction, language, prefilter) values ('p','telegram_user','42','Ann','on_request',1,7,'Formal.','ru',1)").run();
+    sqlite.prepare("insert into messenger_drafts (project, channel, chat_id, text, created_by, nudge) values ('p','telegram_user','42','hi','agent',1)").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0040
+
+    const cols = (sqlite.prepare("pragma table_info(messenger_chats)").all() as { name: string }[]).map((c) => c.name);
+    expect(cols).not.toContain("may_nudge");
+    expect(cols).not.toContain("nudge_after_days");
+    expect(sqlite.prepare("select chat_id, title, reply_mode, instruction, language, prefilter from messenger_chats").get()).toEqual({ chat_id: "42", title: "Ann", reply_mode: "on_request", instruction: "Formal.", language: "ru", prefilter: 1 });
+    expect(sqlite.prepare("select text, nudge from messenger_drafts").get()).toEqual({ text: "hi", nudge: 1 });
+    expect(() => sqlite.prepare("insert into messenger_chats (project, channel, chat_id) values ('p','telegram_user','42')").run()).toThrow(/UNIQUE/);
+    expect(() => sqlite.prepare("update messenger_chats set reply_mode = 'auto'").run()).toThrow(/CHECK/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_messenger_chats_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_messenger_chats_ad", "live_messenger_chats_ai", "live_messenger_chats_au"]);
+    const seq = () => (sqlite.prepare("select n from live_seq").get() as { n: number }).n;
+    const before = seq();
+    sqlite.prepare("update messenger_chats set reply_mode = 'draft'").run();
+    expect(seq()).toBe(before + 1);
+    expect(sqlite.prepare("select tbl, project, seq from live_versions where tbl = 'messenger_chats'").get()).toEqual({ tbl: "messenger_chats", project: "p", seq: before + 1 });
     expect(sqlite.pragma("foreign_key_check")).toEqual([]);
     expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
     sqlite.close();
