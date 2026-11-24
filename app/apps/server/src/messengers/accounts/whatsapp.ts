@@ -17,6 +17,7 @@ import {
   type DialogIdentity,
   type ParkedCode,
   type PollEvent,
+  type StoredChat,
   type WaSocketFactory,
   type WhatsAppAdapter,
   type WhatsAppSendingAdapter,
@@ -61,8 +62,8 @@ export interface StartWhatsApp {
   historyMs?: number;
   /** P84: the identity (never the text) of each private chat seen that is not linked, for the autolink. */
   onUnlinked?: (account: string, d: DialogIdentity, inbound: boolean) => void;
-  /** P71 M-P: a poll stored messages in this project (the pre-analysis runs a pass inside the poll, never on a timer). */
-  onStored?: (project: string) => void;
+  /** P71 M-P: a poll stored messages in this project, in these chats (the pre-analysis and, P139, the autopilot wake inside the poll, never on a timer). */
+  onStored?: (project: string, chats: StoredChat[]) => void;
 }
 
 interface Slot {
@@ -124,7 +125,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
         Object.assign(st, { state: "running", failures: 0, fix: null, lastPollAt: now().toISOString() });
         delete st.lastError;
         st.stored += e.result.stored;
-        if (e.result.stored > 0) o.onStored?.(p);
+        if (e.result.stored > 0) o.onStored?.(p, e.result.chats);
       } else if (e.type === "error") Object.assign(st, { state: "error", failures: e.failures, lastError: e.error.message.slice(0, 300) });
     };
     slot.done = (async () => {

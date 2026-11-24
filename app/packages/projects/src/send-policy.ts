@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
+import { AUTOPILOT_CHANNELS, AUTOPILOT_DISCLOSE, AUTOPILOT_MODES } from "@hub/config/autopilot";
 import { FIELDS, POLICY_FIELDS, type PolicyField } from "./fields";
 import { kindOf } from "./kinds";
 import type { LoadedProject } from "./store";
@@ -12,6 +13,29 @@ import { SEND_MODES, type ProjectConfig } from "./schema";
 import { removeSettings, rewrite } from "./write";
 
 export const POLICY_FILE = "send-policy.json";
+
+/** `HH:MM`, 24 hours. */
+const CLOCK = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+/** A chat of the `chats` list: `<channel>:<chatId>` (`autopilotChatKey` of `@hub/config/autopilot`). */
+const CHAT_KEY = new RegExp(`^(?:${AUTOPILOT_CHANNELS.join("|")}):[^\\s:][^\\s]{0,63}$`);
+
+/**
+ * Decision 0048 point 2, P139 A1: the project's autopilot switch and its chats. Absent means off. Its chats are the per-chat
+ * switch: a chat is on only by being listed here, in this protected file; `app.db` holds only what stops it (a pause).
+ */
+export const autopilotPolicySchema = z
+  .object({
+    mode: z.enum(AUTOPILOT_MODES),
+    chats: z.array(z.string().regex(CHAT_KEY, "a chat is <channel>:<chatId>")).max(500),
+    disclose: z.enum(AUTOPILOT_DISCLOSE),
+    /** Optional quiet hours (verdict 12): a turn drafts but sends nothing between `from` and `to` in `tz`. */
+    quiet: z.object({ from: z.string().regex(CLOCK), to: z.string().regex(CLOCK), tz: z.string().min(1).max(64) }).strict().nullable(),
+  })
+  .strict();
+export type AutopilotPolicy = z.infer<typeof autopilotPolicySchema>;
+
+/** What a project has until the owner switches anything: off, no chats, the daily line, no quiet hours. */
+export const autopilotOff = (): AutopilotPolicy => ({ mode: "off", chats: [], disclose: "daily", quiet: null });
 
 export const sendPolicySchema = z
   .object({
@@ -22,6 +46,8 @@ export const sendPolicySchema = z
     classes: z.array(z.string()),
     dailyCap: z.number().int().positive(),
     delayMinutes: z.number().int().min(1).max(1440),
+    /** Decision 0048: absent is off (a file written before P139 stays valid, `schema` stays 1). */
+    autopilot: autopilotPolicySchema.optional(),
     updatedAt: z.string(),
     by: z.string().min(1),
   })

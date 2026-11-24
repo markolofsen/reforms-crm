@@ -27,7 +27,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
   const projectsDir = projectsRoot();
   // P126 P3: the one reader of project.md with its send policy; every server module reads a project's config through it.
   const projects = projectStore({ projects: projectsDir, stateProjects: paths.stateProjects });
-  const messengers = await startMessengers({ repos });
+  const messengers = await startMessengers({ repos, autopilotFiles: { switchFile: paths.autopilot, policyDir: paths.stateProjects, projectsDir } });
   const linker = messengers.handles.autolink;
   const busy: { now: () => boolean } = { now: () => false };
   const mail = startMail({

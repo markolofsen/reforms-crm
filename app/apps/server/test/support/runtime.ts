@@ -18,6 +18,7 @@ import type { TelegramUserHandle } from "../../src/messengers/accounts/telegram-
 import type { WhatsAppHandle } from "../../src/messengers/accounts/whatsapp";
 import type { ProjectAutolink } from "../../src/messengers/autolink/setup";
 import type { Preanalysis } from "../../src/messengers/preanalysis";
+import type { AutopilotHandle } from "../../src/messengers/autopilot/wake";
 import type { AgentToolsService } from "../../src/agent/tools";
 import type { FocusStore } from "../../src/agent/focus";
 import { createConnections, type ConnectionsOptions } from "../../src/instance/connections";
@@ -48,6 +49,7 @@ export type TestOverrides = {
   autolink?: ProjectAutolink;
   preanalysis?: Preanalysis;
   reply?: { llm: Llm };
+  autopilot?: AutopilotHandle;
   agentTools?: AgentToolsService;
   focus?: FocusStore;
   pointerFile?: string;
@@ -95,6 +97,7 @@ export function testRuntime(repos: Repos, o: TestOverrides = {}): Runtime {
       ...some("autolink", o.autolink),
       ...some("preanalysis", o.preanalysis),
       ...some("reply", o.reply),
+      ...some("autopilot", o.autopilot),
       ...some("senders", senders),
     },
     agent: { ...some("tools", o.agentTools), ...some("focus", o.focus), ...some("pointerFile", o.pointerFile), ...some("log", o.agentLog) },

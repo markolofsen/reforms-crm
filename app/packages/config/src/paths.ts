@@ -42,6 +42,8 @@ export interface HubPaths {
   opsLog: string;
   /** The admin's shared focus (P51): `<state>/focus.json`, ids only, written by the server, read by `hub focus` and `hub mcp`. */
   focus: string;
+  /** Decision 0048 (P139): the instance's autopilot switch, `<state>/autopilot.json` `{on}`. Written only by the owner's admin route; protected (an agent session cannot write it). */
+  autopilot: string;
   /** The agent's pointer (P72): `<state>/pointer.json`, refs only, written by `hub mcp`'s `highlight`, read by the server's `GET /api/pointer`. */
   pointer: string;
   /** P67: the LaunchAgent's own files: `<state>/autostart/` (`launchd.log`, `starts.jsonl`, the `off` file). */
@@ -137,6 +139,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     log: join(state, "log"),
     opsLog: join(state, "log"),
     focus: join(state, "focus.json"),
+    autopilot: join(state, "autopilot.json"),
     pointer: join(state, "pointer.json"),
     autostart: join(state, "autostart"),
     coreUpdate: join(state, "core-update.json"),

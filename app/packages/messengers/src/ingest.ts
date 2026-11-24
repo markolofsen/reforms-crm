@@ -16,8 +16,18 @@ export interface Dropped {
   count: number;
 }
 
+/** P139 A2: what one ingest stored in one chat, by side, so the autopilot wakes on the chats that got a new message. */
+export interface StoredChat {
+  channel: MessengerChannel;
+  chatId: string;
+  inbound: number;
+  outbound: number;
+}
+
 export interface IngestResult {
   stored: number;
+  /** The chats this ingest stored messages in (duplicates not counted), in the order they were first stored. */
+  chats: StoredChat[];
   duplicates: number;
   /** Messages from chats the owner has not listed. Not stored; shown so the owner can list the chat id. */
   dropped: Dropped[];
@@ -33,6 +43,7 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
   const { messengers } = deps.repos;
   const allowed = new Map<string, boolean>();
   const dropped = new Map<string, Dropped>();
+  const chats = new Map<string, StoredChat>();
   let stored = 0;
   let duplicates = 0;
 
@@ -61,8 +72,13 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
       sentAt: m.sentAt,
       retainUntil,
     });
-    if (inserted) stored++;
-    else duplicates++;
+    if (inserted) {
+      stored++;
+      const c = chats.get(key) ?? { channel: m.channel, chatId: m.chatId, inbound: 0, outbound: 0 };
+      if ((m.direction ?? "in") === "in") c.inbound++;
+      else c.outbound++;
+      chats.set(key, c);
+    } else duplicates++;
   }
-  return { stored, duplicates, dropped: [...dropped.values()] };
+  return { stored, chats: [...chats.values()], duplicates, dropped: [...dropped.values()] };
 }

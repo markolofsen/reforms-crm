@@ -13,7 +13,7 @@ import { createRepos, openDbReadOnly } from "@hub/db";
 
 /** P126 C1: the draft and send commands: send, drafts, audit-run, batch-check. */
 export function register(program: Command): void {
-  program.command("send").argument("[draftId]", "the draft to send, or `policy` (see below)").argument("[policyArgs...]", "`hub send policy [<slug>] | set <slug> <field> <value> ... | migrate [<slug>]`: the send policy, written only here").description("Send an accepted draft from Mail (dry run unless --apply); --due runs the autosend queue (off unless a project's send policy says send.mode auto); --cancel/--stop/--resume/--status; `policy` shows or sets the send policy. Only a person or this command sends: the agent has no send tool.")
+  program.command("send").argument("[draftId]", "the draft to send, or `policy` (see below)").argument("[policyArgs...]", "`hub send policy [<slug>] | set <slug> <field> <value> ... | migrate [<slug>] | autopilot <slug> [mode|chat|disclose ...]`: the send policy and its autopilot block, written only here").description("Send an accepted draft from Mail (dry run unless --apply); --due runs the autosend queue (off unless a project's send policy says send.mode auto); --cancel/--stop/--resume/--status; `policy` shows or sets the send policy. Only a person or this command sends: the agent has no send tool.")
     .option("--dry-run", "`policy migrate`: show what would move")
     .option("--apply", "really send (default: dry run, nothing leaves)")
     .option("--due", "autosend runner: queue eligible drafts of send.classes, send those whose cancel window is over")

@@ -20,6 +20,9 @@ import type {
   AutolinkRecords,
   AutolinkRecordsBody,
   AutolinkState,
+  AutopilotInstance,
+  AutopilotProject,
+  AutopilotTicketBody,
   ChatMoveUndoBody,
   ChatMoveUndone,
   ChatMoved,
@@ -33,6 +36,9 @@ import type {
   MessengerDraftTextBody,
   MessengerPrepareBody,
   MessengerSkipped,
+  SendTicket,
+  SetAutopilotInstanceBody,
+  SetAutopilotProjectBody,
   TelegramUserStatus,
   UserDialogs,
   UserDisconnected,
@@ -1819,6 +1825,257 @@ export const setMessengerChatRules = async (slug: string,
     method: 'PUT',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(messengerChatRulesBody)
+  }
+);}
+
+
+export type createAutopilotTicketResponse200 = {
+  data: SendTicket
+  status: 200
+}
+
+export type createAutopilotTicketResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type createAutopilotTicketResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type createAutopilotTicketResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type createAutopilotTicketResponseSuccess = (createAutopilotTicketResponse200) & {
+  headers: Headers;
+};
+export type createAutopilotTicketResponseError = (createAutopilotTicketResponse400 | createAutopilotTicketResponse403 | createAutopilotTicketResponse404) & {
+  headers: Headers;
+};
+
+export type createAutopilotTicketResponse = (createAutopilotTicketResponseSuccess | createAutopilotTicketResponseError)
+
+export const getCreateAutopilotTicketUrl = () => {
+
+
+
+
+  return `/api/autopilot/tickets`
+}
+
+/**
+ * @summary Get a ticket for one autopilot switch
+ */
+export const createAutopilotTicket = async (autopilotTicketBody: AutopilotTicketBody, options?: Parameters<typeof hubMutator>[1]): Promise<createAutopilotTicketResponse> => {
+
+  return hubMutator<createAutopilotTicketResponse>(getCreateAutopilotTicketUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(autopilotTicketBody)
+  }
+);}
+
+
+export type getAutopilotResponse200 = {
+  data: AutopilotInstance
+  status: 200
+}
+
+export type getAutopilotResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getAutopilotResponseSuccess = (getAutopilotResponse200) & {
+  headers: Headers;
+};
+export type getAutopilotResponseError = (getAutopilotResponse404) & {
+  headers: Headers;
+};
+
+export type getAutopilotResponse = (getAutopilotResponseSuccess | getAutopilotResponseError)
+
+export const getGetAutopilotUrl = () => {
+
+
+
+
+  return `/api/autopilot`
+}
+
+/**
+ * @summary Read the autopilot switch of this Mac
+ */
+export const getAutopilot = async ( options?: Parameters<typeof hubMutator>[1]): Promise<getAutopilotResponse> => {
+
+  return hubMutator<getAutopilotResponse>(getGetAutopilotUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type setAutopilotResponse200 = {
+  data: AutopilotInstance
+  status: 200
+}
+
+export type setAutopilotResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type setAutopilotResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type setAutopilotResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type setAutopilotResponseSuccess = (setAutopilotResponse200) & {
+  headers: Headers;
+};
+export type setAutopilotResponseError = (setAutopilotResponse400 | setAutopilotResponse403 | setAutopilotResponse404) & {
+  headers: Headers;
+};
+
+export type setAutopilotResponse = (setAutopilotResponseSuccess | setAutopilotResponseError)
+
+export const getSetAutopilotUrl = () => {
+
+
+
+
+  return `/api/autopilot`
+}
+
+/**
+ * @summary Switch the autopilot of this Mac
+ */
+export const setAutopilot = async (setAutopilotInstanceBody: SetAutopilotInstanceBody, options?: Parameters<typeof hubMutator>[1]): Promise<setAutopilotResponse> => {
+
+  return hubMutator<setAutopilotResponse>(getSetAutopilotUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(setAutopilotInstanceBody)
+  }
+);}
+
+
+export type getProjectAutopilotResponse200 = {
+  data: AutopilotProject
+  status: 200
+}
+
+export type getProjectAutopilotResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type getProjectAutopilotResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getProjectAutopilotResponseSuccess = (getProjectAutopilotResponse200) & {
+  headers: Headers;
+};
+export type getProjectAutopilotResponseError = (getProjectAutopilotResponse400 | getProjectAutopilotResponse404) & {
+  headers: Headers;
+};
+
+export type getProjectAutopilotResponse = (getProjectAutopilotResponseSuccess | getProjectAutopilotResponseError)
+
+export const getGetProjectAutopilotUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/autopilot`
+}
+
+/**
+ * @summary Read a project's autopilot and its chats
+ */
+export const getProjectAutopilot = async (slug: string, options?: Parameters<typeof hubMutator>[1]): Promise<getProjectAutopilotResponse> => {
+
+  return hubMutator<getProjectAutopilotResponse>(getGetProjectAutopilotUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type setProjectAutopilotResponse200 = {
+  data: AutopilotProject
+  status: 200
+}
+
+export type setProjectAutopilotResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type setProjectAutopilotResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type setProjectAutopilotResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type setProjectAutopilotResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type setProjectAutopilotResponseSuccess = (setProjectAutopilotResponse200) & {
+  headers: Headers;
+};
+export type setProjectAutopilotResponseError = (setProjectAutopilotResponse400 | setProjectAutopilotResponse403 | setProjectAutopilotResponse404 | setProjectAutopilotResponse409) & {
+  headers: Headers;
+};
+
+export type setProjectAutopilotResponse = (setProjectAutopilotResponseSuccess | setProjectAutopilotResponseError)
+
+export const getSetProjectAutopilotUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/autopilot`
+}
+
+/**
+ * @summary Change a project's autopilot or one chat's switch
+ */
+export const setProjectAutopilot = async (slug: string,
+    setAutopilotProjectBody: SetAutopilotProjectBody, options?: Parameters<typeof hubMutator>[1]): Promise<setProjectAutopilotResponse> => {
+
+  return hubMutator<setProjectAutopilotResponse>(getSetProjectAutopilotUrl(slug),
+  {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(setAutopilotProjectBody)
   }
 );}
 

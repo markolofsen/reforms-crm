@@ -117,6 +117,7 @@ export function contexts(rt: Runtime): Contexts {
     messengers: {
       repos,
       adminPort,
+      now,
       ...optional("preanalysis", rt.messengers.preanalysis),
       ...optional("reply", rt.messengers.reply ? { llm: rt.messengers.reply.llm, projectsDir, ...optional("policyDir", rt.policyDir) } : undefined),
       ...optional("directory", directory),
@@ -124,6 +125,7 @@ export function contexts(rt: Runtime): Contexts {
       ...optional("wa", rt.messengers.whatsapp),
       ...optional("autolink", al),
       ...optional("agentToken", sender?.agent?.token),
+      ...optional("autopilot", rt.messengers.autopilot),
     },
   };
 }

@@ -14,7 +14,7 @@ Scope: how these rules bind an agent that edits the core. History: decision 0047
 7. SHOULD: instruction files stay under 200 lines.
 8. SHOULD: a task ends with what changed, the evidence and what was not done.
 9. MUST: a change to a public site, a lead form, Turnstile, a CSP or security header, a proxy or CDN rule, a form's API route, or a DNS or Cloudflare record runs `hub doctor --only Leads --canary` in the owning instance before done, with its rows in the report; a red, unrun or undeployed check is "not done". Never edit `config/lead-forms.json` to turn a row green (`@docs/core/22-lead-forms.md`).
-10. MUST: an agent sends nothing on its own initiative: one messenger draft only on the owner's word, through `messenger_send` and the one door; never Mail, never unattended (decision 0046). A new sending path needs a decision record first, never a pin edit.
+10. MUST: an agent sends nothing on its own initiative: one messenger draft only on the owner's word, through `messenger_send` and the one door; never Mail, never unattended (decision 0046). A new sending path needs a decision record first, never a pin edit. Decision 0048's autopilot is not the agent sending: the server sends, in a chat the owner switched on, through the same door; the agent never flips a switch (no tool, protected files, owner-only routes) and may only tell the owner a chat looks ready.
 
 ## Enforcement
 

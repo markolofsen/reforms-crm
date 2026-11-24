@@ -29,7 +29,7 @@ export { FakeAdapter, FakeSendingAdapter } from "./fake";
 export { createTelegramAdapter, toAdapterError, toInbound, type TelegramApi, type TelegramOptions } from "./telegram";
 export { botTokenFile, botIdOf, readBotToken } from "./token";
 export { telegramAdapterFromToken } from "./telegram-api";
-export { ingest, type Dropped, type IngestDeps, type IngestResult } from "./ingest";
+export { ingest, type Dropped, type IngestDeps, type IngestResult, type StoredChat } from "./ingest";
 export { backoffMs, pollOnce, redact, runPoller, type PollDeps, type PollEvent, type PollResult, type RunDeps } from "./poller";
 export { createDraft, listOpenDrafts, type NewDraftInput } from "./drafts";
 export { clientHistory, type ClientHistory, type ClientHistoryDeps, type HistoryItem } from "./history";

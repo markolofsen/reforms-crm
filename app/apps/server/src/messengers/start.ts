@@ -1,4 +1,5 @@
 import type { Repos } from "@hub/db";
+import type { StoredChat } from "@hub/messengers";
 import { createLlm } from "@hub/llm";
 import { errFields, ops } from "@hub/log/ops";
 import type { Runtime } from "../composition/runtime";
@@ -9,9 +10,11 @@ import { startWhatsApp, type WhatsAppHandle } from "./accounts/whatsapp";
 import { startProjectAutolink, type ProjectAutolink } from "./autolink/setup";
 import { startPurge } from "./purge";
 import { createPreanalysis } from "./preanalysis";
+import { createAutopilot, type AutopilotHandle } from "./autopilot/wake";
+import type { AutopilotFiles } from "./autopilot/switches";
 
 export type MessengersRuntime = {
-  handles: Runtime["messengers"] & { bot: NonNullable<Runtime["messengers"]["bot"]>; telegramUser: TelegramUserHandle; whatsapp: WhatsAppHandle; autolink: ProjectAutolink };
+  handles: Runtime["messengers"] & { bot: NonNullable<Runtime["messengers"]["bot"]>; telegramUser: TelegramUserHandle; whatsapp: WhatsAppHandle; autolink: ProjectAutolink; autopilot: AutopilotHandle };
   /** The pollers' state lines for the `health` live topic. */
   states: () => { state: string; reason?: string; lastError?: string | null | undefined }[];
   stop(): Promise<void>;
@@ -21,7 +24,7 @@ export type MessengersRuntime = {
  * The messengers domain at start (P126 S1): the retention purge, the pre-analysis, the bot poller, the autolink, the Telegram user
  * accounts and the WhatsApp linked devices. Each line counts accounts, never names one.
  */
-export async function start({ repos }: { repos: Repos }): Promise<MessengersRuntime> {
+export async function start({ repos, autopilotFiles }: { repos: Repos; autopilotFiles: AutopilotFiles }): Promise<MessengersRuntime> {
   const log = ops("server");
   // P71 M2b: the messenger retention purge runs now and every hour, with or without a connected channel.
   const purge = startPurge({ repos });
@@ -30,7 +33,13 @@ export async function start({ repos }: { repos: Repos }): Promise<MessengersRunt
   const llm = createLlm({ ledger: repos.llmCalls });
   const preanalysis = createPreanalysis({ repos, llm });
   log.info(`pre-analysis: ${preanalysis.standing().state === "no_key" ? "off (no OpenRouter key)" : llm.transport === "fake" ? "on, FAKE MODEL (HUB_LLM=fake): nothing leaves this process" : "ready (only chats whose switch is on)"}`);
-  const onStored = (project: string) => { preanalysis.after(project); };
+  // P139 A2 (decision 0048): the autopilot wakes inside the same poll, on the chats it stored in. No brain yet (A3) and no sender
+  // (A4): a turn in a chat whose three switches are on ends `skipped`, with its ops line; nothing is sent.
+  const autopilot = createAutopilot({ repos, files: autopilotFiles });
+  const onStored = (project: string, chats: StoredChat[]) => {
+    preanalysis.after(project);
+    autopilot.stored(project, chats);
+  };
   // The messengers poller runs only when a bot token file exists; it only receives. Its state is part of /api/health.
   const bot = await startMessengers({ repos, onStored });
   log.info(`messengers: ${bot.status().state}${bot.status().reason ? ` (${bot.status().reason})` : ""}`);
@@ -61,13 +70,17 @@ export async function start({ repos }: { repos: Repos }): Promise<MessengersRunt
   const wa = whatsapp.status();
   log.info(`whatsapp linked devices: ${wa.state === "on" ? `${wa.accounts.length} connected` : `off (${wa.reason ?? ""})`}`);
   const senders = messengerSenders(telegramUser, whatsapp);
+  // Verdict 23: what the client wrote while the Hub was off is answered (under 15 minutes) or handed back, once, at start.
+  void autopilot.scan().catch((e: unknown) => ops("autopilot").error("the autopilot restart scan failed", errFields(e)));
   return {
-    handles: { bot: bot.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, ...(senders ? { senders } : {}) },
+    handles: { bot: bot.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, autopilot, ...(senders ? { senders } : {}) },
     states: () => [bot.status(), ...telegramUser.status().accounts, ...whatsapp.status().accounts],
     stop: async () => {
       purge.stop();
       linker.stop();
       await Promise.all([bot.stop(), telegramUser.stop(), whatsapp.stop()]);
+      autopilot.scheduler.cancel(() => true);
+      await autopilot.idle();
     },
   };
 }

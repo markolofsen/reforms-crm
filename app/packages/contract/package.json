@@ -22,6 +22,7 @@
     "./client-key": "./src/client-key.ts",
     "./client-map": "./src/client-map.ts",
     "./autostart": "./src/autostart.ts",
+    "./autopilot": "./src/autopilot.ts",
     "./scheme": "./src/scheme.ts",
     "./scheme-model": "./src/scheme-model.ts",
     "./knowledge": "./src/knowledge.ts",

@@ -58,6 +58,16 @@ export function messengerChatsRepo(db: Db) {
       return row;
     },
 
+    /**
+     * Decision 0048 point 5 (P139): pauses the chat's autopilot with a reason code (`PAUSING_REASONS`), or clears the pause
+     * (`reason` null: the owner switched the chat on again). A pause only stops autopilot; nothing here can start it. Returns
+     * the row, or null when the chat is not linked in this project.
+     */
+    async setAutopilotPause(project: string, channel: MessengerChannel, chatId: string, reason: string | null, at: string = now()): Promise<MessengerChatRow | null> {
+      const set = reason === null ? { autopilotPausedAt: null, autopilotPausedReason: null } : { autopilotPausedAt: at, autopilotPausedReason: reason };
+      return db.update(messengerChats).set(set).where(key(project, channel, chatId)).returning().get() ?? null;
+    },
+
     async activity(project: string, channel: MessengerChannel, chatId: string): Promise<ChatActivity> {
       const r = db
         .select({

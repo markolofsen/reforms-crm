@@ -22,6 +22,8 @@ export function protectedPaths(paths: HubPaths): string[] {
   const home = paths.home;
   return [...new Set([
     paths.stateProjects,
+    // Decision 0048: the instance's autopilot switch; the project's lives in send-policy.json under stateProjects.
+    paths.autopilot,
     paths.secrets,
     paths.codexHomes,
     paths.configDir,

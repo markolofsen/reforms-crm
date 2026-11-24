@@ -5,6 +5,8 @@ import {
   waConnectFlowBody, waConnectStartedDto, waConnectStepDto, whatsappStatusDto,
 } from "@hub/contract/messengers";
 import { accountParam, sendParam, slugParam } from "@hub/contract/requests";
+import { autopilotInstanceDto, autopilotProjectDto, autopilotTicketBody, setAutopilotInstanceBody, setAutopilotProjectBody } from "@hub/contract/autopilot";
+import { sendTicketDto } from "@hub/contract/sending";
 import type { Operation } from "../http/openapi";
 
 const step = { name: "UserLoginStep", schema: userLoginStepDto };
@@ -15,6 +17,8 @@ const draft = { name: "MessengerDraft", schema: messengerDraftDto };
 const hidden = { name: "AutolinkHidden", schema: autolinkHiddenDto };
 const linked = { name: "AutolinkLinked", schema: autolinkLinkedDto };
 const unlinked = { name: "ChatUnlinked", schema: chatUnlinkedDto };
+const autopilotInstance = { name: "AutopilotInstance", schema: autopilotInstanceDto };
+const autopilotProject = { name: "AutopilotProject", schema: autopilotProjectDto };
 // Every write here passes the admin gate (the page's own Origin, 403) and names its project (404 for another's).
 const gated = [400, 403, 404, 409];
 
@@ -56,4 +60,10 @@ export const operations: Operation[] = [
   { method: "post", path: "/api/projects/:slug/messengers/drafts/:id/restore", operationId: "restoreMessengerDraft", summary: "Undo Skip", tags: ["messengers"], params: sendParam, reply: draft, errors: [400, 403, 404] },
   { method: "post", path: "/api/projects/:slug/messengers/chats/:id/prepare", operationId: "prepareMessengerReply", summary: "Ask the agent to prepare a reply", tags: ["messengers"], params: sendParam, body: { name: "MessengerPrepareBody", schema: messengerPrepareBody }, reply: chat, errors: [400, 403, 404, 409, 503] },
   { method: "put", path: "/api/projects/:slug/messengers/chats/:id/rules", operationId: "setMessengerChatRules", summary: "Change one chat's rules", tags: ["messengers"], params: sendParam, body: { name: "MessengerChatRulesBody", schema: chatRulesBody }, reply: chat, errors: [400, 403, 404] },
+  // P139 A1 (decision 0048): the autopilot's switches. Every write is the owner's door with a single-use `autopilot:<scope>` ticket.
+  { method: "post", path: "/api/autopilot/tickets", operationId: "createAutopilotTicket", summary: "Get a ticket for one autopilot switch", tags: ["messengers"], body: { name: "AutopilotTicketBody", schema: autopilotTicketBody }, reply: { name: "SendTicket", schema: sendTicketDto }, errors: [400, 403, 404] },
+  { method: "get", path: "/api/autopilot", operationId: "getAutopilot", summary: "Read the autopilot switch of this Mac", tags: ["messengers"], reply: autopilotInstance, errors: [404] },
+  { method: "put", path: "/api/autopilot", operationId: "setAutopilot", summary: "Switch the autopilot of this Mac", tags: ["messengers"], body: { name: "SetAutopilotInstanceBody", schema: setAutopilotInstanceBody }, reply: autopilotInstance, errors: [400, 403, 404] },
+  { method: "get", path: "/api/projects/:slug/autopilot", operationId: "getProjectAutopilot", summary: "Read a project's autopilot and its chats", tags: ["messengers"], params: slugParam, reply: autopilotProject, errors: [400, 404] },
+  { method: "put", path: "/api/projects/:slug/autopilot", operationId: "setProjectAutopilot", summary: "Change a project's autopilot or one chat's switch", tags: ["messengers"], params: slugParam, body: { name: "SetAutopilotProjectBody", schema: setAutopilotProjectBody }, reply: autopilotProject, errors: [400, 403, 404, 409] },
 ];

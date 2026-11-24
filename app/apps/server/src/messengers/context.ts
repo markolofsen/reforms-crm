@@ -6,6 +6,8 @@ import type { Preanalysis } from "./preanalysis";
 import type { ProjectAutolink } from "./autolink/setup";
 import type { TelegramUserHandle } from "./accounts/telegram-user";
 import type { WhatsAppHandle } from "./accounts/whatsapp";
+import type { AutopilotHandle } from "./autopilot/wake";
+import type { TicketStore } from "../http/admin-gate";
 
 /** The Notion Clients records in memory, for a chat's or a person's Telegram and WhatsApp (P131 O5). */
 export type MessengerDirectory = {
@@ -30,4 +32,9 @@ export type MessengersContext = {
   autolink?: ProjectAutolink;
   /** P128 X5: the token `hub mcp` presents (the agent send's, decision 0046); absent, the agent's chat-sorting doors refuse. */
   agentToken?: string;
+  /** P139 A1: the autopilot's switches and scheduler; absent, its routes answer 404. */
+  autopilot?: AutopilotHandle;
+  /** Tests: the autopilot tickets (their clock). */
+  autopilotTickets?: TicketStore;
+  now?: () => Date;
 };

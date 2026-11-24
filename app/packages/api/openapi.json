@@ -4918,6 +4918,200 @@
         }
       }
     },
+    "/api/autopilot/tickets": {
+      "post": {
+        "operationId": "createAutopilotTicket",
+        "summary": "Get a ticket for one autopilot switch",
+        "tags": [
+          "messengers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutopilotTicketBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Get a ticket for one autopilot switch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendTicket"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/autopilot": {
+      "get": {
+        "operationId": "getAutopilot",
+        "summary": "Read the autopilot switch of this Mac",
+        "tags": [
+          "messengers"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read the autopilot switch of this Mac",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutopilotInstance"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setAutopilot",
+        "summary": "Switch the autopilot of this Mac",
+        "tags": [
+          "messengers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAutopilotInstanceBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Switch the autopilot of this Mac",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutopilotInstance"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/autopilot": {
+      "get": {
+        "operationId": "getProjectAutopilot",
+        "summary": "Read a project's autopilot and its chats",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read a project's autopilot and its chats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutopilotProject"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setProjectAutopilot",
+        "summary": "Change a project's autopilot or one chat's switch",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAutopilotProjectBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Change a project's autopilot or one chat's switch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutopilotProject"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/sends/tickets": {
       "post": {
         "operationId": "createSendTicket",
@@ -19279,6 +19473,420 @@
         },
         "additionalProperties": false
       },
+      "AutopilotTicketBody": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "const": "instance"
+              }
+            },
+            "required": [
+              "scope"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scope": {
+                "type": "string",
+                "const": "project"
+              },
+              "project": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
+            },
+            "required": [
+              "scope",
+              "project"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "SendTicket": {
+        "type": "object",
+        "properties": {
+          "ticket": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "AutopilotInstance": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "on",
+          "updatedAt",
+          "by",
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "SetAutopilotInstanceBody": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "ticket": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "on",
+          "ticket"
+        ],
+        "additionalProperties": false
+      },
+      "AutopilotProject": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "instanceOn": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "dry_run",
+              "on"
+            ]
+          },
+          "disclose": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "when_asked"
+            ]
+          },
+          "quiet": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                  },
+                  "tz": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "tz"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "chat": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "channel": {
+                  "type": "string",
+                  "enum": [
+                    "telegram_user",
+                    "telegram_bot",
+                    "whatsapp"
+                  ]
+                },
+                "chatId": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "listed": {
+                  "type": "boolean"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "on",
+                    "dry_run",
+                    "off",
+                    "paused"
+                  ]
+                },
+                "off": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "instance",
+                        "project",
+                        "chat",
+                        "reply_mode",
+                        "stopped"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pausedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pausedReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pausedWords": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "chat",
+                "channel",
+                "chatId",
+                "title",
+                "listed",
+                "state",
+                "off",
+                "pausedAt",
+                "pausedReason",
+                "pausedWords"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "project",
+          "instanceOn",
+          "mode",
+          "disclose",
+          "quiet",
+          "updatedAt",
+          "error",
+          "chats"
+        ],
+        "additionalProperties": false
+      },
+      "SetAutopilotProjectBody": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mode"
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "dry_run",
+                  "on"
+                ]
+              },
+              "ticket": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "kind",
+              "mode",
+              "ticket"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "chat"
+              },
+              "chat": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "on": {
+                "type": "boolean"
+              },
+              "ticket": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "kind",
+              "chat",
+              "on",
+              "ticket"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "disclose"
+              },
+              "disclose": {
+                "type": "string",
+                "enum": [
+                  "daily",
+                  "when_asked"
+                ]
+              },
+              "ticket": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "kind",
+              "disclose",
+              "ticket"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "quiet"
+              },
+              "quiet": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "from": {
+                        "type": "string",
+                        "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$"
+                      },
+                      "tz": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      }
+                    },
+                    "required": [
+                      "from",
+                      "to",
+                      "tz"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ticket": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "kind",
+              "quiet",
+              "ticket"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
       "SendTicketBody": {
         "type": "object",
         "properties": {
@@ -19304,22 +19912,6 @@
         "required": [
           "project",
           "draftId"
-        ],
-        "additionalProperties": false
-      },
-      "SendTicket": {
-        "type": "object",
-        "properties": {
-          "ticket": {
-            "type": "string"
-          },
-          "expiresAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "ticket",
-          "expiresAt"
         ],
         "additionalProperties": false
       },

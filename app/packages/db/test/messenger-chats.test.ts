@@ -138,3 +138,13 @@ describe("P102 moving an identifier", () => {
     expect(await repos.messengers.moveIdentifier("a", "telegram", "999", bob)).toBeNull();
   });
 });
+
+describe("the autopilot pause (P139 A1, migration 0041)", () => {
+  it("sets a pause with its reason, clears it, and never touches another project's chat", async () => {
+    const row = await repos.messengers.setAutopilotPause("a", "telegram_user", "42", "owner_replied", "2026-11-24T10:00:00.000Z");
+    expect(row).toMatchObject({ autopilotPausedAt: "2026-11-24T10:00:00.000Z", autopilotPausedReason: "owner_replied" });
+    expect((await repos.messengers.chat("a", "telegram_user", "43"))?.autopilotPausedAt).toBeNull();
+    expect(await repos.messengers.setAutopilotPause("b", "telegram_user", "42", "owner_replied")).toBeNull();
+    expect(await repos.messengers.setAutopilotPause("a", "telegram_user", "42", null)).toMatchObject({ autopilotPausedAt: null, autopilotPausedReason: null });
+  });
+});

@@ -5,7 +5,7 @@
  *
  * - `URL_HELPERS`: operations the admin reaches only through their generated URL (`get<Operation>Url`), because the call is not
  *   an ordinary JSON fetch: a stream, a file, a multipart form, a keepalive beacon at page close.
- * - `DOORS`: the owner-confirmed sends and their tickets, credential writes and owner-gated identity writes. Each is imported
+ * - `DOORS`: the owner-confirmed sends and their tickets, credential writes, owner-gated identity writes and the autopilot's switches (P139). Each is imported
  *   only by the facade named beside it, which keeps the door's semantics (generated-api-clients.md rules 5 and 12).
  *
  * Adding an endpoint: declare it in `apps/server/src/<domain>/openapi.ts`, generate, export it from `src/index.ts`, call it from
@@ -24,6 +24,7 @@ export const GENERATED_OPERATIONS = {
     "getTelegramUserStatus", "startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser", "getWhatsAppStatus", "startWhatsAppConnect", "readWhatsAppConnect", "cancelWhatsAppConnect", "disconnectWhatsApp",
     "getAutolinkState", "previewAutolink", "findAutolinkRecords", "linkChatRecord", "createChatRecord", "hideChat", "unhideChat", "dropHideProposals", "listAccountDialogs", "changeChatClient", "undoChatClient", "unlinkChat", "neverLinkChat",
     "listMessengerChats", "getMessengerConversation", "createMessengerDraft", "editMessengerDraft", "skipMessengerDraft", "restoreMessengerDraft", "prepareMessengerReply", "setMessengerChatRules",
+    "createAutopilotTicket", "getAutopilot", "setAutopilot", "getProjectAutopilot", "setProjectAutopilot",
   ],
   send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "listSends", "cancelSend", "stopSends", "resumeSends"],
   agent: ["getAgentFeed", "getAgentTools", "refreshAgentTools", "postFocus", "getPointer"],
@@ -47,6 +48,7 @@ export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
   "lib/api/connections.ts": ["setConnectionSecret", "removeConnectionSecret"],
   "lib/api/messengers/telegram-user.ts": ["startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser"],
   "lib/api/messengers/whatsapp.ts": ["startWhatsAppConnect", "readWhatsAppConnect", "cancelWhatsAppConnect", "disconnectWhatsApp"],
+  "lib/api/messengers/autopilot.ts": ["createAutopilotTicket", "setAutopilot", "setProjectAutopilot"],
   "lib/api/instance.ts": ["openLocal"],
   "lib/api/terminal.ts": ["createTerminalTicket", "postFocus"],
 };

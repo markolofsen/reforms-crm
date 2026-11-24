@@ -15,6 +15,7 @@ export const OPS_PLACE: Readonly<Record<OpsSource, StatusNext | null>> = {
   telegram_bot: "messengers",
   autolink: "messengers",
   preanalysis: "messengers",
+  autopilot: "messengers",
   mail: "mail",
   notion: "connections",
   send: "sending",

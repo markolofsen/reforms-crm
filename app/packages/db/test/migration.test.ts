@@ -200,6 +200,29 @@ describe("migration 0040 (no follow-up rule, owner 2026-11-24)", () => {
   });
 });
 
+describe("migration 0041 (the chat's autopilot pause, P139 A1)", () => {
+  it("adds the two pause columns as null, keeps every chat with its rules, the key and the three live triggers", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(41) }); // 0000 .. 0040
+    sqlite.prepare("insert into messenger_chats (project, channel, chat_id, title, reply_mode, instruction) values ('p','telegram_user','42','Ann','draft','Formal.')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0041
+
+    expect(sqlite.prepare("select chat_id, reply_mode, instruction, autopilot_paused_at, autopilot_paused_reason from messenger_chats").get()).toEqual({ chat_id: "42", reply_mode: "draft", instruction: "Formal.", autopilot_paused_at: null, autopilot_paused_reason: null });
+    expect(() => sqlite.prepare("insert into messenger_chats (project, channel, chat_id) values ('p','telegram_user','42')").run()).toThrow(/UNIQUE/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_messenger_chats_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_messenger_chats_ad", "live_messenger_chats_ai", "live_messenger_chats_au"]);
+    const seq = () => (sqlite.prepare("select n from live_seq").get() as { n: number }).n;
+    const before = seq();
+    sqlite.prepare("update messenger_chats set autopilot_paused_at = 'x', autopilot_paused_reason = 'owner_replied'").run();
+    expect(seq()).toBe(before + 1);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
 describe("migration 0026 (llm_calls, P78)", () => {
   it("adds the ledger with its three live triggers, keeps older rows, and refuses an unknown outcome or a negative cost", () => {
     const sqlite = new Database(":memory:");

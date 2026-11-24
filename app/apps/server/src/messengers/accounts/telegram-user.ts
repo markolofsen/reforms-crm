@@ -20,6 +20,7 @@ import {
   type DialogIdentity,
   type ParkedCode,
   type PollEvent,
+  type StoredChat,
   type TelegramUserAdapter,
   type TelegramUserSendingAdapter,
   type UserSession,
@@ -68,8 +69,8 @@ export interface StartTelegramUser {
   onUnlinked?: (account: string, d: DialogIdentity, inbound: boolean) => void;
   /** P84: an account's first good poll after it connected (the autolink scans its dialogs then). */
   onConnected?: (account: string) => void;
-  /** P71 M-P: a poll stored messages in this project (the pre-analysis runs a pass inside the poll, never on a timer). */
-  onStored?: (project: string) => void;
+  /** P71 M-P: a poll stored messages in this project, in these chats (the pre-analysis and, P139, the autopilot wake inside the poll, never on a timer). */
+  onStored?: (project: string, chats: StoredChat[]) => void;
 }
 
 interface Slot {
@@ -141,7 +142,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
         Object.assign(st, { state: "running", failures: 0, fix: null, lastPollAt: now().toISOString() });
         delete st.lastError;
         st.stored += e.result.stored;
-        if (e.result.stored > 0) o.onStored?.(p);
+        if (e.result.stored > 0) o.onStored?.(p, e.result.chats);
       } else if (e.type === "error") Object.assign(st, { state: "error", failures: e.failures, lastError: scrub(e.error.message) });
     };
     slot.done = (async () => {

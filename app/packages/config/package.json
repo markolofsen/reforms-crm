@@ -12,6 +12,7 @@
     "./autostart": "./src/autostart.ts",
     "./core-version": "./src/core-version.ts",
     "./chat-rules": "./src/chat-rules.ts",
+    "./autopilot": "./src/autopilot.ts",
     "./llm": "./src/llm.ts",
     "./person": "./src/person.ts",
     "./lint-limits": "./src/lint-limits.mjs",

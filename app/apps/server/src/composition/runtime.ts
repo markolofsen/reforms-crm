@@ -16,6 +16,7 @@ import type { TelegramUserHandle } from "../messengers/accounts/telegram-user";
 import type { WhatsAppHandle } from "../messengers/accounts/whatsapp";
 import type { ProjectAutolink } from "../messengers/autolink/setup";
 import type { Preanalysis } from "../messengers/preanalysis";
+import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import type { AgentToolsService } from "../agent/tools";
 import type { FocusStore } from "../agent/focus";
 import type { ConnectionsService } from "../instance/connections";
@@ -65,6 +66,8 @@ export type Runtime = {
     reply?: { llm: Llm };
     /** The one send of each connected account, handed to the send door and nothing else (P71 M4). */
     senders?: MessengerSenders;
+    /** P139: the messenger autopilot (decision 0048): its switches, its scheduler and the ingest's wake. */
+    autopilot?: AutopilotHandle;
   };
   agent: {
     tools?: AgentToolsService;

@@ -17,6 +17,7 @@ export const OPS_SOURCES = [
   "telegram_bot",
   "autolink",
   "preanalysis", // P71 M-P: the cheap model's pass over linked chats (through `@hub/llm`)
+  "autopilot", // decision 0048 (P139): the messenger autopilot's turns, one line per outcome with the turn's action id
   "mail", // Apple Mail: the draft writer, Sent detection, Trash moves
   "notion",
   "send", // the send door: refusals and failures of a person's Send, a batch run

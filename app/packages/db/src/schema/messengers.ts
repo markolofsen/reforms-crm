@@ -51,6 +51,10 @@ export const messengerChats = sqliteTable(
     // linked or on a later dialog scan, so "Open in Telegram" works for a linked chat without the Notion card. Null when unknown.
     username: text("username"),
     phone: text("phone"),
+    // Decision 0048, P139 A1 (migration 0041): the chat's autopilot pause. Set means paused, with a `PAUSING_REASONS` code; the
+    // owner's switch clears it. The switches that turn autopilot on are protected files, never a column here.
+    autopilotPausedAt: text("autopilot_paused_at"),
+    autopilotPausedReason: text("autopilot_paused_reason"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );
