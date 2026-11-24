@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 test("X selects, Esc clears, Shift+A selects every open draft", async ({ page }) => {
   await page.goto("/mail?filter=all");
-  const first = page.getByRole("button", { name: /Marta|Pedro|Sofia/ }).first();
+  const first = page.getByRole("link", { name: /Marta|Pedro|Sofia/ }).first();
   await first.focus();
   await page.keyboard.press("x");
   const said = page.getByTestId("list-header").getByRole("status");
