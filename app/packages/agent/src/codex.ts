@@ -53,9 +53,12 @@ export function codexConfigToml(i: CodexSessionInput): string {
   out.push(`[permissions.${CODEX_PROFILE}.filesystem]`, `":root" = "read"`, `":workspace_roots" = "write"`);
   // One entry per path (TOML refuses a key twice): unreadable wins over read-only.
   const access = new Map<string, "read" | "none">(protectedPaths(i.paths).map((p) => [p, "read"]));
-  // P112 S3: another project's session files (its project capability) and Codex home are as closed as its folder.
+  // P112 S3: another project's session files (its project capability) and Codex home are closed in every mode. Its folder and
+  // the other tabs' drops are closed unattended and read-only attended (P140 K3: an attended session reads any project's files).
   const others = otherProjects(i.projectsDir, i.slug);
-  for (const p of [i.paths.secrets, ...others.flatMap((o) => [path.join(i.projectsDir, o), path.join(i.paths.stateProjects, o), path.join(i.paths.codexHomes, o)]), ...otherDrops(i.paths, i.projectsDir, i.slug)]) access.set(p, "none");
+  const open = i.unattended ? "none" : "read";
+  const closed: Array<[string, "read" | "none"]> = [[i.paths.secrets, "none"], ...others.flatMap((o): Array<[string, "read" | "none"]> => [[path.join(i.projectsDir, o), open], [path.join(i.paths.stateProjects, o), "none"], [path.join(i.paths.codexHomes, o), "none"]]), ...otherDrops(i.paths, i.projectsDir, i.slug).map((d): [string, "read" | "none"] => [d, open])];
+  for (const [p, a] of closed) access.set(p, a);
   for (const [p, a] of access) out.push(`${str(p)} = ${str(a)}`);
   out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = false", "");
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");

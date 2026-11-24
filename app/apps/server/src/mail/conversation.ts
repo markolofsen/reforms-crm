@@ -4,8 +4,10 @@ import { baseSubject } from "@hub/mail-app/history";
 // does with it: the threads of a list of messages and the short-lived cache of one message's opening lines (never stored, 0013).
 
 /**
- * Threads by References and In-Reply-To (a message joins every message it names), then joined by the base subject, oldest first.
- * Returns the groups oldest thread first (by its first message), each oldest message first.
+ * Threads by the mail headers (P140 verdicts 1, 2): a message joins every message its In-Reply-To and References name. A message
+ * with neither is a thread root and never joins another thread by subject. Only a message whose headers name nothing in the set
+ * read (its parent was not read) joins by subject: the newest thread of its base subject. Returns the groups ordered by their
+ * last message (newest activity last), each oldest message first.
  */
 export function threadsOf<M extends { messageId: string; inReplyTo: string | null; references: readonly string[]; subject: string; date: string }>(msgs: readonly M[]): M[][] {
   const parent = new Map<string, string>();
@@ -21,24 +23,32 @@ export function threadsOf<M extends { messageId: string; inReplyTo: string | nul
     const ra = find(a), rb = find(b);
     if (ra !== rb) parent.set(rb, ra);
   };
-  const bySubject = new Map<string, string>();
+  const read = new Set(msgs.map((m) => m.messageId));
+  const named = (m: M): string[] => [m.inReplyTo, ...m.references].filter((r): r is string => !!r);
   for (const m of msgs) {
     if (!parent.has(m.messageId)) parent.set(m.messageId, m.messageId);
-    for (const r of [m.inReplyTo, ...m.references]) if (r) join(m.messageId, r);
+    for (const r of named(m)) join(m.messageId, r);
   }
-  for (const m of msgs) {
+  const byDate = [...msgs].sort((a, b) => a.date.localeCompare(b.date));
+  const groupsOf = () => {
+    const g = new Map<string, M[]>();
+    for (const m of byDate) {
+      const k = find(m.messageId);
+      g.set(k, [...(g.get(k) ?? []), m]);
+    }
+    return g;
+  };
+  for (const m of byDate) {
+    const refs = named(m);
     const s = baseSubject(m.subject);
-    if (!s) continue;
-    const first = bySubject.get(s);
-    if (first === undefined) bySubject.set(s, m.messageId);
-    else join(first, m.messageId);
+    if (!refs.length || refs.some((r) => read.has(r)) || !s) continue;
+    const own = find(m.messageId);
+    const target = [...groupsOf().entries()]
+      .filter(([k, t]) => k !== own && t.some((x) => baseSubject(x.subject) === s))
+      .sort(([, a], [, b]) => b.at(-1)!.date.localeCompare(a.at(-1)!.date))[0];
+    if (target) join(target[0], m.messageId);
   }
-  const groups = new Map<string, M[]>();
-  for (const m of [...msgs].sort((a, b) => a.date.localeCompare(b.date))) {
-    const k = find(m.messageId);
-    groups.set(k, [...(groups.get(k) ?? []), m]);
-  }
-  return [...groups.values()].sort((a, b) => a[0]!.date.localeCompare(b[0]!.date));
+  return [...groupsOf().values()].sort((a, b) => a.at(-1)!.date.localeCompare(b.at(-1)!.date));
 }
 
 /** The bodies read in this run of the server, by project and Message-ID (decision 0013: memory only, gone at a restart). */
@@ -56,6 +66,10 @@ export function bodyCache(now: () => number = Date.now) {
       m.delete(key);
       m.set(key, { text, at: now() });
       while (m.size > BODY_MAX) m.delete(m.keys().next().value!);
+    },
+    /** P140 R5: Refresh drops one person's bodies, so the next read asks Mail. */
+    delete(key: string): void {
+      m.delete(key);
     },
   };
 }

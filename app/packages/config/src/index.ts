@@ -20,14 +20,14 @@ export const SETTABLE_STATUSES = ["ready", "hold", "done", "skipped"] as const;
 export type SettableStatus = (typeof SETTABLE_STATUSES)[number];
 
 /** Filters of the Mail list (drafts): each shows a count. `sequences`: the open drafts that are a step of a follow-up sequence (P47). */
-export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "thin_basis", "sequences"] as const;
+export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "sequences"] as const;
 export type ClientFilter = (typeof CLIENT_FILTERS)[number];
 export type ClientCounts = Record<ClientFilter, number>;
 
 /**
  * The views of the admin's Mail list, in their menu order. P99 (verdict 3): Mail lists people, one row per client, and the views
  * shrink to Needs you (they wrote, or a draft is ready; the default), Waiting (for them) and All; Follow-ups and Not by email are
- * filters of All. Hold, Thin basis, Sent and Finished became words and chips on the row. One source for the address
+ * filters of All. Hold, Sent and Finished became words and chips on the row. One source for the address
  * (`apps/admin/src/routes/search.ts`).
  */
 export const DRAFT_VIEWS = ["needs_you", "waiting", "all", "sequences", "not_by_email"] as const;
@@ -41,7 +41,6 @@ export const FILTER_LABELS: Record<ClientFilter, string> = {
   done: "Done",
   sent: "Sent",
   skipped: "Skipped",
-  thin_basis: "Thin basis",
   sequences: "Follow-ups",
 };
 
@@ -217,19 +216,8 @@ export const SAFETY_KINDS = [
   "risky_word",
   "wrong_thread",
   "already_sent_recently",
-  // What the draft was based on (P28): judged from the evidence block the draft record (`draft_write`) stored, never from the body.
-  "no_thread_read",
-  "no_profile_read",
-  "near_duplicate",
-  "template_echo",
-  "profile_empty",
-  "profile_stale",
-  "claim_exceeds_observation",
-  "evidence_claimed",
-  "fact_without_source",
   // P60: a knowledge entry the draft used belongs to another brand of the project (knowledge.scope by-brand).
   "fact_other_brand",
-  "evidence_weak",
   // P65 S2 (P60 finding 2): the project has no sign-off or signature line in the reply's language; the writer signed in English.
   "signature_language",
 ] as const;
@@ -247,42 +235,15 @@ export const SAFETY_LABELS: Record<SafetyKind, string> = {
   risky_word: "Risky words",
   wrong_thread: "Wrong thread",
   already_sent_recently: "Already written to recently",
-  no_thread_read: "Thread not read",
-  no_profile_read: "Profile not read",
-  near_duplicate: "Near-duplicate of another draft",
-  template_echo: "Similar to another draft",
-  profile_empty: "Notion profile is empty",
-  profile_stale: "Profile may be out of date",
-  claim_exceeds_observation: "Claims more than the session did",
-  evidence_claimed: "Reads are the agent's own count",
-  fact_without_source: "Figure without a knowledge entry",
   fact_other_brand: "Fact of another brand",
-  evidence_weak: "Thin evidence",
   signature_language: "Signature not in the reply's language",
 };
 
-/** How well a recorded draft's own evidence block holds up (the draft record (`draft_write`), rules V1 to V5). Null on a draft with no block (older rows, batch drafts). */
-export const EVIDENCE_LEVELS = ["ok", "weak", "missing"] as const;
-export type EvidenceLevel = (typeof EVIDENCE_LEVELS)[number];
-/** `observed`: the hook ledger confirmed the counts; `claimed`: only the agent said so. */
-export const EVIDENCE_SOURCES = ["observed", "claimed"] as const;
-export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
-/** One finding of the evidence check, as the draft record (`draft_write`) reported it. */
-export type EvidenceFinding = { code: string; text: string; amber: boolean };
+/** One finding of the draft record's checks (P60: a knowledge entry of another brand), as `draft_write` stored it on the draft. */
+export type DraftFinding = { code: string; text: string; amber: boolean };
 
-/** Which safety kind a finding code belongs to. Codes no kind names land on `evidence_weak`. */
+/** Which safety kind a finding code belongs to. A code no kind names fires nothing. */
 export const FINDING_KIND: Record<string, SafetyKind> = {
-  "context-missing": "no_thread_read",
-  "no-thread-read": "no_thread_read",
-  "first-contact-claim": "no_thread_read",
-  "no-profile-read": "no_profile_read",
-  "near-duplicate": "near_duplicate",
-  "anchor-duplicate": "near_duplicate",
-  "personalization-duplicate": "near_duplicate",
-  "similar-to-another": "template_echo",
-  "profile-stale": "profile_stale",
-  "claim-exceeds-observation": "claim_exceeds_observation",
-  "fact-without-source": "fact_without_source",
   "fact-other-brand": "fact_other_brand",
 };
 
@@ -295,17 +256,7 @@ export const DEFAULT_SAFETY_RULES: readonly SafetyRule[] = [
   { kind: "risky_word", enabled: true, level: "amber", params: { words: ["commission", "discount", "guarantee", "price list", "pricing sheet", "HOA"] } },
   { kind: "wrong_thread", enabled: true, level: "amber", params: {} },
   { kind: "already_sent_recently", enabled: true, level: "amber", params: { days: 7 } },
-  { kind: "no_thread_read", enabled: true, level: "red", params: {} },
-  { kind: "no_profile_read", enabled: true, level: "red", params: {} },
-  { kind: "near_duplicate", enabled: true, level: "red", params: {} },
-  { kind: "template_echo", enabled: true, level: "amber", params: {} },
-  { kind: "profile_empty", enabled: true, level: "amber", params: {} },
-  { kind: "profile_stale", enabled: true, level: "amber", params: {} },
-  { kind: "claim_exceeds_observation", enabled: true, level: "amber", params: {} },
-  { kind: "evidence_claimed", enabled: true, level: "amber", params: {} },
-  { kind: "fact_without_source", enabled: true, level: "amber", params: {} },
   { kind: "fact_other_brand", enabled: true, level: "red", params: {} },
-  { kind: "evidence_weak", enabled: true, level: "amber", params: {} },
   { kind: "signature_language", enabled: true, level: "amber", params: {} },
 ];
 

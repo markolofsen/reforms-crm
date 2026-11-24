@@ -50,7 +50,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     const w = openDb(paths.db);
     try {
       const repos = createRepos(w.db);
-      await repos.mailVersions.add({ project: slug, mailRef: v.mailRef, draftId: v.draftId, account: v.account, mailId: v.mailId, messageId: v.messageId, hash: v.hash, source: "agent", signatureFallback: v.signatureFallback });
+      await repos.mailVersions.add({ project: slug, mailRef: v.mailRef, draftId: v.draftId, account: v.account, mailId: v.mailId, messageId: v.messageId, hash: v.hash, source: "agent", signatureFallback: v.signatureFallback, brand: v.brand, wroteTo: v.wroteTo });
       await repos.mailVersions.markTrashed(v.trashed);
     } finally {
       w.close();
@@ -97,7 +97,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // P128 X5: sorting the chats proposes hides only, so it is not gated on attendance.
   const chatSort = httpChatSort({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) });
   // P129 A3: draft_write and client_record record on their own short write connection (decision 0045 point 10).
-  const records = { dbPath: paths.db, projectsDir: paths.projects, policyDir: paths.stateProjects, configFile: paths.configFile, ledgerRoot: env.HUB_LEDGER_ROOT ?? paths.home };
+  const records = { dbPath: paths.db, projectsDir: paths.projects, policyDir: paths.stateProjects, configFile: paths.configFile };
   // P129 verdict 7: the owner's words are looked up in this project's session log (the prompt hook writes every prompt).
   const ownerWords = (slug: string, words: string): boolean => {
     const now = new Date();

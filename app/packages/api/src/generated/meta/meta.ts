@@ -958,7 +958,7 @@ export type setSafetyRuleResponseError = (setSafetyRuleResponse400 | setSafetyRu
 
 export type setSafetyRuleResponse = (setSafetyRuleResponseSuccess | setSafetyRuleResponseError)
 
-export const getSetSafetyRuleUrl = (kind: 'do_not_contact' | 'unresolved_marker' | 'cc_present' | 'unknown_recipients' | 'risky_word' | 'wrong_thread' | 'already_sent_recently' | 'no_thread_read' | 'no_profile_read' | 'near_duplicate' | 'template_echo' | 'profile_empty' | 'profile_stale' | 'claim_exceeds_observation' | 'evidence_claimed' | 'fact_without_source' | 'fact_other_brand' | 'evidence_weak' | 'signature_language',) => {
+export const getSetSafetyRuleUrl = (kind: 'do_not_contact' | 'unresolved_marker' | 'cc_present' | 'unknown_recipients' | 'risky_word' | 'wrong_thread' | 'already_sent_recently' | 'fact_other_brand' | 'signature_language',) => {
 
 
 
@@ -969,7 +969,7 @@ export const getSetSafetyRuleUrl = (kind: 'do_not_contact' | 'unresolved_marker'
 /**
  * @summary Change one check
  */
-export const setSafetyRule = async (kind: 'do_not_contact' | 'unresolved_marker' | 'cc_present' | 'unknown_recipients' | 'risky_word' | 'wrong_thread' | 'already_sent_recently' | 'no_thread_read' | 'no_profile_read' | 'near_duplicate' | 'template_echo' | 'profile_empty' | 'profile_stale' | 'claim_exceeds_observation' | 'evidence_claimed' | 'fact_without_source' | 'fact_other_brand' | 'evidence_weak' | 'signature_language',
+export const setSafetyRule = async (kind: 'do_not_contact' | 'unresolved_marker' | 'cc_present' | 'unknown_recipients' | 'risky_word' | 'wrong_thread' | 'already_sent_recently' | 'fact_other_brand' | 'signature_language',
     safetyRuleBody: SafetyRuleBody, options?: Parameters<typeof hubMutator>[1]): Promise<setSafetyRuleResponse> => {
 
   return hubMutator<setSafetyRuleResponse>(getSetSafetyRuleUrl(kind),

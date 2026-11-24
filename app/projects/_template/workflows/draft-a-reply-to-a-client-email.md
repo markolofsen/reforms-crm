@@ -19,7 +19,7 @@ The email thread (latest message and the person's Conversation summary).
 ### Steps
 
 1. Read the person: Conversation summary, Relationship, Grade, open Deals and Tasks. Leads have no Grade or Relationship; treat them as unknown.
-2. Search the knowledge base for the question (`knowledge_search`, hub). State a fact only from an entry with `use: STATE`, `approved: true`, `expired: false` and an audience that fits the sender (LEAD, CLIENT or ANY). Quote facts, never invent them.
+2. Search the knowledge base for the question (`knowledge_search`, hub; in an attended session you may also read the entry files under `projects/<slug>/knowledge/files/` directly). State a fact only from an entry with `use: STATE`, `approved: true`, `expired: false` and an audience that fits the sender (LEAD, CLIENT or ANY). Quote facts, never invent them.
 3. If a specific Workflow fits (quote request, scheduling, complaint, payment), follow it for the content.
 4. Write the draft: greet by name, answer the question first, then the next step with a date if there is one, sign with the project's signoff. Short. No promises on price, dates or legal matters unless a Knowledge row states them.
 5. If the answer is not in the knowledge base: draft a holding reply that says a person will come back, and flag "needs a human answer".

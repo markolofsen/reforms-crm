@@ -20,10 +20,9 @@ tool list says what is wanted; this page says how triage-mail fills them.
   is not `filled`.
 - The brand, the address they wrote to and the subject are not in the record: the hub takes them from the message.
 
-The answer's `record` carries `evidence` (`ok`, `weak`, `missing`), `warnings` and a `notice`: report `weak` or `missing` in
-"Нужно от тебя". The project's `context.required` decides whether a failing block is reported (`warn`) or refused
-(`context_refused`, the default `block`): read what the message names and call once more; the draft in Mail is adopted, not
-written twice. Say "Записано" only when the answer has `recorded: true`.
+The answer's `record` carries `warnings` and a `notice` (a fact of another brand): report them in "Нужно от тебя". The
+`context` block is stored as you state it and shown to the owner, never judged (P140 K2). Say "Записано" only when the answer
+has `recorded: true`.
 
 ## `client_record`: a client handled without a draft
 Skipped, escalated or `injection_suspected`: `client_record` with `email`, `name`, `action`, `reason`, `subject`, `mail_ref`,

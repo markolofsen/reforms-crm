@@ -1,5 +1,5 @@
 import { inArray, sql } from "drizzle-orm";
-import { type EnrollmentState, type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type Mark, type SafetyResult, type ToneBodies } from "@hub/config";
+import { type DraftFinding, type EnrollmentState, type Mark, type SafetyResult, type ToneBodies } from "@hub/config";
 import { blocksChecked } from "../safety";
 import { type clients, drafts, enrollments, marks } from "../schema";
 import { loadSafety, parseJson, type DraftRow, type Tx } from "./bulk-shared";
@@ -61,10 +61,7 @@ export function teamNoticeOf(
 export type StepOf = { enrollmentId: number; sequence: string; step: number; steps: number; state: EnrollmentState };
 
 export type BasedOn = {
-  level: EvidenceLevel;
-  source: EvidenceSource | null;
-  findings: EvidenceFinding[];
-  similarTo: string | null;
+  findings: DraftFinding[];
   context: Record<string, unknown>;
 };
 
@@ -91,7 +88,7 @@ export function toReviewDrafts(tx: Tx, project: string, rows: Array<{ d: DraftRo
       toneBodies: parseJson<ToneBodies>(d.tones, {}),
       safetyResults: results,
       blocked: blocksChecked(results, d.batchId != null),
-      basedOn: d.evidence == null ? null : { level: d.evidence, source: d.evidenceSource, findings: parseJson<EvidenceFinding[]>(d.evidenceFindings, []), similarTo: d.similarTo, context: parseJson<Record<string, unknown>>(d.context, {}) },
+      basedOn: d.context == null && d.findings == null ? null : { findings: parseJson<DraftFinding[]>(d.findings, []), context: parseJson<Record<string, unknown>>(d.context, {}) },
       client: { id: c.id, name: c.name, email: c.email, repliesOwed: c.repliesOwed, lastContactAt: c.lastContactAt, marks: marksBy.get(c.id) ?? [] },
       sequence: stepOf(d),
       otherDrafts: Math.max(0, (perClient.get(c.id) ?? 1) - 1),

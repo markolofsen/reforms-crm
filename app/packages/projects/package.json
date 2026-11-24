@@ -21,7 +21,6 @@
     "./kinds": "./src/kinds.ts",
     "./guard": "./src/guard.ts",
     "./context": "./src/context.ts",
-    "./similarity": "./src/similarity.ts",
     "./fields": "./src/fields.ts",
     "./doctor": "./src/doctor.ts",
     "./audit": "./src/audit.ts"

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AUDIENCES, BATCH_FILTERS, BATCH_INTENTS, BATCH_STATUSES, CLIENT_FILTERS, DRAFT_STATUSES, ENROLLMENT_STATES, EVENT_KINDS, EVIDENCE_LEVELS, EVIDENCE_SOURCES, EXCLUSION_REASONS, MARKS, NOTION_KINDS, SAFETY_KINDS, TONES } from "@hub/config";
+import { AUDIENCES, BATCH_FILTERS, BATCH_INTENTS, BATCH_STATUSES, CLIENT_FILTERS, DRAFT_STATUSES, ENROLLMENT_STATES, EVENT_KINDS, EXCLUSION_REASONS, MARKS, NOTION_KINDS, SAFETY_KINDS, TONES } from "@hub/config";
 
 // What the API answers about drafts and clients: the review rows, batches, timeline and history, and the plain acks.
 // The server parses its own reply with these (so a column added to a table never leaks to the browser), and the admin
@@ -25,13 +25,12 @@ export const clientDto = z.object({
   marks: z.array(z.enum(MARKS)),
 });
 
-/** What a recorded draft was based on (P28): the evidence block the draft record (`draft_write`) judged and stored. No reply text, only short excerpts of the incoming thread. */
+/**
+ * What a recorded draft was based on: the context block the draft record (`draft_write`) stored as the agent stated it, never
+ * judged (P140 K2), and the record's findings (P60 fact-other-brand). No reply text, only short excerpts of the incoming thread.
+ */
 export const basedOnDto = z.object({
-  level: z.enum(EVIDENCE_LEVELS),
-  source: z.enum(EVIDENCE_SOURCES).nullable(),
   findings: z.array(z.object({ code: z.string(), text: z.string(), amber: z.boolean() })),
-  /** The closest other draft of the same batch, by address, when the sketches say so. */
-  similarTo: z.string().nullable(),
   context: z.object({
     purpose: z.string().optional(),
     thread: z
@@ -80,7 +79,7 @@ export const reviewDraftDto = z.object({
   canUndo: z.boolean(),
   /** Set by the draft record (`draft_write`) when the mail it answers looked like an injection: the hub never sends such a draft. */
   injectionSuspected: z.boolean(),
-  /** What the draft was based on; null on a draft with no evidence block (older rows, batch drafts). */
+  /** What the draft was based on; null on a draft with no context block and no findings (batch drafts, manual drafts). */
   basedOn: basedOnDto.nullable(),
   /** The mail class the agent recorded (client, partner, ...); autosend admits only listed classes. */
   mailClass: z.string().nullable(),

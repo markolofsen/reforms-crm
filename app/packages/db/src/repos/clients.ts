@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { type ClientCounts, type ClientFilter, type Mark } from "@hub/config";
 import { toReviewDrafts, type ReviewDraft } from "./review";
 import type { Db } from "../client";
@@ -25,8 +25,6 @@ const predicates: Record<ClientFilter, SQL | undefined> = {
   done: eq(drafts.status, "done"),
   sent: eq(drafts.status, "sent"),
   skipped: eq(drafts.status, "skipped"),
-  // An open draft whose own evidence block is weak or missing: look at it before the rest.
-  thin_basis: and(open, or(eq(drafts.evidence, "weak"), eq(drafts.evidence, "missing"))),
   // An open draft that is a step of a follow-up sequence (P47).
   sequences: and(open, isNotNull(drafts.enrollmentId)),
 };
@@ -159,12 +157,12 @@ export function clientsRepo(db: Db) {
     async counts(project: string, scope: DraftScope = {}): Promise<ClientCounts> {
       const count = (f: ClientFilter) => (predicates[f] ? sql<number>`count(*) filter (where ${predicates[f]})` : sql<number>`count(*)`);
       const row = db
-        .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), thin_basis: count("thin_basis"), sequences: count("sequences") })
+        .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), sequences: count("sequences") })
         .from(clients)
         .innerJoin(drafts, scopeOf(scope))
         .where(eq(clients.project, project))
         .get();
-      return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0, sequences: 0 };
+      return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, sequences: 0 };
     },
 
     /** Replaces the marks of a client. Returns false when the client does not exist. */

@@ -24,10 +24,8 @@ export function stackOf(root: string, index: number): Stack {
 }
 
 // The server's project folders (project.md): Send reads the project's accounts and sender from here. Seeded projects only.
-// `context.required` is warn: the flows record drafts without a context block, which a project that sets nothing refuses since
-// 2026-11-22 (CONTEXT_BLOCK_FROM); the block rule is @hub/agent's records-context test.
 const projectMd = (slug: string): string =>
-  ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| context.required | warn | 2026-11-15 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n");
+  ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n");
 
 /** Writes a stack's instance: the two seeded projects, their send policies, the instance config and lisbon-realty's starter sequence. */
 export function prepareStack(s: Stack, starterSequence: string): void {

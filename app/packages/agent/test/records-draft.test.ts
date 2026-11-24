@@ -7,7 +7,7 @@ import { createRepos, openDb } from "@hub/db";
 import { draftWriteCall } from "../src/mcp/tools/draft-write";
 import { recordDraftCall } from "../src/records/draft";
 import { draftRecord } from "../src/records/schema";
-import { beforeContextBlock, okOf, recordCall, recordsInstance } from "./records-fixture";
+import { okOf, recordCall, recordsInstance } from "./records-fixture";
 
 // The draft record `draft_write` writes after Mail saved a reply (P129 A3, decision 0045 point 10; no shell command any more):
 // one client and one draft row, nothing of the mail's text; what the record schema refuses; a busy database.
@@ -19,7 +19,7 @@ beforeEach(() => {
 
 const call = (record: Record<string, unknown> = {}, c: { subject?: string; mailRef?: string | null; ownerRequest?: string } = {}) =>
   recordCall({ email: "Client@Example.com", subject: c.subject ?? "Re: hello", mailRef: c.mailRef === undefined ? "<m1@example.com>" : c.mailRef, ...(c.ownerRequest ? { ownerRequest: c.ownerRequest } : {}) }, { name: "Cli Ent", ...record });
-const run = (record?: Record<string, unknown>, c?: Parameters<typeof call>[1], attempts = 1) => recordDraftCall(call(record, c), { dbPath: db, attempts, retryMs: 5, now: beforeContextBlock });
+const run = (record?: Record<string, unknown>, c?: Parameters<typeof call>[1], attempts = 1) => recordDraftCall(call(record, c), { dbPath: db, attempts, retryMs: 5 });
 const rowsOf = async () => {
   const h = openDb(db);
   try {
@@ -105,7 +105,7 @@ describe("the draft record (draft_write's writer)", () => {
 describe("the draft record: send facts", () => {
   const send = (record: Record<string, unknown>) => {
     const i = recordsInstance();
-    return { i, out: recordDraftCall(recordCall({ email: "c@example.com", subject: "Re: x", mailRef: "<m@x>" }, record), { dbPath: i.db, attempts: 1, projectsDir: i.projects, policyDir: i.policy, now: beforeContextBlock }) };
+    return { i, out: recordDraftCall(recordCall({ email: "c@example.com", subject: "Re: x", mailRef: "<m@x>" }, record), { dbPath: i.db, attempts: 1, projectsDir: i.projects, policyDir: i.policy }) };
   };
 
   it("stores mail_class and injection_suspected", async () => {

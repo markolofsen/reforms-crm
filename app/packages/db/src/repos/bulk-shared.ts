@@ -1,8 +1,8 @@
 import { and, eq, inArray, max, notInArray, sql } from "drizzle-orm";
-import { type EvidenceFinding, type Mark, type SafetyResult, type SafetyRule } from "@hub/config";
+import { type DraftFinding, type Mark, type SafetyResult, type SafetyRule } from "@hub/config";
 import type { Db } from "../client";
 import { batches, clients, drafts, marks, safetyRules } from "../schema";
-import { effectiveRules, evaluateSafety, type SafetyInput } from "../safety";
+import { effectiveRules, evaluateSafety } from "../safety";
 import { insertEvent, sessionRun } from "./runs";
 
 // Helpers shared by the drafts and batches repositories. All sync: they run inside the caller's transaction.
@@ -30,12 +30,8 @@ export function loadRules(tx: Tx, project: string): SafetyRule[] {
   );
 }
 
-/** The stored evidence block of a recorded draft, as the safety engine reads it. Null when the draft has none. */
-export function evidenceOf(d: DraftRow): NonNullable<SafetyInput["evidence"]> | null {
-  if (d.evidence == null) return null;
-  const ctx = parseJson<{ profile?: { state?: string } } | null>(d.context, null);
-  return { source: d.evidenceSource, findings: parseJson<EvidenceFinding[]>(d.evidenceFindings, []), profileState: ctx?.profile?.state ?? null };
-}
+/** The findings the draft record stored (P60 fact-other-brand), as the safety engine reads them. */
+export const findingsOf = (d: Pick<DraftRow, "findings">): DraftFinding[] => parseJson<DraftFinding[]>(d.findings, []);
 
 /** Safety results for a set of drafts, computed now from the rules and the client's current marks. */
 export function loadSafety(tx: Tx, project: string, rows: DraftRow[], now: Date = new Date()): Map<number, SafetyResult[]> {
@@ -67,7 +63,7 @@ export function loadSafety(tx: Tx, project: string, rows: DraftRow[], now: Date 
           client: { email: c.email, repliesOwed: c.repliesOwed, marks: marksBy.get(c.id) ?? [] },
           lastClosedAt: closed.get(c.id) ?? null,
           now,
-          evidence: evidenceOf(d),
+          findings: findingsOf(d),
         },
         rules,
         parseJson<string[]>(d.acked, []),

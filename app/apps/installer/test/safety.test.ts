@@ -12,7 +12,7 @@ import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
 import { auditLayout } from "../src/safety";
 import { readEvents, logStoreOf } from "@hub/log/store";
-import { beforeContextBlock, makeInstance } from "./instance-fixture";
+import { makeInstance } from "./instance-fixture";
 
 const PROJECTS = path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects");
 const tmp = () => makeInstance().home;
@@ -70,13 +70,25 @@ describe("hub guard", () => {
     ["Gmail reply", call("mcp__x__reply", {})],
     ["trash", call("mcp__x__trash_thread", {})],
     ["notion delete", call("mcp__notion__notion-delete-pages", {})],
-    ["other project folder", call("Read", { file_path: "projects/nordhaus/project.md" })],
-    ["glob of all projects", call("Glob", { pattern: "projects/*/project.md" })],
+    ["other project folder edited", call("Edit", { file_path: "projects/nordhaus/project.md", old_string: "a", new_string: "b" })],
+    ["glob of all projects in a command", call("Bash", { command: "cat projects/*/project.md" })],
     ["listing of all projects", call("Bash", { command: "ls projects" })],
     ["secrets read", call("Read", { file_path: "/r/state/secrets/notion-token" })],
     ["osascript", call("Bash", { command: "osascript -e 'tell app \"Mail\" to send m'" })],
   ])("blocks in block mode: %s", (_n, c) => {
     expect(guard(c, { HUB_PROJECT: "acme-travel", HUB_GUARD: "block" }).code).toBe(2);
+  });
+  it("P140 K3: attended, a Read, Grep or Glob of another project's folder passes and an Edit there is flagged; unattended both are", () => {
+    const at = (c: ReturnType<typeof call>, unattended: boolean) => guardDecision(c, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, unattended }).violations;
+    for (const c of [call("Read", { file_path: "projects/nordhaus/project.md" }), call("Grep", { pattern: "price", path: "projects/nordhaus/knowledge" }), call("Glob", { pattern: "projects/*/knowledge/files/*.md" })]) {
+      expect(at(c, false)).toEqual([]);
+      expect(at(c, true)).not.toEqual([]);
+    }
+    const edit = call("Edit", { file_path: "projects/nordhaus/knowledge/files/x.md", old_string: "a", new_string: "b" });
+    expect(at(edit, false)).toEqual([expect.stringMatching(/touched projects\/nordhaus in a acme-travel run/)]);
+    expect(at(edit, true)).toEqual([expect.stringMatching(/touched projects\/nordhaus in a acme-travel run/)]);
+    // Secrets stay flagged for a read in both modes.
+    expect(at(call("Read", { file_path: "state/secrets/notion-token" }), false)).toEqual([expect.stringMatching(/touched secrets/)]);
   });
   it("shared _template stays readable; create_reply is not a send", () => {
     expect(guardDecision(call("Read", { file_path: "projects/_template/x.md" }), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
@@ -251,7 +263,7 @@ describe("the draft record enforces draft.recipients", () => {
   const cfg = () => { const f = path.join(tmp(), "config.json"); writeFileSync(f, JSON.stringify({ allow_list: ["me@mine.example"] })); return f; };
   const run = (over: Record<string, unknown>, project = "acme-travel") => {
     const db = path.join(tmp(), "app.db");
-    return recordFlat(project, { email: "me@mine.example", subject: "s", mailRef: "<1@x>", ...over }, { dbPath: db, attempts: 1, projectsDir: PROJECTS, configFile: cfg(), now: beforeContextBlock }).then(async (r) => ({ r, db }));
+    return recordFlat(project, { email: "me@mine.example", subject: "s", mailRef: "<1@x>", ...over }, { dbPath: db, attempts: 1, projectsDir: PROJECTS, configFile: cfg() }).then(async (r) => ({ r, db }));
   };
   it("test mode: allow-list address passes", async () => {
     expect((await run({})).r).toMatchObject({ ok: true });

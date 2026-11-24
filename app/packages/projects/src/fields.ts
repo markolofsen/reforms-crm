@@ -57,7 +57,6 @@ export const FIELDS: Record<string, FieldDef> = {
   "send.classes": { path: "send.classes", schema: list, doc: "Mail classes of the kind that may be autosent, comma separated; empty: none." },
   "send.daily_cap": { path: "send.dailyCap", schema: posint, doc: "Autosends per rolling 24 hours; empty: the kind's default (5)." },
   "send.delay_minutes": { path: "send.delayMinutes", schema: check((v) => /^[1-9]\d{0,3}$/.test(v) && Number(v) <= 1440, (v) => `expected 1 to 1440 minutes, got "${v}"`).transform(Number), doc: "Cancel window before an autosend, in minutes; empty: the kind's default (10)." },
-  "context.required": { path: "context.required", schema: check((v) => v === "warn" || v === "block", (v) => `expected warn or block, got "${v}"`), doc: "warn or block: whether `draft_write` refuses a draft whose `context` (what was read) is missing or fails the rules; empty: warn until 2026-11-22, block after." },
   tone: { path: "tone", schema: oneLine, doc: "How replies sound, one line." },
   signoff: { path: "signoff", schema: oneLine, doc: "Sign-off line of drafts." },
   "notion.teamspace": { path: "notion.teamspace", schema: oneLine, doc: "Notion teamspace name." },

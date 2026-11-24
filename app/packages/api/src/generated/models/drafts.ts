@@ -9,7 +9,7 @@ import type { DraftsDraftsItem } from './draftsDraftsItem';
 
 export interface Drafts {
   drafts: DraftsDraftsItem[];
-  counts: Partial<Record<'all' | 'ready' | 'hold' | 'owed' | 'done' | 'sent' | 'skipped' | 'thin_basis' | 'sequences', number>>;
+  counts: Partial<Record<'all' | 'ready' | 'hold' | 'owed' | 'done' | 'sent' | 'skipped' | 'sequences', number>>;
   total: number;
   /** @nullable */
   nextOffset: number | null;

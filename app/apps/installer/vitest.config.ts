@@ -1,3 +1,3 @@
 import { hubVitest } from "@hub/config/vitest";
 
-export default hubVitest({ include: ["test/**/*.test.ts", "eval/**/*.test.ts"], testTimeout: 90000 });
+export default hubVitest({ include: ["test/**/*.test.ts"], testTimeout: 90000 });

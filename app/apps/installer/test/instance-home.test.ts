@@ -74,7 +74,8 @@ describe("an instance folder outside the checkout", () => {
     const before = mtime(core);
     const paths = hubPaths();
     expect(evidenceDir(paths.home, "acme-travel")).toBe(path.join(home, "state", "evidence", "acme-travel"));
-    const bad = { tool_name: "Read", tool_input: { file_path: path.join(home, "projects", "nordhaus", "project.md") } };
+    // P140 K3: attended, reading another project's folder passes; an edit there is still flagged.
+    const bad = { tool_name: "Edit", tool_input: { file_path: path.join(home, "projects", "nordhaus", "project.md"), old_string: "a", new_string: "b" } };
     const r = runGuard(JSON.stringify({ ...bad, session_id: "s1" }), { root: paths.home, paths, env: { HUB_PROJECT: "acme-travel" } });
     expect(r.stderr).toMatch(/touched projects\/nordhaus/);
     expect(readdirSync(path.join(home, "state", "log", "acme-travel")).some((f) => f.endsWith(".jsonl"))).toBe(true);
@@ -88,8 +89,11 @@ describe("what an agent started in an instance gets", () => {
   const paths = () => hubPaths();
   it("deny rules name the instance's folders, relative to where claude starts", () => {
     const f = writeSessionFiles(paths().home, paths().projects, "acme-travel", process.execPath, paths());
-    expect(f.rules).toContain("Read(./projects/nordhaus/**)");
+    // P140 K3 (attended, the instance default): other projects' folders are readable and editable; their session files are not.
+    expect(f.rules).not.toContain("Read(./projects/nordhaus/**)");
+    expect(f.rules).toContain("Read(./state/projects/nordhaus/**)");
     expect(f.rules).toContain("Edit(./data/**)");
+    expect(f.rules).not.toContain("Read(./data/**)");
     expect(f.rules).toContain("Edit(./state/secrets/**)");
     expect(f.rules.some((r) => r.includes("acme-travel/**"))).toBe(false);
     expect(f.rules.join("\n")).not.toContain("app/projects");

@@ -60,13 +60,12 @@ export interface SessionSummary {
 
 /**
  * P133 (P129 section 6): the counters the agent layer is measured by, one week of use after A8 against the baseline of
- * 2026-11-19 to 2026-11-23 (32 shell writer calls, 20 of 23 evidence warnings on the owner's words, ToolSearch in 13 of 75 turns).
+ * 2026-11-19 to 2026-11-23 (32 shell writer calls, ToolSearch in 13 of 75 turns). The evidence warnings counter went with the
+ * evidence check (P140 K2).
  */
 export interface Friction {
   /** Shell calls of a deleted hub writer (`hub record-draft`, `hub record-client`): target 0. */
   shellWriters: number;
-  /** Guard evidence warnings (thread and profile not read) in turns that carried the owner's words: target 0. */
-  evidenceOnOwnerWords: number;
   /** Turns with a ToolSearch call: recorded. */
   toolSearchTurns: number;
   /** Turns with an AskUserQuestion call after the owner's prompt: target 0. */
@@ -79,8 +78,6 @@ export interface Friction {
 
 /** A shell command that runs a hub writer (the agent records through the hub tools since P129 A3). */
 const SHELL_WRITER = /\bhub\s+record-(draft|client)\b/;
-/** The guard's evidence rule (`@hub/agent/evidence/ledger`): the thread and profile, or the Notion record, not read. */
-const EVIDENCE_WARNING = /thread and profile|read this client's record/;
 const BASH_TOOLS = new Set(["Bash", "exec_command", "shell"]);
 
 const commandOf = (input: unknown): string => {
@@ -102,7 +99,6 @@ export function frictionOf(events: readonly LogEvent[], turns: readonly Turn[]):
   const asked = turns.filter((t) => t.prompt !== null);
   return {
     shellWriters,
-    evidenceOnOwnerWords: turns.filter((t) => t.ownerWords).reduce((n, t) => n + t.guard.filter((g) => EVIDENCE_WARNING.test(g)).length, 0),
     toolSearchTurns: turns.filter((t) => t.tools.includes("ToolSearch")).length,
     askUserTurns: asked.filter((t) => t.tools.includes("AskUserQuestion")).length,
     askedWithoutActing: turns.filter((t) => t.flags.includes("asked_without_acting")).length,
@@ -117,7 +113,6 @@ export function frictionTotal(sums: readonly SessionSummary[]): Friction {
   const add = (k: Exclude<keyof Friction, "medianTurnSeconds">) => sums.reduce((n, s) => n + s.friction[k], 0);
   return {
     shellWriters: add("shellWriters"),
-    evidenceOnOwnerWords: add("evidenceOnOwnerWords"),
     toolSearchTurns: add("toolSearchTurns"),
     askUserTurns: add("askUserTurns"),
     askedWithoutActing: add("askedWithoutActing"),

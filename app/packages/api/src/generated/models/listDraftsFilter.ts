@@ -17,6 +17,5 @@ export const ListDraftsFilter = {
   done: 'done',
   sent: 'sent',
   skipped: 'skipped',
-  thin_basis: 'thin_basis',
   sequences: 'sequences',
 } as const;

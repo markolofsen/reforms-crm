@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { createRepos, openDbReadOnly } from "@hub/db";
+import { indexDrift } from "@hub/knowledge/drift";
 import { checkDev } from "@hub/projects/dev";
 import { listProjects } from "../context";
 import type { Step } from "../types";
-import { fail, pass } from "./helpers";
+import { fail, pass, warn } from "./helpers";
 
 export const projectSteps: Step[] = [
   {
@@ -29,6 +31,30 @@ export const projectSteps: Step[] = [
         mkdirSync(path.join(ctx.paths.projects, s, "knowledge"), { recursive: true });
       }
       return "knowledge folders created";
+    },
+  },
+  {
+    id: "knowledge.index", group: "Projects", title: "The knowledge index says what the entry files say",
+    why: "P140 K1: the entry files under `<projects>/<slug>/knowledge/` are the source; `knowledge_search` reads the index. The server reindexes a project at start and when a file changes, so an index that disagrees with its files means a reindex did not run (on 2026-11-24 a saas index carried no brands for a week while every file named one).",
+    verifies: "Every indexable entry file of every project has its index row with the file's content hash and canonical `brands`, and no row is left without its file. Read only (the database opened read-only). FAIL names the paths that differ and the fix: `hub knowledge index <slug>`.",
+    async check(ctx) {
+      const slugs = listProjects(ctx).filter((s) => existsSync(path.join(ctx.paths.projects, s, "knowledge")));
+      if (!slugs.length) return pass("no project has a knowledge folder");
+      if (!existsSync(ctx.paths.db)) return warn("no app database yet (see files.app-db)");
+      const h = openDbReadOnly(ctx.paths.db);
+      try {
+        const repos = createRepos(h.db);
+        const bad: string[] = [];
+        let entries = 0;
+        for (const s of slugs) {
+          const drift = await indexDrift(repos, ctx.paths.projects, s);
+          entries += (await repos.knowledge.list(s)).length;
+          if (drift.length) bad.push(`${s}: ${drift.length} differ (${drift.slice(0, 3).map((d) => `${d.path} ${d.reason}`).join(", ")}${drift.length > 3 ? ", …" : ""}); fix: \`hub knowledge index ${s}\``);
+        }
+        return bad.length ? fail(bad.join("; ")) : pass(`${entries} indexed entries match their files (${slugs.join(", ")})`);
+      } finally {
+        h.close();
+      }
     },
   },
   {

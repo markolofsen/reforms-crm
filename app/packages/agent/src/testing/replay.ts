@@ -39,7 +39,7 @@ export interface ReplayCase {
 
 /** The guard as the installer's hook applies it: the violations of one call (empty: allowed). */
 export type ReplayGuard = (call: { name: string; input: Record<string, unknown>; sessionId: string }, p: FakePorts) => string[] | Promise<string[]>;
-/** What the PostToolUse hook does with a finished call (the installer writes the evidence ledger with it). */
+/** What the PostToolUse hook does with a finished call (the installer writes the session ledger with it). */
 export type ReplayObserver = (call: { name: string; input: Record<string, unknown>; result: unknown; sessionId: string }, p: FakePorts) => void | Promise<void>;
 
 export interface ReplayOutcome {

@@ -45,7 +45,7 @@ export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<W
   }
   const mailRef = newThreadKey(email);
   const pending = await pendingVersion(s, mailRef);
-  if (pending) return { pending: { mailId: pending.mailId, messageId: pending.messageId, account: pending.account }, mailRef };
+  if (pending) return { pending: { mailId: pending.mailId, messageId: pending.messageId, account: pending.account, brand: pending.brand, wroteTo: pending.wroteTo }, mailRef };
   const landing = await landingWrite(s, mailRef);
   if (landing) throw new ToolError("mail_slow", `The hub's new message to ${email} at ${landing.startedAt} has not shown in Mail yet (Mail is slow). Do not write it again now: tell the owner in one line. Nothing was written.`);
   const account = a.account;

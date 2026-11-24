@@ -1002,7 +1002,6 @@
                 "done",
                 "sent",
                 "skipped",
-                "thin_basis",
                 "sequences"
               ]
             }
@@ -1777,17 +1776,7 @@
                 "risky_word",
                 "wrong_thread",
                 "already_sent_recently",
-                "no_thread_read",
-                "no_profile_read",
-                "near_duplicate",
-                "template_echo",
-                "profile_empty",
-                "profile_stale",
-                "claim_exceeds_observation",
-                "evidence_claimed",
-                "fact_without_source",
                 "fact_other_brand",
-                "evidence_weak",
                 "signature_language"
               ]
             }
@@ -2205,6 +2194,58 @@
                 }
               }
             }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/clients/{id}/conversation/refresh": {
+      "post": {
+        "operationId": "refreshConversation",
+        "summary": "Read this person's Mail and chats again now",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read this person's Mail and chats again now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationRefreshed"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
           },
           "404": {
             "$ref": "#/components/responses/ApiError"
@@ -8276,8 +8317,7 @@
                         "fake-mailer",
                         "cap-near",
                         "knowledge-expired",
-                        "never-triaged",
-                        "context-block-soon"
+                        "never-triaged"
                       ]
                     },
                     "sentence": {
@@ -10407,17 +10447,7 @@
                           "risky_word",
                           "wrong_thread",
                           "already_sent_recently",
-                          "no_thread_read",
-                          "no_profile_read",
-                          "near_duplicate",
-                          "template_echo",
-                          "profile_empty",
-                          "profile_stale",
-                          "claim_exceeds_observation",
-                          "evidence_claimed",
-                          "fact_without_source",
                           "fact_other_brand",
-                          "evidence_weak",
                           "signature_language"
                         ]
                       },
@@ -10458,28 +10488,6 @@
                     {
                       "type": "object",
                       "properties": {
-                        "level": {
-                          "type": "string",
-                          "enum": [
-                            "ok",
-                            "weak",
-                            "missing"
-                          ]
-                        },
-                        "source": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "enum": [
-                                "observed",
-                                "claimed"
-                              ]
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "findings": {
                           "type": "array",
                           "items": {
@@ -10502,12 +10510,6 @@
                             ],
                             "additionalProperties": false
                           }
-                        },
-                        "similarTo": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         },
                         "context": {
                           "type": "object",
@@ -10616,10 +10618,7 @@
                         }
                       },
                       "required": [
-                        "level",
-                        "source",
                         "findings",
-                        "similarTo",
                         "context"
                       ],
                       "additionalProperties": false
@@ -10915,7 +10914,6 @@
                 "done",
                 "sent",
                 "skipped",
-                "thin_basis",
                 "sequences"
               ]
             },
@@ -10930,7 +10928,6 @@
               "done",
               "sent",
               "skipped",
-              "thin_basis",
               "sequences"
             ]
           },
@@ -11058,17 +11055,7 @@
               "risky_word",
               "wrong_thread",
               "already_sent_recently",
-              "no_thread_read",
-              "no_profile_read",
-              "near_duplicate",
-              "template_echo",
-              "profile_empty",
-              "profile_stale",
-              "claim_exceeds_observation",
-              "evidence_claimed",
-              "fact_without_source",
               "fact_other_brand",
-              "evidence_weak",
               "signature_language"
             ]
           },
@@ -11749,17 +11736,7 @@
                           "risky_word",
                           "wrong_thread",
                           "already_sent_recently",
-                          "no_thread_read",
-                          "no_profile_read",
-                          "near_duplicate",
-                          "template_echo",
-                          "profile_empty",
-                          "profile_stale",
-                          "claim_exceeds_observation",
-                          "evidence_claimed",
-                          "fact_without_source",
                           "fact_other_brand",
-                          "evidence_weak",
                           "signature_language"
                         ]
                       },
@@ -11800,28 +11777,6 @@
                     {
                       "type": "object",
                       "properties": {
-                        "level": {
-                          "type": "string",
-                          "enum": [
-                            "ok",
-                            "weak",
-                            "missing"
-                          ]
-                        },
-                        "source": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "enum": [
-                                "observed",
-                                "claimed"
-                              ]
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
                         "findings": {
                           "type": "array",
                           "items": {
@@ -11844,12 +11799,6 @@
                             ],
                             "additionalProperties": false
                           }
-                        },
-                        "similarTo": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         },
                         "context": {
                           "type": "object",
@@ -11958,10 +11907,7 @@
                         }
                       },
                       "required": [
-                        "level",
-                        "source",
                         "findings",
-                        "similarTo",
                         "context"
                       ],
                       "additionalProperties": false
@@ -12306,17 +12252,7 @@
                     "risky_word",
                     "wrong_thread",
                     "already_sent_recently",
-                    "no_thread_read",
-                    "no_profile_read",
-                    "near_duplicate",
-                    "template_echo",
-                    "profile_empty",
-                    "profile_stale",
-                    "claim_exceeds_observation",
-                    "evidence_claimed",
-                    "fact_without_source",
                     "fact_other_brand",
-                    "evidence_weak",
                     "signature_language"
                   ]
                 },
@@ -12419,17 +12355,7 @@
                   "risky_word",
                   "wrong_thread",
                   "already_sent_recently",
-                  "no_thread_read",
-                  "no_profile_read",
-                  "near_duplicate",
-                  "template_echo",
-                  "profile_empty",
-                  "profile_stale",
-                  "claim_exceeds_observation",
-                  "evidence_claimed",
-                  "fact_without_source",
                   "fact_other_brand",
-                  "evidence_weak",
                   "signature_language"
                 ]
               },
@@ -12771,17 +12697,7 @@
                                   "risky_word",
                                   "wrong_thread",
                                   "already_sent_recently",
-                                  "no_thread_read",
-                                  "no_profile_read",
-                                  "near_duplicate",
-                                  "template_echo",
-                                  "profile_empty",
-                                  "profile_stale",
-                                  "claim_exceeds_observation",
-                                  "evidence_claimed",
-                                  "fact_without_source",
                                   "fact_other_brand",
-                                  "evidence_weak",
                                   "signature_language"
                                 ]
                               },
@@ -12822,28 +12738,6 @@
                             {
                               "type": "object",
                               "properties": {
-                                "level": {
-                                  "type": "string",
-                                  "enum": [
-                                    "ok",
-                                    "weak",
-                                    "missing"
-                                  ]
-                                },
-                                "source": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "enum": [
-                                        "observed",
-                                        "claimed"
-                                      ]
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
                                 "findings": {
                                   "type": "array",
                                   "items": {
@@ -12866,12 +12760,6 @@
                                     ],
                                     "additionalProperties": false
                                   }
-                                },
-                                "similarTo": {
-                                  "type": [
-                                    "string",
-                                    "null"
-                                  ]
                                 },
                                 "context": {
                                   "type": "object",
@@ -12980,10 +12868,7 @@
                                 }
                               },
                               "required": [
-                                "level",
-                                "source",
                                 "findings",
-                                "similarTo",
                                 "context"
                               ],
                               "additionalProperties": false
@@ -13697,17 +13582,7 @@
                                 "risky_word",
                                 "wrong_thread",
                                 "already_sent_recently",
-                                "no_thread_read",
-                                "no_profile_read",
-                                "near_duplicate",
-                                "template_echo",
-                                "profile_empty",
-                                "profile_stale",
-                                "claim_exceeds_observation",
-                                "evidence_claimed",
-                                "fact_without_source",
                                 "fact_other_brand",
-                                "evidence_weak",
                                 "signature_language"
                               ]
                             },
@@ -13748,28 +13623,6 @@
                           {
                             "type": "object",
                             "properties": {
-                              "level": {
-                                "type": "string",
-                                "enum": [
-                                  "ok",
-                                  "weak",
-                                  "missing"
-                                ]
-                              },
-                              "source": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "enum": [
-                                      "observed",
-                                      "claimed"
-                                    ]
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
                               "findings": {
                                 "type": "array",
                                 "items": {
@@ -13792,12 +13645,6 @@
                                   ],
                                   "additionalProperties": false
                                 }
-                              },
-                              "similarTo": {
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
                               },
                               "context": {
                                 "type": "object",
@@ -13906,10 +13753,7 @@
                               }
                             },
                             "required": [
-                              "level",
-                              "source",
                               "findings",
-                              "similarTo",
                               "context"
                             ],
                             "additionalProperties": false
@@ -14726,6 +14570,41 @@
         ],
         "additionalProperties": false
       },
+      "ConversationRefreshed": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "mailRead": {
+            "type": "boolean"
+          },
+          "chats": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "stored": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "ok",
+          "ms",
+          "mailRead",
+          "chats",
+          "stored"
+        ],
+        "additionalProperties": false
+      },
       "ClientMap": {
         "type": "object",
         "properties": {
@@ -15028,17 +14907,7 @@
                     "risky_word",
                     "wrong_thread",
                     "already_sent_recently",
-                    "no_thread_read",
-                    "no_profile_read",
-                    "near_duplicate",
-                    "template_echo",
-                    "profile_empty",
-                    "profile_stale",
-                    "claim_exceeds_observation",
-                    "evidence_claimed",
-                    "fact_without_source",
                     "fact_other_brand",
-                    "evidence_weak",
                     "signature_language"
                   ]
                 },

@@ -9,10 +9,10 @@ import { createHubMcpServer } from "../src/mcp/server";
 import { recordClientCall } from "../src/records/client";
 import { recordDraftCall } from "../src/records/draft";
 import { clientRecord } from "../src/records/schema";
-import { beforeContextBlock, recordCall } from "./records-fixture";
+import { recordCall } from "./records-fixture";
 
 // `client_record` (P129 A3, decision 0045 point 10; a hub tool, no shell command any more): a client the session handled WITHOUT a
-// draft, one Inbox row and no mail text; and the Inbox row and evidence a drafted client gets from draft_write's record.
+// draft, one Inbox row and no mail text; and the Inbox row and context a drafted client gets from draft_write's record.
 
 let dir: string;
 let dbPath: string;
@@ -23,8 +23,8 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 const send = (p: object, project = "acme") => recordClientCall(project, clientRecord.parse(p), { dbPath });
-const draft = (c: { email: string; mailRef: string }, record: Record<string, unknown>, now: () => Date = beforeContextBlock) =>
-  recordDraftCall(recordCall({ email: c.email, subject: "Re", mailRef: c.mailRef }, record), { dbPath, now });
+const draft = (c: { email: string; mailRef: string }, record: Record<string, unknown>) =>
+  recordDraftCall(recordCall({ email: c.email, subject: "Re", mailRef: c.mailRef }, record), { dbPath });
 const ID = "0123456789abcdef0123456789abcdef";
 
 async function rows(filter: "all" | "owed" = "all") {
@@ -104,7 +104,7 @@ describe("client_record", () => {
   });
 });
 
-describe("a drafted client: the Inbox row and the evidence draft_write's record stores", () => {
+describe("a drafted client: the Inbox row and the context draft_write's record stores", () => {
   it("states the notion kind and lists the drafted client in the inbox; an unstated kind is noticed", async () => {
     const r = await draft({ email: "c@x.example", mailRef: "<c@x>" }, { name: "Cy", notion: { kind: "client", url: `https://www.notion.so/Cy-${ID}` } });
     expect(r).toMatchObject({ ok: true });
@@ -113,18 +113,18 @@ describe("a drafted client: the Inbox row and the evidence draft_write's record 
     expect(await draft({ email: "d@x.example", mailRef: "<d@x>" }, {})).toMatchObject({ ok: true, notice: expect.stringMatching(/notion not stated/) });
   });
 
-  it("a complete context lands as basedOn with its own evidence level; none lands as missing and red", async () => {
+  it("a context lands as basedOn as stated; none lands as no basedOn and no check (P140 K2)", async () => {
     const ctx = { batchKey: "k1", thread: { firstContact: false, found: 1, read: 1, readIds: [7], cited: [7], newest: "2026-11-10", rows: [{ date: "2026-11-10", who: "Cy", subject: "Terms", excerpt: "Can you confirm the terms?" }] }, profile: { read: true, state: "filled", editedAt: "2026-11-01" }, facts: { queries: 1, used: ["k-1"], missing: [] }, anchors: ["asked to confirm the terms of the second unit"], personalization: "Cy asked about the terms of the second unit in Lisbon, not the first." };
-    await draft({ email: "cy@x.example", mailRef: "<cy@x>" }, { name: "Cy", notion: { kind: "client", page_id: ID }, last_contact_at: "2026-11-10T09:00:00Z", replies_owed: true, context: ctx }, () => new Date("2026-12-01T09:00:00Z")); // a complete block passes once block mode applies
+    await draft({ email: "cy@x.example", mailRef: "<cy@x>" }, { name: "Cy", notion: { kind: "client", page_id: ID }, last_contact_at: "2026-11-10T09:00:00Z", replies_owed: true, context: ctx });
     await draft({ email: "no@x.example", mailRef: "<no@x>" }, { name: "No" });
     const h = openDb(dbPath);
     try {
       const all = await createRepos(h.db).clients.review("acme", "all");
       const by = Object.fromEntries(all.map((d) => [d.client.email, d]));
-      expect(by["cy@x.example"]?.basedOn).toMatchObject({ level: "ok", context: { thread: { read: 1, rows: [{ who: "Cy" }] } } });
-      expect(by["no@x.example"]?.basedOn).toMatchObject({ level: "missing" });
-      expect(by["no@x.example"]?.safetyResults.some((r) => r.kind === "no_thread_read" && r.level === "red")).toBe(true);
-      expect(by["no@x.example"]?.blocked).toBe(true);
+      expect(by["cy@x.example"]?.basedOn).toMatchObject({ findings: [], context: { thread: { read: 1, rows: [{ who: "Cy" }] } } });
+      expect(by["cy@x.example"]?.basedOn).not.toHaveProperty("level");
+      expect(by["no@x.example"]?.basedOn).toMatchObject({ findings: [] });
+      expect(by["no@x.example"]?.blocked).toBe(false);
       expect(by["cy@x.example"]?.body).toBe("");
     } finally {
       h.close();

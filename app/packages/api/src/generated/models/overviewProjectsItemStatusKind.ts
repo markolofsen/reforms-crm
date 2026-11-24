@@ -23,5 +23,4 @@ export const OverviewProjectsItemStatusKind = {
   'cap-near': 'cap-near',
   'knowledge-expired': 'knowledge-expired',
   'never-triaged': 'never-triaged',
-  'context-block-soon': 'context-block-soon',
 } as const;

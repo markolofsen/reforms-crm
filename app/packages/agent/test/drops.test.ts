@@ -25,11 +25,21 @@ describe("drop folders of other projects", () => {
     }
     expect(rules.filter((r) => r.includes("state/drops/acme"))).toEqual([]);
   });
-  it("Codex: the profile makes them \"none\", and leaves its own readable", () => {
+  it("P140 K3, attended: another tab's drops are readable, never editable", () => {
     const { paths, projects } = instance();
-    const toml = codexConfigToml({ paths, projectsDir: projects, slug: "acme", unattended: false, servers: {}, instructions: "acme only", nodeBin: "/n/node" });
-    expect(toml).toContain(`${JSON.stringify(dropFolder(paths, "beta"))} = "none"`);
-    expect(toml).toContain(`${JSON.stringify(dropFolder(paths, null))} = "none"`);
-    expect(toml).not.toContain(JSON.stringify(dropFolder(paths, "acme")));
+    const rules = denyRules(projects, paths.home, "acme", paths, false);
+    expect(rules).toContain("Edit(./state/drops/beta/**)");
+    expect(rules).toContain("Edit(./state/drops/_shell/**)");
+    expect(rules).not.toContain("Read(./state/drops/beta/**)");
+    expect(rules).not.toContain("Read(./state/drops/_shell/**)");
+  });
+  it("Codex: the profile makes them \"none\" unattended and \"read\" attended, and leaves its own as the workspace", () => {
+    const { paths, projects } = instance();
+    const toml = (unattended: boolean) => codexConfigToml({ paths, projectsDir: projects, slug: "acme", unattended, servers: {}, instructions: "acme only", nodeBin: "/n/node" });
+    for (const [unattended, access] of [[true, "none"], [false, "read"]] as const) {
+      expect(toml(unattended)).toContain(`${JSON.stringify(dropFolder(paths, "beta"))} = "${access}"`);
+      expect(toml(unattended)).toContain(`${JSON.stringify(dropFolder(paths, null))} = "${access}"`);
+      expect(toml(unattended)).not.toContain(JSON.stringify(dropFolder(paths, "acme")));
+    }
   });
 });

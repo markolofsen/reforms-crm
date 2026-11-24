@@ -7,14 +7,8 @@
  */
 import type { ConversationsRowsItemDraftBasedOnContext } from './conversationsRowsItemDraftBasedOnContext';
 import type { ConversationsRowsItemDraftBasedOnFindingsItem } from './conversationsRowsItemDraftBasedOnFindingsItem';
-import type { ConversationsRowsItemDraftBasedOnLevel } from './conversationsRowsItemDraftBasedOnLevel';
-import type { ConversationsRowsItemDraftBasedOnSource } from './conversationsRowsItemDraftBasedOnSource';
 
 export type ConversationsRowsItemDraftBasedOn = {
-  level: ConversationsRowsItemDraftBasedOnLevel;
-  source: ConversationsRowsItemDraftBasedOnSource;
   findings: ConversationsRowsItemDraftBasedOnFindingsItem[];
-  /** @nullable */
-  similarTo: string | null;
   context: ConversationsRowsItemDraftBasedOnContext;
 } | null;

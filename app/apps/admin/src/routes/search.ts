@@ -24,7 +24,7 @@ export const isLogView = (v: ActivityView): v is "sends" | "errors" => v === "se
 /**
  * The views of the Mail list (P99 verdict 3), in their menu order: Needs you (the default: they wrote, or a draft is ready),
  * Waiting (for them), All; then two filters, Follow-ups (`sequences`, P47) and Not by email (P48, read-only client rows). Hold,
- * Thin basis, Sent and Finished are words and chips on a row, not views. The list itself lives in `@hub/config`.
+ * Sent and Finished are words and chips on a row, not views. The list itself lives in `@hub/config`.
  */
 export { DRAFT_VIEWS, type DraftView };
 /** The one label of each view: the View menu and the dock's "Agent sees: Mail · Needs you" read it. */

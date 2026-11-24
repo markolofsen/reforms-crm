@@ -106,6 +106,9 @@ export interface VersionRecord {
   messageId: string;
   hash: string;
   signatureFallback: string | null;
+  /** P140 R3: the brand and the address the client wrote to that the signer resolved (the record of an adopted version takes them). */
+  brand: string | null;
+  wroteTo: string | null;
   /** Row ids of the recorded versions Mail moved to Trash in this write. */
   trashed: number[];
 }

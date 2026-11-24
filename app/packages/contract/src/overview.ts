@@ -29,7 +29,6 @@ export const STATUS_KINDS = [
   "cap-near",
   "knowledge-expired",
   "never-triaged",
-  "context-block-soon",
 ] as const;
 export type StatusKind = (typeof STATUS_KINDS)[number];
 

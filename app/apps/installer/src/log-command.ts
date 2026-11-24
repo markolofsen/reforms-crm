@@ -91,7 +91,7 @@ export const eventLine = (e: LogEvent): string =>
 
 /** P133 (P129 section 6): the friction counters in one line. */
 export const frictionLine = (fr: Friction): string =>
-  `friction: shell writers ${fr.shellWriters}, evidence warnings on the owner's words ${fr.evidenceOnOwnerWords}, ToolSearch turns ${fr.toolSearchTurns}, AskUserQuestion turns ${fr.askUserTurns}, asked instead of acting ${fr.askedWithoutActing}, median turn ${fr.medianTurnSeconds === null ? "-" : `${Math.round(fr.medianTurnSeconds)} s`}`;
+  `friction: shell writers ${fr.shellWriters}, ToolSearch turns ${fr.toolSearchTurns}, AskUserQuestion turns ${fr.askUserTurns}, asked instead of acting ${fr.askedWithoutActing}, median turn ${fr.medianTurnSeconds === null ? "-" : `${Math.round(fr.medianTurnSeconds)} s`}`;
 
 export function summaryLines(s: SessionSummary): string[] {
   const out = [

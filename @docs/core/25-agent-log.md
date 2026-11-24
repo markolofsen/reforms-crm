@@ -65,7 +65,7 @@ Each event carries `action` (P137 L1) when its session had one (`HUB_ACTION`, se
 | `hub log` | the last 200 events (default: `HUB_PROJECT`, else every project; the last 7 days) |
 | `hub log tail` | the last 20, then follows (once a second) |
 | `hub log sessions` | one line per session: CLI, project, start, prompts, tool calls, errors, flagged turns |
-| `hub log summary [--session <id>]` | per session: counts, the top tools, the transcript path, the friction counters, and every flagged turn with its question and answer; last, the friction counters over the sessions shown (P133, P129 section 6: shell calls of a deleted hub writer, guard evidence warnings in turns that carried the owner's words, turns with ToolSearch, turns with AskUserQuestion, turns that asked instead of acting, the median turn time) |
+| `hub log summary [--session <id>]` | per session: counts, the top tools, the transcript path, the friction counters, and every flagged turn with its question and answer; last, the friction counters over the sessions shown (P133, P129 section 6: shell calls of a deleted hub writer, turns with ToolSearch, turns with AskUserQuestion, turns that asked instead of acting, the median turn time) |
 
 Filters on every view: `--project`, `--session` (a prefix), `--kind prompt,answer`, `--cli`, `--since 6h|7d|<date>`, `--until`, `--limit`, `--json`. The kinds are listed in `hub log --help`.
 

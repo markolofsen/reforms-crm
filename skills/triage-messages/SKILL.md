@@ -10,7 +10,7 @@ allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messeng
 
 The owner started this session and said the instruction. Nothing runs in the background. You read the linked chats, write drafts, report.
 Rules: `skills/README.md` ("Rules"; report format: "Report"). Replies to the owner in Russian, briefly.
-Why a skill of its own (P71 M2): `triage-mail` works on Mail (mail-mcp reads, the hub's Mail draft writer and its record, the Notion profile write) and the guard holds it to Mail's evidence chain; a messenger draft is a row of the hub's own (`messenger_drafts`), bound by the chat's rules, read from the hub's stored messages, and recorded by the tool itself.
+Why a skill of its own (P71 M2): `triage-mail` works on Mail (mail-mcp reads, the hub's Mail draft writer and its record, the Notion profile write); a messenger draft is a row of the hub's own (`messenger_drafts`), bound by the chat's rules, read from the hub's stored messages, and recorded by the tool itself.
 
 ## 0. Bind the session
 Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one project per session). A paused project: stop.

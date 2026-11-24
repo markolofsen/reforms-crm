@@ -282,7 +282,7 @@ describe("a batch as a scope of the Drafts list (P27)", () => {
 
 describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
   const rec = (email: string, mailRef: string, batchKey = "bulk-2026-11-20-1200-abc") =>
-    repos.drafts.record({ project: "p", email, name: email.split("@")[0]!, subject: "Re: Hello", mailRef, skill: "bulk-drafts", ownerRequest: "write to every client about the new price list", evidence: { level: "ok", source: "observed", findings: [], context: { purpose: "price list" }, batchKey } });
+    repos.drafts.record({ project: "p", email, name: email.split("@")[0]!, subject: "Re: Hello", mailRef, skill: "bulk-drafts", ownerRequest: "write to every client about the new price list", context: { purpose: "price list" }, batchKey });
 
   it("the run's first written draft makes the batch, the rest join it, a rerun adds nobody twice", async () => {
     const a = await rec("ann@x.example", "<a1@x>");
@@ -301,14 +301,14 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
     expect((await repos.inbox.list("p", "owed")).map((r) => r.email)).not.toContain("ann@x.example");
     // Another run is another batch; a triage record with a batchKey is no batch.
     await rec("cy@x.example", "<c1@x>", "bulk-2026-11-21-0900-xyz");
-    await repos.drafts.record({ project: "p", email: "dee@x.example", name: "Dee", subject: "Re: Q", mailRef: "<d1@x>", skill: "triage-mail", evidence: { level: "ok", source: "observed", findings: [], batchKey: "triage-1" } });
+    await repos.drafts.record({ project: "p", email: "dee@x.example", name: "Dee", subject: "Re: Q", mailRef: "<d1@x>", skill: "triage-mail", batchKey: "triage-1" });
     expect((await repos.batches.list("p")).map((x) => x.total)).toEqual([1, 2]);
   });
 
   it("P85b: a new thread is recorded without mailRef, joins the run's batch, takes its versions by the client's key, and a rerun updates it", async () => {
     const words = "write to every client about the new price list";
     await repos.mailVersions.add({ project: "p", mailRef: "new:eve@x.example", draftId: null, account: "desk", mailId: 7, messageId: "n7@x", hash: "h", source: "agent" });
-    const mk = () => repos.drafts.record({ project: "p", email: "Eve@x.example", name: "Eve", subject: "New prices", newThread: true, skill: "bulk-drafts", ownerRequest: words, evidence: { level: "ok", source: "observed", findings: [], batchKey: "bulk-nt" } });
+    const mk = () => repos.drafts.record({ project: "p", email: "Eve@x.example", name: "Eve", subject: "New prices", newThread: true, skill: "bulk-drafts", ownerRequest: words, batchKey: "bulk-nt" });
     const a = await mk();
     const d = await repos.drafts.get(a.draftId);
     expect(d?.mailRef).toBeNull();
@@ -319,13 +319,13 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
     await expect(repos.drafts.record({ project: "p", email: "fay@x.example", name: "Fay", subject: "New", newThread: true, skill: "bulk-drafts" })).rejects.toThrow(/owner's words/);
   });
 
-  it("P85b: the live checks of the card (Mail's text) carry the evidence checks that block Checked in a batch", async () => {
-    const r = await repos.drafts.record({ project: "p", email: "gus@x.example", name: "Gus", subject: "Re: Hello", mailRef: "<g1@x>", skill: "bulk-drafts", ownerRequest: "write to Gus", evidence: { level: "weak", source: "claimed", findings: [{ code: "facts-missing", text: "no fact was used", amber: true }], batchKey: "bulk-ev" } });
+  it("P85b: the live checks of the card (Mail's text) carry the recorded findings that block Checked in a batch", async () => {
+    const r = await repos.drafts.record({ project: "p", email: "gus@x.example", name: "Gus", subject: "Re: Hello", mailRef: "<g1@x>", skill: "bulk-drafts", ownerRequest: "write to Gus", findings: [{ code: "fact-other-brand", text: "names the other brand's price", amber: false }], batchKey: "bulk-ev" });
     const stored = (await repos.batches.drafts("p", (await repos.drafts.get(r.draftId))?.batchId as number))[0];
     const live = await repos.sends.safetyOf(r.draftId, { subject: "Re: Hello", toAddr: "gus@x.example", ccAddr: null, body: "Hi Gus" });
     expect(stored?.blocked).toBe(true);
     expect(live.map((x) => x.kind).sort()).toEqual(stored?.safetyResults.map((x) => x.kind).sort());
-    expect(live.some((x) => x.kind.startsWith("evidence_"))).toBe(true);
+    expect(live.some((x) => x.kind === "fact_other_brand")).toBe(true);
   });
 
   it("a finished draft with the same message is not a batch member again unless the owner's words wrote a new one", async () => {
@@ -340,7 +340,7 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
 describe("P87: a campaign is a batch whatever the agent remembered, and its history stays listed", () => {
   const words = "write to Mark Effect and Ann about the Hub test";
   const rec = (email: string, mailRef: string, context: Record<string, unknown> = {}) =>
-    repos.drafts.record({ project: "p", email, name: email, subject: "Re: Hello", mailRef, skill: "bulk-drafts", ownerRequest: words, evidence: { level: "ok", source: "observed", findings: [], context, batchKey: typeof context.batchKey === "string" ? context.batchKey : null } });
+    repos.drafts.record({ project: "p", email, name: email, subject: "Re: Hello", mailRef, skill: "bulk-drafts", ownerRequest: words, context, batchKey: typeof context.batchKey === "string" ? context.batchKey : null });
 
   it("B2: records of one phrase with no batchKey land in ONE batch; neither key nor words is refused", async () => {
     const a = await rec("mark@x.example", "<m1@x>");
@@ -350,7 +350,7 @@ describe("P87: a campaign is a batch whatever the agent remembered, and its hist
     expect(list[0]).toMatchObject({ total: 2, brief: words });
     expect((await repos.drafts.get(a.draftId))?.batchId).toBe(list[0]!.id);
     expect((await repos.drafts.get(b.draftId))?.batchId).toBe(list[0]!.id);
-    await expect(repos.drafts.record({ project: "p", email: "z@x.example", name: "Z", subject: "Re", mailRef: "<z@x>", skill: "bulk-drafts", evidence: { level: "ok", source: "observed", findings: [] } })).rejects.toThrow(/batchKey/);
+    await expect(repos.drafts.record({ project: "p", email: "z@x.example", name: "Z", subject: "Re", mailRef: "<z@x>", skill: "bulk-drafts" })).rejects.toThrow(/batchKey/);
   });
 
   it("finding 8: the batch takes the agent's English title; a title in Cyrillic falls back to Campaign <date>", async () => {
@@ -386,9 +386,10 @@ describe("P87: a campaign is a batch whatever the agent remembered, and its hist
   });
 
   it("finding 6: Understood all warnings acknowledges every amber result of the batch's open drafts, never a red one", async () => {
-    const r = await repos.drafts.record({ project: "p", email: "gus@x.example", name: "Gus", subject: "Re: Hello", mailRef: "<g1@x>", skill: "bulk-drafts", ownerRequest: "write to Gus", evidence: { level: "weak", source: "claimed", findings: [{ code: "facts-missing", text: "no fact was used", amber: true }], batchKey: "bulk-w" } });
+    const r = await repos.drafts.record({ project: "p", email: "gus@x.example", name: "Gus", subject: "Re: the price list", mailRef: "<g1@x>", skill: "bulk-drafts", ownerRequest: "write to Gus", findings: [{ code: "fact-other-brand", text: "names the other brand's price", amber: false }], batchKey: "bulk-w" });
     const batchId = (await repos.drafts.get(r.draftId))?.batchId as number;
     const before = (await repos.batches.drafts("p", batchId))[0]!.safetyResults;
+    expect(before.some((x) => x.level === "amber") && before.some((x) => x.level === "red")).toBe(true);
     const out = await repos.drafts.acknowledgeWarnings("p", batchId);
     const after = (await repos.batches.drafts("p", batchId))[0]!.safetyResults;
     expect(out.results).toBe(before.filter((x) => x.level === "amber" && !x.acked).length);

@@ -1,4 +1,3 @@
-import { CONTEXT_BLOCK_FROM } from "@hub/projects/context";
 import { STATUS_KINDS, type StatusDto, type StatusKind, type StatusLevel, type StatusNext } from "@hub/contract/overview";
 import type { ProjectFacts } from "./facts";
 
@@ -8,7 +7,7 @@ import type { ProjectFacts } from "./facts";
  * attention, then the facts worth naming at level `clear` (the old "watch" kinds); ties follow `STATUS_KINDS`. The slug is
  * never in the sentence: the row or the screen already names the project. `next` names the page that fixes the fact (P70):
  * Settings ▸ Sending for sending (Stop, the sends, the cap, who drafts may go to), Overview for what is fixed by a phrase in a
- * session (a failing setup check, a draft project, the evidence rule), Knowledge for the entries. A setting the owner chose (test
+ * session (a failing setup check, a draft project), Knowledge for the entries. A setting the owner chose (test
  * mode) is level `clear`: it is still said when nothing worse is, but it is not a fault, so it lights no dot (UX pass 2026-11-20).
  */
 
@@ -27,7 +26,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 const RANK: Record<StatusLevel, number> = { blocked: 0, attention: 1, clear: 2 };
 
 /** Every fact of one project, unsorted. A paused or archived project runs nothing, so it raises nothing. */
-export function factsOf(f: ProjectFacts, sys: InstanceFacts, now: Date): Fact[] {
+export function factsOf(f: ProjectFacts, sys: InstanceFacts): Fact[] {
   if (f.archived || f.status === "archived" || f.status === "paused") return [];
   const out: Fact[] = [];
   const add = (kind: StatusKind, level: StatusLevel, sentence: string, next: StatusNext | null) => out.push({ kind, level, sentence, next });
@@ -51,14 +50,11 @@ export function factsOf(f: ProjectFacts, sys: InstanceFacts, now: Date): Fact[] 
   // An expired entry is the owner's to renew (UX pass): attention, so the Knowledge dot lights with Overview's knowledge item.
   if (f.knowledgeExpired > 0) add("knowledge-expired", "attention", `${plural(f.knowledgeExpired, "knowledge entry has", "knowledge entries have")} expired`, "knowledge");
   if (f.status === "active" && f.lastTriageAt === null) add("never-triaged", "clear", "No triage has run yet", null);
-  if (f.status === "active" && f.contextRequired === null && now.getTime() < Date.parse(CONTEXT_BLOCK_FROM)) {
-    add("context-block-soon", "clear", `Drafts without evidence are refused from ${CONTEXT_BLOCK_FROM.slice(0, 10)}`, "overview");
-  }
   return out;
 }
 
-export function statusOf(f: ProjectFacts, sys: InstanceFacts, now: Date): StatusDto {
-  const worst = factsOf(f, sys, now).sort((a, b) => RANK[a.level] - RANK[b.level] || STATUS_KINDS.indexOf(a.kind) - STATUS_KINDS.indexOf(b.kind))[0];
+export function statusOf(f: ProjectFacts, sys: InstanceFacts): StatusDto {
+  const worst = factsOf(f, sys).sort((a, b) => RANK[a.level] - RANK[b.level] || STATUS_KINDS.indexOf(a.kind) - STATUS_KINDS.indexOf(b.kind))[0];
   const paused = f.status === "paused" ? "Paused: nothing runs" : f.archived || f.status === "archived" ? "Archived" : "All clear";
   const head = worst ?? { kind: "clear" as const, level: "clear" as const, sentence: paused, next: null };
   return { level: head.level, kind: head.kind, sentence: head.sentence, next: head.next, numbers: { owed: f.owed, wrote: f.wrote, ...(f.leads ? { leads: f.leads } : {}), lastTriageAt: f.lastTriageAt, mailRead: sys.mailRead ?? NO_READ } };

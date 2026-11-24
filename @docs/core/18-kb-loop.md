@@ -23,7 +23,7 @@ client mail -> draft needs a fact
         v  the owner, or the agent on his word, adds or fixes the entry files (approval is his), reindex
    the next run finds the fact
 ```
-The loop closes with the owner: the agent writes or edits an entry only on his word and always as `approved: false` unless he approved it in that session; it never approves one. After the edit the index is refreshed by `hub knowledge index <slug>` (the owner or the coordinator runs it until P140).
+The loop closes with the owner: the agent writes or edits an entry only on his word and always as `approved: false` unless he approved it in that session; it never approves one. After the edit the server refreshes the index by itself (file change and server start, P140 K1); `hub knowledge index <slug>` does it by hand.
 
 ## 2. Order of sources for a fact
 

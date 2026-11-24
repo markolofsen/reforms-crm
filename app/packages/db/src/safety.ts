@@ -1,4 +1,4 @@
-import { DEFAULT_SAFETY_RULES, FINDING_KIND, SAFETY_KINDS, unresolvedMarkers, type EvidenceFinding, type EvidenceSource, type Mark, type SafetyKind, type SafetyResult, type SafetyRule } from "@hub/config";
+import { DEFAULT_SAFETY_RULES, FINDING_KIND, SAFETY_KINDS, unresolvedMarkers, type DraftFinding, type Mark, type SafetyKind, type SafetyResult, type SafetyRule } from "@hub/config";
 
 // The safety rules engine (doc 14). Pure: a draft, its client and the rules in, the results out. The rules are data
 // (`DEFAULT_SAFETY_RULES`, overridden per project in the `safety_rules` table), so the owner edits them without code.
@@ -11,8 +11,8 @@ export type SafetyInput = {
   /** Addresses that may appear in To/Cc besides the client's own (the project's own mailboxes). */
   knownAddresses?: string[];
   now: Date;
-  /** The stored evidence block of a recorded draft (P28); absent on a draft that has none, and then no evidence rule fires. */
-  evidence?: { source: EvidenceSource | null; findings: EvidenceFinding[]; profileState: string | null } | null;
+  /** The findings the draft record stored (P60: `fact-other-brand`); absent or empty, no finding rule fires. */
+  findings?: readonly DraftFinding[] | null;
   /** P65 S2: the language the newest Mail version the Hub wrote had no sign-off or signature line for (it was signed in English). */
   signatureFallback?: string | null;
 };
@@ -71,12 +71,6 @@ export function evaluateSafety(input: SafetyInput, rules: SafetyRule[], acked: r
       case "signature_language":
         if (input.signatureFallback) fire(rule.kind, `The project has no sign-off or signature line for "${input.signatureFallback}", the reply's language: the draft is signed in English. Add a ${input.signatureFallback}: line to signoff or the brand's Signature, or edit the ending.`);
         break;
-      case "profile_empty":
-        if (input.evidence?.profileState && input.evidence.profileState !== "filled") fire(rule.kind, `The client's Notion profile is ${input.evidence.profileState}: the reply is based on the thread alone.`);
-        break;
-      case "evidence_claimed":
-        if (input.evidence && input.evidence.source === "claimed") fire(rule.kind, "What was read is the agent's own count: no hook confirmed it.");
-        break;
       case "already_sent_recently": {
         const days = rule.params.days ?? 7;
         if (input.lastClosedAt) {
@@ -86,8 +80,8 @@ export function evaluateSafety(input: SafetyInput, rules: SafetyRule[], acked: r
         break;
       }
       default: {
-        // The findings of the evidence check: one result per kind, with the findings' own sentences.
-        const own = (input.evidence?.findings ?? []).filter((f) => (FINDING_KIND[f.code] ?? "evidence_weak") === rule.kind);
+        // The record's findings: one result per kind, with the findings' own sentences.
+        const own = (input.findings ?? []).filter((f) => FINDING_KIND[f.code] === rule.kind);
         if (own.length) fire(rule.kind, own.map((f) => f.text).join("; "));
       }
     }

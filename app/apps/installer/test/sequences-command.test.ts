@@ -7,7 +7,7 @@ import { doctorProject } from "@hub/projects/doctor";
 import { projectStore } from "@hub/projects/store";
 import { FakeMailer } from "@hub/send/mailer";
 import { defaultRoot } from "../src/context";
-import { anyRecipients, beforeContextBlock } from "./instance-fixture";
+import { anyRecipients } from "./instance-fixture";
 import { recordClientCall } from "@hub/agent/records/client";
 import { clientRecord } from "@hub/agent/records/schema";
 import { recordFlat } from "./support/seed-draft-impl";
@@ -96,7 +96,7 @@ describe("enrol, due, and a reply (W1 acceptance)", () => {
     const enrollmentId = Number(due.due[0]?.enrollmentId);
 
     // the step draft, as the skill's draft_write records it
-    const step = await recordFlat("alpha", { email: "quiet@example.com", name: "Quinn Quiet", subject: "Re: your enquiry", mailRef: "<our-answer@example.com>", skill: "sequence-drafts", repliesOwed: false, sequence: { enrollmentId, step: 1 } }, { dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy, now: beforeContextBlock });
+    const step = await recordFlat("alpha", { email: "quiet@example.com", name: "Quinn Quiet", subject: "Re: your enquiry", mailRef: "<our-answer@example.com>", skill: "sequence-drafts", repliesOwed: false, sequence: { enrollmentId, step: 1 } }, { dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy });
     if (!step.ok) throw new Error(`${step.code}: ${step.error}`);
     expect(step).toMatchObject({ ok: true, action: "created" });
     // the client writes back; triage records the client (client_record)
@@ -112,7 +112,7 @@ describe("enrol, due, and a reply (W1 acceptance)", () => {
     await runSequencesEnrol("alpha", { client: "quiet@example.com" }, deps());
     const id = Number(last().enrollmentId);
     const base = { email: "quiet@example.com", name: "Q", subject: "Re: x", mailRef: "<m1>" };
-    const rec = (p: object) => recordFlat("alpha", p, { dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy, now: beforeContextBlock });
+    const rec = (p: object) => recordFlat("alpha", p, { dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy });
     expect(await rec({ ...base, skill: "triage-mail", sequence: { enrollmentId: id, step: 1 } })).toMatchObject({ ok: false, code: "record_invalid" });
     expect(await rec({ ...base, skill: "sequence-drafts", sequence: { enrollmentId: id, step: 2 } })).toMatchObject({ ok: false, code: "record_failed", error: expect.stringMatching(/Step 2 is not the open step/) });
     expect(await rec({ ...base, skill: "sequence-drafts", sequence: { enrollmentId: id, step: 1, extra: true } })).toMatchObject({ ok: false, code: "record_invalid" });
@@ -165,7 +165,7 @@ describe("enrol, due, and a reply (W1 acceptance)", () => {
 });
 
 describe("a dry sequence-drafts session on the alpha fixture (W2 acceptance, fake mailer)", () => {
-  it("one recorded step draft per due row with evidence ok, and nothing sent", async () => {
+  it("one recorded step draft per due row, and nothing sent", async () => {
     await repos(async (r) => {
       const c2 = await r.clients.create({ project: "alpha", email: "second@example.com", name: "Sam Second", repliesOwed: false, lastContactAt: daysAgo(9) });
       await r.drafts.create({ project: "alpha", clientId: c2, subject: "Re: prices", toAddr: "second@example.com", body: "b", status: "done", actedAt: daysAgo(7), mailRef: "<prices-1@example.com>", mailClass: "client" });
@@ -180,10 +180,10 @@ describe("a dry sequence-drafts session on the alpha fixture (W2 acceptance, fak
     for (const row of due) {
       // what the session does per row (P1 to P7 read, then draft_write, which saves the reply in Mail and records it with this record): no Mail call is a send
       const context = { batchKey: "seq-2026-11-30-abc", thread: { firstContact: false, found: 3, read: 3, readIds: [1, 2, 3], cited: [1], newest: "2026-11-20" }, profile: { read: true, state: "filled" }, facts: { queries: 1, used: [], missing: [] }, anchors: [`the enquiry of ${row.client.name}`], personalization: `Picks up ${row.client.name}'s own question from our last answer and adds one new detail.` };
-      const r = await recordFlat("alpha", { email: row.client.email, name: row.client.name, subject: "Re: your enquiry", mailRef: row.replyTo?.sentMessageId ?? row.replyTo?.mailRef ?? "<none>", skill: "sequence-drafts", repliesOwed: false, context, sequence: { enrollmentId: row.enrollmentId, step: row.step } }, { dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy, now: () => NOW });
-      results.push(r.ok ? { ok: true, action: r.action, evidence: r.evidence } : { ok: false, action: r.code, evidence: r.error });
+      const r = await recordFlat("alpha", { email: row.client.email, name: row.client.name, subject: "Re: your enquiry", mailRef: row.replyTo?.sentMessageId ?? row.replyTo?.mailRef ?? "<none>", skill: "sequence-drafts", repliesOwed: false, context, sequence: { enrollmentId: row.enrollmentId, step: row.step } }, { dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy });
+      results.push(r.ok ? { ok: true, action: r.action } : { ok: false, action: r.code, error: r.error });
     }
-    expect(results.map((r) => [r.ok, r.action, r.evidence])).toEqual([[true, "created", "ok"], [true, "created", "ok"]]);
+    expect(results).toEqual([{ ok: true, action: "created" }, { ok: true, action: "created" }]);
     expect(mailer.sent).toEqual([]);
     await repos(async (r) => {
       expect((await r.clients.review("alpha", "sequences")).map((d) => d.sequence?.step)).toEqual([1, 1]);

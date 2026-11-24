@@ -41,13 +41,23 @@ describe("P99 S1 the conversation read (fake osa, never Mail)", () => {
     expect(calls).toEqual([FROM_SCRIPT]);
   });
 
-  it("threads by References and In-Reply-To, then joins one subject without Re: and Fwd:; ours sit in place by date", () => {
+  it("threads by the headers only: a root never joins by subject, an orphan joins the newest thread of its subject, newest thread last (P140 R1)", () => {
     const m = (messageId: string, date: string, subject: string, inReplyTo: string | null = null, references: string[] = []) => ({ messageId, date, subject, inReplyTo, references });
-    const groups = threadsOf([m("w2", "2026-11-21", "Re: Wow", "s3"), m("h1", "2026-11-14", "Hello"), m("s1", "2026-11-19", "Re: Hello", "h1"), m("w1", "2026-11-19", "Wow"), m("s3", "2026-11-20", "RE: Wow", null, ["w1"]), m("h0", "2026-11-14", "hello")]);
-    expect(groups.map((g) => g.map((x) => x.messageId))).toEqual([
-      ["h1", "h0", "s1"],
-      ["w1", "s3", "w2"],
+    const groups = threadsOf([
+      m("h1", "2026-11-14T10:00Z", "Hello"),
+      m("s1", "2026-11-19T10:00Z", "Re: Hello", "h1", ["h1"]),
+      m("h2", "2026-11-20T10:00Z", "Re: Hello", "s1", ["h1", "s1"]),
+      m("w1", "2026-11-19T11:00Z", "Wow"),
+      m("w2", "2026-11-21T08:38Z", "Re: Wow", "gone", ["gone"]),
+      m("n1", "2026-11-24T03:31Z", "hello"),
+      m("r1", "2026-11-24T12:42Z", "Re: hello", "n1", ["n1"]),
     ]);
+    expect(groups.map((g) => g.map((x) => x.messageId))).toEqual([
+      ["h1", "s1", "h2"],
+      ["w1", "w2"],
+      ["n1", "r1"],
+    ]);
+    expect(groups.at(-1)!.at(-1)!.messageId).toBe("r1");
     expect(baseSubject("Re: Fwd: RE[2]: Wow  now")).toBe("wow now");
   });
 

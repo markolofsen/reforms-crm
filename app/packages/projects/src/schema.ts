@@ -153,11 +153,6 @@ export const ProjectBase = z.object({
       delayMinutes: z.number().int().positive().max(1440).default(10),
     })
     .default({ mode: "draft", classes: [], dailyCap: 5, delayMinutes: 10 }),
-  /**
-   * the draft record (`draft_write`) and the evidence block (P28): `warn` records a missing or failing `context` and reports it,
-   * `block` refuses the draft. null: warn until CONTEXT_BLOCK_FROM, block after (owner decision 2026-11-15).
-   */
-  context: z.object({ required: z.enum(["warn", "block"]).nullable().default(null) }).default({ required: null }),
   /** null: the global value applies. quietHours `off` is kept as "off". */
   run: z
     .object({ quietHours: z.string().nullable().default(null), maxMessages: z.number().int().positive().nullable().default(null), maxBudgetUsd: z.number().positive().nullable().default(null) })

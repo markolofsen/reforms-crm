@@ -7,7 +7,7 @@ import { fakePorts, REPLAY_CASES, replay, type FakePorts, type ReplayGuard, type
 import { auditLayout, guardDecision, preDraftViolations } from "../src/safety";
 
 // P129 verdict 10 (A7): the replay with the REAL guard. Each documented call of a case passes `guardDecision` (block mode, the
-// project's accounts) and `preDraftViolations` (the evidence rule and the owner's words, verdict 7) before the real tool runs on
+// project's accounts) and `preDraftViolations` (the messenger chat-read rule; P140 K2 removed the Mail evidence rule) before the real tool runs on
 // fake ports, and the PostToolUse ledger records it after, as the hooks do in a session. No violation, no unexpected refusal.
 
 let open: FakePorts[] = [];
@@ -21,7 +21,7 @@ const guard: ReplayGuard = (call, p) => {
   const payload = { session_id: call.sessionId, tool_name: call.name, tool_input: call.input };
   const accounts = projectStore({ projects: p.projectsDir }).config(p.slug).mail.accounts;
   const g = guardDecision(payload, { slug: p.slug, accounts, mode: "block", layout: auditLayout(paths), unattended: false });
-  return [...g.violations, ...preDraftViolations(payload, p.dir, p.slug, p.dbPath, paths)];
+  return [...g.violations, ...preDraftViolations(payload, p.dir, p.slug)];
 };
 const observe: ReplayObserver = (call, p) => void recordPost(p.dir, p.slug, { session_id: call.sessionId, tool_name: call.name, tool_input: call.input, tool_response: call.result });
 

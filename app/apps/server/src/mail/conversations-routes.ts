@@ -1,13 +1,13 @@
 import { clientKey, parseClientKey, type ClientKeyDto } from "@hub/contract/client-key";
 import { Hono } from "hono";
-import { conversationDto, conversationMailDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery } from "@hub/contract/conversations";
+import { conversationDto, conversationMailDto, conversationRefreshedDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery } from "@hub/contract/conversations";
 import { notionIdentityDto, type NotionIdentityDto } from "@hub/contract/notion";
 import { errFields, ops } from "@hub/log/ops";
 import { headersFromText, mailComposerContext, resolveBrand } from "@hub/projects/brands";
 import { toDraft } from "../http/dto";
 import { notFound, v } from "../http/http";
 import { ownText } from "@hub/mail-app/own-text";
-import { LABEL_MAILBOXES } from "./inbound";
+import { LABEL_MAILBOXES, projectReadOf } from "./inbound";
 import type { MailContext } from "./context";
 import { createMessengerIdentityResolver } from "../messengers/identity";
 import { hubMessages, messageKey, threadsDto, type ConversationItem, type NotionRef } from "./conversation-view";
@@ -18,12 +18,16 @@ const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw)
  * P99: Mail lists people. `GET /api/projects/:slug/conversations` (one row per client, the state word, the views), `GET
  * .../clients/:id/conversation` (the pane's header and unsent message, SQLite only), `.../conversation/mail` (the history, read
  * from Mail now and never stored, decision 0013) and `.../conversation/text?m=` (one body, fetched as its bubble renders and kept in the server's
- * memory). Read only toward Mail: no route here writes Mail, Notion or the database except the idempotent clients rows of verdict 1.
+ * memory). `POST .../conversation/refresh` (P140 R5, Refresh): one Mail reader and one Sent pass, this person's locations and
+ * bodies forgotten, their WhatsApp chats refilled from the Mac's app. Read only toward Mail: no route here writes Mail, Notion
+ * or the database except the idempotent clients rows of verdict 1 (and the chat cache the refill fills through the one ingest).
  */
-export function conversationRoutes({ repos, projects, mail, directory }: MailContext) {
+export function conversationRoutes({ repos, projects, mail, directory, reader, sentPass, refillWhatsApp }: MailContext) {
   const identity = createMessengerIdentityResolver(directory);
   /** Where the last history read found each message, by project and Message-ID (for its body). Memory only. */
   const where = new Map<string, { account: string; mailbox: string; mailId: number }>();
+  /** P140 R5: the Message-IDs the last history read of each person found, by project and client id (what Refresh forgets). */
+  const readOf = new Map<string, Set<string>>();
   const notionFor = (email: string, refs: readonly NotionRef[], inboxRefs: ReadonlyMap<string, NotionRef | null>): NotionIdentityDto => {
     const inbox = inboxRefs.get(email.trim().toLowerCase()) ?? null;
     const resolved = [...refs, inbox].find((ref) => ref?.notionPageId || ref?.notionUrl) ?? null;
@@ -118,7 +122,40 @@ export function conversationRoutes({ repos, projects, mail, directory }: MailCon
       }) : { note: "Mail is not read here." };
       if ("note" in read) return c.json(conversationMailDto.parse({ source: "hub", note: read.note, ms: null, ...threadsDto(hubMessages(f), f, versions, projectConfig.brands) }));
       for (const m of read.messages) where.set(`${slug}|${m.messageId}`, { account: m.account, mailbox: m.mailbox, mailId: m.mailId });
+      readOf.set(`${slug}|${f.client.id}`, new Set(read.messages.map((m) => m.messageId)));
       return c.json(conversationMailDto.parse({ source: "mail", note: null, ms: read.ms, ...threadsDto(read.messages, f, versions, projectConfig.brands) }));
+    })
+    .post("/api/projects/:slug/clients/:id/conversation/refresh", async (c) => {
+      const slug = c.req.param("slug");
+      const n = id(c.req.param("id"));
+      const project = await repos.projects.get(slug);
+      const f = n === null || !project ? null : await repos.conversations.facts(slug, n);
+      if (!f || !project) return notFound(c, "client");
+      const t0 = Date.now();
+      await reader?.tick();
+      await sentPass?.();
+      const mailRead = reader ? projectReadOf(reader.status(), slug).reason === null : false;
+      const key = `${slug}|${f.client.id}`;
+      const located = [...(readOf.get(key) ?? [])].flatMap((m) => {
+        const at = where.get(`${slug}|${m}`);
+        where.delete(`${slug}|${m}`);
+        return at ? [at] : [];
+      });
+      readOf.delete(key);
+      mail?.forget?.([...located, ...f.inbound.map((r) => ({ account: r.account, messageId: r.messageId }))]);
+      // P141 W3: a linked WhatsApp chat refills from the Mac's app; a Telegram chat has no per-chat catch-up (new messages arrive live).
+      let chats = 0;
+      let stored = 0;
+      if (refillWhatsApp) {
+        const numbers = new Set((await repos.messengers.identifiersOf(slug, f.client.id)).filter((x) => x.kind === "whatsapp").map((x) => x.value));
+        for (const row of (await repos.messengers.allowedChats(slug)).filter((r) => r.channel === "whatsapp" && numbers.has(r.chatId))) {
+          chats++;
+          stored += await refillWhatsApp(slug, { chatId: row.chatId, jid: row.jid }).catch(() => 0);
+        }
+      }
+      const ms = Date.now() - t0;
+      ops("mail").info("conversation refreshed", { project: slug, client: f.client.id, ms, mailRead, messengers: stored });
+      return c.json(conversationRefreshedDto.parse({ ok: true, ms, mailRead, chats, stored }));
     })
     .get("/api/projects/:slug/clients/:id/conversation/text", v("query", conversationTextQuery), async (c) => {
       const slug = c.req.param("slug");

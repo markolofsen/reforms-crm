@@ -64,6 +64,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **Projects (one folder each)** (`projects.registry`)
   - Proves: Every `<projects>/<slug>/` has a non-empty `project.md` and a `knowledge/` folder. With no project yet there is nothing to check.
   - `hub install` fixes it: Creates the missing `knowledge/` folders. `project.md` is written by the project-setup skill, never by the installer.
+- [ ] **The knowledge index says what the entry files say** (`knowledge.index`)
+  - Proves: Every indexable entry file of every project has its index row with the file's content hash and canonical `brands`, and no row is left without its file. Read only (the database opened read-only). FAIL names the paths that differ and the fix: `hub knowledge index <slug>`.
 - [ ] **Project development kanban (@dev)** (`dev.kanban`)
   - Proves: Every project has `@dev/` (WARN when missing; `hub dev init <slug> --apply` creates it), its README track table matches the directories (`hub dev index <slug>` regenerates it) and no plan's `Status:` contradicts its directory (FAIL otherwise). Read only: `hub install` never creates it.
 ## Instance

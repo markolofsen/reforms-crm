@@ -4,7 +4,7 @@ import { auditToolCalls, HUB_MESSENGER_SEND, type AuditLayout, type SkillScope, 
 import { defaultProjectsRoot } from "@hub/projects/registry";
 import { kindOf } from "@hub/projects/kinds";
 import { projectStore } from "@hub/projects/store";
-import { isDraftWrite, preDraftCheck, type LedgerEntry } from "@hub/agent/evidence/ledger";
+import type { LedgerEntry } from "@hub/agent/evidence/ledger";
 import { chatDraftViolations, HUB_MESSENGER_DRAFT_WRITE } from "@hub/agent/evidence/chat-ledger";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
@@ -15,15 +15,13 @@ import { notionDenial } from "@hub/projects/notion-tools";
 import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
 import { connectorViolations, notionNote, notionScopeOf, notionViolations, recordConnectorRead, type ConnectorScope, type NotionRead } from "@hub/agent/connector-guard";
 import { readSession, recordPost, type PostPayload } from "@hub/agent/evidence/store";
-import { openDbReadOnly, readAgentSettings } from "@hub/db";
+import { readAgentSettings } from "@hub/db";
 import type { AgentSettings } from "@hub/config";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parsePayload, stampAction, toolCallEvents, toolResultEvent } from "@hub/log/hooks";
 import { ACTION_ENV, isActionId } from "@hub/config/action-id";
-import { appendEvents, logStoreOf, readEvents } from "@hub/log/store";
-import { ownerWordsFound } from "@hub/agent/owner-word";
-import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
+import { appendEvents, logStoreOf } from "@hub/log/store";
 
 // Tool-level safety of `hub agent` (plans p17 and P49). What each CLI gets is built in `@hub/agent` (one source for the launcher,
 // the doctor and the server); this file writes it. Layers: (1) deny rules and disallowed tools, (2) the hub's MCP servers only
@@ -230,8 +228,8 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   let unattended = true;
   try { unattended = instanceFeatures(paths).agent.unattended; } catch { /* unreadable config: the stricter answer */ }
   const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead, unattended });
-  // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
-  if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db, paths));
+  // P71 M2: a messenger reply is written from its chat's own history (a Mail draft is not judged for what was read: P140 K2).
+  if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug));
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");
   // P54: the call, and what the guard saw, go to the session log (the writer never throws).
   appendEvents(logStoreOf(paths), stampAction(toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }), env[ACTION_ENV]));
@@ -240,49 +238,16 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   return r.block ? { code: 2, stderr: text } : { code: 0, stderr: text };
 }
 
-/** The pre-draft rule (research 15 section 3.2): only a draft write (`create_reply`, the hub's `draft_write`, and P71's `messenger_draft_write` by its own rule) is judged, against the ledger of this session and subagent. Never throws. */
-export function preDraftViolations(payload: GuardInput, root: string, slug: string, db?: string, paths: HubPaths = pathsAt(root)): string[] {
+/** The messenger rule (P71 M2): a `messenger_draft_write` is judged against this session's (and subagent's) ledger: its chat was read first. Never throws. */
+export function preDraftViolations(payload: GuardInput, root: string, slug: string): string[] {
   try {
     const name = String(payload.tool_name ?? "");
-    const messenger = name === HUB_MESSENGER_DRAFT_WRITE;
-    if (!isDraftWrite(name) && !messenger) return [];
+    if (name !== HUB_MESSENGER_DRAFT_WRITE) return [];
     const sid = typeof payload.session_id === "string" ? payload.session_id : "";
     if (!sid) return [];
-    // P129 verdict 7 (decision 0045 point 9): a Mail draft on the owner's own words (a poem, "переведи", a test to his address)
-    // rests on them, not on the thread: when this project's session log holds them, the chain is not asked for.
-    if (!messenger && ownerWordsVerified(payload.tool_input, slug, paths)) return [];
     const aid = typeof payload.agent_id === "string" && payload.agent_id ? payload.agent_id : undefined;
-    // P71 M2: a messenger reply is judged by its own rule (its chat's history read first), never by the mail chain.
-    if (messenger) return chatDraftViolations(readSession(root, slug, sid), { name, input: payload.tool_input }, aid);
-    const replyFrom = revisionClient(payload.tool_input, slug, db);
-    // P85b: a revision of a new thread answers no message either: what it was based on was judged at its first write.
-    if (replyFrom === NEW_THREAD) return [];
-    return preDraftCheck(readSession(root, slug, sid), { name: String(payload.tool_name), input: payload.tool_input }, { ...(aid ? { aid } : {}), ...(replyFrom ? { replyFrom } : {}) }).violations;
+    return chatDraftViolations(readSession(root, slug, sid), { name, input: payload.tool_input }, aid);
   } catch { return []; }
-}
-
-/** True when the draft write carries `owner_request` and this project's session log of the last 12 hours holds those words. */
-export function ownerWordsVerified(input: unknown, slug: string, paths: HubPaths, now: Date = new Date()): boolean {
-  const words = input && typeof input === "object" && "owner_request" in input ? input.owner_request : undefined;
-  if (typeof words !== "string" || !words.trim()) return false;
-  const since = new Date(now.getTime() - OWNER_WORD_MAX_AGE_HOURS * 3_600_000).toISOString();
-  const events = readEvents(logStoreOf(paths), { project: slug, kinds: ["prompt"], since });
-  return ownerWordsFound({ events, words, now }).ok;
-}
-
-/** `draft_write {draft}` (P53): the address of the client that hub draft of this project answers, so the read of their message counts as the target. */
-const NEW_THREAD = "\u0000new-thread";
-function revisionClient(input: unknown, slug: string, db: string | undefined): string | undefined {
-  const id = input && typeof input === "object" ? (input as { draft?: unknown }).draft : undefined;
-  if (typeof id !== "number" || !db || !existsSync(db)) return undefined;
-  const h = openDbReadOnly(db);
-  try {
-    const row = h.db.$client.prepare("SELECT to_addr AS t, mail_ref AS r, context AS c FROM drafts WHERE id = ? AND project = ?").get(id, slug) as { t?: unknown; r?: unknown; c?: unknown } | undefined;
-    if (row && row.r == null && typeof row.c === "string" && row.c.includes('"newThread":true')) return NEW_THREAD;
-    return typeof row?.t === "string" ? row.t.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0] : undefined;
-  } finally {
-    h.close();
-  }
 }
 
 /** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger and its result to the session log (both from the ORIGINAL reply), then for `get_message_content` prints a replacement reply with slim headers. Always exit 0. */

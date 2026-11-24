@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
+import { type DraftFinding, type FinishReason, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
@@ -52,12 +52,13 @@ export type RecordDraftInput = {
   mailClass?: string | null;
   /** The skill that made the draft, for the Agent log line. */
   skill?: string | null;
-  /**
-   * What the draft was based on, judged by the draft record (`draft_write`) before it wrote (P28). `context` is the validated block;
-   * `fingerprint` is the sketch of the reply (ints, never text). Left out, the draft has no evidence and no evidence rule fires.
-   */
-  evidence?: { level: EvidenceLevel; source: EvidenceSource; findings: EvidenceFinding[]; context?: unknown; similarTo?: string | null; fingerprint?: number[] | null; batchKey?: string | null } | null;
-  /** Put the log line in this run (of the same project). Without it the session's run (`evidence.batchKey`) is joined, else one is started. */
+  /** What the agent says the draft was based on (the record's validated `context` block), shown on the card and never judged (P140 K2). Null clears it; left out, kept. */
+  context?: unknown;
+  /** The record's findings (P60 `fact-other-brand`): each fires its safety kind. Left out: kept as stored. */
+  findings?: DraftFinding[];
+  /** One per triage or bulk run (`context.batchKey`): the drafts of one run are one batch. */
+  batchKey?: string | null;
+  /** Put the log line in this run (of the same project). Without it the session's run (`batchKey`) is joined, else one is started. */
   runId?: number | null;
   /** The draft is step `step` of this enrollment (P47, skill `sequence-drafts`): only the open step of an active enrollment is accepted. */
   sequence?: { enrollmentId: number; step: number } | null;
@@ -96,6 +97,18 @@ function followStatus(tx: WriteTx, before: DraftStatus, after: DraftRow): void {
 const isUnique = (e: unknown) => e instanceof Error && /UNIQUE constraint/i.test(e.message);
 
 /**
+ * P140 R4: the brand and the address the client wrote to of a recorded draft, healed from the answered message's headers
+ * (`hub drafts heal-brands`). Any status: a sent draft's record names the thread's brand too (P87 `ourThread`). Only these two
+ * fields move; nothing else of the draft, no Checked, no event. Refuses a draft of another project.
+ */
+function setDraftBrand(db: Db, project: string, draftId: number, r: { brand: string | null; wroteTo: string | null }): void {
+  write(db, (tx) => {
+    const n = tx.update(drafts).set({ brand: r.brand, wroteTo: r.wroteTo }).where(and(eq(drafts.id, draftId), eq(drafts.project, project))).run().changes;
+    if (n === 0) throw new RepoError("not_found", `No draft ${draftId} in project ${project}`);
+  });
+}
+
+/**
  * Draft state changes. Every human change keeps the state before it (`prev*`, `actedAt`) for one-step undo and, for a
  * draft in a bulk batch, writes a line to the batch's action log. Nothing here can write `sent`.
  */
@@ -107,9 +120,7 @@ export function draftsRepo(db: Db) {
       return db.insert(drafts).values(input).returning({ id: drafts.id }).get().id;
     },
 
-    async get(id: number) {
-      return row(id);
-    },
+    get: async (id: number) => row(id),
 
     /**
      * The drafts of a project that answer this message (P65 verdict 4: `draft_write` refuses a new reply to a message
@@ -269,6 +280,8 @@ export function draftsRepo(db: Db) {
         return { draftId: d.id, clientId: d.clientId, action: "updated" as const };
       });
     },
+
+    setBrandOf: async (project: string, draftId: number, r: { brand: string | null; wroteTo: string | null }): Promise<void> => setDraftBrand(db, project, draftId, r), // P140 R4
 
     /**
      * Drafts that could still turn out to be sent: ready, hold or done (the person may press Send in Mail without

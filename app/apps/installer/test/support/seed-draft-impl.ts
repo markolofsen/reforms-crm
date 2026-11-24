@@ -12,7 +12,7 @@ const CALL_KEYS = new Set(["email", "subject", "mailRef", "newThread", "ownerReq
 const entries = (v: unknown): Array<[string, unknown]> => (v && typeof v === "object" ? Object.entries(v) : []);
 
 /** Records one flat payload; a payload the record schema refuses is `record_invalid`, as `draft_write` refuses it. */
-export async function recordFlat(project: string, payload: object, env: DraftRecordEnv, o: { ownerVerified?: boolean } = {}): Promise<DraftRecordOutcome> {
+export async function recordFlat(project: string, payload: object, env: DraftRecordEnv, o: { brand?: string | null; wroteTo?: string | null } = {}): Promise<DraftRecordOutcome> {
   const j = Object.fromEntries(entries(payload));
   const rec: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(j)) if (!CALL_KEYS.has(k)) rec[SNAKE[k] ?? k] = v;
@@ -22,12 +22,12 @@ export async function recordFlat(project: string, payload: object, env: DraftRec
   if (!record.success) return { ok: false, code: "record_invalid", error: record.error.issues.map((i) => `${i.path.join(".") || "record"}: ${i.message}`).join("; ") };
   if (typeof j.email !== "string" || typeof j.subject !== "string") return { ok: false, code: "record_invalid", error: "email and subject are required" };
   if ((j.mailRef === undefined) === (j.newThread !== true)) return { ok: false, code: "record_invalid", error: "give mailRef or newThread, exactly one" };
-  return recordDraftCall({ project, email: j.email, subject: j.subject, mailRef: j.newThread === true ? null : String(j.mailRef), ownerRequest: typeof j.ownerRequest === "string" ? j.ownerRequest : null, ownerVerified: o.ownerVerified ?? false, record: record.data }, env);
+  return recordDraftCall({ project, email: j.email, subject: j.subject, mailRef: j.newThread === true ? null : String(j.mailRef), ownerRequest: typeof j.ownerRequest === "string" ? j.ownerRequest : null, record: record.data, brand: o.brand ?? null, wroteTo: o.wroteTo ?? null }, env);
 }
 
 /** `seed-draft.mjs`: the instance from `HUB_HOME` / `HUB_DB` / `HUB_PROJECTS`, as `hub mcp` resolves it. */
 export async function seedDraft(project: string, text: string): Promise<DraftRecordOutcome> {
   const paths = hubPaths();
   const parsed: unknown = JSON.parse(text);
-  return recordFlat(project, parsed && typeof parsed === "object" ? parsed : {}, { dbPath: paths.db, projectsDir: paths.projects, policyDir: paths.stateProjects, configFile: paths.configFile, ledgerRoot: process.env.HUB_LEDGER_ROOT ?? paths.home });
+  return recordFlat(project, parsed && typeof parsed === "object" ? parsed : {}, { dbPath: paths.db, projectsDir: paths.projects, policyDir: paths.stateProjects, configFile: paths.configFile });
 }

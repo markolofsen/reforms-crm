@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto, leadsListDto, leadsListQuery } from "@hub/contract/inbound";
+import { ops } from "@hub/log/ops";
 import { notFound, v } from "../http/http";
 import { INBOUND_OFF, projectReadOf } from "./inbound";
 import { ownText } from "@hub/mail-app/own-text";
@@ -59,7 +60,9 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
     .post("/api/projects/:slug/inbound/check", async (c) => {
       const slug = c.req.param("slug");
       if (!(await project(slug))) return notFound(c, "project");
+      const t0 = Date.now();
       await Promise.all([reader?.tick(), leads?.read(slug)]);
+      ops("mail").info("mail checked by hand", { project: slug, ms: Date.now() - t0 });
       return c.json(inboundCheckedDto.parse({ ok: true, read: projectReadOf(status(), slug) }));
     })
     .post("/api/projects/:slug/inbound/undismiss", v("json", inboundUndismissBody), async (c) => {

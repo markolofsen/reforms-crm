@@ -38,14 +38,14 @@ describe("slimMessageContent", () => {
   });
 });
 
-import { mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runGuardPost } from "../src/safety";
 import { sessionFile } from "@hub/agent/evidence/store";
 
 describe("hub guard --post on get_message_content", () => {
-  it("prints a slim reply and still records the ledger from the original", () => {
+  it("prints a slim reply; a Mail read is not in the ledger (P140 K2: it holds Notion and chat reads only)", () => {
     const root = mkdtempSync(path.join(tmpdir(), "slim-"));
     const env = { HUB_PROJECT: "p" } as NodeJS.ProcessEnv;
     const r = runGuardPost(JSON.stringify({ session_id: "S", tool_name: "mcp__mail-mcp__get_message_content", tool_input: { message_id: 7, account: "a" }, tool_response: body() }), { root, env });
@@ -53,8 +53,7 @@ describe("hub guard --post on get_message_content", () => {
     expect(out.hookEventName).toBe("PostToolUse");
     expect(JSON.parse(out.updatedMCPToolOutput).message.allHeaders.length).toBeLessThan(RAW.length / 2);
     const f = sessionFile(root, "p", "S");
-    expect(existsSync(f)).toBe(true);
-    expect(readFileSync(f, "utf8")).toContain(`"bytes":${body().length}`);
+    expect(existsSync(f)).toBe(false);
   });
   it("prints nothing for other tools", () => {
     const root = mkdtempSync(path.join(tmpdir(), "slim-"));

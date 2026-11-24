@@ -4,7 +4,7 @@ The owner looks at a draft in the admin and asks in a phrase; he never names the
 (the session rules). A vague request ("измени", "перепиши", "что угодно") is a work order: write a better version and say in one
 line what changed. Only a fact the knowledge lacks is an `[Owner: ...]` placeholder.
 
-1. `draft_show` with `draft` = its id: `mailRef`, recipients, subject, reason, evidence, client, and `mail` (the Mail versions the
+1. `draft_show` with `draft` = its id: `mailRef`, recipients, subject, reason, basedOn, client, and `mail` (the Mail versions the
    Hub recorded). The body is in Mail: `list_drafts` on the project's account, the draft with that Message-ID. With
    `repliedElsewhere` (P90) or `teamSent`, revise as asked but open your line with who replied and when.
 2. Steps 1, 1b, 3, 4 of section 2 for that client, in full (a revision is a reply and needs the same evidence). Words the owner

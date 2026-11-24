@@ -35,7 +35,7 @@ export function createOverview(o: OverviewOptions): OverviewService {
       const facts = await gatherFacts({ repos: o.repos, projects: o.projects, now, hostZone: zone, rows: projects });
       const rows = facts.map((f) => {
         const sys = { sentError: system.sent.state === "error" && system.sent.projects.includes(f.slug), fakeMailer: system.mailer === "fake", mailRead: projectReadOf(system.inbound, f.slug) };
-        return { slug: f.slug, name: f.name, projectStatus: f.status, archived: f.archived, toReview: f.toReview, sentToday: f.sentToday, status: statusOf(f, sys, now) };
+        return { slug: f.slug, name: f.name, projectStatus: f.status, archived: f.archived, toReview: f.toReview, sentToday: f.sentToday, status: statusOf(f, sys) };
       });
       return overviewDto.parse({
         serverTime: now.toISOString(),

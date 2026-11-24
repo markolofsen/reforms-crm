@@ -17,6 +17,7 @@ import type {
   ClientMarksBody,
   Conversation,
   ConversationMail,
+  ConversationRefreshed,
   ConversationText,
   Conversations,
   DraftChanged,
@@ -1186,6 +1187,60 @@ export const getConversationText = async (slug: string,
   {
     ...options,
     method: 'GET'
+
+
+  }
+);}
+
+
+export type refreshConversationResponse200 = {
+  data: ConversationRefreshed
+  status: 200
+}
+
+export type refreshConversationResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type refreshConversationResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type refreshConversationResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type refreshConversationResponseSuccess = (refreshConversationResponse200) & {
+  headers: Headers;
+};
+export type refreshConversationResponseError = (refreshConversationResponse403 | refreshConversationResponse404 | refreshConversationResponse503) & {
+  headers: Headers;
+};
+
+export type refreshConversationResponse = (refreshConversationResponseSuccess | refreshConversationResponseError)
+
+export const getRefreshConversationUrl = (slug: string,
+    id: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/clients/${encodeURIComponent(String(id))}/conversation/refresh`
+}
+
+/**
+ * @summary Read this person's Mail and chats again now
+ */
+export const refreshConversation = async (slug: string,
+    id: number, options?: Parameters<typeof hubMutator>[1]): Promise<refreshConversationResponse> => {
+
+  return hubMutator<refreshConversationResponse>(getRefreshConversationUrl(slug,id),
+  {
+    ...options,
+    method: 'POST'
 
 
   }

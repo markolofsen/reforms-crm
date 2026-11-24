@@ -16,7 +16,7 @@ export const projectShowTool = defineTool({
   name: "project_show",
   title: "This project's settings",
   description:
-    "The bound project as the hub resolved it: kind and status, Mail accounts, addresses, domains and sender, ## Brands (where each receives mail, signed or not), languages, sign-off, knowledge scope, its own Notion databases by id (query these, never one found by search), Quick Links (data), draft recipients and test mode with the owner's test addresses, the context rule and the skills its kind allows. Read only.",
+    "The bound project as the hub resolved it: kind and status, Mail accounts, addresses, domains and sender, ## Brands (where each receives mail, signed or not), languages, sign-off, knowledge scope, its own Notion databases by id (query these, never one found by search), Quick Links (data), draft recipients and test mode with the owner's test addresses, and the skills its kind allows. Read only.",
   input: z.object({}),
   output: z.object({
     project: z.string(),
@@ -33,7 +33,6 @@ export const projectShowTool = defineTool({
     links: z.array(ProjectLink),
     draft: z.object({ recipients: z.union([z.literal("test"), z.literal("any"), z.array(z.string())]) }),
     testMode: z.object({ on: z.boolean(), addresses: z.array(z.string()) }),
-    context: z.object({ required: z.enum(["warn", "block"]).nullable() }),
     skills: z.array(z.string()),
   }),
   effect: "read",
@@ -64,7 +63,6 @@ export const projectShowTool = defineTool({
       links: c.links.map(({ group, label, target, under, answered, by }) => ({ group, label, target, under, answered, by })),
       draft: { recipients: c.draft.recipients },
       testMode: { on: c.draft.recipients === "test", addresses: [...tests] },
-      context: { required: c.context.required },
       skills: kindOf(c.kind)?.skills ?? [],
     };
   },

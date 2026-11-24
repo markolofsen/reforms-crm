@@ -15,7 +15,7 @@ import type { RecordDraftInput, RecordDraftResult } from "./drafts";
 // P126 DB1: the one writer of a draft a session made outside a batch, and the helpers only it uses.
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** The evidence block's `context`, with the owner's words beside it (P85). Null when there is neither. */
+/** The record's `context`, with the owner's words beside it (P85). Null when there is neither. */
 function contextJson(context: unknown, ownerRequest: string | null, newThread = false): string | null {
   if (!ownerRequest && !newThread) return context === undefined ? null : JSON.stringify(context);
   return JSON.stringify({ ...(isRecord(context) ? context : {}), ...(ownerRequest ? { ownerRequest } : {}), ...(newThread ? { newThread: true } : {}) });
@@ -86,7 +86,7 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
     }
     const ownerWords = input.ownerRequest?.trim() || null;
     // P87 (B2): a campaign record always has a run key, so its drafts are one batch whether or not the agent passed one.
-    const runKey = input.skill === BULK_SKILL ? bulkKeyOf(input.evidence?.batchKey, ownerWords, at) : (input.evidence?.batchKey ?? null);
+    const runKey = input.skill === BULK_SKILL ? bulkKeyOf(input.batchKey, ownerWords, at) : (input.batchKey ?? null);
     if (input.skill === BULK_SKILL && !runKey) throw new RepoError("wrong_state", "A bulk-drafts record needs context.batchKey (one per run, the same for every client of the run) or ownerRequest (the owner's words): without either its drafts are no batch");
     const runId = sessionRun(tx, { project: input.project, runId: input.runId, batchKey: runKey, skill: input.skill, at });
     const log = (kind: "draft_created" | "decision", summary: string, detail: Record<string, unknown>) =>
@@ -128,22 +128,12 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
       mailClass: input.mailClass ?? null,
       ...(input.wroteTo !== undefined ? { wroteTo: input.wroteTo } : {}),
       ...(input.brand !== undefined ? { brand: input.brand } : {}),
-      ...(input.evidence
-        ? {
-            evidence: input.evidence.level,
-            evidenceSource: input.evidence.source,
-            evidenceFindings: JSON.stringify(input.evidence.findings),
-            context: contextJson(input.evidence.context, ownerRequest, newThread),
-            similarTo: input.evidence.similarTo ?? null,
-            fingerprint: input.evidence.fingerprint?.length ? JSON.stringify(input.evidence.fingerprint) : null,
-            batchKey: runKey,
-          }
-        : ownerRequest || newThread
-          ? { context: contextJson(undefined, ownerRequest, newThread) }
-          : {}),
+      ...(input.context !== undefined || ownerRequest || newThread ? { context: contextJson(input.context ?? undefined, ownerRequest, newThread) } : {}),
+      ...(input.findings ? { findings: JSON.stringify(input.findings) } : {}),
+      ...(input.batchKey !== undefined || runKey ? { batchKey: runKey } : {}),
     };
     // P85: a campaign (`bulk-drafts`, one `batchKey`) is one batch in Drafts; joined only by a draft that is written.
-    const inBatch = (): { batchId?: number } => (input.skill === BULK_SKILL && runKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.evidence?.context), title: titleOf(input.evidence?.context), at }) } : {});
+    const inBatch = (): { batchId?: number } => (input.skill === BULK_SKILL && runKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.context), title: titleOf(input.context), at }) } : {});
     const flagged = input.injectionSuspected === true;
     const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
     // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.

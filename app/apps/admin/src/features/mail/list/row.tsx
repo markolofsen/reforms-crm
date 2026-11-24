@@ -27,7 +27,7 @@ export function statusOf(r: ConversationRow): Status {
 
 type Chip = ConversationChip;
 
-/** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, checks, thin basis, a follow-up step, two brands. */
+/** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, checks, a follow-up step, two brands. */
 export function chipsOf(r: ConversationRow): Chip[] {
   const out: Chip[] = [];
   const d: ReviewDraft | null = r.draft;
@@ -35,7 +35,6 @@ export function chipsOf(r: ConversationRow): Chip[] {
   if (d && d.injectionSuspected && !isClosed(d)) out.push({ id: "injection", text: "Suspicious mail", variant: "error" });
   const pending = d && !isClosed(d) ? openResults(d) : [];
   if (pending.length > 0) out.push({ id: "checks", text: `${pending.length} check${pending.length === 1 ? "" : "s"}`, variant: pending.some((x) => x.level === "red") ? "error" : "warning" });
-  if (d && !isClosed(d) && (d.basedOn?.level === "weak" || d.basedOn?.level === "missing")) out.push({ id: "thin", text: "Thin basis", variant: "warning" });
   if (d?.sequence) out.push({ id: "follow-up", text: `Follow-up ${d.sequence.step}/${d.sequence.steps}`, variant: "info" });
   if (r.brands.length > 1) out.push({ id: "brands", text: r.brands.join(" · "), variant: "outline" });
   return out.slice(0, 2);

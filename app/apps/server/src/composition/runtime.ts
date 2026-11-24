@@ -52,6 +52,8 @@ export type Runtime = {
   mail: {
     sender?: RuntimeSender;
     sent?: () => SentStatus;
+    /** P140 R5: one pass of the Sent reconciler now (Refresh). */
+    sentPass?: () => Promise<void>;
     inbound?: InboundHandle;
     inboundText?: InboundTextReader;
     leads?: LeadsHandle;

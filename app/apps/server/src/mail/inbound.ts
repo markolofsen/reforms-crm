@@ -84,6 +84,7 @@ export interface InboundOptions {
   onStored?: (project: string, n: number) => void;
   /** P97: told when a pass sees a lead notice it had not seen before (after the project's first pass): the Leads reader reads at once. */
   onNotice?: (project: string) => void;
+  onDoorSendRecorded?: (project: string) => void; // P140 verdict 3: once per pass that stored a door send's Message-ID; the open history re-reads
 }
 
 const HOUR = 3_600_000;
@@ -284,13 +285,11 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
   }
 
   /**
-   * Verdict 13: a send of the Hub's door gets a new Message-ID from Mail (measured 2026-11-20); the door does not learn it.
-   * Read it back from the account's Sent: the newest message after the send with the row's subject and first recipient that
-   * is not already ours. Stored on the send row and its draft only where none is recorded. Sends of the last two days.
+   * Verdict 13: a door send gets a new Message-ID from Mail (2026-11-20), so it is read back from Sent: the newest message after
+   * the send with its subject and first recipient, not already ours; stored where none is. Sends of the last two days.
    */
   async function recordDoorSends(p: Plan): Promise<void> {
-    const t = now().getTime();
-    const waiting = await o.repos.sends.awaitingMessageId(p.slug, new Date(t - 2 * DAY).toISOString());
+    const waiting = await o.repos.sends.awaitingMessageId(p.slug, new Date(now().getTime() - 2 * DAY).toISOString());
     if (!waiting.length) return;
     const oldest = Math.min(...waiting.map((w) => Date.parse(w.doneAt ?? w.createdAt)));
     const known = await o.repos.inboundMail.known(p.slug);
@@ -298,8 +297,7 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
     for (const account of p.config.mail.accounts) sent.push(...(await readSent(osa, account, p.config.mail.sentMailbox, new Date(oldest - 10 * 60_000))));
     const used = new Set<string>();
     for (const w of waiting) {
-      const at = Date.parse(w.doneAt ?? w.createdAt) - 2 * 60_000;
-      const to = firstAddress(w.toAddr);
+      const [at, to] = [Date.parse(w.doneAt ?? w.createdAt) - 2 * 60_000, firstAddress(w.toAddr)];
       const hit = sent
         .filter((m) => !used.has(m.messageId) && !known.ours.has(m.messageId) && Date.parse(m.date) >= at && normSubject(m.subject) === normSubject(w.subject) && (!to || m.to.includes(to)))
         .sort((a, b) => (a.date < b.date ? -1 : 1))[0];
@@ -307,6 +305,7 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
       used.add(hit.messageId);
       await o.repos.sends.setSentMessageId(w.id, hit.messageId);
     }
+    if (used.size) o.onDoorSendRecorded?.(p.slug);
   }
 
   async function pass(): Promise<void> {

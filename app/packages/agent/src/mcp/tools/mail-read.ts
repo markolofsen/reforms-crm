@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DRAFT_STATUSES, EVIDENCE_LEVELS, MARKS } from "@hub/config";
+import { DRAFT_STATUSES, MARKS } from "@hub/config";
 import { CONVERSATION_STATES, CONVERSATION_VIEWS } from "@hub/contract/conversations";
 import { answeringDraft } from "@hub/db";
 import { displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brands";
@@ -128,7 +128,7 @@ export const mailListTool = defineTool({
     view: z.enum(CONVERSATION_VIEWS),
     total: z.number(),
     counts: z.record(z.string(), z.number()),
-    rows: z.array(z.object({ client: z.object({ id: z.number(), name: z.string(), email: z.string() }), state: z.enum(CONVERSATION_STATES), at: z.string(), subject: z.string(), inbound: z.number().nullable(), draft: z.object({ id: z.number(), status: z.enum(DRAFT_STATUSES), evidence: z.enum(EVIDENCE_LEVELS).nullable() }).nullable() })),
+    rows: z.array(z.object({ client: z.object({ id: z.number(), name: z.string(), email: z.string() }), state: z.enum(CONVERSATION_STATES), at: z.string(), subject: z.string(), inbound: z.number().nullable(), draft: z.object({ id: z.number(), status: z.enum(DRAFT_STATUSES) }).nullable() })),
   }),
   effect: "read",
   refusals: [],
@@ -141,7 +141,7 @@ export const mailListTool = defineTool({
       view: v,
       total,
       counts,
-      rows: rows.map((r) => ({ client: { id: r.client.id, name: cut(r.client.name), email: r.client.email }, state: r.state, at: r.at, subject: cut(r.subject), inbound: r.inboundId, draft: r.draft ? { id: r.draft.id, status: r.draft.status, evidence: r.draft.evidence ?? null } : null })),
+      rows: rows.map((r) => ({ client: { id: r.client.id, name: cut(r.client.name), email: r.client.email }, state: r.state, at: r.at, subject: cut(r.subject), inbound: r.inboundId, draft: r.draft ? { id: r.draft.id, status: r.draft.status } : null })),
     };
   },
 });

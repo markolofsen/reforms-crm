@@ -38,7 +38,7 @@ export function claudeModelSettings(a: AgentSettings = DEFAULT_AGENT_SETTINGS): 
  * Appended after the binding prompt, never in `sessionRules()` (that text is shared with Codex and with `AGENTS.md`).
  */
 export const ADVISOR_RULE =
-  "Advisor: consult the `advisor` tool before you change project instructions (project.md, a workflow, knowledge), before a draft built on thin evidence or for a hard client, and before a step that cannot be undone. Not for lookups, and not when the owner gave an explicit instruction: then act.";
+  "Advisor: consult the `advisor` tool before you change project instructions (project.md, a workflow, knowledge), before a draft for a hard client, and before a step that cannot be undone. Not for lookups, and not when the owner gave an explicit instruction: then act.";
 
 /**
  * Edit rules for the protected paths, in every mode: the Edit and Write tools are not sandboxed (only commands are), so the
@@ -88,7 +88,7 @@ export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
     permissions: { deny },
     hooks: {
       PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: hub, timeout: 20 }] }],
-      // P28 B3: the evidence ledger (what was read before each reply). Fires inside subagents too (S1), keyed by session_id and agent_id.
+      // The session ledger (Notion reads for the guard's update rule, messenger history reads). Fires inside subagents too, keyed by session_id and agent_id.
       PostToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `${hub} --post`, timeout: 20 }] }],
       // P51: one `[Hub focus, data]` line per prompt while the admin's focus is fresh; nothing otherwise, never a block.
       UserPromptSubmit: [{ hooks: [{ type: "command", command: focusHookCommand(i.nodeBin, i.paths, "claude"), timeout: 5 }] }],

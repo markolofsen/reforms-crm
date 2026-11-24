@@ -4,7 +4,7 @@ import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { evaluateSafety } from "../safety";
 import { clients, drafts, mailVersions, marks, sendControl, sendLog, type MessengerChannel, type SendStatus } from "../schema";
-import { evidenceOf, loadRules, nowIso, parseJson } from "./bulk-shared";
+import { findingsOf, loadRules, nowIso, parseJson } from "./bulk-shared";
 import { write, type WriteTx } from "../tx";
 
 export type SendRow = typeof sendLog.$inferSelect;
@@ -357,9 +357,9 @@ export function sendsRepo(db: Db) {
       // P65 S2: the newest Mail version the Hub wrote says whether it had to sign in English.
       const newest = db.select({ fallback: mailVersions.signatureFallback }).from(mailVersions).where(eq(mailVersions.draftId, draftId)).orderBy(desc(mailVersions.id)).limit(1).get();
       return evaluateSafety(
-        // P85b: the stored evidence block too, as the list's own results have it (`loadSafety`): without it the card's live checks
-        // left out the evidence and near-duplicate checks that still blocked Checked, so a batch draft could not be Checked at all.
-        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null, evidence: evidenceOf(draft) },
+        // P85b: the stored findings too, as the list's own results have it (`loadSafety`): without them the card's live checks
+        // left out a check that still blocked Checked, so a batch draft could not be Checked at all.
+        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null, findings: findingsOf(draft) },
         loadRules(db, draft.project),
         parseJson<string[]>(draft.acked, []),
       );

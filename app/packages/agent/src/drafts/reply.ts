@@ -43,7 +43,7 @@ export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Writte
   await adoptLate(ctx, slug, null, mailRef, null, thread.filter((v) => v.draftId === null));
   const pending = await pendingVersion(s, mailRef);
   // P129 verdict 4: the hub's own unrecorded version of this reply is recorded by this call, not written twice.
-  if (pending) return { pending: { mailId: pending.mailId, messageId: pending.messageId, account: pending.account }, mailRef };
+  if (pending) return { pending: { mailId: pending.mailId, messageId: pending.messageId, account: pending.account, brand: pending.brand, wroteTo: pending.wroteTo }, mailRef };
   // P65 S5: the Hub's last write for this message may still be landing (Mail slow): a second one would be a duplicate.
   const landing = await landingWrite(s, mailRef);
   if (landing) throw new ToolError("mail_slow", `The hub's write for this message at ${landing.startedAt} has not shown in Mail yet (Mail is slow); it is adopted when it lands. Do not write it again now: tell the owner in one line; a later draft_write with the same record records it once it landed. Nothing was written.`);

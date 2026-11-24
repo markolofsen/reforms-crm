@@ -66,8 +66,6 @@ export interface ProjectFacts {
   /** Names of the failing setup checks (names only, never a detail that could hold a value). */
   doctorFailed: string[];
   knowledgeExpired: number;
-  /** `context.required` of the project; null: the default (warn until CONTEXT_BLOCK_FROM). */
-  contextRequired: "warn" | "block" | null;
 }
 
 export interface FactsInput {
@@ -122,7 +120,6 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
       recipients: policy.draft.recipients === "test" ? "test" : policy.draft.recipients === "any" ? "any" : "listed",
       doctorFailed,
       knowledgeExpired: await i.repos.knowledge.expiredCount(row.slug, localDate(i.now, tz)),
-      contextRequired: c.context.required,
     });
   }
   return out;

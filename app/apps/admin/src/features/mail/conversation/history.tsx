@@ -89,7 +89,7 @@ function Threads({ project, clientId, name, data, pointed, marked }: { project: 
 }
 
 /**
- * The whole correspondence with one person (P99 verdict 4), oldest thread first, read from Mail when the conversation opens (the
+ * The whole correspondence with one person (P99 verdict 4), the newest-active thread last (P140), read from Mail when the conversation opens (the
  * spike's AppleScript read, about a second) and never stored. When Mail cannot be read the Hub's own rows show, with the reason.
  */
 export function History({ project, clientId, name, onNote, onScrollState, onSourceMessageId, pointed, marks }: { project: string; clientId: number; name: string; onNote?: (note: string | null) => void; onScrollState?: (state: ConversationScrollState) => void; onSourceMessageId?: (messageId: string | null) => void; pointed: string | null; marks?: MapMarks | null }) {

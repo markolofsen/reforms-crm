@@ -37,8 +37,8 @@ Rules every entry skill follows: `skills/README.md` ("Where the rules live", "Re
 8. **Write the summary** to `projects/<slug>/reports/kb/review-YYYY-MM-DD.md` (Write, inside `reports/` only; git-ignored): the period, the
    ranked table, the drafts. Reports whose date is inside the period stay as they are.
 9. **Notion: nothing.** The summary lives on the local disk only. A Knowledge entry is never approved by this skill. On the owner's word it writes
-   or edits the entry files (`approved: false`, front matter valid against `taxonomy.md`); otherwise he does. Either way `hub knowledge index <slug>`
-   then refreshes the index (the owner or the coordinator runs it until P140 makes it automatic).
+   or edits the entry files (`approved: false`, front matter valid against `taxonomy.md`); otherwise he does. Either way the server refreshes the index
+   when the files change (P140 K1); `hub knowledge index <slug>` does it by hand.
 10. **Report** in Russian: period, runs read, groups, the top items (3 to 5 lines: type, priority, topic, one clause of proposal),
     path of the summary file, "в базе знаний ничего не изменено", and the next step: "добавь/поправь файлы в knowledge/,
     потом: переиндексируй знания проекта X".

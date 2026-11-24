@@ -80,6 +80,8 @@ export function sequenceRefusal(command: string): string | null {
   return null;
 }
 const PATH_KEYS = ["file_path", "path", "pattern", "command", "notebook_path"];
+/** P140 K3: the tools that only read a file or a folder. In an attended session they may name any project's folder. */
+const READ_TOOLS = new Set(["Read", "Grep", "Glob", "LS"]);
 
 /** The hub's own skills (`hub`) and those the project's kind allows (`allowed`). A skill outside `hub` (a built-in or plugin skill) is not judged here. */
 export interface SkillScope {
@@ -124,6 +126,8 @@ export function toolCallsFromLog(text: string): ToolCall[] {
  * project-aware, so the binding is checked against the calls: a mail call naming an `account` outside the project,
  * a knowledge call naming another `project`, a send-capable tool, or a file access in another project's folder.
  * Folders starting with `_` (`_template`, `_archive`) are shared reference and allowed.
+ * P140 K3 (owner, 2026-11-24): in an attended session a Read, Grep, Glob or LS of another project's folder, or of the projects
+ * folder itself, is not flagged (the session reads whatever the work needs); an Edit, a Write or a command there still is.
  */
 export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, accounts: readonly string[], skills: SkillScope | undefined, layout: AuditLayout, mode: { unattended: boolean } = { unattended: true }): string[] {
   const m = matchers(layout);
@@ -149,10 +153,12 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
     if (seq) out.push(`${short} runs ${seq}`);
     const written = [input.command, input.new_string, input.content, ...(Array.isArray(input.edits) ? input.edits.map((e) => (e as { new_string?: unknown })?.new_string) : [])];
     if (written.some((w) => typeof w === "string" && SEND_SETTINGS.test(w))) out.push(`${short} writes a send.* setting (switching sending on is the owner's step)`);
+    const readsAnyProject = !mode.unattended && READ_TOOLS.has(c.name);
     for (const k of PATH_KEYS) {
       const v = input[k];
       if (typeof v !== "string") continue;
       if (m.secrets.test(v)) out.push(`${short} touched secrets or the live database (${k}: ${v.slice(0, 80)})`);
+      if (readsAnyProject) continue;
       if (m.listing.test(v)) out.push(`${short} listed or globbed ${m.shown} instead of naming ${slug} (${k}: ${v.slice(0, 80)})`);
       if (k === "command" && runsMailProgram(v)) out.push(`${short} runs a mail-sending program (drafts only)`);
       for (const hit of v.matchAll(m.path)) {

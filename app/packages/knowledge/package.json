@@ -8,7 +8,9 @@
     "./search": "./src/search.ts",
     "./check": "./src/check.ts",
     "./import": "./src/import.ts",
-    "./indexer": "./src/indexer.ts"
+    "./indexer": "./src/indexer.ts",
+    "./drift": "./src/drift.ts",
+    "./watch": "./src/watch.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

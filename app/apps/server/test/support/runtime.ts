@@ -41,6 +41,7 @@ export type TestOverrides = {
   sent?: () => SentStatus;
   inbound?: InboundHandle;
   inboundText?: InboundTextReader;
+  sentPass?: () => Promise<void>;
   leads?: LeadsHandle;
   conversationMail?: ConversationMail;
   messengers?: () => MessengersStatus;
@@ -89,7 +90,7 @@ export function testRuntime(repos: Repos, o: TestOverrides = {}): Runtime {
     ...some("policyDir", policyDir),
     projects,
     ...some("timeZone", o.overview?.timeZone),
-    mail: { ...some("sender", o.sender), ...some("sent", o.sent), ...some("inbound", o.inbound), ...some("inboundText", o.inboundText), ...some("leads", o.leads), ...some("conversation", o.conversationMail) },
+    mail: { ...some("sender", o.sender), ...some("sent", o.sent), ...some("sentPass", o.sentPass), ...some("inbound", o.inbound), ...some("inboundText", o.inboundText), ...some("leads", o.leads), ...some("conversation", o.conversationMail) },
     messengers: {
       ...some("bot", o.messengers),
       ...some("telegramUser", o.telegramUser),

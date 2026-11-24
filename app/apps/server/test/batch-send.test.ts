@@ -61,7 +61,7 @@ const mailOf = (n: number, over: Partial<MailDraft> = {}): MailDraft => ({
 async function campaign(n: number, unchecked: number[] = []): Promise<{ batchId: number; ids: number[] }> {
   const ids: number[] = [];
   for (let k = 1; k <= n; k++) {
-    const r = await repos.drafts.record({ project: "acme", email: `c${k}@example.com`, name: `Client ${k}`, subject: `Re: prices ${k}`, mailRef: `<in${k}@x>`, skill: "bulk-drafts", ownerRequest: "write to every client about the new prices", evidence: { level: "ok", source: "observed", findings: [], context: { purpose: "prices" }, batchKey: "run-1" } });
+    const r = await repos.drafts.record({ project: "acme", email: `c${k}@example.com`, name: `Client ${k}`, subject: `Re: prices ${k}`, mailRef: `<in${k}@x>`, skill: "bulk-drafts", ownerRequest: "write to every client about the new prices", context: { purpose: "prices" }, batchKey: "run-1" });
     mailer.drafts.push(mailOf(k));
     if (!unchecked.includes(k)) await repos.drafts.setChecked(r.draftId, true);
     ids.push(r.draftId);

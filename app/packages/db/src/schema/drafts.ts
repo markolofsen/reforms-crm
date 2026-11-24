@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import type { BatchStatus, DraftStatus, EvidenceLevel, EvidenceSource, NotionKind } from "@hub/config";
+import type { BatchStatus, DraftStatus, NotionKind } from "@hub/config";
 import { clients } from "./clients";
 import { agentRuns } from "./agent";
 import { enrollments } from "./mail";
@@ -30,15 +30,11 @@ export const drafts = sqliteTable(
     notionUrl: text("notion_url"), // the client's Notion profile, set by the draft record (`draft_write`)
     notionKind: text("notion_kind").$type<NotionKind>(), // client | lead | none; null = never reported (a row from before P26)
     notionPageId: text("notion_page_id"), // the page id the link is built from when `notionUrl` is empty
-    // The evidence block of the draft record (`draft_write`) (P28): what the draft was based on. JSON, no body text beyond 120-char
-    // excerpts of the INCOMING thread (decision 0013). Null on a draft recorded before it, and on a batch draft.
+    // The context block of the draft record (`draft_write`): what the agent says the draft was based on, shown on the card, never
+    // judged (P140 K2). JSON, no body text beyond 120-char excerpts of the INCOMING thread (decision 0013). Null on a batch draft.
     context: text("context"),
-    evidence: text("evidence").$type<EvidenceLevel>(),
-    evidenceSource: text("evidence_source").$type<EvidenceSource>(),
-    evidenceFindings: text("evidence_findings"), // JSON [{code, text, amber}]
-    similarTo: text("similar_to"), // the closest other draft of the batch, by address, when the sketches say so
-    fingerprint: text("fingerprint"), // JSON ints: the sketch of the reply. A hash set, never the text
-    batchKey: text("batch_key"), // one per triage or bulk run: the set similarity is judged against
+    findings: text("findings"), // JSON [{code, text, amber}]: the record's checks (P60 fact-other-brand)
+    batchKey: text("batch_key"), // one per triage or bulk run
     safety: text("safety"), // the agent's one-line "check before sending"
     acked: text("acked").notNull().default("[]"), // JSON: safety kinds the person acknowledged
     // Set by the draft record (`draft_write`): the mail the draft answers carried a prompt-injection hint, so the hub never sends it.
@@ -103,6 +99,10 @@ export const mailVersions = sqliteTable(
     // `adopted` (P65 S5, 0031 addendum): a late save of the Hub's own write, recognised by its text's hash and recorded after the fact.
     source: text("source").$type<"agent" | "save" | "restore" | "migration" | "adopted">().notNull(),
     signatureFallback: text("signature_fallback"),
+    // P140 R3: the brand and the address the client wrote to that the signer resolved for this version; the record of an
+    // adopted version takes them from here, never from another write. Null on a version written before 0043 or unsigned.
+    brand: text("brand"),
+    wroteTo: text("wrote_to"),
     writtenAt: text("written_at").notNull(),
     trashedAt: text("trashed_at"),
   },

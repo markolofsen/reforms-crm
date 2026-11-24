@@ -108,6 +108,8 @@ export function contexts(rt: Runtime): Contexts {
       ...optional("readText", rt.mail.inboundText),
       ...optional("leads", rt.mail.leads),
       ...optional("mail", rt.mail.conversation),
+      ...optional("sentPass", rt.mail.sentPass),
+      ...optional("refillWhatsApp", rt.messengers.whatsapp?.refill.bind(rt.messengers.whatsapp)),
       ...optional("directory", directory),
     },
     send: { repos, ...optional("sender", sender), ...optional("messengers", rt.messengers.senders) },

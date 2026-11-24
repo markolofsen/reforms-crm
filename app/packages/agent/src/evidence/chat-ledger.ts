@@ -2,8 +2,7 @@ import type { CallRecord, LedgerEntry } from "./ledger";
 
 // The guard's messenger rule (P71 M2): a messenger reply is drafted from that chat's own history. A `messenger_history` call is
 // one ledger line naming the chats it returned (`<channel>:<chat id>`, ids only, never a message); a `messenger_draft_write`
-// with no such read of its chat earlier in the same session (and subagent) is a violation. It is not a mail draft: the mail
-// chain of `observeDraft` (the answered message, the history search, Notion) is never asked of it.
+// with no such read of its chat earlier in the same session (and subagent) is a violation.
 
 export const HUB_MESSENGER_HISTORY = "mcp__hub__messenger_history";
 export const HUB_MESSENGER_DRAFT_WRITE = "mcp__hub__messenger_draft_write";

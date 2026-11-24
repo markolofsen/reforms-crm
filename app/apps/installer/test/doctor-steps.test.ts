@@ -339,3 +339,34 @@ describe("dev.kanban", () => {
     expect(bad.detail).toContain("hub dev index acme");
   });
 });
+
+describe("knowledge.index (P140 K1)", () => {
+  it("PASS when the index says what the files say; FAIL with the path and the fix when a row's brands differ from its file", async () => {
+    const { createRepos } = await import("@hub/db");
+    const { indexProject } = await import("@hub/knowledge/indexer");
+    const { syncProjects } = await import("@hub/projects/registry");
+    const { projectStore } = await import("@hub/projects/store");
+    const f = fake();
+    expect((await step("knowledge.index").check(f.ctx)).level).toBe("pass");
+    const dir = addProject(f, "acme", [row("knowledge.scope", "by-brand"), row("mail.domains", "acme.example"), row("tone", "brief")]);
+    writeFileSync(path.join(dir, "project.md"), readFileSync(path.join(dir, "project.md"), "utf8") + "\n## Brands\n\n| Brand | Receives at | Signature | Answered | By |\n|---|---|---|---|---|\n| Acme | acme.example | Acme team | 2026-11-15 | owner |\n");
+    mkdirSync(path.join(dir, "knowledge", "files"), { recursive: true });
+    writeFileSync(path.join(dir, "knowledge", "files", "plan.md"), "---\ntitle: Is there a free plan?\naudiences:\n  - CLIENT\nbrands:\n  - Acme\n---\n\nYes.\n");
+    mkdirSync(path.dirname(f.ctx.paths.db), { recursive: true });
+    const h = openDb(f.ctx.paths.db);
+    try {
+      const repos = createRepos(h.db);
+      const synced = await syncProjects(repos, projectStore({ projects: f.ctx.paths.projects }).list());
+      expect(synced.ok ? [] : synced.errors).toEqual([]);
+      await indexProject(repos, f.ctx.paths.projects, "acme");
+      expect((await step("knowledge.index").check(f.ctx)).level).toBe("pass");
+      h.db.$client.prepare("UPDATE knowledge_docs SET brands = '[]'").run();
+    } finally {
+      h.close();
+    }
+    const bad = await step("knowledge.index").check(f.ctx);
+    expect(bad.level).toBe("fail");
+    expect(bad.detail).toContain("knowledge/files/plan.md brands");
+    expect(bad.detail).toContain("hub knowledge index acme");
+  });
+});

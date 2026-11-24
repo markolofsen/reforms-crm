@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import type { ConversationRowDto, ConversationsDto, ConversationViewDto } from "@hub/contract/conversations";
 import { reviewApi } from "@/lib/api/review";
 import { keys } from "@/lib/cache/keys";
+import { useCommand } from "@/lib/cache/topics";
+import type { LiveTopic } from "@hub/contract/live";
 
 /**
  * P127 C2's data half (V3): Mail's people, one module (state rule 4b): the list of a view or a batch, the Needs you count the rail
@@ -123,3 +125,9 @@ export const useConversationMail = (project: string, clientId: number) => useQue
 /** One message's own words, read from Mail as its conversation bubble renders (decision 0013: never stored). */
 export const useConversationText = (project: string, clientId: number, messageId: string) =>
   useQuery({ queryKey: keys.conversationText(project, clientId, messageId), queryFn: () => reviewApi.conversationText(project, clientId, messageId) });
+
+/** P140 R5: what Refresh moves: the Mail history, the Inbox, the sends, the drafts and the chats are read again with no cache. */
+const REFRESHED: readonly LiveTopic[] = ["mail", "inbox", "sends", "drafts", "messengers"];
+
+/** P140 R5: Refresh of one open conversation (one Mail and Sent pass, this person's bodies forgotten, their chats refilled). */
+export const useRefreshConversation = (project: string, clientId: number) => useCommand({ project, touches: REFRESHED, run: (_: void) => reviewApi.refreshConversation(project, clientId) });

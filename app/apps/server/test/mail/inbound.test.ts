@@ -1,3 +1,4 @@
+import { projectStore } from "@hub/projects/store";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import { appleScriptCompileError, canCompileAppleScript } from "../../../../test
 import { ownText } from "@hub/mail-app/own-text";
 import { parseInbound } from "@hub/mail-app/read";
 import { CONTENT_SCRIPT, INBOUND_SCRIPT, RUNNING_SCRIPT, SENT_SCRIPT } from "@hub/mail-app/scripts/read";
+import { captureOps } from "@hub/log/ops";
 import { testApp } from "../support/runtime";
 import { judge, startInboundReader } from "../../src/mail/inbound";
 
@@ -62,7 +64,7 @@ function projectFolder(recipients: "test" | "any" = "any", filters = "", extra: 
   if (filters) writeFileSync(join(dir, "projects", "p", "mail-filters.md"), filters);
 }
 
-const reader = (osa: OsaRun, o: { knownClient?: (p: string, e: string) => boolean } = {}) =>
+const reader = (osa: OsaRun, o: { knownClient?: (p: string, e: string) => boolean; onDoorSendRecorded?: (p: string) => void } = {}) =>
   startInboundReader({ repos, osa, env: {}, timer: false, projectsDir: join(dir, "projects"), policyDir: join(dir, "policy"), configFile: join(dir, "config.json"), ...o });
 
 beforeEach(async () => {
@@ -176,6 +178,25 @@ describe("the door's sent Message-ID is read back from Sent (verdict 13)", () =>
     await reader(fakeMail({ sent }).osa).tick();
     expect((await repos.drafts.get(d.draftId))?.sentMessageId).toBe("new1@me");
   });
+
+  it("tells the server once, on the pass that stored the id, never when nothing was stored (P140 R2)", async () => {
+    projectFolder();
+    const d = await repos.drafts.record({ project: "p", email: "anna@example.test", name: "Anna", subject: "Re: Wow", mailRef: "<their1@x>" });
+    const row = await repos.sends.begin({ project: "p", draftId: d.draftId, mode: "manual", status: "sending", actor: "admin", at: new Date().toISOString(), sender: "me@example.test", to: "anna@example.test", cc: null, bcc: null, subject: "Re: Wow", body: "Hi", mailRef: "<their1@x>" });
+    await repos.sends.markSent(row.id, null);
+    const at = new Date(Date.now() + 5_000);
+    const stamp = `${at.getFullYear()},${at.getMonth() + 1},${at.getDate()},${at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()}`;
+    const sent: string[] = [];
+    const told: string[] = [];
+    const r = reader(fakeMail({ sent }).osa, { onDoorSendRecorded: (p) => told.push(p) });
+    await r.tick();
+    expect(told).toEqual([]);
+    sent.push(["<NEW1@me>", "<their1@x>", stamp, `anna@example.test${LS}`, "", "Re: Wow", "<their1@x>", "me@example.test"].join(FS) + RS);
+    await r.tick();
+    expect(told).toEqual(["p"]);
+    await r.tick();
+    expect(told).toEqual(["p"]);
+  });
 });
 
 describe("the Inbox routes", () => {
@@ -195,6 +216,36 @@ describe("the Inbox routes", () => {
     expect(one).not.toHaveProperty("text");
     const text = await (await app.request(`http://127.0.0.1/api/projects/p/inbound/${list.rows[0].id}/text`)).json();
     expect(text).toEqual({ text: "When can we talk?", quoted: true, note: null });
+  });
+
+  it("P140 R5: Refresh runs a Mail and a Sent pass, forgets this person's bodies and writes one ops line; Check now writes its own", async () => {
+    projectFolder();
+    const { id: clientId } = await repos.clients.upsert({ project: "p", email: "bob@example.test", name: "Bob" });
+    const mail = fakeMail({ inbox: [{ mailId: 2, id: "<b1@x>", from: "Bob <bob@example.test>", subject: "Question", text: "When can we talk?" }] });
+    const r = reader(mail.osa);
+    let sentPasses = 0;
+    const forgotten: unknown[] = [];
+    const msg = { messageId: "b1@x", inReplyTo: null, references: [], fromEmail: "bob@example.test", fromName: "Bob", date: "2026-11-24T03:31:00.000Z", subject: "Question", ours: false, account: "me@example.test", mailbox: "INBOX", mailId: 2 };
+    const app = testApp(repos, { projects: projectStore({ projects: join(dir, "projects"), stateProjects: join(dir, "policy") }), inbound: r, sentPass: async () => void (sentPasses += 1), conversationMail: { history: async () => ({ messages: [msg], ms: 1 }), text: async () => ({ text: "x" }), forget: (ats) => void forgotten.push(...ats) } });
+    const logged = captureOps();
+    try {
+      await (await app.request("http://127.0.0.1/api/projects/p/inbound/check", { method: "POST" })).json();
+      expect((await app.request(`http://127.0.0.1/api/projects/p/clients/${clientId}/conversation/mail`)).status).toBe(200);
+      const reads = mail.calls.filter((c) => c === "inbound INBOX").length;
+      const res = await app.request(`http://127.0.0.1/api/projects/p/clients/${clientId}/conversation/refresh`, { method: "POST" });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, mailRead: true, chats: 0, stored: 0 });
+      expect(mail.calls.filter((c) => c === "inbound INBOX").length).toBe(reads + 1);
+      expect(sentPasses).toBe(1);
+      expect(forgotten).toContainEqual({ account: "me@example.test", mailbox: "INBOX", mailId: 2 });
+      const lines = logged.lines.filter((l) => l.source === "mail");
+      expect(lines.filter((l) => l.message === "conversation refreshed")).toHaveLength(1);
+      expect(lines.find((l) => l.message === "conversation refreshed")?.fields).toMatchObject({ project: "p", client: clientId, mailRead: true, messengers: 0 });
+      expect(lines.filter((l) => l.message === "mail checked by hand")).toHaveLength(1);
+      expect((await app.request("http://127.0.0.1/api/projects/p/clients/999/conversation/refresh", { method: "POST" })).status).toBe(404);
+    } finally {
+      logged.stop();
+    }
   });
 
   it("P98 item 3: once a draft answers the message, its state names it (Draft ready) with no Mail read", async () => {

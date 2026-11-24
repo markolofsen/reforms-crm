@@ -8,7 +8,7 @@ import { planSweep } from "../src/sweep";
 // drafts with the same subjects and recipients, and a text that still quotes a hub line.
 const h = (ref: string, account: string, messageId: string | null, subject = "Re: Hello"): DraftHead => ({ ref, messageId, account, subject, inReplyTo: "t1@mail.gmail.com" });
 let id = 0;
-const v = (draftId: number | null, account: string, messageId: string): MailVersionRow => ({ id: ++id, project: "saas", mailRef: "t1@mail.gmail.com", draftId, account, mailId: 0, messageId, hash: "h", source: "agent", signatureFallback: null, writtenAt: "2026-11-19T00:00:00.000Z", trashedAt: null });
+const v = (draftId: number | null, account: string, messageId: string): MailVersionRow => ({ id: ++id, project: "saas", mailRef: "t1@mail.gmail.com", draftId, account, mailId: 0, messageId, hash: "h", source: "agent", signatureFallback: null, brand: null, wroteTo: null, writtenAt: "2026-11-19T00:00:00.000Z", trashedAt: null });
 
 const versions: MailVersionRow[] = [
   v(1, "hello@reforms.ai", "V1@reforms.ai"),

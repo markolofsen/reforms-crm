@@ -28,6 +28,8 @@ export type MailStart = {
   busy: () => boolean;
   /** Whether an address is a client in the autolink's directory of that project. */
   knownClient: (project: string, email: string) => boolean;
+  /** P140 verdict 3: moves the `mail` live topic of a project (the open history re-reads). */
+  mailMoved: (project: string) => void;
 };
 
 export type MailRuntime = {
@@ -72,6 +74,7 @@ export function start(o: MailStart): MailRuntime {
   // P96: the Mail reader reads the projects' inbound mailboxes read-only.
   const inbound = startInboundReader({
     onNotice: (project) => void leads.read(project),
+    onDoorSendRecorded: o.mailMoved,
     repos,
     projectsDir,
     policyDir: paths.stateProjects,
@@ -94,7 +97,7 @@ export function start(o: MailStart): MailRuntime {
     mailer,
     writer,
     ...(onSent ? { onSent } : {}),
-    handles: { sent: sent.status, inbound, leads, inboundText, conversation: fake ? demoConversation : conversationMail(writer, inboundText) },
+    handles: { sent: sent.status, sentPass: sent.tick, inbound, leads, inboundText, conversation: fake ? demoConversation : conversationMail(writer, inboundText) },
     states: () => [sent.status(), { state: inbound.status().state, reason: `${inbound.status().reason ?? ""}${inbound.status().reading ? " reading" : ""}${inbound.status().lastRunAt ?? ""}`, lastError: inbound.status().lastError }],
     stop: () => {
       sent.stop();
@@ -116,7 +119,11 @@ const demoConversation: ConversationMail = {
  */
 function conversationMail(writer: ReturnType<typeof mailAppDraftWriter>, inboundText: (account: string, messageId: string) => Promise<{ text: string } | { note: string }>): ConversationMail {
   const bodies = bodyCache();
+  const keyOf = (at: { account: string; mailbox: string; mailId: number } | { account: string; messageId: string }) => ("messageId" in at ? `${at.account}|${at.messageId}` : `${at.account}|${at.mailbox}|${at.mailId}`);
   return {
+    forget: (ats) => {
+      for (const at of ats) bodies.delete(keyOf(at));
+    },
     history: async (q) => {
       const osa = osaFor("read");
       if (!(await mailRunning(osa).catch(() => false))) return NOT_RUNNING("see the whole conversation");
@@ -125,7 +132,7 @@ function conversationMail(writer: ReturnType<typeof mailAppDraftWriter>, inbound
       return { messages, ms: Date.now() - t0 };
     },
     text: async (at) => {
-      const key = "messageId" in at ? `${at.account}|${at.messageId}` : `${at.account}|${at.mailbox}|${at.mailId}`;
+      const key = keyOf(at);
       const hit = bodies.get(key);
       if (hit !== null) return { text: hit };
       const read: { text: string } | { note: string } =

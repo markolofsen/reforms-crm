@@ -118,16 +118,33 @@ export function otherProjects(projectsDir: string, slug: string | undefined): st
 export const otherDrops = (paths: Pick<HubPaths, "drops">, projectsDir: string, slug: string | undefined): string[] =>
   [...otherProjects(projectsDir, slug), SHELL_DROPS].map((o) => dropFolder(paths, o));
 
-/** Deny rules for Claude's settings.json: secrets, the live database, other projects' folders, mail-sending programs. */
+/**
+ * Deny rules for Claude's settings.json: secrets, the live database, other projects' folders, mail-sending programs.
+ *
+ * Unattended (the default, the stricter list): Read and Edit denied on secrets, the database folder, every other project's
+ * folder, session files and Codex home, and every other tab's drop folder.
+ * Attended (P140 K3, owner 2026-11-24, `skills/README.md` "Reading and writing files"): the session reads and edits
+ * `projects/**`, other projects included (the client guard is "never quote another brand's or project's fact", not the path);
+ * it reads the database folder and the other tabs' drops but never edits them (the live DB is the server's, a tab's files are
+ * that tab's). Still denied both ways: secrets, and the other projects' session files and Codex homes (they hold that
+ * project's capability, P112 S3). The protected paths (core, config, the send policy, `state/autopilot.json`, `.claude`, `.git`,
+ * `run.sh`, `CLAUDE.md`, the log) are Edit-denied in every mode by `protectedEditRules` of `claude.ts`.
+ */
 export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root), unattended = true): string[] {
   const rel = (p: string) => (path.relative(root, p) || ".").split(path.sep).join("/");
   const rules: string[] = [];
-  const denied = [`./${rel(paths.secrets)}/**`, `./${rel(path.dirname(paths.db))}/**`];
+  const both = [`./${rel(paths.secrets)}/**`];
+  const editOnly: string[] = [];
+  (unattended ? both : editOnly).push(`./${rel(path.dirname(paths.db))}/**`);
   // P112 S3: another project's session files (its MCP config holds its project capability) and Codex home, beside its folder.
-  for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`, `./${rel(path.join(paths.stateProjects, o))}/**`, `./${rel(path.join(paths.codexHomes, o))}/**`);
-  // P76: a file dropped on another project's tab, or on a Shell tab, is that tab's only.
-  for (const d of otherDrops(paths, projectsDir, slug)) denied.push(`./${rel(d)}/**`);
-  for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
+  for (const o of otherProjects(projectsDir, slug)) {
+    if (unattended) both.push(`./${rel(path.join(projectsDir, o))}/**`);
+    both.push(`./${rel(path.join(paths.stateProjects, o))}/**`, `./${rel(path.join(paths.codexHomes, o))}/**`);
+  }
+  // P76: a file dropped on another project's tab, or on a Shell tab, is that tab's only (attended: read, never changed).
+  for (const d of otherDrops(paths, projectsDir, slug)) (unattended ? both : editOnly).push(`./${rel(d)}/**`);
+  for (const p of both) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
+  for (const p of editOnly) rules.push(`Edit(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
   rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...deniedTools(unattended));
   return rules;

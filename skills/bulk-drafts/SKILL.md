@@ -23,7 +23,7 @@ and the run as one session in Activity.
    (`bulk-<date>-<time>-<3 random chars>`) and one `batchTitle` (a short English campaign name, at most 60 characters) in the
    `context` of every record: the run is one batch in Mail (a line on top of Needs you while its drafts wait) and one session in Activity. Every client then
    goes through `skills/triage-mail/references/per-client.md` P1 to P7 in full, with the brief as the purpose: profile read,
-   history (newest 3 both directions plus the message answered), facts (`knowledge_search` in that client's words, or the entry files in an attended session, each stated fact opened with `knowledge_get`; then a
+   history (newest 3 both directions plus the message answered), facts (`knowledge_search` in that client's words, or the entry files in an attended session; then a
    placeholder; `skills/triage-mail/references/kb-gaps.md`), a body with an anchor only that client has. No body before P1 to
    P3. An empty or absent profile is still drafted from the thread, and listed as P3 and a `profile-empty` gap. P7 is the
    profile refresh (`skills/triage-mail/references/profile.md`): whatever the thread taught you about the client (a real name
@@ -32,10 +32,9 @@ and the run as one session in Activity.
    thread, a Notion lead), reruns, a teammate's reply, and the record: `references/where-to-write.md`.
 5. **KB gaps** across the batch (`kb-gaps.md` sections 2 and 3); the same missing fact for several clients is one
    `repeated-question` gap. Any: write `projects/<slug>/reports/kb/YYYY-MM-DD-bulk.md` (inside `reports/` only; nothing to Notion).
-6. **Report** in the format of `skills/README.md` ("Report"), with the evidence column. Above 5 clients use the subagent rule of
+6. **Report** in the format of `skills/README.md` ("Report"), with the `основа` column. Above 5 clients use the subagent rule of
    `skills/triage-mail/SKILL.md` section 4.
-7. **Batch check:** above 3 clients `hub audit-run` (triage-mail section 5), and always
-   `hub batch-check --project <slug> --batch <batchKey>`; a red row is P1 in "Нужно от тебя".
+7. **Batch check:** above 3 clients `hub audit-run` (triage-mail section 5); a breach is P1 in "Нужно от тебя".
 8. **Sending is his:** one click per draft in Mail, or Send all Checked in the batch view (only the drafts he ticked, after one
    confirmation naming each recipient, through the send door with every guard). You have no send tool. Last line: "Черновики в
    Drafts, батч «<его слова>»; ничего не отправлено: отметь Checked и отправь сам (по одному или Send all Checked)."

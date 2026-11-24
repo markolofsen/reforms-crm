@@ -62,7 +62,7 @@ describe("clients list and counts", () => {
     await addClient("other", "z@x.example", { owed: true, status: "ready" });
 
     const counts = await repos.clients.counts("p");
-    expect(counts).toEqual({ all: 4, ready: 1, hold: 1, owed: 2, done: 1, sent: 1, skipped: 0, thin_basis: 0, sequences: 0 });
+    expect(counts).toEqual({ all: 4, ready: 1, hold: 1, owed: 2, done: 1, sent: 1, skipped: 0, sequences: 0 });
     for (const [filter, n] of Object.entries(counts)) {
       expect(await repos.clients.list("p", filter as keyof typeof counts)).toHaveLength(n);
     }
@@ -358,19 +358,20 @@ describe("inbox", () => {
   });
 });
 
-describe("recorded evidence (P28 C1-C3)", () => {
+describe("what a record stores (P140 K2)", () => {
   const base = { project: "p", email: "ev@x.example", name: "Ev", subject: "Re: terms", mailRef: "<ev@x>" };
-  const weak = { level: "weak" as const, source: "claimed" as const, findings: [{ code: "anchor-duplicate", text: "an anchor equals one of a@x.example's", amber: false }, { code: "profile-stale", text: "old profile", amber: true }], context: { profile: { read: true, state: "empty" }, thread: { found: 3, read: 2 } }, similarTo: "a@x.example", fingerprint: [1, 2, 3], batchKey: "b1" };
+  const context = { profile: { read: true, state: "empty" }, thread: { found: 3, read: 2 } };
+  const otherBrand = [{ code: "fact-other-brand", text: "names a price of the other brand", amber: false }];
 
-  it("stores the evidence block and a sketch, never a body, and shows it as basedOn", async () => {
-    const r = await repos.drafts.record({ ...base, evidence: weak });
+  it("stores the context and findings as stated, never a body, and shows them as basedOn", async () => {
+    const r = await repos.drafts.record({ ...base, context, findings: otherBrand, batchKey: "b1" });
     const d = (await repos.drafts.get(r.draftId))!;
-    expect(d).toMatchObject({ evidence: "weak", evidenceSource: "claimed", similarTo: "a@x.example", batchKey: "b1", fingerprint: "[1,2,3]", body: "" });
+    expect(d).toMatchObject({ batchKey: "b1", body: "" });
     const [row] = (await repos.clients.review("p", "all"));
-    expect(row?.basedOn).toMatchObject({ level: "weak", source: "claimed", similarTo: "a@x.example", context: { profile: { state: "empty" } } });
+    expect(row?.basedOn).toMatchObject({ findings: otherBrand, context: { profile: { state: "empty" } } });
   });
 
-  it("a draft with no evidence block has no basedOn and no evidence check fires", async () => {
+  it("a draft with no context and no findings has no basedOn and no check fires", async () => {
     const r = await repos.drafts.record(base);
     const [row] = (await repos.clients.review("p", "all"));
     expect(row?.basedOn).toBeNull();
@@ -378,23 +379,14 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect(r.action).toBe("created");
   });
 
-  it("findings become typed checks: red ones gate Checked, amber ones only show", async () => {
-    const r = await repos.drafts.record({ ...base, evidence: weak });
+  it("a fact of another brand is a red check: it gates Checked until acknowledged", async () => {
+    const r = await repos.drafts.record({ ...base, findings: otherBrand });
     const [row] = (await repos.clients.review("p", "all"));
-    const kinds = Object.fromEntries((row?.safetyResults ?? []).map((x) => [x.kind, x.level]));
-    expect(kinds).toMatchObject({ near_duplicate: "red", profile_stale: "amber", profile_empty: "amber", evidence_claimed: "amber" });
+    expect(Object.fromEntries((row?.safetyResults ?? []).map((x) => [x.kind, x.level]))).toMatchObject({ fact_other_brand: "red" });
     expect(row?.blocked).toBe(true);
     await expect(repos.drafts.setChecked(r.draftId, true)).rejects.toThrow();
-    await repos.drafts.acknowledge(r.draftId, "near_duplicate", true);
-    expect((await repos.drafts.get(r.draftId))?.acked).toContain("near_duplicate");
+    await repos.drafts.acknowledge(r.draftId, "fact_other_brand", true);
     expect((await repos.drafts.setChecked(r.draftId, true))?.checked).toBe(true);
-  });
-
-  it("the thin-basis filter lists open drafts whose evidence is weak or missing, and counts them", async () => {
-    await repos.drafts.record({ ...base, evidence: weak });
-    await repos.drafts.record({ ...base, email: "ok@x.example", mailRef: "<ok@x>", evidence: { level: "ok", source: "observed", findings: [] } });
-    expect((await repos.clients.review("p", "thin_basis")).map((x) => x.client.email)).toEqual(["ev@x.example"]);
-    expect((await repos.clients.counts("p")).thin_basis).toBe(1);
   });
 
   it("mail_versions (P65): a version written before draft record is linked to the draft it records; byMailRef finds the draft in any form", async () => {

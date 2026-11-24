@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeSendPolicy } from "./send-policy";
-import { checkForBatch, confirmReview, contextWarn, openRow, remember, reviewDialog } from "./support";
+import { checkForBatch, confirmReview, openRow, remember, reviewDialog } from "./support";
 
 // P85b: Send all Checked of one batch, against the FAKE mailer (HUB_MAILER=fake: nothing leaves the process; the batch spacing is
 // shortened by HUB_BATCH_SPACING_SECONDS, honoured with the fake only). Named z-* because it writes (two drafts, two send rows).
@@ -14,7 +14,6 @@ import { checkForBatch, confirmReview, contextWarn, openRow, remember, reviewDia
 const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-batch-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
-contextWarn(join(projects, "demo-shop", "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const WORDS = "write to every client about the spring offer";
 // P87 (finding 8): the batch is named by the agent's short English title; the owner's words are its brief.

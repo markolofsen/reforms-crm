@@ -9,18 +9,18 @@ import { recordDraftCall, type DraftRecordOutcome } from "../records/draft";
 import type { DraftRecord } from "../records/schema";
 import { answeredRef } from "./reply";
 import type { DraftScope } from "./sign";
+import type { VersionBrand } from "./after-write";
 
 // P129 verdict 4 (decision 0045 point 10): `draft_write` records the draft it wrote, so the agent writes no JSON into a
 // shell. The record and the recipients are checked before Mail is asked; the write; then the record on a short write
 // connection. A record that fails leaves the version pending: the same call again records it (adoption), never a second write.
 // P129 verdict 7: the owner's words, when given, must be in this project's session log.
 
-/** True when the owner's words were found; the refusal `owner_words_not_found` when given and not found; false when not given or not checkable. */
-export function ownerWordsOf(s: DraftScope, words: string | undefined): boolean {
-  if (!words) return false;
+/** The refusal `owner_words_not_found` when the owner's words are given and not in this project's session log; nothing otherwise. */
+export function ownerWordsOf(s: DraftScope, words: string | undefined): void {
+  if (!words) return;
   const check = s.ctx.env.ownerWords;
-  if (!check) return false;
-  if (check(s.slug, words)) return true;
+  if (!check || check(s.slug, words)) return;
   throw new ToolError("owner_words_not_found", "owner_request is not in this session's log of the owner's prompts (the last 12 hours, compared without case and spacing): pass his words exactly as he typed them. Nothing was written.");
 }
 
@@ -49,19 +49,21 @@ export async function precheckRecord(s: DraftScope, email: string, record: Draft
   if (!g.ok) throw new ToolError("recipient_not_allowed", `draft.recipients of ${s.slug} does not permit ${g.blocked.join(", ")}. Nothing was written.`, { blocked: g.blocked });
 }
 
-const REFUSAL_OF: Record<Exclude<DraftRecordOutcome, { ok: true }>["code"], "record_invalid" | "recipient_not_allowed" | "context_refused" | "busy" | "record_failed"> = {
+const REFUSAL_OF: Record<Exclude<DraftRecordOutcome, { ok: true }>["code"], "record_invalid" | "recipient_not_allowed" | "busy" | "record_failed"> = {
   record_invalid: "record_invalid",
   not_allowed: "recipient_not_allowed",
-  context_refused: "context_refused",
   busy: "busy",
   record_failed: "record_failed",
 };
 
-/** Records the first draft of a thread (or adopts a pending one). A refusal says the draft is in Mail and how to finish. */
-export async function recordFirst(s: DraftScope, w: { email: string; subject: string; mailRef: string | null }, q: { owner_request: string | undefined; ownerVerified: boolean; record: DraftRecord }): Promise<Extract<DraftRecordOutcome, { ok: true }>> {
+/**
+ * Records the first draft of a thread (or adopts a pending one). A refusal says the draft is in Mail and how to finish. The brand
+ * and the address the client wrote to are the version's (P140 R3): what the signer resolved for the text this record is for.
+ */
+export async function recordFirst(s: DraftScope, w: { email: string; subject: string; mailRef: string | null }, q: { owner_request: string | undefined; record: DraftRecord }, v: VersionBrand): Promise<Extract<DraftRecordOutcome, { ok: true }>> {
   const env = s.ctx.env.records;
   if (!env) throw new ToolError("unavailable", "This hub MCP server cannot record drafts (no database to write).");
-  const out = await recordDraftCall({ project: s.slug, email: w.email, subject: w.subject, mailRef: w.mailRef, ownerRequest: q.owner_request ?? null, ownerVerified: q.ownerVerified, record: q.record }, env);
+  const out = await recordDraftCall({ project: s.slug, email: w.email, subject: w.subject, mailRef: w.mailRef, ownerRequest: q.owner_request ?? null, record: q.record, brand: v.brand, wroteTo: v.wroteTo }, env);
   if (out.ok) return out;
   throw new ToolError(REFUSAL_OF[out.code], `The draft is saved in Mail but not recorded: ${out.error}. Call draft_write once more with the record fixed: the hub records the saved draft, it does not write a second one.`, { ...(out.blocked ? { blocked: out.blocked } : {}), ...(out.warnings ? { warnings: out.warnings } : {}) });
 }

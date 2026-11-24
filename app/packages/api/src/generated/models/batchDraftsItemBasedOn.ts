@@ -7,14 +7,8 @@
  */
 import type { BatchDraftsItemBasedOnContext } from './batchDraftsItemBasedOnContext';
 import type { BatchDraftsItemBasedOnFindingsItem } from './batchDraftsItemBasedOnFindingsItem';
-import type { BatchDraftsItemBasedOnLevel } from './batchDraftsItemBasedOnLevel';
-import type { BatchDraftsItemBasedOnSource } from './batchDraftsItemBasedOnSource';
 
 export type BatchDraftsItemBasedOn = {
-  level: BatchDraftsItemBasedOnLevel;
-  source: BatchDraftsItemBasedOnSource;
   findings: BatchDraftsItemBasedOnFindingsItem[];
-  /** @nullable */
-  similarTo: string | null;
   context: BatchDraftsItemBasedOnContext;
 } | null;

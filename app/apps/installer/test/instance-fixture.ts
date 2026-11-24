@@ -2,7 +2,6 @@ import { cpSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { CORE_ROOT, hubPaths, type HubPaths } from "@hub/config/paths";
-import { CONTEXT_BLOCK_FROM } from "@hub/projects/context";
 import { setSendPolicy } from "@hub/projects/send-policy";
 
 /** The fixture projects (invented clients) shipped with the projects package tests. */
@@ -27,9 +26,3 @@ export function anyRecipients(policyDir: string, slug: string, kind = "generic")
   return policyDir;
 }
 
-/**
- * The clock of draft-record flows that are not about context: the day before `CONTEXT_BLOCK_FROM`, when a project that sets no
- * `context.required` still records a draft without a context block (with a warning). `@hub/agent`'s `records-context.test.ts`
- * owns the block rule; these suites must not change with the calendar (they all turned red on 2026-11-23, the day after the switch).
- */
-export const beforeContextBlock = (): Date => new Date(Date.parse(CONTEXT_BLOCK_FROM) - 86_400_000);

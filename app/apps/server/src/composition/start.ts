@@ -13,6 +13,7 @@ import { start as startMail } from "../mail/start";
 import { start as startTerminal } from "../terminal/start";
 import { start as startAgent } from "../agent/start";
 import { start as startInstance } from "../instance/start";
+import { startKnowledgeIndex } from "../knowledge/start";
 
 /** A started runtime and what only the process needs from it: the terminal's upgrade and one stop for every domain. */
 export type Started = { runtime: Runtime; upgrade: ReturnType<typeof startTerminal>["terminal"]["upgrade"]; stop(): Promise<void> };
@@ -39,11 +40,14 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     projectsDir,
     projects,
     busy: () => busy.now(),
+    mailMoved: (project) => void bumpTopic(db, "mail", project),
     knownClient: (project, email) => linker.project === project && (linker.directory.current()?.all.some((e) => e.email?.trim().toLowerCase() === email) ?? false),
   });
   const { terminal, detector } = startTerminal({ repos, paths, modes, adminPort, apiPort: o.apiPort });
   const agent = startAgent({ repos, paths, modes, detector, recheck: () => void terminal.recheck() });
   const instance = startInstance({ repos, paths, modes, projects, fakeMail: mail.kind === "fake", bot: messengers.handles.bot });
+  // P140 K1: the knowledge index follows the files (a pass now, then a watcher on each project's knowledge/).
+  const knowledge = await startKnowledgeIndex({ repos, projectsDir });
   // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched, since
   // they are not rows (a poll's timestamp is left out, except the Mail reader's: "Mail read 1 min ago" must follow).
   const pollers = () => [...messengers.states(), ...mail.states()].map((s) => `${s.state}|${s.reason ?? ""}|${s.lastError ?? ""}`).join("\n");
@@ -97,6 +101,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     upgrade: terminal.upgrade,
     stop: async () => {
       live.stop();
+      knowledge.stop();
       instance.stop();
       mail.stop();
       terminal.stop();

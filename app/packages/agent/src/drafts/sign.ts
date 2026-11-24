@@ -26,7 +26,7 @@ export interface DraftScope {
  * of the call records it instead of writing a second one (adoption).
  */
 export interface Pending {
-  pending: { mailId: number; messageId: string; account: string };
+  pending: { mailId: number; messageId: string; account: string; brand: string | null; wroteTo: string | null };
   mailRef: string;
 }
 

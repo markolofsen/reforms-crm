@@ -21,8 +21,12 @@ const INBOX: readonly LiveTopic[] = ["inbox"];
 /** The Mail reader's reply (P96): the people who wrote are conversations (P99); its Leads group and its counts. */
 export const useInbound = (project: string) => useQuery({ queryKey: keys.inbound(project), queryFn: () => inboundApi.list(project) });
 
-/** P96 verdict 12: Check now, one read pass of the project's mailboxes (read-only toward Mail); the lists are read again after it. */
-export const useCheckNow = (project: string) => useCommand({ project, touches: INBOX, run: (_: void) => inboundApi.check(project) });
+/**
+ * P96 verdict 12: Check now, one read pass of the project's mailboxes (read-only toward Mail); the lists are read again after it.
+ * P140 verdict 7: an open conversation too (its Mail history, the sends, the chats).
+ */
+const CHECKED: readonly LiveTopic[] = ["inbox", "mail", "sends", "messengers"];
+export const useCheckNow = (project: string) => useCommand({ project, touches: CHECKED, run: (_: void) => inboundApi.check(project) });
 
 /**
  * No reply needed (P96 verdict 4): their open messages leave Needs you, stored. `undo(ids)` is the toast's Undo: the same rows

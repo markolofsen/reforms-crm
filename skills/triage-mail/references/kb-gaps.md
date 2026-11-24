@@ -13,8 +13,7 @@ Knowledge page, never approves an entry, never writes into `knowledge/`.
    profile contradicts it) is judged from the local entry alone: record a `stale` gap, and state the fact only if it is still usable.
    A fact comes from no other source while drafting: not Notion, not the web. In an attended session the entry files may be read
    directly, another project's and another brand's too, to compare (`skills/README.md`, "Reading and writing files"); a fact from
-   another project or another brand is never stated for this client, and a fact you state is opened with `knowledge_get` first (the
-   evidence ledger credits only the tools until P140). An error from `knowledge_search` is reported once ("KB не прочитана: <reason>")
+   another project or another brand is never stated for this client. An error from `knowledge_search` is reported once ("KB не прочитана: <reason>")
    and treated as nothing usable.
 2. **Nothing usable:** the draft says nothing about it and carries `[Owner: <what is missing>]`.
    The agent never invents a fact, never fills it from memory, from another client's mail or from general knowledge, and never

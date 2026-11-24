@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DRAFT_STATUSES, EVIDENCE_LEVELS, EVIDENCE_SOURCES, MARKS, NOTION_KINDS } from "@hub/config";
+import { DRAFT_STATUSES, MARKS, NOTION_KINDS } from "@hub/config";
 import { displayNameFor } from "@hub/projects/brands";
 import { fromFor, isNewThreadDraft } from "../../mail";
 import { defineTool } from "../define";
@@ -24,7 +24,7 @@ export const draftShowOutput = z.object({
   checked: z.boolean(),
   injectionSuspected: z.boolean(),
   client: z.object({ id: z.number(), name: z.string(), email: z.string(), marks: z.array(z.enum(MARKS)), repliesOwed: z.boolean(), lastContactAt: z.string().nullable() }).nullable(),
-  evidence: z.object({ level: z.enum(EVIDENCE_LEVELS), source: z.enum(EVIDENCE_SOURCES).nullable(), findings: z.array(z.unknown()), context: z.record(z.string(), z.unknown()) }).nullable(),
+  basedOn: z.object({ findings: z.array(z.unknown()), context: z.record(z.string(), z.unknown()) }).nullable(),
   notion: z.object({ kind: z.enum(NOTION_KINDS).nullable(), url: z.string() }).nullable(),
   followUp: z.object({ enrollmentId: z.number(), step: z.number().nullable() }).nullable(),
   activity: z.array(z.object({ at: z.string(), kind: z.string(), summary: z.string() })),
@@ -47,7 +47,7 @@ export const draftShowTool = defineTool({
   name: "draft_show",
   title: "One draft of this project",
   description:
-    "One hub draft: status, recipients, mailRef (the Message-ID it answers), excerpt, reason, marks, evidence, context, Notion link, follow-up step, its Activity, `inbound` (where mail-mcp opens the client's message), `clientWroteTo`, `fromSeenByClient` (exactly the From the client sees; no hidden sender) and `fromReason`, `repliedElsewhere` and `teamSent` (someone else answered or wrote), `mail` (the Mail versions the hub recorded) and `revise` (the draft_write call that revises it). Not the body: it lives in Mail.",
+    "One hub draft: status, recipients, mailRef (the Message-ID it answers), excerpt, reason, marks, basedOn (the context and findings the record stored), Notion link, follow-up step, its Activity, `inbound` (where mail-mcp opens the client's message), `clientWroteTo`, `fromSeenByClient` (exactly the From the client sees; no hidden sender) and `fromReason`, `repliedElsewhere` and `teamSent` (someone else answered or wrote), `mail` (the Mail versions the hub recorded) and `revise` (the draft_write call that revises it). Not the body: it lives in Mail.",
   input: z.object({ draft: z.number().int().positive().describe("The draft id, as the focus or the admin shows it (the same name draft_write takes).") }),
   output: draftShowOutput,
   effect: "read",
@@ -78,7 +78,7 @@ export const draftShowTool = defineTool({
       checked: d.checked,
       injectionSuspected: d.injectionSuspected,
       client: c ? { id: c.id, name: cut(c.name), email: c.email, marks: c.marks, repliesOwed: c.repliesOwed, lastContactAt: c.lastContactAt } : null,
-      evidence: d.evidence ? { level: d.evidence, source: d.evidenceSource, findings: json<unknown[]>(d.evidenceFindings, []), context: json<Record<string, unknown>>(d.context, {}) } : null,
+      basedOn: d.context == null && d.findings == null ? null : { findings: json<unknown[]>(d.findings, []), context: json<Record<string, unknown>>(d.context, {}) },
       notion: d.notionUrl ? { kind: d.notionKind, url: d.notionUrl } : null,
       followUp: d.enrollmentId == null ? null : { enrollmentId: d.enrollmentId, step: d.sequenceStep },
       activity: events.map((e) => ({ at: e.at, kind: e.kind, summary: cut(e.summary, 200) })),

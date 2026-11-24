@@ -183,8 +183,8 @@ describe("friction", () => {
       ev("answer", "p2", "2026-11-24T10:01:40.000Z", { text: "Which one?" }),
     ]);
     // The second turn's warning is not on the owner's words; its question came after a tool, so it did not ask instead of acting.
-    expect(sum?.friction).toEqual({ shellWriters: 1, evidenceOnOwnerWords: 1, toolSearchTurns: 1, askUserTurns: 1, askedWithoutActing: 0, medianTurnSeconds: 30 });
-    expect(frictionTotal(sum ? [sum, sum] : [])).toMatchObject({ shellWriters: 2, evidenceOnOwnerWords: 2, medianTurnSeconds: 30 });
+    expect(sum?.friction).toEqual({ shellWriters: 1, toolSearchTurns: 1, askUserTurns: 1, askedWithoutActing: 0, medianTurnSeconds: 30 });
+    expect(frictionTotal(sum ? [sum, sum] : [])).toMatchObject({ shellWriters: 2, medianTurnSeconds: 30 });
   });
 });
 

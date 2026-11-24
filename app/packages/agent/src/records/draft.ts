@@ -1,12 +1,9 @@
-import { newThreadKey, SEQUENCE_SKILL, type EvidenceLevel } from "@hub/config";
+import { newThreadKey, SEQUENCE_SKILL, type DraftFinding } from "@hub/config";
 import { createRepos, openDb, RepoError, type RecordDraftInput, type RecordDraftResult } from "@hub/db";
-import { checkContext, contextMode, type ContextMode, type PriorRecord, type Violation } from "@hub/projects/context";
 import { checkDraftRecipients, readAllowList } from "@hub/projects/guard";
-import { judgeSimilarity, measureAgainstSet, SIM_AMBER } from "@hub/projects/similarity";
 import { kindOf } from "@hub/projects/kinds";
 import { projectStore } from "@hub/projects/store";
-import { appendLine, readLines, recordsFile } from "../evidence/store";
-import { addressesOf, crossCheck, otherBrandFacts, previousRevision, type RecordLine } from "./checks";
+import { addressesOf, otherBrandFacts, previousRevision } from "./checks";
 import type { DraftRecord } from "./schema";
 
 // The one writer of a draft record from a session (decision 0009 as amended by 0045 point 10): `draft_write` calls it after
@@ -22,9 +19,10 @@ export interface DraftRecordCall {
   mailRef: string | null;
   /** The owner's words, as the call passed them. */
   ownerRequest: string | null;
-  /** True when `ownerRequest` was found in this project's session log (P129 verdict 7): the draft rests on his words. */
-  ownerVerified: boolean;
   record: DraftRecord;
+  /** P140 R3: the brand and the address the client wrote to that the signer resolved for the version this record is for (never another write's). */
+  brand: string | null;
+  wroteTo: string | null;
 }
 
 export interface DraftRecordEnv {
@@ -33,20 +31,14 @@ export interface DraftRecordEnv {
   projectsDir?: string;
   policyDir?: string;
   configFile?: string;
-  /** The instance root whose state/evidence/ holds the ledger. Without it no ledger is read or written. */
-  ledgerRoot?: string;
-  now?: () => Date;
   attempts?: number;
   retryMs?: number;
 }
 
-export type RecordRefusalCode = "record_invalid" | "not_allowed" | "context_refused" | "busy" | "record_failed";
+export type RecordRefusalCode = "record_invalid" | "not_allowed" | "busy" | "record_failed";
 export type DraftRecordOutcome =
-  | ({ ok: true; evidence: EvidenceLevel; source: "observed" | "claimed"; warnings: string[]; similarTo: string | null; notice?: string } & RecordDraftResult)
+  | ({ ok: true; warnings: string[]; notice?: string } & RecordDraftResult)
   | { ok: false; code: RecordRefusalCode; error: string; blocked?: string[]; warnings?: string[] };
-
-/** Findings about the chain (thread, profile) that a draft on the owner's verified words does not need. */
-const CHAIN_CODES = new Set(["context-missing", "no-thread-read", "first-contact-claim", "no-profile-read", "profile-stale"]);
 
 const isBusy = (e: unknown): boolean => {
   const code = e && typeof e === "object" && "code" in e ? e.code : undefined;
@@ -61,8 +53,7 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
   if (r.sequence && r.skill !== SEQUENCE_SKILL) return { ok: false, code: "record_invalid", error: `a follow-up step (record.sequence) is recorded with skill "${SEQUENCE_SKILL}"` };
   const ref = c.mailRef ?? newThreadKey(c.email);
   // P52: a revision of the client's open draft (same mailRef) keeps what the agent did not restate.
-  const ledger = o.ledgerRoot ? readLines<RecordLine>(recordsFile(o.ledgerRoot, c.project)) : [];
-  const prev = await previousRevision(o.dbPath, c.project, c.email, ref, ledger);
+  const prev = await previousRevision(o.dbPath, c.project, c.email, ref);
   const nameGiven = r.name && r.name.trim().toLowerCase() !== c.email.trim().toLowerCase() ? r.name : undefined;
   const inherited = !r.context && prev?.context ? prev.context : undefined;
   const context = r.context ?? inherited;
@@ -92,9 +83,11 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
     runId: r.run_id ?? null,
     ...(r.sequence ? { sequence: { enrollmentId: r.sequence.enrollment_id, step: r.sequence.step } } : {}),
     ...(c.ownerRequest ? { ownerRequest: c.ownerRequest } : {}),
+    // P58/P60, P140 R3: the brand and the address the client wrote to come from the version's signer, never from the record.
+    brand: c.brand,
+    wroteTo: c.wroteTo,
   };
 
-  let required: ContextMode | null = null;
   let brandScope = false;
   if (o.projectsDir) {
     let loaded;
@@ -107,54 +100,16 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
     // The draft goes to `to` (or to the client when `to` is empty) and to `cc`: every address must pass.
     const g = checkDraftRecipients(loaded.parsed.config, addressesOf(to ?? c.email, cc), o.configFile ? readAllowList(o.configFile) : []);
     if (!g.ok) return { ok: false, code: "not_allowed", error: `draft.recipients of ${c.project} does not permit ${g.blocked.join(", ")}`, blocked: g.blocked };
-    required = loaded.parsed.config.context.required;
     brandScope = loaded.parsed.config.knowledge.scope === "by-brand";
   }
 
-  // P28: the evidence block. warn records and reports; block refuses before anything is written.
-  const mode = contextMode(required, o.now?.() ?? new Date());
-  const emailKey = c.email.trim().toLowerCase();
-  const batchKey = context?.batchKey;
-  const batchPeers = batchKey ? ledger.filter((l) => l.batchKey === batchKey && l.email !== emailKey) : [];
-  const prior: PriorRecord[] = batchPeers.flatMap((l) => (l.context ? [{ email: l.email, anchors: l.context.anchors, ...(l.context.personalization ? { personalization: l.context.personalization } : {}) }] : []));
-  const checked = checkContext(context, { lastContactAt: input.lastContactAt ?? null, repliesOwed: input.repliesOwed }, prior);
-  // P129 verdict 7: on the owner's verified words the chain is not asked for; the rest of the rules still hold.
-  const violations: Violation[] = checked.violations.filter((x) => !(c.ownerVerified && (x.missing || CHAIN_CODES.has(x.code))));
-  let source: "observed" | "claimed" = "claimed";
-  let fp: number[] | undefined;
-  let observed: RecordLine["observed"];
-  let similarTo: string | null = null;
-  let draftHash: string | undefined;
-  if (o.ledgerRoot) {
-    const claimed = new Set(ledger.map((l) => l.draftHash ?? ""));
-    const x = crossCheck(o.ledgerRoot, c.project, emailKey, inherited ? undefined : context, claimed);
-    if (x.entry) {
-      source = "observed";
-      // P58/P60: the brand and the address the client wrote to come from the writer's own result, never from the record.
-      if (x.entry.wroteTo !== undefined) input.wroteTo = x.entry.wroteTo;
-      if (x.entry.brand !== undefined) input.brand = x.entry.brand;
-      observed = x.observed;
-      draftHash = x.entry.hash;
-      if (x.entry.fp?.length) fp = x.entry.fp;
-      violations.push(...x.violations);
-    }
-    if (fp && batchPeers.length) {
-      const set = [...batchPeers.flatMap((l) => (l.fp?.length ? [{ id: l.email, fp: l.fp }] : [])), { id: emailKey, fp }];
-      const m = measureAgainstSet(emailKey, set);
-      similarTo = m.maxSim >= SIM_AMBER ? m.similarTo : null;
-      const j = judgeSimilarity({ maxSim: m.maxSim, ...(m.residue !== undefined ? { residue: m.residue } : {}) });
-      for (const reason of j.reasons) violations.push({ code: j.level === "red" ? "near-duplicate" : "similar-to-another", text: `${reason}${m.similarTo ? `; closest: ${m.similarTo}` : ""}`, amber: j.level !== "red" });
-    }
-  }
-  // P60 B3: in a by-brand project every knowledge entry used must list the draft's brand (from the writer's result) or ANY.
-  if (brandScope && context?.facts.used.length) violations.push(...(await otherBrandFacts(o.dbPath, c.project, context.facts.used, input.brand ?? null)));
-  const evidence: EvidenceLevel = violations.some((x) => x.missing) ? "missing" : violations.length ? "weak" : "ok";
-  const warnings = violations.map((x) => `${x.code}: ${x.text}`);
-  const refusals = violations.filter((x) => !x.amber);
-  if (mode === "block" && refusals.length) return { ok: false, code: "context_refused", error: `context.required is block: ${refusals.map((x) => `${x.code}: ${x.text}`).join("; ")}`, warnings };
-
-  // The stored evidence: what the draft was based on, so the card can say it. Sketches only; never the reply text.
-  input.evidence = { level: evidence, source, findings: violations.map((x) => ({ code: x.code, text: x.text, amber: x.amber })), ...(context ? { context } : {}), similarTo, fingerprint: fp ?? null, batchKey: batchKey ?? null };
+  // P140 K2 (owner, 2026-11-24): what the draft was based on is the agent's statement, stored for the card and never judged. The
+  // one check left is P60's: in a by-brand project every knowledge entry used must list the draft's brand (the version's) or ANY.
+  const findings: DraftFinding[] = brandScope && context?.facts.used.length ? (await otherBrandFacts(o.dbPath, c.project, context.facts.used, c.brand)).map((x) => ({ code: x.code, text: x.text, amber: x.amber })) : [];
+  const warnings = findings.map((x) => `${x.code}: ${x.text}`);
+  input.context = context ?? null;
+  input.findings = findings;
+  input.batchKey = context?.batchKey ?? null;
 
   const attempts = o.attempts ?? 3;
   let last: unknown;
@@ -163,13 +118,7 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
     try {
       handle = openDb(o.dbPath);
       const res = await createRepos(handle.db).drafts.record(input);
-      if (o.ledgerRoot) {
-        try {
-          const line: RecordLine = { at: (o.now?.() ?? new Date()).toISOString(), ...(batchKey ? { batchKey } : {}), email: emailKey, name, mailRef: ref, draftId: res.draftId, evidence, source, warnings, ...(context ? { context } : {}), ...(fp ? { fp } : {}), ...(draftHash ? { draftHash } : {}), ...(observed ? { observed } : {}) };
-          appendLine(recordsFile(o.ledgerRoot, c.project), line);
-        } catch { /* the ledger is evidence, not a precondition: the draft is recorded */ }
-      }
-      return { ok: true, ...res, evidence, source, warnings, similarTo, ...(notion ? {} : { notice: 'record.notion not stated: pass {"kind":"client"|"lead"|"none"} so the card can link the page' }) };
+      return { ok: true, ...res, warnings, ...(notion ? {} : { notice: 'record.notion not stated: pass {"kind":"client"|"lead"|"none"} so the card can link the page' }) };
     } catch (e) {
       last = e;
       if (e instanceof RepoError) return { ok: false, code: "record_failed", error: e.message };

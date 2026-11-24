@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { afterWrite, draftWriteOutput, firstNext } from "../../drafts/after-write";
+import { afterWrite, draftWriteOutput, firstNext, type VersionBrand } from "../../drafts/after-write";
 import { refuseOwnSignoff } from "../../drafts/guards";
 import { writeNewThread } from "../../drafts/new-thread";
 import { clientOfReply, ownerWordsOf, precheckRecord, recordFirst, replySubjectOf } from "../../drafts/record-step";
@@ -11,6 +11,7 @@ import { draftRecord, type DraftRecord } from "../../records/schema";
 import { defineTool } from "../define";
 import { isRefusalCode } from "../refusals";
 import { ToolError } from "../result";
+import { displayNameFor } from "@hub/projects/brands";
 
 // P52 (decision 0030): the one Mail write of `hub mcp`, an unsent draft in Mail's Drafts with Mail in the background
 // (`../../mail`, decision 0031: older versions replaced by the `mail_versions` record, never by a line in the text). No send.
@@ -54,7 +55,7 @@ export const draftWriteTool = defineTool({
   }),
   output: draftWriteOutput,
   effect: "draft",
-  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "context_refused", "busy", "record_failed"],
+  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed"],
   handler: async (ctx, raw) => {
     const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)));
     if (!parsed.success) throw new ToolError("invalid", `${parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}. Nothing was written.`);
@@ -63,20 +64,20 @@ export const draftWriteTool = defineTool({
     if (!ctx.env.drafts || !ctx.env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
     const s = draftScope(ctx, slug, ctx.env.drafts, ctx.env.projectMail(slug));
     refuseOwnSignoff(s, call.content);
-    const ownerVerified = ownerWordsOf(s, call.owner_request);
+    ownerWordsOf(s, call.owner_request);
     try {
       if (call.kind === "revise") return await afterWrite(s, await reviseHubDraft(s, call.draft, call.content), { draft: call.draft, content: call.content, to: undefined, owner_request: call.owner_request, reason: call.reason });
       if (call.kind === "new") {
         await precheckRecord(s, call.to, call.record);
         const w = await writeNewThread(s, { to: call.to, subject: call.subject, content: call.content, owner_request: call.owner_request, account: call.account, from: call.from, brand: call.brand });
-        const first = () => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, ownerVerified, record: call.record });
+        const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record }, v);
         return "pending" in w ? await adopted(s, w, first) : await afterWrite(s, w, { draft: undefined, content: call.content, to: call.to, owner_request: call.owner_request, reason: undefined }, first);
       }
       const inbound = await inboundOf(s, call.message);
       const email = await clientOfReply(s, inbound);
       await precheckRecord(s, email, call.record);
       const w = await writeNewReply(s, { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId, content: call.content, owner_request: call.owner_request });
-      const first = (subject: string, mailRef: string) => () => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, ownerVerified, record: call.record });
+      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record }, v);
       return "pending" in w ? await adopted(s, w, first(await replySubjectOf(s, inbound), w.mailRef)) : await afterWrite(s, w, { draft: undefined, content: call.content, to: undefined, owner_request: call.owner_request, reason: undefined }, first(w.r.subject, w.mailRef));
     } catch (e) {
       // A Mail script's own code is a registered refusal; one from outside the registry is Mail's error.
@@ -96,9 +97,13 @@ async function inboundOf(s: DraftScope, m: z.output<typeof message>): Promise<In
   return found;
 }
 
-/** P129 verdict 4: the hub's own saved, unrecorded version is recorded by this call (adoption); nothing is written to Mail. */
-async function adopted(s: DraftScope, w: Pending, first: () => ReturnType<typeof recordFirst>) {
-  const rec = await first();
+/**
+ * P129 verdict 4: the hub's own saved, unrecorded version is recorded by this call (adoption); nothing is written to Mail. P140 R3:
+ * the record and the answer take the brand and the address the client wrote to from that version, never from another write.
+ */
+async function adopted(s: DraftScope, w: Pending, first: (v: VersionBrand) => ReturnType<typeof recordFirst>) {
+  const version: VersionBrand = { brand: w.pending.brand, wroteTo: w.pending.wroteTo };
+  const rec = await first(version);
   const out: z.input<typeof draftWriteOutput> = {
     draftId: w.pending.mailId,
     messageId: w.pending.messageId,
@@ -110,14 +115,14 @@ async function adopted(s: DraftScope, w: Pending, first: () => ReturnType<typeof
     replyTo: 0,
     account: w.pending.account,
     fromSeenByClient: "",
-    clientWroteTo: null,
+    clientWroteTo: version.wroteTo,
     fromReason: null,
-    brand: null,
-    brandDisplayName: null,
+    brand: version.brand,
+    brandDisplayName: displayNameFor(s.cfg, version.brand),
     project: s.slug,
     sent: false,
     recorded: rec.recorded,
-    record: { draftId: rec.draftId, action: rec.action, evidence: rec.evidence, warnings: rec.warnings, ...(rec.notice ? { notice: rec.notice } : {}) },
+    record: { draftId: rec.draftId, action: rec.action, warnings: rec.warnings, ...(rec.notice ? { notice: rec.notice } : {}) },
     adopted: true,
     live: true,
     next: firstNext(rec, " The hub recorded the draft it had already saved in Mail for this message; nothing new was written (draft_show shows its From)."),

@@ -46,7 +46,7 @@ export const draftWriteOutput = z.object({
   newThread: z.literal(true).optional(),
   recorded: z.boolean(),
   /** P129 verdict 4: the record of a first draft (kind reply or new), written by this call. */
-  record: z.object({ draftId: z.number(), action: z.string(), evidence: z.enum(["ok", "weak", "missing"]), warnings: z.array(z.string()), notice: z.string().optional() }).optional(),
+  record: z.object({ draftId: z.number(), action: z.string(), warnings: z.array(z.string()), notice: z.string().optional() }).optional(),
   /** The hub recorded the version it had already saved for this message instead of writing again. */
   adopted: z.literal(true).optional(),
   live: z.boolean(),
@@ -68,18 +68,23 @@ export interface FirstRecord {
   action: string;
   recorded: boolean;
   message?: string;
-  evidence: "ok" | "weak" | "missing";
   warnings: string[];
   notice?: string;
+}
+
+/** P140 R3: what the signer resolved for the version a first record is written for; the record takes it from here only. */
+export interface VersionBrand {
+  brand: string | null;
+  wroteTo: string | null;
 }
 
 /** The `next` of a first draft, from its record. */
 export const firstNext = (f: FirstRecord, notes = ""): string =>
   f.recorded
-    ? `Recorded: draft ${f.draftId} (${f.action}${f.evidence !== "ok" ? `, evidence ${f.evidence}: ${f.warnings.length} finding(s) on the card` : ""}). Tell the owner in one line what you wrote. Nothing was sent.${f.notice ? ` ${f.notice}.` : ""}${notes}`
+    ? `Recorded: draft ${f.draftId} (${f.action}${f.warnings.length ? `, ${f.warnings.length} finding(s) on the card` : ""}). Tell the owner in one line what you wrote. Nothing was sent.${f.notice ? ` ${f.notice}.` : ""}${notes}`
     : `Saved in Mail but NOT recorded: ${f.message ?? "the hub refused the record"}. Tell the owner in one line; never say "recorded". Nothing was sent.${notes}`;
 
-export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Written, q: WriteRequest, first?: () => Promise<FirstRecord>): Promise<z.input<typeof draftWriteOutput>> {
+export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Written, q: WriteRequest, first?: (v: VersionBrand) => Promise<FirstRecord>): Promise<z.input<typeof draftWriteOutput>> {
   const { ctx, slug, cfg } = s;
   const { env, repos } = ctx;
   const { draft, owner_request, to, reason } = q;
@@ -91,10 +96,11 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
   }
   // P65: the version is the Hub's record of what it wrote; the replaced ones are marked trashed.
   let versionError: string | null = null;
+  const version: VersionBrand = { brand: r.brand ?? null, wroteTo: r.clientWroteTo ?? r.wroteTo ?? null };
   if (env.recordVersion) {
     const moved = new Set(r.replaced.map((x) => x.toLowerCase()));
     try {
-      await env.recordVersion(slug, { draftId: draft ?? null, mailRef, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), signatureFallback: r.signatureFallback ?? null, trashed: versionRows.filter((v) => moved.has(v.messageId.toLowerCase())).map((v) => v.id) });
+      await env.recordVersion(slug, { draftId: draft ?? null, mailRef, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), signatureFallback: r.signatureFallback ?? null, ...version, trashed: versionRows.filter((v) => moved.has(v.messageId.toLowerCase())).map((v) => v.id) });
     } catch (e) {
       versionError = e instanceof Error ? e.message : String(e);
     }
@@ -120,7 +126,7 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
   const warning = team?.repliedElsewhere ? `${team.repliedElsewhere.by} already replied in this thread at ${team.repliedElsewhere.at} (not this Hub's mail): this draft may repeat or contradict it; say so in your one line.` : team?.teamSent ? `${team.teamSent.by} wrote to this client at ${team.teamSent.at} (Notion Last sent by): say so in your one line.` : null;
   const notes = `${fromNote}${signNote}${langNote}${versionNote}${left}${warning ? ` ${warning}` : ""}`;
   // P129 verdict 4: the first draft of a thread is recorded after Mail saved it; a refusal leaves the version pending for the same call again.
-  const rec = draft === undefined && first ? await first() : undefined;
+  const rec = draft === undefined && first ? await first(version) : undefined;
   const next = rec
     ? firstNext(rec, notes)
     : recorded
@@ -128,5 +134,5 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
     : `Saved in Mail but NOT recorded: the hub could not update draft ${draft ?? "(none)"} in place${recordError ? ` (${recordError})` : ""}. Tell the owner in one line that the new text is in Mail and the card still shows the old one; never say "recorded". Nothing was sent.${notes}`;
   // P58 live finding: unambiguous names for the agent. `fromSeenByClient` is Mail's own read of the saved draft's From.
   const { text: _text, shell: _shell, from, wroteTo: _wroteTo, ...shown } = r;
-  return { ...shown, sent: false as const, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, brand: r.brand ?? null, brandDisplayName: displayNameFor(cfg, r.brand), fromReason: r.fromReason, project: slug, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true as const } : {}), recorded: recorded !== null || rec?.recorded === true, ...(rec ? { record: { draftId: rec.draftId, action: rec.action, evidence: rec.evidence, warnings: rec.warnings, ...(rec.notice ? { notice: rec.notice } : {}) } } : {}), live, ...(warning ? { warning } : {}), next };
+  return { ...shown, sent: false as const, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, brand: r.brand ?? null, brandDisplayName: displayNameFor(cfg, r.brand), fromReason: r.fromReason, project: slug, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true as const } : {}), recorded: recorded !== null || rec?.recorded === true, ...(rec ? { record: { draftId: rec.draftId, action: rec.action, warnings: rec.warnings, ...(rec.notice ? { notice: rec.notice } : {}) } } : {}), live, ...(warning ? { warning } : {}), next };
 }

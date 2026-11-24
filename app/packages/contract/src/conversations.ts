@@ -84,7 +84,7 @@ export const conversationThreadDto = z.strictObject({
 export type ConversationThreadDto = z.infer<typeof conversationThreadDto>;
 
 /**
- * The history of one person, oldest thread first and oldest message first in each. `source`: `mail` (read from Mail now, `ms`
+ * The history of one person, threads by the mail headers, newest activity last (P140), oldest message first in each. `source`: `mail` (read from Mail now, `ms`
  * long), or `hub` (Mail could not be read: the Hub's own rows, the reason in `note`). `earlier`: older messages left out (the last
  * `CONVERSATION_MAX` show).
  */
@@ -138,4 +138,13 @@ export type ConversationDto = z.infer<typeof conversationDto>;
 export const conversationTextDto = z.strictObject({ text: z.string().nullable(), quoted: z.boolean(), note: z.string().nullable() });
 export type ConversationTextDto = z.infer<typeof conversationTextDto>;
 export const conversationTextQuery = z.object({ m: z.string().min(3).max(998) });
+
+/**
+ * P140 R5: Refresh in the conversation header. One Mail reader pass and one Sent reconciler pass ran, this person's Mail locations
+ * and bodies left the server's memory, and their linked WhatsApp chats were refilled from the Mac's WhatsApp app (a Telegram chat
+ * has no catch-up of its own: new messages arrive live). `mailRead`: the reader read every mailbox without an error. `stored`: the
+ * chat messages the refill added. The admin then re-reads Mail, the Inbox, the sends, the drafts and the chats.
+ */
+export const conversationRefreshedDto = z.strictObject({ ok: z.literal(true), ms: z.number().int().nonnegative(), mailRead: z.boolean(), chats: z.number().int().nonnegative(), stored: z.number().int().nonnegative() });
+export type ConversationRefreshedDto = z.infer<typeof conversationRefreshedDto>;
 export const conversationsListQuery = conversationsQuery.omit({ project: true });

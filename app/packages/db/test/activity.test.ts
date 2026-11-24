@@ -7,7 +7,6 @@ import { createRepos, type Repos } from "../src/repos";
 // own, then the same draft saved again over two days, its updates joining the draft's first run.
 let handle: DbHandle;
 let repos: Repos;
-const ev = (batchKey: string | null) => ({ level: "ok" as const, source: "claimed" as const, findings: [], batchKey });
 const at = (iso: string) => vi.setSystemTime(new Date(iso));
 
 beforeEach(() => {
@@ -22,7 +21,7 @@ afterEach(() => {
 
 async function saasLike() {
   at("2026-11-16T05:05:24.000Z");
-  const { draftId, clientId } = await repos.drafts.record({ project: "p", email: "mark@x.example", name: "Mark Effect", subject: "S", mailRef: "<a@x>", reason: "asked for API access", skill: "triage-mail", evidence: ev(null) });
+  const { draftId, clientId } = await repos.drafts.record({ project: "p", email: "mark@x.example", name: "Mark Effect", subject: "S", mailRef: "<a@x>", reason: "asked for API access", skill: "triage-mail", batchKey: null });
   at("2026-11-16T05:05:36.000Z");
   await repos.inbox.record({ project: "p", email: "it@x.example", name: "IT-Helpdesk", action: "escalated", reason: "looks like phishing" }, new Date("2026-11-16T05:05:36.000Z"));
   at("2026-11-16T07:26:14.000Z");

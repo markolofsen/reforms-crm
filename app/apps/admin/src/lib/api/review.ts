@@ -1,8 +1,8 @@
 import type { Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
-import { ackDraftCheck, createManualMailDraft, getClientByKey, getClientHistory, getClientMap, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, listStuckClients, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, undoBatch, undoDraftStatus, type GetConversationTextParams } from "@hub/api";
+import { ackDraftCheck, createManualMailDraft, getClientByKey, getClientHistory, getClientMap, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, refreshConversation, listConversations, listDrafts, listStuckClients, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, undoBatch, undoDraftStatus, type GetConversationTextParams } from "@hub/api";
 import type { StatusBody } from "@hub/contract/requests";
 import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/review";
-import { conversationDto, conversationMailDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
+import { conversationDto, conversationMailDto, conversationRefreshedDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
 import { readGenerated } from "./client";
 import { clientKeyDto } from "@hub/contract/client-key";
 import { clientMapDto, stuckClientsDto } from "@hub/contract/client-map";
@@ -24,6 +24,8 @@ export const reviewApi = {
   createManualDraft: (project: string, clientId: number, text: string, brand?: string | null) => readGenerated(createManualMailDraft(project, clientId, { text, ...(brand ? { brand } : {}) }), draftChangedDto),
   /** The history with this person, read from Mail now (a Mail read: on open, focus and the `mail` topic only; never stored). */
   conversationMail: (project: string, clientId: number) => readGenerated(getConversationMail(project, clientId), conversationMailDto),
+  /** P140 R5: Refresh, one Mail and Sent pass now, this person's bodies forgotten on the server and their WhatsApp chats refilled. */
+  refreshConversation: (project: string, clientId: number) => readGenerated(refreshConversation(project, clientId), conversationRefreshedDto),
   /** One message's own words, read from Mail as its conversation bubble renders. */
   conversationText: (project: string, clientId: number, messageId: string) => readGenerated(getConversationText(project, clientId, { m: messageId } satisfies GetConversationTextParams), conversationTextDto),
   /** `search` narrows the rows on the server (never the counts); `batch` limits the list to the drafts one batch wrote. */

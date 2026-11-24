@@ -17,7 +17,7 @@ export const GENERATED_OPERATIONS = {
   projects: ["listProjects", "getProjectOverview", "getProjectDoctor", "getActivity", "getProjectLinks", "listKnowledge", "getKnowledgeText", "listSequences", "listEnrollments", "stopEnrollment"],
   mail: [
     "listDrafts", "setDraftChecked", "setDraftStatus", "setDraftTone", "ackDraftCheck", "undoDraftStatus", "setClientMarks", "getClientTimeline", "getClientHistory", "listBatches", "getBatch", "undoBatch", "acknowledgeBatchWarnings", "getSafetyRules", "setSafetyRule", "getAgentSettings", "setAgentSettings",
-    "listConversations", "getClientByKey", "getClientMap", "listStuckClients", "getConversation", "getConversationMail", "getConversationText", "createManualMailDraft", "getDraftMail", "saveDraftMail", "restoreDraftMail", "tidyDraftMail", "listInbox", "listNotByEmail", "listInbound", "checkInbound", "undismissInbound", "dismissInbound",
+    "listConversations", "getClientByKey", "getClientMap", "listStuckClients", "getConversation", "getConversationMail", "getConversationText", "refreshConversation", "createManualMailDraft", "getDraftMail", "saveDraftMail", "restoreDraftMail", "tidyDraftMail", "listInbox", "listNotByEmail", "listInbound", "checkInbound", "undismissInbound", "dismissInbound",
     "getInboundDetail", "getInboundText", "listLeads", "getLeadDetail", "notNowLead", "spamLead", "undoLead",
   ],
   messengers: [

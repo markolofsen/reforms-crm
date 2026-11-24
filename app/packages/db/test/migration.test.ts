@@ -66,7 +66,7 @@ describe("migrations 0010 to 0013 on a populated database", () => {
     expect(cols("batches")).not.toContain("mode");
     expect(cols("batches")).not.toContain("subject_template");
     expect(cols("batches")).not.toContain("body_template");
-    expect(cols("drafts")).toEqual(expect.arrayContaining(["evidence", "evidence_source", "evidence_findings", "context", "checked_hash"]));
+    expect(cols("drafts")).toEqual(expect.arrayContaining(["findings", "context", "checked_hash"])); // P140 K2 (0043): the evidence columns are gone
     expect(cols("inbox_rows")).toContain("notion_kind");
     expect(sqlite.prepare("select name, intent from batches").get()).toEqual({ name: "old", intent: "follow_up" });
     expect(sqlite.prepare("select body, checked, checked_hash from drafts").get()).toEqual({ body: "Hello A", checked: 1, checked_hash: null });
@@ -249,6 +249,38 @@ describe("migration 0042 (the proof of inbound outlives the cache, P141 W4)", ()
     expect(() => sqlite.prepare("insert into messenger_chats (project, channel, chat_id) values ('p','telegram_user','42')").run()).toThrow(/UNIQUE/);
     const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and (name like 'live_messenger_chats_%' or name like 'live_messenger_messages_%')").all() as { name: string }[]).map((t) => t.name).sort();
     expect(triggers).toEqual(["live_messenger_chats_ad", "live_messenger_chats_ai", "live_messenger_chats_au", "live_messenger_messages_ad", "live_messenger_messages_ai", "live_messenger_messages_au"]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
+describe("migration 0043 (the version keeps its brand; the evidence check is gone, P140 R3 and K2)", () => {
+  it("adds brand and wrote_to, drops the evidence columns, keeps fact-other-brand findings, drops the removed kinds' rules and acks; keeps the live triggers", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(43) }); // 0000 .. 0042
+    sqlite.prepare("insert into clients (project, email, name, replies_owed, created_at) values ('p','a@x.example','A',0,'2026-11-01T00:00:00.000Z')").run();
+    const findings = JSON.stringify([{ code: "no-thread-read", text: "x", amber: false }, { code: "fact-other-brand", text: "y", amber: false }]);
+    sqlite.prepare("insert into drafts (project, client_id, subject, to_addr, body, evidence, evidence_source, evidence_findings, similar_to, fingerprint, acked) values ('p',1,'s','a@x.example','b','weak','claimed',?,'b@x','[1,2]','[\"cc_present\",\"evidence_weak\"]')").run(findings);
+    sqlite.prepare("insert into drafts (project, client_id, subject, to_addr, body, status) values ('p',1,'s2','a@x.example','b','done')").run();
+    sqlite.prepare("insert into safety_rules (project, kind, enabled, level, params) values ('p','evidence_weak',1,'amber','{}'), ('p','cc_present',0,'amber','{}')").run();
+    sqlite.prepare("insert into mail_versions (project, mail_ref, draft_id, account, mail_id, message_id, hash, source, written_at) values ('p','r@x',1,'a',1,'m@x','h','agent','2026-11-24T00:00:00.000Z')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0043
+
+    const cols = (t: string) => (sqlite.prepare(`select name from pragma_table_info('${t}')`).all() as { name: string }[]).map((c) => c.name);
+    for (const gone of ["evidence", "evidence_source", "evidence_findings", "similar_to", "fingerprint"]) expect(cols("drafts")).not.toContain(gone);
+    expect(cols("drafts")).toContain("findings");
+    expect(cols("mail_versions")).toEqual(expect.arrayContaining(["brand", "wrote_to"]));
+    const d = sqlite.prepare("select findings, acked from drafts where id = 1").get() as { findings: string; acked: string };
+    expect(JSON.parse(d.findings)).toEqual([{ code: "fact-other-brand", text: "y", amber: false }]);
+    expect(JSON.parse(d.acked)).toEqual(["cc_present"]);
+    expect(sqlite.prepare("select findings, acked from drafts where id = 2").get()).toEqual({ findings: null, acked: "[]" });
+    expect(sqlite.prepare("select kind from safety_rules").all()).toEqual([{ kind: "cc_present" }]);
+    expect(sqlite.prepare("select brand, wrote_to from mail_versions").get()).toEqual({ brand: null, wrote_to: null });
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and (name like 'live_drafts_%' or name like 'live_mail_versions_%' or name like 'live_safety_rules_%')").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_drafts_ad", "live_drafts_ai", "live_drafts_au", "live_mail_versions_ad", "live_mail_versions_ai", "live_mail_versions_au", "live_safety_rules_ad", "live_safety_rules_ai", "live_safety_rules_au"]);
     expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
     sqlite.close();
   });

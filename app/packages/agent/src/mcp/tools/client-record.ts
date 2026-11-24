@@ -19,7 +19,7 @@ export const clientRecordTool = defineTool({
     const slug = ctx.project();
     const env = ctx.env.records;
     if (!env) throw new ToolError("unavailable", "This hub MCP server cannot record (no database to write).");
-    const r = await recordClientCall(slug, input, { dbPath: env.dbPath, ...(env.now ? { now: env.now } : {}) });
+    const r = await recordClientCall(slug, input, { dbPath: env.dbPath });
     if (!r.ok) throw new ToolError(r.code, r.error);
     return { ok: true as const, project: slug, inboxId: r.inboxId, runId: r.runId, created: r.created, ...(r.followUps ? { followUps: r.followUps } : {}) };
   },

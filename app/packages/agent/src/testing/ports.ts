@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createRepos, openDb, openDbReadOnly, type Repos } from "@hub/db";
-import { CONTEXT_BLOCK_FROM } from "@hub/projects/context";
 import { projectStore } from "@hub/projects/store";
 import { readAllowList, testRecipientsOf } from "@hub/projects/guard";
 import { setSendPolicy } from "@hub/projects/send-policy";
@@ -21,8 +20,8 @@ import { createHubMcpServer } from "../mcp/server";
 /** The fixture projects (invented clients) of `@hub/projects`' tests. */
 export const FIXTURE_PROJECTS = path.resolve(import.meta.dirname, "..", "..", "..", "projects", "test", "fixtures", "projects");
 
-/** The clock of flows that are not about the context block: the day before it became required. */
-export const BEFORE_CONTEXT_BLOCK = new Date(Date.parse(CONTEXT_BLOCK_FROM) - 86_400_000 + 12 * 3_600_000);
+/** The fixed clock of the fake ports (a test never changes with the calendar). */
+export const TEST_NOW = new Date("2026-11-21T12:00:00.000Z");
 
 export interface FakePortsOptions {
   /** The bound slug (default `acme`). */
@@ -59,7 +58,7 @@ export interface FakePorts {
 
 export function fakePorts(o: FakePortsOptions = {}): FakePorts {
   const slug = o.slug ?? "acme";
-  const now = o.now ?? BEFORE_CONTEXT_BLOCK;
+  const now = o.now ?? TEST_NOW;
   const dir = mkdtempSync(path.join(tmpdir(), "hub-fake-ports-"));
   const projectsDir = path.join(dir, "projects");
   const policyDir = path.join(dir, "state", "projects");
@@ -101,13 +100,13 @@ export function fakePorts(o: FakePortsOptions = {}): FakePorts {
     recordRevision: (s: string, id: number, r: RevisionRecord) => write((w) => w.drafts.revised(s, id, r)),
     recordVersion: (s: string, v: VersionRecord) =>
       write(async (w) => {
-        await w.mailVersions.add({ project: s, mailRef: v.mailRef, draftId: v.draftId, account: v.account, mailId: v.mailId, messageId: v.messageId, hash: v.hash, source: "agent", signatureFallback: v.signatureFallback });
+        await w.mailVersions.add({ project: s, mailRef: v.mailRef, draftId: v.draftId, account: v.account, mailId: v.mailId, messageId: v.messageId, hash: v.hash, source: "agent", signatureFallback: v.signatureFallback, brand: v.brand, wroteTo: v.wroteTo });
         await w.mailVersions.markTrashed(v.trashed);
       }),
     withRepos: write,
     clientInNotion: async (_s: string, email: string) => o.notion?.[email.trim().toLowerCase()] ?? { state: "not_client" },
     testRecipients: () => testRecipientsOf(config(), readAllowList(configFile)),
-    records: { dbPath, projectsDir, policyDir, configFile, ledgerRoot: dir, now: () => now },
+    records: { dbPath, projectsDir, policyDir, configFile },
     ownerWords: (_s: string, words: string) => ownerWordsFound({ events: prompts, words, now }).ok,
     ...o.env,
   };

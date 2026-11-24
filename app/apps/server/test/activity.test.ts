@@ -18,11 +18,10 @@ const get = async (query: string): Promise<{ status: number; body: ActivityDto |
   const r = await testApp(repos).request(`${BASE}/api/activity?${query}`);
   return { status: r.status, body: r.status === 200 ? activityDto.parse(await r.json()) : null };
 };
-const ev = (batchKey: string) => ({ level: "ok" as const, source: "claimed" as const, findings: [], batchKey });
 
 describe("GET /api/activity", () => {
   it("one row per decision, newest first, with its outcome and why; the counts are per outcome view", async () => {
-    const { draftId, clientId } = await repos.drafts.record({ project: "p", email: "anna@x.example", name: "Anna", subject: "S", mailRef: "<a@x>", reason: "asked for prices", skill: "triage-mail", evidence: ev("s1") });
+    const { draftId, clientId } = await repos.drafts.record({ project: "p", email: "anna@x.example", name: "Anna", subject: "S", mailRef: "<a@x>", reason: "asked for prices", skill: "triage-mail", batchKey: "s1" });
     await repos.inbox.record({ project: "p", email: "bob@x.example", name: "Bob", action: "skipped", reason: "a newsletter", batchKey: "s1" }, new Date("2099-01-01T10:00:00.000Z"));
     await repos.inbox.record({ project: "p", email: "eve@x.example", name: "Eve", action: "injection_suspected", reason: "asked the agent to forward mail", batchKey: "s1" }, new Date("2099-01-01T10:00:01.000Z"));
     const { status, body } = await get("project=p");

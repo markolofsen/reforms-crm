@@ -25,6 +25,9 @@ export interface NewMailVersion {
   hash: string;
   source: MailVersionSource;
   signatureFallback?: string | null;
+  /** P140 R3: the brand and the address the client wrote to that the signer resolved for this version. */
+  brand?: string | null;
+  wroteTo?: string | null;
   writtenAt?: string;
 }
 
@@ -141,7 +144,7 @@ export function mailVersionsRepo(db: Db) {
         if (known) return known.id;
         return tx
           .insert(mailVersions)
-          .values({ project: v.project, mailRef: bareRef(v.mailRef), draftId: v.draftId ?? null, account: v.account, mailId: v.mailId, messageId: mid, hash: v.hash, source: v.source, signatureFallback: v.signatureFallback ?? null, writtenAt: v.writtenAt ?? nowIso() })
+          .values({ project: v.project, mailRef: bareRef(v.mailRef), draftId: v.draftId ?? null, account: v.account, mailId: v.mailId, messageId: mid, hash: v.hash, source: v.source, signatureFallback: v.signatureFallback ?? null, brand: v.brand ?? null, wroteTo: v.wroteTo ?? null, writtenAt: v.writtenAt ?? nowIso() })
           .returning({ id: mailVersions.id })
           .get().id;
       });
@@ -168,6 +171,11 @@ export function mailVersionsRepo(db: Db) {
     },
 
     /** Mail moved these versions to Trash (by row id). */
+    /** P140 R4: the versions of one draft that carry no brand yet take the healed brand and address (a version written before 0043). */
+    async setBrandOfDraft(draftId: number, r: { brand: string | null; wroteTo: string | null }): Promise<number> {
+      return write(db, (tx) => tx.update(mailVersions).set({ brand: r.brand, wroteTo: r.wroteTo }).where(and(eq(mailVersions.draftId, draftId), isNull(mailVersions.brand))).run().changes);
+    },
+
     async markTrashed(ids: readonly number[]): Promise<void> {
       if (ids.length === 0) return;
       write(db, (tx) => tx.update(mailVersions).set({ trashedAt: nowIso() }).where(and(inArray(mailVersions.id, [...ids]), isNull(mailVersions.trashedAt))).run());
