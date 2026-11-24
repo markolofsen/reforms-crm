@@ -127,6 +127,9 @@ const SCREENS: Screen[] = [
   { name: "settings: mail", path: at(P, "/settings/mail"), ready: async (p) => void (await p.getByRole("list", { name: "Mail filters" }).waitFor()) },
   { name: "settings: agent", path: at(P, "/settings/agent"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
   { name: "settings: this mac", path: "/settings/mac", ready: async (p) => void (await p.getByTestId("core-block").or(p.getByText("Could not load the core update check")).first().waitFor()) },
+  // P138: Mail ▸ Leads (the two seeded New leads of demo-shop): the views control in the list header, rows by day, the open card.
+  { name: "leads", path: at("demo-shop", "/mail/leads"), ready: async (p) => void (await p.getByTestId("lead-row").first().waitFor()) },
+  { name: "leads: one open", path: at("demo-shop", "/mail/leads/5eed0000000000000000000000000001"), ready: async (p) => void (await p.getByTestId("lead-card").waitFor()) },
   // P71 M3: the Messengers panel (the seeded chat of Rita with the agent's draft) and Settings ▸ Messengers.
   { name: "messengers: chats", path: at(P, "/messengers"), ready: async (p) => void (await openMessengerDraft(p)) },
   {

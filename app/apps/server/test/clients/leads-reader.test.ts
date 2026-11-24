@@ -100,6 +100,36 @@ describe("the lead's preview (P98 item 4)", () => {
   });
 });
 
+describe("P138 E1: the row's facts and the card's form, read, and notes", () => {
+  const meta = "Company website: https://www.almir.test/\nCountry: AE\nSegment: Dealer\nExpected volume: Under 10k/month\nContact channel: WhatsApp: +971 50 123 4567\nLocale: en";
+  it("stores four short facts of the form on the row", () => {
+    const config = { brands: [] as never, leads: { noticeSenders: [], windowDays: 14 } };
+    const [r] = windowOf([page("a".repeat(32), { details: meta })], { project: "p", config, now: NOW }).rows;
+    expect(r?.facts).toEqual({ site: "almir.test", country: "United Arab Emirates", segment: "Dealer", volume: "Under 10k/month" });
+  });
+
+  it("GET /leads/:id answers the sheet and the notes: a typo, a client at the company's domain, the forms of one address", async () => {
+    projectFolder();
+    const n = fakeNotion([page("a".repeat(32), { email: "info@almir.vom", details: meta }), page("b".repeat(32), { email: "info@almir.vom", received: "2026-11-19T10:00:00.000Z" })]);
+    const leads = reader(n);
+    await leads.read();
+    await repos.clients.create({ project: "p", email: "boss@almir.test", name: "Almir Boss" });
+    const app = testApp(repos, { leads });
+    const res = await app.request(`/api/projects/p/leads/${"a".repeat(32)}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { row: { facts: unknown }; lead: { sheet: { channel: unknown; technical: Array<{ label: string }> }; read: string | null }; notes: Array<{ kind: string }> };
+    expect(body.lead.sheet.channel).toEqual({ kind: "whatsapp", value: "+971 50 123 4567" });
+    expect(body.lead.sheet.technical.map((t) => t.label)).toEqual(["Locale"]);
+    expect(body.lead.read).toBeNull();
+    expect(body.notes).toEqual([
+      { kind: "typo", address: "info@almir.vom", suggestion: "info@almir.com", domain: "almir.vom", meant: "almir.com" },
+      expect.objectContaining({ kind: "client", by: "company", name: "Almir Boss", email: "boss@almir.test" }),
+      { kind: "repeat", count: 2 },
+    ]);
+    expect(body.row.facts).toMatchObject({ country: "United Arab Emirates" });
+  });
+});
+
 describe("the Leads reader and the Inbox's Leads group", () => {
   it("lists the New leads in GET /inbound, with the older count; a robot notice never is a row", async () => {
     projectFolder();
