@@ -5,10 +5,13 @@ import { cn } from "../../cn";
  * The one page shell of a single-column screen (Activity on a phone, Project, Connections, Overview): an optional header line
  * (the title is the section, or `nav`, the sub-nav of a section with child pages, P63; actions at the end) and a body that fills
  * the pane and scrolls. Full width: no page container, prose blocks take the `measure` utility themselves (P48).
+ * `label`: a body that may scroll with nothing focusable in it (a table of plain rows, Activity) becomes a named region a keyboard
+ * can reach, so it scrolls without a mouse (WCAG 2.1.1, axe `scrollable-region-focusable`).
  */
-export function Page({ title, nav, actions, children, className, flush = false, scroll = true }: { title?: ReactNode; nav?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; flush?: boolean; scroll?: boolean }) {
+export function Page({ title, nav, actions, children, className, label, flush = false, scroll = true }: { title?: ReactNode; nav?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; label?: string; flush?: boolean; scroll?: boolean }) {
+  const region = scroll && label ? { role: "region" as const, "aria-label": label, tabIndex: 0 } : {};
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", scroll ? "overflow-y-auto" : "overflow-hidden")} data-slot="page">
+    <div className={cn("flex min-h-0 flex-1 flex-col", scroll ? "overflow-y-auto" : "overflow-hidden")} data-slot="page" {...region}>
       {(title || nav || actions) && (
         <div className="flex min-h-14 flex-wrap items-center gap-3 border-b px-4 py-2 sm:px-6" data-slot="page-header">
           {title && <h1 className="min-w-0 flex-1 font-heading font-semibold text-base">{title}</h1>}

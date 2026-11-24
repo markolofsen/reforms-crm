@@ -71,7 +71,7 @@ export function ActivityPage({ project, kind, client }: Props) {
   const lines = useOpsLines();
   return (
     <SectionLayout nav={<KindNav client={client} counts={counts} errors={lines.data?.errors} sends={sends.data?.sends.length} value={kind} />} navButton="Kinds" navLabel="Activity kinds">
-      <Page>{kind === "sends" ? <SendsView project={project} /> : kind === "errors" ? <ErrorsView /> : <TimelineView client={client} project={project} view={kind} />}</Page>
+      <Page label="Activity list">{kind === "sends" ? <SendsView project={project} /> : kind === "errors" ? <ErrorsView /> : <TimelineView client={client} project={project} view={kind} />}</Page>
     </SectionLayout>
   );
 }
