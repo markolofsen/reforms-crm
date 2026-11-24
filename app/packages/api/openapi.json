@@ -7584,6 +7584,59 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "appHistory": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "on",
+                      "off"
+                    ]
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "missing",
+                          "refused",
+                          "schema",
+                          "error"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "detail": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fix": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "cacheDays": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "state",
+                  "reason",
+                  "detail",
+                  "fix",
+                  "cacheDays"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -7949,6 +8002,59 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "appHistory": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "on",
+                          "off"
+                        ]
+                      },
+                      "reason": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "missing",
+                              "refused",
+                              "schema",
+                              "error"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "detail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fix": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cacheDays": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "reason",
+                      "detail",
+                      "fix",
+                      "cacheDays"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -8503,6 +8609,59 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "appHistory": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "on",
+                          "off"
+                        ]
+                      },
+                      "reason": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "missing",
+                              "refused",
+                              "schema",
+                              "error"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "detail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fix": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "cacheDays": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "state",
+                      "reason",
+                      "detail",
+                      "fix",
+                      "cacheDays"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "required": [
@@ -16978,6 +17137,59 @@
               ],
               "additionalProperties": false
             }
+          },
+          "appHistory": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "on",
+                  "off"
+                ]
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "missing",
+                      "refused",
+                      "schema",
+                      "error"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "detail": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cacheDays": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "state",
+              "reason",
+              "detail",
+              "fix",
+              "cacheDays"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -17745,7 +17957,7 @@
           },
           "chatId": {
             "type": "string",
-            "pattern": "^\\+?\\d{1,20}$"
+            "pattern": "^(\\+?\\d{1,20}|lid:\\d{1,20})$"
           },
           "key": {
             "type": "string",
@@ -17822,7 +18034,7 @@
           },
           "chatId": {
             "type": "string",
-            "pattern": "^\\+?\\d{1,20}$"
+            "pattern": "^(\\+?\\d{1,20}|lid:\\d{1,20})$"
           },
           "title": {
             "type": "string",
@@ -17861,7 +18073,7 @@
           },
           "chatId": {
             "type": "string",
-            "pattern": "^\\+?\\d{1,20}$"
+            "pattern": "^(\\+?\\d{1,20}|lid:\\d{1,20})$"
           }
         },
         "required": [
@@ -17918,7 +18130,7 @@
                 },
                 "chatId": {
                   "type": "string",
-                  "pattern": "^\\+?\\d{1,20}$"
+                  "pattern": "^(\\+?\\d{1,20}|lid:\\d{1,20})$"
                 }
               },
               "required": [
@@ -18975,6 +19187,20 @@
                       "type": "null"
                     }
                   ]
+                },
+                "source": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "wa_app"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -18984,7 +19210,8 @@
                 "text",
                 "format",
                 "at",
-                "hidden"
+                "hidden",
+                "source"
               ],
               "additionalProperties": false
             }

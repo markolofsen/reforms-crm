@@ -1,0 +1,25 @@
+{
+  "note": "A reaction: nothing to keep, no row.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0REACT010"
+    },
+    "messageTimestamp": 1763989800,
+    "pushName": "Anna",
+    "message": {
+      "reactionMessage": {
+        "key": {
+          "remoteJid": "491510000002@s.whatsapp.net",
+          "fromMe": true,
+          "id": "3EB0PN000009"
+        },
+        "text": "👍",
+        "senderTimestampMs": "1763989800000"
+      }
+    }
+  },
+  "expected": null,
+  "dropped": "no_kind"
+}

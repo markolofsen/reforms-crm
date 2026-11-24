@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import qrcode from "qrcode-generator";
 import { MessengersError } from "./errors";
 import { WaAuthFiles } from "./whatsapp-auth";
-import { WA_CODES, type WaMe, type WaSocket, type WaSocketFactory } from "./whatsapp";
+import { WA_CODES, type WaMe, type WaSocket, type WaSocketFactory } from "./whatsapp-socket";
 
 /**
  * Linking WhatsApp as a device (P71 M5, decision 0036 point 4): the owner presses Connect, the server opens a socket over an empty

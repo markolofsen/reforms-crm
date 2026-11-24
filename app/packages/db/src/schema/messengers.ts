@@ -7,6 +7,9 @@ export type MessengerChannel = "telegram_bot" | "telegram_user" | "whatsapp";
 
 export type MessengerDirection = "in" | "out";
 
+/** Where a cached message came from when it was not the receiver (decision 0049 point 5): the Mac's WhatsApp app. */
+export type MessageSource = "wa_app";
+
 export type MessengerDraftStatus = "draft" | "confirmed" | "sent" | "copied" | "discarded";
 
 export type IdentifierKind = "email" | "telegram" | "phone" | "whatsapp";
@@ -29,7 +32,8 @@ export const messengerAccounts = sqliteTable(
   (t) => [uniqueIndex("messenger_accounts_key").on(t.project, t.channel, t.account)],
 );
 
-// The inbound allow-list: only chats the owner listed are stored. Everything else is dropped at ingest.
+// The linked chats (decision 0036 point 3; 0049 makes a chat that wrote known, in P141 U2). A WhatsApp chat's messages are cached
+// before it is linked (P141 W2) and adopted here by `chat_id` when it is.
 export const messengerChats = sqliteTable(
   "messenger_chats",
   {
@@ -55,6 +59,12 @@ export const messengerChats = sqliteTable(
     // owner's switch clears it. The switches that turn autopilot on are protected files, never a column here.
     autopilotPausedAt: text("autopilot_paused_at"),
     autopilotPausedReason: text("autopilot_paused_reason"),
+    // Decision 0049, P141 (migration 0042): "the person wrote" as a fact the server observed, which outlives the message cache: the
+    // newest inbound message stored and the account that read the chat, written by ingest and on link, never pruned. `jid` is a
+    // WhatsApp chat's real address (the `@lid` one when WhatsApp gives it), named by the history request and the send.
+    jid: text("jid"),
+    lastInboundAt: text("last_inbound_at"),
+    account: text("account"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );
@@ -73,6 +83,8 @@ export const messengerMessages = sqliteTable(
     text: text("text").notNull().default(""),
     sentAt: text("sent_at").notNull(), // ISO-8601 UTC
     retainUntil: text("retain_until").notNull(),
+    // Decision 0049 point 5 (migration 0042): `wa_app` for a row only the Mac's WhatsApp app supplied, else null.
+    source: text("source").$type<MessageSource>(),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   },
   (t) => [

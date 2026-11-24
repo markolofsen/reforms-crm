@@ -9,6 +9,6 @@ import type { AutolinkHideBodyChannel } from './autolinkHideBodyChannel';
 
 export interface AutolinkHideBody {
   channel: AutolinkHideBodyChannel;
-  /** @pattern ^\+?\d{1,20}$ */
+  /** @pattern ^(\+?\d{1,20}|lid:\d{1,20})$ */
   chatId: string;
 }

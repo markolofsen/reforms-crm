@@ -1,0 +1,36 @@
+{
+  "note": "An @lid key with no phone alias (the decoder had no senderAlt): stored under lid:, never dropped.",
+  "message": {
+    "key": {
+      "remoteJid": "555566667777888@lid",
+      "fromMe": false,
+      "id": "3EB0LID00008",
+      "addressingMode": "lid"
+    },
+    "messageTimestamp": 1763989600,
+    "pushName": "Hidden Number",
+    "message": {
+      "conversation": "hi, number hidden",
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyHash": "c2VuZGVyLWtleS1oYXNo",
+          "senderTimestamp": "1763900000",
+          "recipientKeyHash": "cmVjaXBpZW50LWtleQ==",
+          "recipientTimestamp": "1763800000"
+        },
+        "deviceListMetadataVersion": 2,
+        "messageSecret": "ZmFrZS1zZWNyZXQ="
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0LID00008",
+    "chatId": "lid:555566667777888",
+    "jid": "555566667777888@lid",
+    "fromMe": false,
+    "at": "2025-11-24T13:06:40.000Z",
+    "text": "hi, number hidden",
+    "kind": "text",
+    "pushName": "Hidden Number"
+  }
+}

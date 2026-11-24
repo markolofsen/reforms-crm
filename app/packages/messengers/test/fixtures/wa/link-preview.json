@@ -1,0 +1,47 @@
+{
+  "note": "Baileys 7.0.0-rc14 shape of a first message with a link preview (the Qimma shape): an @lid key with the phone alias, extendedTextMessage with matchedText and a preview; numbers and text are synthetic.",
+  "message": {
+    "key": {
+      "remoteJid": "111122223333444@lid",
+      "remoteJidAlt": "966500000001@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0A1B2C3D4E5F60718",
+      "participant": "",
+      "addressingMode": "lid"
+    },
+    "messageTimestamp": 1763989276,
+    "pushName": "Example Auctions",
+    "broadcast": false,
+    "message": {
+      "extendedTextMessage": {
+        "text": "Hello team, we are Example Auctions. Our catalogue: https://example.com/catalogue",
+        "matchedText": "https://example.com/catalogue",
+        "description": "A synthetic preview",
+        "title": "Example Auctions",
+        "previewType": "NONE",
+        "jpegThumbnail": "/9j/4AAQSkZJRg==",
+        "inviteLinkGroupTypeV2": "DEFAULT"
+      },
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyHash": "c2VuZGVyLWtleS1oYXNo",
+          "senderTimestamp": "1763900000",
+          "recipientKeyHash": "cmVjaXBpZW50LWtleQ==",
+          "recipientTimestamp": "1763800000"
+        },
+        "deviceListMetadataVersion": 2,
+        "messageSecret": "ZmFrZS1zZWNyZXQ="
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0A1B2C3D4E5F60718",
+    "chatId": "+966500000001",
+    "jid": "111122223333444@lid",
+    "fromMe": false,
+    "at": "2025-11-24T13:01:16.000Z",
+    "text": "Hello team, we are Example Auctions. Our catalogue: https://example.com/catalogue",
+    "kind": "text",
+    "pushName": "Example Auctions"
+  }
+}

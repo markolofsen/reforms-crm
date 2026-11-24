@@ -75,8 +75,10 @@ async function nameOf(repos: Repos, project: string, clientId: number | null, ch
   return client?.name || client?.email || title || `chat ${chatId}`;
 }
 
-/** The account a chat's messages came through: the newest inbound row's (a chat is read by one account). */
+/** The account that reads the chat: the chat row's `account` (decision 0049, it outlives the cache), else the newest inbound row's. */
 async function accountOf(repos: Repos, project: string, channel: MessengerChannel, chatId: string): Promise<string | null> {
+  const stored = (await repos.messengers.chat(project, channel, chatId))?.account;
+  if (stored) return stored;
   const rows = await repos.messengers.messagesOf(project, [{ channel, chatId }], { limit: 50 });
   return (rows.find((m) => m.direction === "in") ?? rows[0])?.account ?? null;
 }
@@ -97,7 +99,8 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
   if (!d.text.trim()) reasons.push("the draft text is empty");
   const chat = await repos.messengers.chat(project, d.channel, d.chatId);
   if (!chat) reasons.push("the chat is no longer linked to a client");
-  else if ((await repos.messengers.activity(project, d.channel, d.chatId)).inbound === 0) reasons.push("nobody wrote in this chat yet: the hub never makes the first contact");
+  // Decision 0049 (P141 W4): the chat row's `last_inbound_at` is the proof, so a pruned cache does not turn a reply into first contact.
+  else if ((await repos.messengers.activity(project, d.channel, d.chatId)).lastInAt === null) reasons.push("nobody wrote in this chat yet: the hub never makes the first contact");
   // Provenance: a draft written for one client never goes to a chat that now belongs to another (Change client, P102).
   const linked = await repos.messengers.clientByIdentifier(project, KIND[d.channel], d.chatId);
   if (d.clientId !== null && linked !== null && linked !== d.clientId) reasons.push("the chat was moved to another client after this draft was written: write the reply again for the new client");

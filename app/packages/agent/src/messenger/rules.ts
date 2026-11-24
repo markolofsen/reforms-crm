@@ -15,6 +15,13 @@ export interface Verdict {
   nudge: boolean;
 }
 
+/**
+ * The first-contact refusal (decision 0036 point 7, P141 verdict 7): what the agent tells the owner. The owner's word that the
+ * person wrote does not count: only a message the Hub received does.
+ */
+export const NO_INBOUND =
+  "No message from this person is stored yet; if they wrote, the Hub has not received it. Refresh the chat or check the WhatsApp or Telegram receiver (Settings ▸ Messengers). The hub never makes first contact (decision 0036 point 7), and the owner's word that they wrote does not change that. Nothing was written.";
+
 /** True when the newest stored row of the chat is ours: a draft there is a follow-up, not an answer. */
 export const lastIsOurs = (a: ChatActivity): boolean => a.lastOutAt !== null && (a.lastInAt === null || a.lastOutAt >= a.lastInAt);
 
@@ -27,7 +34,8 @@ export function draftVerdict(o: { rules: ChatRules; activity: ChatActivity; owne
   const nudge = lastIsOurs(o.activity);
   const no = (code: RefusalCode, message: string): Verdict => ({ refusal: { code, message }, nudge });
   if (o.rules.replyMode === "off") return no("reply_off", "The owner set this chat to never draft (reply_mode off): write nothing here and say so in one line.");
-  if (o.activity.inbound === 0) return no("no_inbound", "This chat holds no message from the client: the hub never makes first contact (decision 0036 point 7). Nothing was written.");
+  // Decision 0049 (P141 W4): "the person wrote" is the server's fact (`lastInAt`, which outlives the cache), never a claim in a session.
+  if (o.activity.lastInAt === null) return no("no_inbound", NO_INBOUND);
   if (o.rules.replyMode === "on_request" && (o.ownerRequest ?? "").trim().length < OWNER_REQUEST_MIN) {
     return no("not_requested", "This chat is on_request: draft only when the owner asks for this chat in this session, and pass his words as owner_request. Nothing was written.");
   }

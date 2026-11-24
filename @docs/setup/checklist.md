@@ -108,6 +108,9 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - You: If Telegram refuses the token: in @BotFather send /token (or /revoke) for the bot, then store the new one with `pnpm hub token telegram`.
 - [ ] **The messengers poller is running inside the server** (`messengers.poller`; optional extra, `--automation`)
   - Proves: `GET /api/health` on the local server reports `messengers.state` = `running` with a poll in the last 5 minutes. WARN when the server is down or the feature is off without a token.
+- [ ] **The server can read the Mac's WhatsApp app (history refill, read only)** (`whatsapp.app`; optional extra, `--automation`)
+  - Proves: `GET /api/health` reports `whatsapp.appHistory` as the server's own process found it (this check does not open the file itself: your shell's access says nothing about the server's). PASS when it is on; WARN with the one fix when macOS refused it, when the app is not installed, or when its database changed; PASS when no WhatsApp number is connected.
+  - You: If macOS refused it: System Settings ▸ Privacy & Security ▸ Full Disk Access, add the node binary the row names, then `./run.sh restart`.
 ## Notion
 
 - [ ] **Notion integration token** (`notion.token`; optional extra, `--automation`)

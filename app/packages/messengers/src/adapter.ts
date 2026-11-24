@@ -1,5 +1,5 @@
 import { HubError } from "@hub/config/errors";
-import type { MessengerChannel } from "@hub/db";
+import type { MessageSource, MessengerChannel } from "@hub/db";
 import type { ConfirmedDraft } from "./confirmed";
 
 /** One received message, already reduced to what is stored. */
@@ -14,6 +14,14 @@ export interface InboundMessage {
   /** `out` for a message the account itself wrote (a user account sees both sides; a bot only `in`). Default `in`. */
   direction?: "in" | "out";
   sentAt: string; // ISO-8601 UTC
+  /** WhatsApp: the chat's real address (`…@lid` when WhatsApp gives one), kept on a linked chat's row for the history request and the send. */
+  chatJid?: string;
+  /** Decision 0049 point 5: `wa_app` when only the Mac's WhatsApp app supplied the row. */
+  source?: MessageSource;
+  /** An edit of the stored message with this remote id: its text replaces the stored one; nothing new is stored. */
+  editOf?: string;
+  /** History (a sync or an import), not a new message: stored, but it wakes neither the pre-analysis nor the autopilot. */
+  backfill?: boolean;
 }
 
 export interface PollOptions {

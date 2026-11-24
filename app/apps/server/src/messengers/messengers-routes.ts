@@ -24,7 +24,7 @@ const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
  * here sends: Send is the door of P71 M4. The owner may also create an unsent manual draft without an inbound message. P71 M-P: each chat carries its pre-analysis counts by reason, the reply says whether a
  * pass can run (`preanalysis`), and turning a chat's switch on starts one pass.
  */
-export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory }: MessengersContext) {
+export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory, wa }: MessengersContext) {
   const standing = () => preanalysis?.standing() ?? preanalysisStanding();
   const identity = createMessengerIdentityResolver(directory);
   const gated = async <T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string) => Promise<Response>): Promise<Response> => {
@@ -65,6 +65,9 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
       const id = idOf(c, "id");
       const row = id === null ? null : await repos.messengers.chatById(slug, id);
       if (!row) return notFound(c, "chat");
+      // P141 W3 (decision 0049 point 3): a WhatsApp chat is refilled from the Mac's WhatsApp app (read only, local) before it is read,
+      // so a message that arrived while the Hub was off, or that the cache let go, shows. A failed refill answers from the cache.
+      if (row.channel === "whatsapp" && wa) await wa.refill(slug, { chatId: row.chatId, jid: row.jid }).catch(() => 0);
       const [chat, messages] = await Promise.all([
         projectedChatOf(repos, slug, row, identity),
         repos.messengers.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 101 }),
@@ -74,7 +77,7 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
       const ordered = messages
         .slice()
         .reverse()
-        .map((m) => ({ id: m.id, direction: m.direction, kind: m.kind, text: m.text, format: "plain" as const, at: m.sentAt, hidden: isHiddenLabel(verdicts.get(m.id)) ? verdicts.get(m.id) : null }));
+        .map((m) => ({ id: m.id, direction: m.direction, kind: m.kind, text: m.text, format: "plain" as const, at: m.sentAt, hidden: isHiddenLabel(verdicts.get(m.id)) ? verdicts.get(m.id) : null, source: m.source ?? null }));
       return c.json(messengerConversationDto.parse({ chat, messages: ordered.slice(-100), earlier: Math.max(0, messages.length - 100) }));
     })
     .put("/api/projects/:slug/messengers/drafts/:id/text", (c) =>

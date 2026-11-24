@@ -9,6 +9,6 @@ import type { AutolinkProposalsDropBodyItemsItemChannel } from './autolinkPropos
 
 export type AutolinkProposalsDropBodyItemsItem = {
   channel: AutolinkProposalsDropBodyItemsItemChannel;
-  /** @pattern ^\+?\d{1,20}$ */
+  /** @pattern ^(\+?\d{1,20}|lid:\d{1,20})$ */
   chatId: string;
 };

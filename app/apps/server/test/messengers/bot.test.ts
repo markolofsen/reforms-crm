@@ -58,7 +58,7 @@ describe("messengers in the server", () => {
       tokenFile: tokenFile(),
       adapterFor: () => ((seen = fake), fake),
       runner: async (d) => {
-        d.onEvent?.({ type: "poll", result: { fetched: 0, cursor: null, stored: 2, chats: [], duplicates: 0, dropped: [] } });
+        d.onEvent?.({ type: "poll", result: { fetched: 0, cursor: null, stored: 2, chats: [], duplicates: 0, dropped: [], edited: 0 } });
         await new Promise<void>((r) => d.signal?.addEventListener("abort", () => r()));
       },
     });

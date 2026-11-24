@@ -1,0 +1,31 @@
+{
+  "note": "A view-once image (viewOnceMessageV2): stored as its kind, no caption here.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0VO000005"
+    },
+    "messageTimestamp": 1763989300,
+    "message": {
+      "viewOnceMessageV2": {
+        "message": {
+          "imageMessage": {
+            "mimetype": "image/jpeg",
+            "viewOnce": true,
+            "fileLength": "2048"
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0VO000005",
+    "chatId": "+491510000002",
+    "jid": "491510000002@s.whatsapp.net",
+    "fromMe": false,
+    "at": "2025-11-24T13:01:40.000Z",
+    "text": "",
+    "kind": "image"
+  }
+}

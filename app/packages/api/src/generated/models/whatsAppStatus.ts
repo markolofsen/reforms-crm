@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { WhatsAppStatusAccountsItem } from './whatsAppStatusAccountsItem';
+import type { WhatsAppStatusAppHistory } from './whatsAppStatusAppHistory';
 import type { WhatsAppStatusState } from './whatsAppStatusState';
 
 export interface WhatsAppStatus {
@@ -13,4 +14,5 @@ export interface WhatsAppStatus {
   reason?: string;
   project?: string;
   accounts: WhatsAppStatusAccountsItem[];
+  appHistory?: WhatsAppStatusAppHistory;
 }

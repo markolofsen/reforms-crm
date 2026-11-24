@@ -1,0 +1,51 @@
+{
+  "note": "An edit: editedMessage wraps a protocolMessage MESSAGE_EDIT (type 14) naming the original key.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0EDIT0006"
+    },
+    "messageTimestamp": 1763989400,
+    "pushName": "Anna",
+    "message": {
+      "editedMessage": {
+        "message": {
+          "protocolMessage": {
+            "key": {
+              "remoteJid": "491510000002@s.whatsapp.net",
+              "fromMe": false,
+              "id": "3EB0EPH00003"
+            },
+            "type": 14,
+            "editedMessage": {
+              "conversation": "this one, corrected"
+            },
+            "timestampMs": "1763989400000"
+          }
+        }
+      },
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyHash": "c2VuZGVyLWtleS1oYXNo",
+          "senderTimestamp": "1763900000",
+          "recipientKeyHash": "cmVjaXBpZW50LWtleQ==",
+          "recipientTimestamp": "1763800000"
+        },
+        "deviceListMetadataVersion": 2,
+        "messageSecret": "ZmFrZS1zZWNyZXQ="
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0EDIT0006",
+    "chatId": "+491510000002",
+    "jid": "491510000002@s.whatsapp.net",
+    "fromMe": false,
+    "at": "2025-11-24T13:03:20.000Z",
+    "text": "this one, corrected",
+    "kind": "text",
+    "pushName": "Anna",
+    "editOf": "3EB0EPH00003"
+  }
+}

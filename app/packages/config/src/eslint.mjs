@@ -15,8 +15,7 @@ export const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 // leaves the list (`packages/config/test/lint-ratchet.test.ts` fails while it is listed). Never add a file to this list: split it.
 export const FILE_RATCHET = {
   "apps/storybook/src/stories/conversation-frame.stories.tsx": 337,
-  "apps/server/src/messengers/autolink/autolink.ts": 328,
-  "packages/messengers/src/whatsapp.ts": 318,
+  "apps/server/src/messengers/autolink/autolink.ts": 325,
   "packages/projects/src/parse.ts": 304,
   "packages/projects/src/commands.ts": 302,
 };
@@ -24,11 +23,11 @@ export const FILE_RATCHET = {
 // The same for functions over FUNCTION_LINE_CAP: `"<file>": <longest function's lines>`. Filled once by the first full lint run
 // (the final gate of P130, 2026-11-24), from its `max-lines-per-function` errors: repository and route factories, none an easy split.
 export const FUNCTION_RATCHET = {
-  "packages/db/src/repos/messengers.ts": 220,
+  "packages/db/src/repos/messengers.ts": 212,
   "packages/db/src/repos/drafts.ts": 215,
   "packages/db/src/repos/sends.ts": 208,
-  "packages/messengers/src/whatsapp.ts": 207,
-  "apps/server/src/messengers/autolink/autolink.ts": 205,
+  "packages/messengers/src/whatsapp.ts": 200,
+  "apps/server/src/messengers/autolink/autolink.ts": 201,
   "apps/server/src/messengers/autolink/routes.ts": 193,
   "apps/installer/src/commands/instance.ts": 190,
   "apps/server/src/mail/inbound.ts": 180,

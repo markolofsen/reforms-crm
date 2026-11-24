@@ -1,0 +1,32 @@
+{
+  "note": "A reply to a button message: the chosen button's text.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0BTN00007"
+    },
+    "messageTimestamp": 1763989500,
+    "pushName": "Anna",
+    "message": {
+      "buttonsResponseMessage": {
+        "selectedButtonId": "yes",
+        "selectedDisplayText": "Yes, call me",
+        "type": "DISPLAY_TEXT",
+        "contextInfo": {
+          "stanzaId": "3EB0OURS0001"
+        }
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0BTN00007",
+    "chatId": "+491510000002",
+    "jid": "491510000002@s.whatsapp.net",
+    "fromMe": false,
+    "at": "2025-11-24T13:05:00.000Z",
+    "text": "Yes, call me",
+    "kind": "text",
+    "pushName": "Anna"
+  }
+}

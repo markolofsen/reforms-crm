@@ -30,7 +30,7 @@ describe("allow-list inbound", () => {
     expect(r).toMatchObject({ fetched: 3, stored: 1, duplicates: 0 });
     expect(r.dropped).toEqual([{ channel: "telegram_bot", chatId: "555", title: "Stranger", count: 2 }]);
     // P139 A2: the chats this poll stored in, by side, for the autopilot's wake (a dropped chat is not one).
-    expect(r.chats).toEqual([{ channel: "telegram_bot", chatId: "100", inbound: 1, outbound: 0 }]);
+    expect(r.chats).toEqual([{ channel: "telegram_bot", chatId: "100", inbound: 1, outbound: 0, linked: true }]);
     expect((await pollOnce(deps())).chats).toEqual([]);
     expect((await stored()).map((m) => m.text)).toEqual(["from a listed chat"]);
     expect(await env.repos.messengers.messagesOf("p", [{ channel: "telegram_bot", chatId: "555" }], { limit: 5 })).toEqual([]);

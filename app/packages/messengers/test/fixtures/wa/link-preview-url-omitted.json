@@ -1,0 +1,39 @@
+{
+  "note": "A preview whose text omits the URL it previews: the matched URL is kept.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0LINK0002"
+    },
+    "messageTimestamp": 1763989000,
+    "pushName": "Anna",
+    "message": {
+      "extendedTextMessage": {
+        "text": "see this",
+        "matchedText": "https://example.org/x",
+        "title": "X"
+      },
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyHash": "c2VuZGVyLWtleS1oYXNo",
+          "senderTimestamp": "1763900000",
+          "recipientKeyHash": "cmVjaXBpZW50LWtleQ==",
+          "recipientTimestamp": "1763800000"
+        },
+        "deviceListMetadataVersion": 2,
+        "messageSecret": "ZmFrZS1zZWNyZXQ="
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0LINK0002",
+    "chatId": "+491510000002",
+    "jid": "491510000002@s.whatsapp.net",
+    "fromMe": false,
+    "at": "2025-11-24T12:56:40.000Z",
+    "text": "see this\nhttps://example.org/x",
+    "kind": "text",
+    "pushName": "Anna"
+  }
+}

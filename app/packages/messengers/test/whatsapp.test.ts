@@ -8,7 +8,8 @@ import { FakeBoom, FakeWaSocket } from "../src/fake-wa";
 import { allowChat, createWaPairing, humanActor, linkUserChat, qrRows } from "../src/human";
 import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
 import { pollOnce, runPoller } from "../src/poller";
-import { createWhatsAppAdapter, toWaAdapterError, type WaMessage } from "../src/whatsapp";
+import { createWhatsAppAdapter, type WhatsAppOptions } from "../src/whatsapp";
+import { toWaAdapterError, type WaMessage } from "../src/whatsapp-socket";
 import { CREDS, readWaAuth, WaAuthFiles, waFolderOf } from "../src/whatsapp-auth";
 import { authorized, setup, type Env } from "./helpers";
 import { captureOps } from "@hub/log/ops";
@@ -25,7 +26,7 @@ const ACCOUNT = "4915100000001";
 const ANNA = "+491510000002";
 const STRANGER = "+491519999999";
 
-const adapterOf = () =>
+const adapterOf = (extra: Partial<WhatsAppOptions> = {}) =>
   createWhatsAppAdapter({
     socket: () => {
       built++;
@@ -34,8 +35,9 @@ const adapterOf = () =>
       return sock;
     },
     account: ACCOUNT,
-    allowedChats: async () => (await env.repos.messengers.allowedChats("p")).filter((c) => c.channel === "whatsapp").map((c) => c.chatId),
+    allowedChats: async () => (await env.repos.messengers.allowedChats("p")).filter((c) => c.channel === "whatsapp").map((c) => ({ chatId: c.chatId, jid: c.jid })),
     historyMs: 200,
+    ...extra,
   });
 const deps = (adapter: ReturnType<typeof adapterOf>) => ({ project: "p", repos: env.repos, adapter, now: () => NOW, timeoutSec: 0 });
 const allow = (chatId: string) => allowChat(env.repos, human, { project: "p", channel: "whatsapp", chatId });
@@ -184,25 +186,71 @@ describe("whatsapp: the picker and the import", () => {
     expect(await a.dialogs(10)).toEqual([]);
   });
 
-  it("link imports the chat's history before its newest message, through the phone's answer, and nothing else", async () => {
+  it("link asks the phone for what came before the newest message seen, in milliseconds, and the answer arrives through the poll (P141 W3b)", async () => {
     const a = adapterOf();
     await a.start?.();
     sock.message(ANNA, "the newest, seen before the link", { id: "N1", at: new Date("2026-11-20T11:00:00.000Z") });
     sock.historyAnswer.set(ANNA, [msg(ANNA, "H1", "two weeks ago", "2026-11-06T09:00:00.000Z"), msg(ANNA, "H0", "two months ago", "2026-09-20T09:00:00.000Z", true)]);
+    const started = Date.now();
     const r = await linkUserChat({ repos: env.repos, adapter: a, now: () => NOW }, human, { project: "p", clientId: env.clientId, chatId: ANNA, title: "Anna" });
-    expect(r).toMatchObject({ imported: 1, importError: null });
-    expect(sock.historyRequests).toEqual([{ chatId: ANNA, anchor: { id: "N1", fromMe: false, at: new Date("2026-11-20T11:00:00.000Z") }, count: 500 }]);
-    expect((await rowsOf(ANNA)).map((m) => m.text)).toEqual(["two weeks ago"]);
+    // The link does not wait for the phone: it answers at once.
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(r).toMatchObject({ imported: 0, importError: null });
+    expect(sock.historyRequests).toEqual([{ chatId: ANNA, jid: null, anchor: { id: "N1", fromMe: false, at: new Date("2026-11-20T11:00:00.000Z") }, count: 500 }]);
+    // The phone's answer is a history batch: the next poll stores it (both rows: the import's window is the link's, not the poll's).
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await pollOnce(deps(a));
+    expect((await rowsOf(ANNA)).map((m) => m.text).sort()).toEqual(["two months ago", "two weeks ago"]);
     expect(await env.repos.messengers.identifiersOf("p", env.clientId)).toEqual([expect.objectContaining({ kind: "whatsapp", value: ANNA })]);
     await a.close();
   });
 
-  it("a link with no message seen yet imports nothing and stands; the phone's silence is waited out", async () => {
+  it("the anchor is the chat's oldest cached message when there is one, and the request names the chat's real (LID) address", async () => {
+    await allow(ANNA);
+    const a = adapterOf();
+    await a.start?.();
+    sock.message(ANNA, "newest", { id: "N9", at: new Date("2026-11-20T11:00:00.000Z"), jid: "12345@lid" });
+    sock.message(ANNA, "older", { id: "N8", at: new Date("2026-11-19T11:00:00.000Z"), jid: "12345@lid" });
+    await pollOnce(deps(a));
+    await a.history(ANNA, { since: new Date(0), before: { id: "N8", fromMe: false, at: new Date("2026-11-19T11:00:00.000Z") } });
+    expect(sock.historyRequests).toEqual([{ chatId: ANNA, jid: "12345@lid", anchor: { id: "N8", fromMe: false, at: new Date("2026-11-19T11:00:00.000Z") }, count: 500 }]);
+    // The real address is kept on the linked chat's row, for the send and a request after a restart.
+    expect((await env.repos.messengers.chat("p", "whatsapp", ANNA))?.jid).toBe("12345@lid");
+    await a.close();
+  });
+
+  it("a late answer still reaches ingest, and an answer that never comes leaves one ops line with no jid", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      await allow(ANNA);
+      const cap = captureOps();
+      const a = adapterOf({ historyMs: 120_000 });
+      await a.start?.();
+      sock.message(ANNA, "anchor", { id: "N2", at: new Date("2026-11-20T11:00:00.000Z") });
+      await a.history(ANNA, { since: new Date(0) });
+      // 30 s later the phone answers: the batch is queued and stored by the poll.
+      vi.advanceTimersByTime(30_000);
+      sock.history([msg(ANNA, "L1", "late but kept", "2026-11-18T09:00:00.000Z")]);
+      await pollOnce(deps(a));
+      expect((await rowsOf(ANNA)).map((m) => m.text)).toContain("late but kept");
+      expect(JSON.stringify(cap.lines)).not.toMatch(/did not answer/);
+      // Another request the phone never answers: one line after the window, with no number in it.
+      await a.history(ANNA, { since: new Date(0) });
+      vi.advanceTimersByTime(120_000);
+      expect(JSON.stringify(cap.lines)).toMatch(/did not answer a history request/);
+      expect(JSON.stringify(cap.lines)).not.toMatch(/491510000002/);
+      cap.stop();
+      await a.close();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a link with no message seen yet imports nothing and stands; nothing is asked of the phone without an anchor", async () => {
     const a = adapterOf();
     await a.start?.();
     expect(await linkUserChat({ repos: env.repos, adapter: a, now: () => NOW }, human, { project: "p", clientId: env.clientId, chatId: ANNA })).toMatchObject({ imported: 0, importError: null });
-    sock.message(ANNA, "anchor", { id: "N2" });
-    expect(await a.history(ANNA, { since: new Date(0) })).toEqual([]);
+    expect(sock.historyRequests).toEqual([]);
     expect(await env.repos.messengers.isAllowed("p", "whatsapp", ANNA)).toBe(true);
     await a.close();
   });
@@ -219,7 +267,7 @@ describe("whatsapp: send", () => {
     await expect(a.send(mintConfirmed({ ...lookalike, chatId: STRANGER } as never))).rejects.toThrow("chat_not_allowed");
     await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
     const receipt = await sendConfirmed({ repos: env.repos, adapter: a, now: () => NOW }, await authorized(env.repos, "p", d.id));
-    expect(sock.sent).toEqual([{ chatId: ANNA, text: "Hallo Anna", id: receipt.remoteMessageId }]);
+    expect(sock.sent).toEqual([{ chatId: ANNA, jid: null, text: "Hallo Anna", id: receipt.remoteMessageId }]);
     // WhatsApp echoes the sent message back; it is the same row.
     sock.message(ANNA, "Hallo Anna", { fromMe: true, id: receipt.remoteMessageId, at: new Date(receipt.at) });
     expect((await pollOnce(deps(a))).duplicates).toBe(1);
@@ -335,15 +383,15 @@ describe("whatsapp: the real Baileys, with no socket", () => {
     for (const f of readdirSync(waFolderOf(dir, ACCOUNT))) expect(statSync(join(waFolderOf(dir, ACCOUNT), f)).mode & 0o777).toBe(0o600);
    }, 60_000); // loading Baileys (protobufs, libsignal) takes seconds on a busy machine
 
-  it("maps Baileys messages: a person's text and caption, a LID through its phone alias; groups, status and a bare LID are dropped", async () => {
+  it("maps Baileys messages: a person's text and caption, a LID through its phone alias or as lid:; groups, status and reactions are dropped", async () => {
     const { fromBaileys, chatIdOf } = await import("../src/whatsapp-api");
     const at = 1_763_640_000;
-    expect(fromBaileys({ key: { id: "A", remoteJid: "491510000002@s.whatsapp.net", fromMe: false }, message: { conversation: "hi" }, messageTimestamp: at })).toEqual({ id: "A", chatId: ANNA, fromMe: false, at: new Date(at * 1000), text: "hi", kind: "text" });
+    expect(fromBaileys({ key: { id: "A", remoteJid: "491510000002@s.whatsapp.net", fromMe: false }, message: { conversation: "hi" }, messageTimestamp: at })).toEqual({ id: "A", chatId: ANNA, jid: "491510000002@s.whatsapp.net", fromMe: false, at: new Date(at * 1000), text: "hi", kind: "text" });
     expect(fromBaileys({ key: { id: "B", remoteJid: "491510000002@s.whatsapp.net", fromMe: true }, message: { extendedTextMessage: { text: "linked" } }, messageTimestamp: at })).toMatchObject({ text: "linked", kind: "text", fromMe: true });
     expect(fromBaileys({ key: { id: "C", remoteJid: "491510000002@s.whatsapp.net" }, message: { imageMessage: { caption: "photo" } }, messageTimestamp: at })).toMatchObject({ text: "photo", kind: "image" });
-    expect(fromBaileys({ key: { id: "D", remoteJid: "491510000002@s.whatsapp.net" }, message: { reactionMessage: { text: "+" } }, messageTimestamp: at })).toMatchObject({ kind: null });
-    expect(fromBaileys({ key: { id: "E", remoteJid: "12345@lid", remoteJidAlt: "491510000002@s.whatsapp.net" }, message: { conversation: "via lid" }, messageTimestamp: at })).toMatchObject({ chatId: ANNA });
-    expect(fromBaileys({ key: { id: "F", remoteJid: "12345@lid" }, message: { conversation: "x" }, messageTimestamp: at })).toBeNull();
+    expect(fromBaileys({ key: { id: "D", remoteJid: "491510000002@s.whatsapp.net" }, message: { reactionMessage: { text: "+" } }, messageTimestamp: at })).toBeNull();
+    expect(fromBaileys({ key: { id: "E", remoteJid: "12345@lid", remoteJidAlt: "491510000002@s.whatsapp.net" }, message: { conversation: "via lid" }, messageTimestamp: at })).toMatchObject({ chatId: ANNA, jid: "12345@lid" });
+    expect(fromBaileys({ key: { id: "F", remoteJid: "12345@lid" }, message: { conversation: "x" }, messageTimestamp: at })).toMatchObject({ chatId: "lid:12345", jid: "12345@lid" });
     expect(fromBaileys({ key: { id: "G", remoteJid: "1203630000@g.us" }, message: { conversation: "x" }, messageTimestamp: at })).toBeNull();
     expect(fromBaileys({ key: { id: "H", remoteJid: "status@broadcast" }, message: { conversation: "x" }, messageTimestamp: at })).toBeNull();
     expect(chatIdOf("491510000002:3@s.whatsapp.net")).toBe(ANNA);

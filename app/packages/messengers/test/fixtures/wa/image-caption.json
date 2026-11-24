@@ -1,0 +1,45 @@
+{
+  "note": "An image with a caption: the caption is text, the bytes are never read.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0IMG00004"
+    },
+    "messageTimestamp": 1763989200,
+    "pushName": "Anna",
+    "message": {
+      "imageMessage": {
+        "url": "https://mmg.whatsapp.net/v/t62/fake",
+        "mimetype": "image/jpeg",
+        "caption": "the car, front view",
+        "fileSha256": "ZmFrZQ==",
+        "fileLength": "123456",
+        "height": 1280,
+        "width": 960,
+        "mediaKey": "ZmFrZS1rZXk=",
+        "jpegThumbnail": "/9j/4AAQ"
+      },
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyHash": "c2VuZGVyLWtleS1oYXNo",
+          "senderTimestamp": "1763900000",
+          "recipientKeyHash": "cmVjaXBpZW50LWtleQ==",
+          "recipientTimestamp": "1763800000"
+        },
+        "deviceListMetadataVersion": 2,
+        "messageSecret": "ZmFrZS1zZWNyZXQ="
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0IMG00004",
+    "chatId": "+491510000002",
+    "jid": "491510000002@s.whatsapp.net",
+    "fromMe": false,
+    "at": "2025-11-24T13:00:00.000Z",
+    "text": "the car, front view",
+    "kind": "image",
+    "pushName": "Anna"
+  }
+}

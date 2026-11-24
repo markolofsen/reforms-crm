@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { OverviewSystemWhatsappAccountsItem } from './overviewSystemWhatsappAccountsItem';
+import type { OverviewSystemWhatsappAppHistory } from './overviewSystemWhatsappAppHistory';
 import type { OverviewSystemWhatsappState } from './overviewSystemWhatsappState';
 
 export type OverviewSystemWhatsapp = {
@@ -13,4 +14,5 @@ export type OverviewSystemWhatsapp = {
   reason?: string;
   project?: string;
   accounts: OverviewSystemWhatsappAccountsItem[];
+  appHistory?: OverviewSystemWhatsappAppHistory;
 };

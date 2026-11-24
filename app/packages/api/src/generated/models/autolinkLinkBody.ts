@@ -11,7 +11,7 @@ export interface AutolinkLinkBody {
   channel: AutolinkLinkBodyChannel;
   /** @pattern ^\d{1,20}$ */
   account: string;
-  /** @pattern ^\+?\d{1,20}$ */
+  /** @pattern ^(\+?\d{1,20}|lid:\d{1,20})$ */
   chatId: string;
   /**
      * @minLength 1

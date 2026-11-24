@@ -111,8 +111,11 @@ export { createWaPairing, PAIRING_TTL_MS, qrRows, type PairingDeps, type Pairing
 /** What a link needs of a user account's adapter (Telegram or WhatsApp): its channel, the allow-list re-read, the import. */
 export interface LinkableAdapter {
   readonly channel: "telegram_user" | "whatsapp";
+  /** The cache's TTL of this channel's rows (decision 0049); absent, `RETENTION_DAYS`. */
+  readonly cacheDays?: number;
   refreshAllowed(): Promise<void>;
-  history(chatId: string, o: { since: Date }): Promise<InboundMessage[]>;
+  /** `before`: the chat's oldest cached message, the anchor WhatsApp's on-demand history needs (P141 verdict 1). */
+  history(chatId: string, o: { since: Date; before?: { id: string; fromMe: boolean; at: Date } | null }): Promise<InboundMessage[]>;
 }
 
 const KIND_OF = { telegram_user: "telegram", whatsapp: "whatsapp" } as const;
@@ -150,8 +153,11 @@ async function linkAndImport(
   const now = (deps.now ?? (() => new Date()))();
   // The link stands even when the import fails: new messages arrive anyway, and the poller's catch-up reads from its cursor.
   try {
-    const rows = await deps.adapter.history(value, { since: new Date(now.getTime() - (input.days ?? IMPORT_DAYS) * 86_400_000) });
-    const r = await ingest({ project: input.project, repos: deps.repos, now: () => now }, rows);
+    // The messages cached before the link are adopted by `allowChat`; the import asks for what came before the oldest of them.
+    const oldest = await deps.repos.messengers.oldestMessage(input.project, deps.adapter.channel, value);
+    const before = oldest ? { id: oldest.remoteMessageId, fromMe: oldest.direction === "out", at: new Date(oldest.sentAt) } : null;
+    const rows = await deps.adapter.history(value, { since: new Date(now.getTime() - (input.days ?? IMPORT_DAYS) * 86_400_000), before });
+    const r = await ingest({ project: input.project, repos: deps.repos, now: () => now, ...(deps.adapter.cacheDays ? { retentionDays: deps.adapter.cacheDays } : {}) }, rows);
     return { identifierId, imported: r.stored, importError: null };
   } catch (e) {
     return { identifierId, imported: 0, importError: e instanceof Error ? e.message : "the import failed" };

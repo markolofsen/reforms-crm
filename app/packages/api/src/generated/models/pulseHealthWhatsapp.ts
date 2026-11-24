@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { PulseHealthWhatsappAccountsItem } from './pulseHealthWhatsappAccountsItem';
+import type { PulseHealthWhatsappAppHistory } from './pulseHealthWhatsappAppHistory';
 import type { PulseHealthWhatsappState } from './pulseHealthWhatsappState';
 
 export type PulseHealthWhatsapp = {
@@ -13,4 +14,5 @@ export type PulseHealthWhatsapp = {
   reason?: string;
   project?: string;
   accounts: PulseHealthWhatsappAccountsItem[];
+  appHistory?: PulseHealthWhatsappAppHistory;
 };

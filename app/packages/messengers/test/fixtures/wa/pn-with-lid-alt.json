@@ -1,0 +1,26 @@
+{
+  "note": "A phone-addressed key whose alias is the LID: the chat id is the phone, the real address the LID.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "remoteJidAlt": "999988887777666@lid",
+      "fromMe": true,
+      "id": "3EB0PN000009",
+      "addressingMode": "pn"
+    },
+    "messageTimestamp": 1763989700,
+    "pushName": "Owner",
+    "message": {
+      "conversation": "our answer"
+    }
+  },
+  "expected": {
+    "id": "3EB0PN000009",
+    "chatId": "+491510000002",
+    "jid": "999988887777666@lid",
+    "fromMe": true,
+    "at": "2025-11-24T13:08:20.000Z",
+    "text": "our answer",
+    "kind": "text"
+  }
+}

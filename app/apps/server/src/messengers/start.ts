@@ -1,5 +1,5 @@
 import type { Repos } from "@hub/db";
-import type { StoredChat } from "@hub/messengers";
+import type { StoredChat, WaAppReader } from "@hub/messengers";
 import { createLlm } from "@hub/llm";
 import { errFields, ops } from "@hub/log/ops";
 import type { Runtime } from "../composition/runtime";
@@ -24,7 +24,7 @@ export type MessengersRuntime = {
  * The messengers domain at start (P126 S1): the retention purge, the pre-analysis, the bot poller, the autolink, the Telegram user
  * accounts and the WhatsApp linked devices. Each line counts accounts, never names one.
  */
-export async function start({ repos, autopilotFiles }: { repos: Repos; autopilotFiles: AutopilotFiles }): Promise<MessengersRuntime> {
+export async function start({ repos, autopilotFiles, waAppReader }: { repos: Repos; autopilotFiles: AutopilotFiles; waAppReader?: () => WaAppReader }): Promise<MessengersRuntime> {
   const log = ops("server");
   // P71 M2b: the messenger retention purge runs now and every hour, with or without a connected channel.
   const purge = startPurge({ repos });
@@ -65,7 +65,14 @@ export async function start({ repos, autopilotFiles }: { repos: Repos; autopilot
   const tg = telegramUser.status();
   log.info(`telegram user accounts: ${tg.state === "on" ? `${tg.accounts.length} connected` : `off (${tg.reason ?? ""})`}`);
   // P71 M5: the WhatsApp linked devices, one socket per folder under state/secrets/sessions/.
-  const whatsapp = await startWhatsApp({ repos, onStored, onUnlinked: (account, d, inbound) => linker.autolink.seen("whatsapp", account, d, inbound) });
+  // P141 (decision 0049): every private chat that writes is cached unless hidden, and the Mac's WhatsApp app refills a chat.
+  const whatsapp = await startWhatsApp({
+    repos,
+    onStored,
+    onUnlinked: (account, d, inbound) => linker.autolink.seen("whatsapp", account, d, inbound),
+    hidden: (chatId) => linker.autolink.hidden("whatsapp", chatId),
+    ...(waAppReader ? { appReader: waAppReader } : {}),
+  });
   handles.wa = whatsapp;
   const wa = whatsapp.status();
   log.info(`whatsapp linked devices: ${wa.state === "on" ? `${wa.accounts.length} connected` : `off (${wa.reason ?? ""})`}`);

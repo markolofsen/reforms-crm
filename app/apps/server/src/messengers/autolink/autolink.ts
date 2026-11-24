@@ -15,8 +15,8 @@ import { errFields, ops } from "@hub/log/ops";
  * list once an account connects. For each it asks the client directory (Notion, in memory): exactly one record with an email and
  * `messengers.autolink on` links the chat (the client row, the identifier, the allow-list, 30 days imported) and writes one Activity
  * line; anything else (two or more records, no email, autolink off, no match) stays in memory only, for the Chats screen. A chat the
- * owner refused ("never link") is skipped by an HMAC of it, keyed by `state/secrets/autolink-key`. Nothing here sends; nothing of an
- * unlinked chat is written to `app.db` or a log.
+ * owner refused ("never link") is skipped by an HMAC of it, keyed by `state/secrets/autolink-key`. Nothing here sends. Decision 0049:
+ * a WhatsApp chat's messages are cached by ingest before it is linked; this module never writes them, and Hide deletes them.
  */
 
 export type UserChannel = "telegram_user" | "whatsapp";
@@ -125,6 +125,8 @@ export interface Autolink {
   preview(): Promise<PreviewCounts[]>;
   /** "Never link this chat" / Hide ("not a client", P84c): its HMAC is stored; the caller unlinks a linked one. `title` names it in Hidden. */
   refuse(channel: UserChannel, chatId: string, title?: string | null): Promise<void>;
+  /** Decision 0049 point 6: whether the owner hid this chat ("not a client"), by its HMAC: a hidden chat's messages are never cached. */
+  hidden(channel: UserChannel, chatId: string): Promise<boolean>;
   /** Unhide (P84c): the refusal is deleted and the chat, when its identity is in memory, is considered again. Returns whether one went. */
   unrefuse(channel: UserChannel, chatId: string): Promise<boolean>;
   /**
@@ -347,6 +349,7 @@ export function startAutolink(o: StartAutolink): Autolink {
       }
       return out;
     },
+    hidden: async (channel, chatId) => (o.project ? isRefused(channel, chatId) : false),
     async refuse(channel, chatId, title) {
       if (!o.project) return;
       const h = hmac(channel, chatId);
@@ -388,13 +391,9 @@ export function startAutolink(o: StartAutolink): Autolink {
       const local = (o.directory.current()?.all ?? []).filter((e) => e.email && recordMatches(e, q));
       // Always Notion too: a page made a minute ago is not in the copy read at start and every 6 h (P100).
       const live = await o.directory.search(q);
+      // Merged by page id, the copy in memory first.
       const seen = new Set<string>();
-      const records: Candidate[] = [];
-      for (const e of [...local, ...live.entries.filter((x) => x.email)]) {
-        if (seen.has(e.key)) continue;
-        seen.add(e.key);
-        records.push(candidateOf(e));
-      }
+      const records = [...local, ...live.entries.filter((x) => x.email)].filter((e) => !seen.has(e.key) && seen.add(e.key)).map(candidateOf);
       return { records: records.slice(0, FIND_MAX), live: live.error === null, liveError: live.error };
     },
     identityOf(channel, chatId) {

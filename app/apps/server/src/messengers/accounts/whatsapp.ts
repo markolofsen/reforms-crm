@@ -1,15 +1,17 @@
 import { offMode } from "@hub/config/modes";
-import type { TelegramUserAccountDto, WhatsAppStatusDto } from "@hub/contract/messengers";
+import type { TelegramUserAccountDto, WaAppHistoryDto, WhatsAppStatusDto } from "@hub/contract/messengers";
 import type { Repos } from "@hub/db";
 import {
   AdapterError,
   baileysSocketFactory,
   createWhatsAppAdapter,
+  ingest,
   isParkedCode,
   parkedLine,
   parkedOf,
   pollOnly,
   readWaAuth,
+  RETENTION_DAYS,
   runPoller,
   sessionAccounts,
   sessionsDir,
@@ -18,6 +20,9 @@ import {
   type ParkedCode,
   type PollEvent,
   type StoredChat,
+  WA_CACHE_DAYS,
+  type WaAddress,
+  type WaAppReader,
   type WaSocketFactory,
   type WhatsAppAdapter,
   type WhatsAppSendingAdapter,
@@ -58,8 +63,16 @@ export interface StartWhatsApp {
   sockets?: WaSocketFactory;
   runner?: typeof runPoller;
   now?: () => Date;
-  /** Tests: how long a link's import waits for the phone's history answer (default 15 s). */
+  /** Tests: how long a history request stays open before its "no answer" line (default 120 s). */
   historyMs?: number;
+  /**
+   * P141 W3 (decision 0049 points 3 and 4): the Mac's WhatsApp app as the read-only refill of a chat, opened once when a project is
+   * on. Only the server's composition passes the real one, so no test opens the owner's own WhatsApp database. Absent: no refill,
+   * and the cache keeps 90 days.
+   */
+  appReader?: () => WaAppReader;
+  /** Decision 0049 point 6: whether the owner hid the chat ("not a client"); nothing of a hidden chat is cached. Absent: none is hidden. */
+  hidden?: (chatId: string) => Promise<boolean>;
   /** P84: the identity (never the text) of each private chat seen that is not linked, for the autolink. */
   onUnlinked?: (account: string, d: DialogIdentity, inbound: boolean) => void;
   /** P71 M-P: a poll stored messages in this project, in these chats (the pre-analysis and, P139, the autopilot wake inside the poll, never on a timer). */
@@ -75,6 +88,13 @@ interface Slot {
 
 export interface WhatsAppHandle {
   status(): WhatsAppStatusDto;
+  /** P141 W3: the Mac app's refill as the server's own process found it, and the cache's TTL that follows from it. */
+  appHistory(): WaAppHistoryDto;
+  /**
+   * P141 W3 (decision 0049 point 3): opening a chat refills its cache from the Mac's WhatsApp app (read only, local, no socket),
+   * through the one ingest. Returns how many rows it stored; 0 when the app is off or holds nothing new.
+   */
+  refill(project: string, chat: WaAddress): Promise<number>;
   project(): { project: string } | { project: null; reason: string };
   /** The live adapter of a connected number (the picker and the link read through it), else undefined. It has no send. */
   adapter(account: string): WhatsAppAdapter | undefined;
@@ -87,6 +107,27 @@ export interface WhatsAppHandle {
   /** Stops the number's socket, unlinks the device on WhatsApp's side (best effort) and removes its folder. */
   disconnect(account: string): Promise<boolean>;
   stop(): Promise<void>;
+}
+
+/**
+ * P141 W3: the Mac's WhatsApp app, probed once at start. While it is readable the cache keeps 30 days (it refills a chat); else 90
+ * (decision 0049 point 4), and one ops line says why. A read that fails is a line, never a stop (the app may be mid-write).
+ */
+function appSource(reader: WaAppReader | null) {
+  const app = reader?.state() ?? { state: "off" as const, reason: "missing" as const, detail: "The Mac's WhatsApp app is not read by this server.", fix: null };
+  const cacheDays = app.state === "on" ? WA_CACHE_DAYS : RETENTION_DAYS;
+  if (reader && app.state === "on") log.info("the Mac's WhatsApp app refills chats (read only)", { cacheDays });
+  else if (reader && app.state === "off") log.warn("the Mac's WhatsApp app cannot refill chats", { reason: app.reason, detail: app.detail, ...(app.fix ? { fix: app.fix } : {}) });
+  const appHistory = (): WaAppHistoryDto => (app.state === "on" ? { state: "on", reason: null, detail: null, fix: null, cacheDays } : { state: "off", reason: app.reason, detail: app.detail, fix: app.fix, cacheDays });
+  const fromApp = (chat: WaAddress, since: Date, account: string) => {
+    try {
+      return reader?.read(chat, since, account) ?? [];
+    } catch (e) {
+      log.warn("reading a chat from the Mac's WhatsApp app failed", errFields(e));
+      return [];
+    }
+  };
+  return { reader: app.state === "on" ? reader : null, cacheDays, appHistory, fromApp };
 }
 
 export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
@@ -104,7 +145,10 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   const reason = off ?? pick?.reason ?? "no project";
 
   const blank = (account: string): TelegramUserAccountDto => ({ account, state: "starting", parked: null, fix: null, failures: 0, stored: 0 });
-  const allowedChats = async (p: string) => (await o.repos.messengers.allowedChats(p)).filter((c) => c.channel === CHANNEL).map((c) => c.chatId);
+  const allowedChats = async (p: string) => (await o.repos.messengers.allowedChats(p)).filter((c) => c.channel === CHANNEL).map((c) => ({ chatId: c.chatId, jid: c.jid }));
+
+  const { reader, cacheDays, appHistory, fromApp } = appSource(project && o.appReader ? o.appReader() : null);
+  const isHidden = o.hidden ?? (async () => false);
   const park = (st: TelegramUserAccountDto, code: ParkedCode) => Object.assign(st, { state: "parked" as const, parked: code, fix: WA_PARK_FIX[code] });
 
   async function open(account: string, p: string): Promise<void> {
@@ -132,9 +176,19 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
       let adapter: WhatsAppSendingAdapter | null = null;
       try {
         const make = await socketsNow();
-        adapter = createWhatsAppAdapter({ socket: () => make(read.auth), account, allowedChats: () => allowedChats(p), ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}), ...(o.historyMs ? { historyMs: o.historyMs } : {}) });
+        adapter = createWhatsAppAdapter({
+          socket: () => make(read.auth),
+          account,
+          allowedChats: () => allowedChats(p),
+          // Decision 0049 (P141 W2): every private chat that writes is cached, unless the owner hid it.
+          cacheUnlinked: true,
+          cacheDays,
+          ...(reader ? { appHistory: (chat: WaAddress, since: Date) => fromApp(chat, since, account) } : {}),
+          ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}),
+          ...(o.historyMs ? { historyMs: o.historyMs } : {}),
+        });
         slot.adapter = adapter;
-        await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now });
+        await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now, retentionDays: cacheDays, cache: { channel: CHANNEL, hidden: isHidden } });
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";
       } catch (e) {
         if (e instanceof AdapterError && e.parked && isParkedCode(e.code)) park(st, e.code);
@@ -182,7 +236,21 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   };
 
   return {
-    status: () => (project ? { state: "on", project, accounts: [...slots.values()].map((s) => ({ ...s.st })) } : { state: "off", reason, accounts: [] }),
+    status: () => (project ? { state: "on", project, accounts: [...slots.values()].map((s) => ({ ...s.st })), appHistory: appHistory() } : { state: "off", reason, accounts: [] }),
+    appHistory,
+    async refill(p, chat) {
+      if (!reader || p !== project) return 0;
+      // The chat is read by its account: the one stored on its row, else the only connected number.
+      const row = await o.repos.messengers.chat(p, CHANNEL, chat.chatId);
+      const account = row?.account ?? (slots.size === 1 ? [...slots.keys()][0] : undefined);
+      if (!account) return 0;
+      const at = now();
+      const rows = fromApp({ chatId: chat.chatId, jid: chat.jid ?? row?.jid ?? null }, new Date(at.getTime() - cacheDays * 86_400_000), account);
+      if (!rows.length) return 0;
+      // History, not a new message: it wakes neither the pre-analysis nor the autopilot.
+      const r = await ingest({ project: p, repos: o.repos, now: () => at, retentionDays: cacheDays, cache: { channel: CHANNEL, hidden: isHidden } }, rows);
+      return r.stored;
+    },
     project: () => (project ? { project } : { project: null, reason }),
     adapter: (account) => live(account),
     sender: (account) => live(account),

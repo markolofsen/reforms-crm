@@ -4,14 +4,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeWaSocket, type WaAuthFiles } from "@hub/messengers";
-import { humanActor, linkUserChat } from "@hub/messengers/human";
+import { allowChat, humanActor, linkUserChat } from "@hub/messengers/human";
 import { testApp } from "../../support/runtime";
 import { composeScheme } from "../../../src/overview/scheme";
 import { startWhatsApp, type WhatsAppHandle } from "../../../src/messengers/accounts/whatsapp";
 
 // P71 M5, the M1 checks on a FAKE Baileys socket: no WebSocket is opened, no QR is scanned by a phone, nothing reaches WhatsApp.
-// A connect flow ends with the auth files at 0600 in a 0700 folder; a linked chat's message is stored; an unlinked chat's leaves
-// no row anywhere; logged out parks the number, and a restarted supervisor neither reconnects nor builds a socket.
+// A connect flow ends with the auth files at 0600 in a 0700 folder; a chat that wrote is cached unless hidden (decision 0049, P141
+// W2), and a link adopts the cache; logged out parks the number, and a restarted supervisor neither reconnects nor builds a socket.
 
 const ADMIN = 5173;
 const HEADERS = { origin: `http://127.0.0.1:${ADMIN}`, "sec-fetch-site": "same-origin", "content-type": "application/json" };
@@ -19,6 +19,8 @@ const BASE = "http://127.0.0.1:4317";
 const ACCOUNT = "4915100000001";
 const ANNA = "+491510000002";
 const STRANGER = "+491519999999";
+const HIDDEN = "+491517777777";
+const hiddenChats = new Set<string>();
 
 let handle: DbHandle;
 let repos: Repos;
@@ -34,6 +36,7 @@ const start = () =>
     env: {},
     dir,
     historyMs: 100,
+    hidden: async (chatId: string) => hiddenChats.has(chatId),
     sockets: (auth: WaAuthFiles) => {
       const s = new FakeWaSocket(auth);
       socks.push(s);
@@ -53,6 +56,7 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "hub-wa-"));
   socks = [];
   wa = null;
+  hiddenChats.clear();
 });
 afterEach(async () => {
   await wa?.stop();
@@ -106,23 +110,44 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     expect(socks).toEqual([]);
   });
 
-  it("stores a linked chat's message and leaves no row of an unlinked one", async () => {
+  it("caches every chat that wrote unless it is hidden (decision 0049), adopts the cache on link, and logs no stranger", async () => {
+    hiddenChats.add(HIDDEN);
     await connect();
     const sock = last();
     sock.message(ANNA, "seen before the link", { id: "N1" });
+    await vi.waitFor(async () => expect(count("messenger_messages").n).toBe(1));
     const adapter = wa?.adapter(ACCOUNT);
     if (!adapter) throw new Error("the number is not running");
     expect(await linkUserChat({ repos, adapter }, humanActor("test"), { project: "p", clientId, chatId: ANNA, title: "Anna" })).toMatchObject({ importError: null });
-    sock.message(ANNA, "hello");
-    sock.message(STRANGER, "not for the hub");
+    sock.message(ANNA, "hello", { at: new Date("2026-11-20T10:05:00.000Z") });
+    sock.message(STRANGER, "a stranger who wrote");
     sock.chat(STRANGER, "Stranger");
-    await vi.waitFor(async () => expect((await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: ANNA }], { limit: 5 })).map((m) => m.text)).toEqual(["hello"]));
-    expect(await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: STRANGER }], { limit: 5 })).toEqual([]);
-    expect(count("messenger_messages").n).toBe(1);
+    sock.message(HIDDEN, "a hidden chat: never kept");
+    await vi.waitFor(async () => expect((await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: ANNA }], { limit: 5 })).map((m) => m.text)).toEqual(["hello", "seen before the link"]));
+    await vi.waitFor(async () => expect((await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: STRANGER }], { limit: 5 })).map((m) => m.text)).toEqual(["a stranger who wrote"]));
+    expect(await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: HIDDEN }], { limit: 5 })).toEqual([]);
+    expect(count("messenger_messages").n).toBe(3);
+    // The stranger is cached, not linked: no chat row until P141 U2, no identifier.
     expect((await repos.messengers.allowedChats("p")).map((c) => c.chatId)).toEqual([ANNA]);
+    expect((await repos.messengers.chat("p", "whatsapp", ANNA))?.lastInboundAt).toBe("2026-11-20T10:05:00.000Z");
     expect(await repos.messengers.identifiersOf("p", clientId)).toEqual([expect.objectContaining({ kind: "whatsapp", value: ANNA })]);
-    expect(JSON.stringify(wa?.status())).not.toMatch(/9999999|Stranger/);
-    expect(JSON.stringify(await repos.messengers.account("p", "whatsapp", ACCOUNT))).not.toMatch(/9999999|Stranger/);
+    expect(JSON.stringify(wa?.status())).not.toMatch(/9999999|7777777|Stranger/);
+    expect(JSON.stringify(await repos.messengers.account("p", "whatsapp", ACCOUNT))).not.toMatch(/9999999|7777777|Stranger/);
+  });
+
+  it("without the Mac's app the cache keeps 90 days and the health says why; with it, opening a chat refills it (P141 W3)", async () => {
+    await connect();
+    expect(wa?.appHistory()).toEqual({ state: "off", reason: "missing", detail: expect.any(String), fix: null, cacheDays: 90 });
+    expect(await wa?.refill("p", { chatId: ANNA, jid: null })).toBe(0);
+    await wa?.stop();
+    const appRows = [{ channel: "whatsapp" as const, account: ACCOUNT, chatId: ANNA, remoteMessageId: "APP1", kind: "text", text: "from the Mac's app", sentAt: "2026-11-24T11:50:40.000Z", direction: "in" as const, source: "wa_app" as const }];
+    const reader = { state: () => ({ state: "on" as const }), read: (chat: { chatId: string }) => (chat.chatId === ANNA ? appRows : []) };
+    wa = await startWhatsApp({ repos, env: {}, dir, sockets: (auth: WaAuthFiles) => ((socks.push(new FakeWaSocket(auth)), last())), appReader: () => reader });
+    expect(wa.appHistory()).toMatchObject({ state: "on", cacheDays: 30 });
+    await allowChat(repos, humanActor("test"), { project: "p", channel: "whatsapp", chatId: ANNA });
+    expect(await wa.refill("p", { chatId: ANNA, jid: null })).toBe(1);
+    expect(await wa.refill("p", { chatId: ANNA, jid: null })).toBe(0);
+    expect((await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: ANNA }], { limit: 5 }))[0]).toMatchObject({ text: "from the Mac's app", source: "wa_app" });
   });
 
   it("logged out parks the number, health shows the fix, the scheme makes it a Needs you item, and a restart does not reconnect", async () => {

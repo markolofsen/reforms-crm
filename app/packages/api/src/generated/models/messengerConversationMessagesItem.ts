@@ -8,6 +8,7 @@
 import type { MessengerConversationMessagesItemDirection } from './messengerConversationMessagesItemDirection';
 import type { MessengerConversationMessagesItemFormat } from './messengerConversationMessagesItemFormat';
 import type { MessengerConversationMessagesItemHidden } from './messengerConversationMessagesItemHidden';
+import type { MessengerConversationMessagesItemSource } from './messengerConversationMessagesItemSource';
 
 export type MessengerConversationMessagesItem = {
   /**
@@ -21,4 +22,5 @@ export type MessengerConversationMessagesItem = {
   format: MessengerConversationMessagesItemFormat;
   at: string;
   hidden: MessengerConversationMessagesItemHidden;
+  source: MessengerConversationMessagesItemSource;
 };

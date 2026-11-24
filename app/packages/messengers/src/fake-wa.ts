@@ -1,5 +1,5 @@
 import { CREDS, type WaAuthFiles } from "./whatsapp-auth";
-import type { WaAnchor, WaEvents, WaMe, WaMessage, WaSocket } from "./whatsapp";
+import type { WaAddress, WaAnchor, WaChat, WaEvents, WaMe, WaMessage, WaSocket } from "./whatsapp-socket";
 
 /** A Boom-shaped error (what Baileys throws and closes with), for fakes and tests. */
 export class FakeBoom extends Error {
@@ -25,9 +25,9 @@ export class FakeWaSocket implements WaSocket {
    * same handler, so a close made while that event is handled cuts it off; the real WhatsApp then logs the device out minutes later.
    */
   pairSigned = false;
-  sent: { chatId: string; text: string; id: string }[] = [];
+  sent: { chatId: string; jid: string | null; text: string; id: string }[] = [];
   sendError: unknown = null;
-  historyRequests: { chatId: string; anchor: WaAnchor; count: number }[] = [];
+  historyRequests: { chatId: string; jid: string | null; anchor: WaAnchor; count: number }[] = [];
   /** What the phone answers to `requestHistory`, per chat; nothing answers when absent. */
   historyAnswer = new Map<string, WaMessage[]>();
   /** A stored session opens by itself right after `listen`, as a real one does; a fresh store waits for `qr` and `scan`. */
@@ -70,26 +70,27 @@ export class FakeWaSocket implements WaSocket {
     this.events?.connection({ state: "close", code, reason });
   }
   /** Plays one new message; returns it. */
-  message(chatId: string, text: string, o: { fromMe?: boolean; kind?: string | null; id?: string; at?: Date } = {}): WaMessage {
-    const m: WaMessage = { id: o.id ?? `3EB0FAKE${++this.seq}`, chatId, fromMe: o.fromMe ?? false, at: o.at ?? new Date("2026-11-20T10:00:00.000Z"), text, kind: o.kind === undefined ? "text" : o.kind };
+  message(chatId: string, text: string, o: { fromMe?: boolean; kind?: string | null; id?: string; at?: Date; jid?: string; pushName?: string } = {}): WaMessage {
+    const m: WaMessage = { id: o.id ?? `3EB0FAKE${++this.seq}`, chatId, fromMe: o.fromMe ?? false, at: o.at ?? new Date("2026-11-20T10:00:00.000Z"), text, kind: o.kind === undefined ? "text" : o.kind, ...(o.jid ? { jid: o.jid } : {}), ...(o.pushName ? { pushName: o.pushName } : {}) };
     this.events?.messages([m], "live");
     return m;
   }
   history(ms: WaMessage[]): void {
     this.events?.messages(ms, "history");
   }
-  chat(chatId: string, name: string): void {
-    this.events?.chats([{ chatId, name }]);
+  chat(chatId: string, name: string, jid?: string): void {
+    const c: WaChat = { chatId, name, ...(jid ? { jid } : {}) };
+    this.events?.chats([c]);
   }
-  async sendText(chatId: string, text: string): Promise<{ id: string; at: Date }> {
+  async sendText(chat: WaAddress, text: string): Promise<{ id: string; at: Date }> {
     if (this.sendError) throw this.sendError;
     const id = `3EB0SENT${++this.seq}`;
-    this.sent.push({ chatId, text, id });
+    this.sent.push({ chatId: chat.chatId, jid: chat.jid, text, id });
     return { id, at: new Date("2026-11-20T12:00:00.000Z") };
   }
-  async requestHistory(chatId: string, anchor: WaAnchor, count: number): Promise<void> {
-    this.historyRequests.push({ chatId, anchor, count });
-    const answer = this.historyAnswer.get(chatId);
+  async requestHistory(chat: WaAddress, anchor: WaAnchor, count: number): Promise<void> {
+    this.historyRequests.push({ chatId: chat.chatId, jid: chat.jid, anchor, count });
+    const answer = this.historyAnswer.get(chat.chatId);
     if (answer) queueMicrotask(() => this.history(answer));
   }
   async logout(): Promise<void> {

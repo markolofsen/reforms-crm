@@ -128,7 +128,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   not_linked: { retry: "no", next: "Only chats the owner linked exist here; say so in one line." },
   empty_text: { retry: "now", next: "Give the reply's text." },
   reply_off: { retry: "no", next: "The owner set this chat to never draft: write nothing and say so in one line." },
-  no_inbound: { retry: "no", next: "The hub never makes first contact: write nothing and say so in one line." },
+  no_inbound: { retry: "no", next: "No message from this person is stored yet: tell the owner in one line to Refresh the chat or check the receiver; his word that they wrote does not count. Write nothing." },
   not_requested: { retry: "after_owner", next: "Draft here only when the owner asks for this chat; pass his words as owner_request." },
   forbidden: { retry: "no", next: "Leave the draft for the owner on the Messengers panel; never retry." },
   unattended: { retry: "no", next: "Unattended sessions never send: leave the draft for the owner." },

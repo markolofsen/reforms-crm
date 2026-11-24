@@ -74,20 +74,29 @@ export function WhatsAppAccount({ linked }: { linked?: number }) {
 
 /** The linked numbers, or Connect (the block above owns the read and its states). */
 function WhatsAppAccountBody({ d, linked }: { d: NonNullable<ReturnType<typeof useWhatsApp>["data"]>; linked?: number }) {
+  // P141 W3 (decision 0049 point 4): when the server cannot read the Mac's WhatsApp app, the row says why and the one fix.
+  const app = d.appHistory;
   if (d.accounts.length > 0)
     return (
-      <ul aria-label="WhatsApp numbers" className="flex flex-col divide-y border-y">
-        {d.accounts.map((a) => (
-          <AccountRow
-            a={a}
-            channel="whatsapp"
-            linked={linked}
-            key={a.account}
-            label={`WhatsApp +${a.account}`}
-            note="The device is unlinked (it leaves Linked devices on your phone) and its keys are deleted; the linked chats and their messages stay. To read them again, connect and scan a new code."
-          />
-        ))}
-      </ul>
+      <div className="flex flex-col gap-2">
+        <ul aria-label="WhatsApp numbers" className="flex flex-col divide-y border-y">
+          {d.accounts.map((a) => (
+            <AccountRow
+              a={a}
+              channel="whatsapp"
+              linked={linked}
+              key={a.account}
+              label={`WhatsApp +${a.account}`}
+              note="The device is unlinked (it leaves Linked devices on your phone) and its keys are deleted; the linked chats and their messages stay. To read them again, connect and scan a new code."
+            />
+          ))}
+        </ul>
+        {app?.state === "off" && (
+          <p className="text-muted-foreground text-sm" data-testid="whatsapp-app-history">
+            {app.detail} Messages are kept {app.cacheDays} days.{app.fix ? ` ${app.fix}` : ""}
+          </p>
+        )}
+      </div>
     );
   return (
     <div className="flex flex-col gap-2">

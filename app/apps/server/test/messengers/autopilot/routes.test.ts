@@ -149,7 +149,7 @@ describe("the wake from the ingest (P139 A2)", () => {
     const ap = autopilot({ brain, clock });
     const cap = captureOps();
     await inbound("1");
-    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0 }]);
+    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0, linked: true }]);
     await ap.idle();
     clock.fire();
     await ap.idle();
@@ -165,7 +165,7 @@ describe("the wake from the ingest (P139 A2)", () => {
     await switchedOn(ap);
     const cap = captureOps();
     await inbound("1");
-    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0 }]);
+    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0, linked: true }]);
     await ap.idle();
     clock.fire();
     await ap.idle();
@@ -181,14 +181,14 @@ describe("the wake from the ingest (P139 A2)", () => {
     await switchedOn(ap, "on");
     const cap = captureOps();
     await inbound("1");
-    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0 }]);
+    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0, linked: true }]);
     await ap.idle();
     clock.fire();
     await ap.idle();
     expect(cap.lines.filter((l) => l.source === "autopilot" && l.message.startsWith("turn")).map((l) => l.fields?.reason)).toEqual(["no_sender"]);
     ap = autopilot({ brain: fakeBrain({ kind: "draft", draftId: 6, verdict: "hand_back", reason: "price", costUsd: null }), clock });
     await inbound("2");
-    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0 }]);
+    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 1, outbound: 0, linked: true }]);
     await ap.idle();
     clock.fire();
     await ap.idle();
@@ -200,7 +200,7 @@ describe("the wake from the ingest (P139 A2)", () => {
     const clock = stepClock();
     const ap = autopilot({ brain: fakeBrain({ kind: "no_draft", reason: "x", costUsd: null }), clock });
     await switchedOn(ap);
-    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 0, outbound: 1 }]);
+    ap.stored("p", [{ channel: "telegram_user", chatId: "1001", inbound: 0, outbound: 1, linked: true }]);
     await ap.idle();
     expect((await repos.messengers.chat("p", "telegram_user", "1001"))?.autopilotPausedReason).toBe("owner_replied");
     await repos.messengers.setAutopilotPause("p", "telegram_user", "1001", null);

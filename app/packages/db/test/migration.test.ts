@@ -223,6 +223,37 @@ describe("migration 0041 (the chat's autopilot pause, P139 A1)", () => {
   });
 });
 
+describe("migration 0042 (the proof of inbound outlives the cache, P141 W4)", () => {
+  it("adds jid, last_inbound_at, account and source; backfills the fact from stored messages; keeps the key and the live triggers", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(42) }); // 0000 .. 0041
+    sqlite.prepare("insert into messenger_chats (project, channel, chat_id, title) values ('p','telegram_user','42','Ann'), ('p','whatsapp','+4915100','B'), ('p','whatsapp','+4915111','C')").run();
+    const msg = sqlite.prepare("insert into messenger_messages (project, channel, account, chat_id, remote_message_id, direction, kind, text, sent_at, retain_until) values ('p', ?, ?, ?, ?, ?, 'text', '', ?, '2027-01-01T00:00:00.000Z')");
+    msg.run("telegram_user", "777", "42", "1", "in", "2026-11-20T10:00:00.000Z");
+    msg.run("telegram_user", "777", "42", "2", "in", "2026-11-21T10:00:00.000Z");
+    msg.run("telegram_user", "888", "42", "3", "out", "2026-11-22T10:00:00.000Z");
+    // Only the owner wrote in this chat: no inbound fact, the account from his message.
+    msg.run("whatsapp", "6281", "+4915100", "W1", "out", "2026-11-22T10:00:00.000Z");
+
+    migrate(db, { migrationsFolder: source }); // + 0042
+
+    const rows = sqlite.prepare("select chat_id, jid, last_inbound_at, account from messenger_chats order by id").all();
+    expect(rows).toEqual([
+      { chat_id: "42", jid: null, last_inbound_at: "2026-11-21T10:00:00.000Z", account: "777" },
+      { chat_id: "+4915100", jid: null, last_inbound_at: null, account: "6281" },
+      { chat_id: "+4915111", jid: null, last_inbound_at: null, account: null },
+    ]);
+    expect(sqlite.prepare("select count(*) as n from messenger_messages where source is null").get()).toEqual({ n: 4 });
+    expect(() => sqlite.prepare("insert into messenger_chats (project, channel, chat_id) values ('p','telegram_user','42')").run()).toThrow(/UNIQUE/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and (name like 'live_messenger_chats_%' or name like 'live_messenger_messages_%')").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_messenger_chats_ad", "live_messenger_chats_ai", "live_messenger_chats_au", "live_messenger_messages_ad", "live_messenger_messages_ai", "live_messenger_messages_au"]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
 describe("migration 0026 (llm_calls, P78)", () => {
   it("adds the ledger with its three live triggers, keeps older rows, and refuses an unknown outcome or a negative cost", () => {
     const sqlite = new Database(":memory:");

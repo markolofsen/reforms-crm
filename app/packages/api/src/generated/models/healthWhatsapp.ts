@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { HealthWhatsappAccountsItem } from './healthWhatsappAccountsItem';
+import type { HealthWhatsappAppHistory } from './healthWhatsappAppHistory';
 import type { HealthWhatsappState } from './healthWhatsappState';
 
 export type HealthWhatsapp = {
@@ -13,4 +14,5 @@ export type HealthWhatsapp = {
   reason?: string;
   project?: string;
   accounts: HealthWhatsappAccountsItem[];
+  appHistory?: HealthWhatsappAppHistory;
 };

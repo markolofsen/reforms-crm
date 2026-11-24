@@ -113,7 +113,7 @@ describe("the messenger send door for WhatsApp (P71 M5)", () => {
     const r = await apply(app, id, { chatId: ANNA, text: "Yes, the 28th stands." });
     expect(r.status).toBe(200);
     const { sendId } = (await json(r)) as { sendId: number };
-    expect(fake.sent).toEqual([{ chatId: ANNA, text: "Yes, the 28th stands.", id: expect.any(String) }]);
+    expect(fake.sent).toEqual([{ chatId: ANNA, jid: null, text: "Yes, the 28th stands.", id: expect.any(String) }]);
     expect(await repos.sends.get(sendId)).toMatchObject({ channel: "whatsapp", messengerDraftId: id, draftId: null, status: "sent", actor: "admin", sender: ACCOUNT, toAddr: `whatsapp:${ANNA}`, subject: "Anna", body: "Yes, the 28th stands.", sentMessageId: fake.sent[0]!.id });
     expect(await repos.messengers.getDraft("p", id)).toMatchObject({ status: "sent", confirmedBy: "admin" });
     clock += 60_000;

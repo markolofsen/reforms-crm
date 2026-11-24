@@ -165,7 +165,9 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
         {messages.length === 0 ? <ConversationHistoryState flush><EmptyState title="No messages yet">New messages from this linked chat will appear here.</EmptyState></ConversationHistoryState> : <ConversationMessageList ariaLabel={`Messages with ${name}`}>{messages.reduce<ReactNode[]>((items, message, index) => {
           const previous = messages[index - 1];
           const currentDay = dayOf(message.at);
-          if (!previous || dayOf(previous.at) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={formatDay(message.at)} />);
+          // Decision 0049 point 5: a day that holds a message only the Mac's WhatsApp app supplied says so once, on its divider.
+          const fromApp = messages.some((m) => m.source === "wa_app" && dayOf(m.at) === currentDay);
+          if (!previous || dayOf(previous.at) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={fromApp ? `${formatDay(message.at)} · from the WhatsApp app on this Mac` : formatDay(message.at)} />);
           items.push(<Message key={message.id} m={message} marked={ringed.has(String(message.id))} name={name} />);
           return items;
         }, [])}</ConversationMessageList>}

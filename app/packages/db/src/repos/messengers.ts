@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
+import { messengerCacheRepo } from "./messenger-cache";
 import { messengerChatsRepo } from "./messenger-chats";
 import { messengerProjectionRepo } from "./messenger-projection";
 import { messengerTriageRepo } from "./messenger-triage";
@@ -67,19 +68,11 @@ export function messengersRepo(db: Db) {
   return {
     ...chats,
     ...projection,
+    // ---- the link and the message cache (decision 0049, P141)
+    ...messengerCacheRepo(db),
     // ---- the pre-analysis' verdicts (P71 M-P)
     ...messengerTriageRepo(db),
     // ---- allow-list
-    /** Lists a chat; `autolinked` is the reason when the Hub's autolink did it (P84), else the owner did. */
-    async allowChat(project: string, channel: MessengerChannel, chatId: string, title?: string | null, autolinked?: string | null): Promise<void> {
-      db.insert(messengerChats)
-        .values({ project, channel, chatId, title: title ?? null, autolinked: autolinked ?? null })
-        .onConflictDoUpdate({
-          target: [messengerChats.project, messengerChats.channel, messengerChats.chatId],
-          set: title ? { title } : { chatId },
-        })
-        .run();
-    },
     /**
      * P131 O5: the chat's own Telegram username (stored without `@`) and phone (digits only), on a linked chat only. A null or empty
      * value leaves what is stored: a later scan that does not see the phone never erases it. Returns whether a row changed.

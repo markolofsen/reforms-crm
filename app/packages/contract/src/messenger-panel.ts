@@ -142,6 +142,8 @@ export const messengerConversationMessageDto = z.strictObject({
   format: z.enum(["plain", "markdown"]).default("plain"),
   at: z.string(),
   hidden: z.enum(HIDDEN_LABELS).nullable(),
+  /** Decision 0049 point 5: `wa_app` when only the Mac's WhatsApp app supplied it (it arrived while the Hub was off), else null. */
+  source: z.enum(["wa_app"]).nullable().default(null),
 });
 export type MessengerConversationMessageDto = z.infer<typeof messengerConversationMessageDto>;
 

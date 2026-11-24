@@ -91,7 +91,7 @@ export type {
 } from "./repos";
 export { SEND_CHANNELS, SEND_STATUSES, type SendChannel, type SendStatus } from "./schema";
 export { LEAD_DISMISS_REASONS, type LeadDismissReason } from "./schema";
-export type { IdentifierKind, MessengerChannel, MessengerDirection, MessengerDraftStatus } from "./schema";
+export type { IdentifierKind, MessageSource, MessengerChannel, MessengerDirection, MessengerDraftStatus } from "./schema";
 export { allAcknowledged, effectiveRules, evaluateSafety, type SafetyInput } from "./safety";
 export { seed } from "./seed";
 export { agentSettingsOf };

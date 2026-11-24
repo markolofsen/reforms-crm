@@ -77,9 +77,23 @@ export type UserDialogDto = z.infer<typeof userDialogDto>;
 
 // ---- WhatsApp as a linked device (P71 M5): the same account rows, the pairing by QR code, the same picker and link
 
-/** The WhatsApp linked devices, one row per session (the account is the number's digits): the same shape as the Telegram accounts. */
-export const whatsappStatusDto = telegramUserStatusDto;
-export type WhatsAppStatusDto = TelegramUserStatusDto;
+/**
+ * P141 W3 (decision 0049 points 3 and 4): the WhatsApp app's database on this Mac as the read-only refill of a chat, as the
+ * server's own process found it (the owner's shell can read it when the server cannot). `cacheDays` is WhatsApp's cache TTL: 30
+ * while the app refills a chat, 90 when it cannot. `fix` is the one line the owner acts on (Full Disk Access), else null.
+ */
+export const waAppHistoryDto = z.strictObject({
+  state: z.enum(["on", "off"]),
+  reason: z.enum(["missing", "refused", "schema", "error"]).nullable(),
+  detail: z.string().nullable(),
+  fix: z.string().nullable(),
+  cacheDays: z.number().int().positive(),
+});
+export type WaAppHistoryDto = z.infer<typeof waAppHistoryDto>;
+
+/** The WhatsApp linked devices, one row per session (the account is the number's digits): the Telegram accounts' shape, and the Mac app's refill. */
+export const whatsappStatusDto = telegramUserStatusDto.extend({ appHistory: waAppHistoryDto.optional() });
+export type WhatsAppStatusDto = z.infer<typeof whatsappStatusDto>;
 
 /** Connect: the pairing's id. Nothing else: the QR code comes with the state. */
 export const waConnectStartedDto = z.strictObject({ flow });
@@ -186,7 +200,9 @@ export const autolinkPreviewDto = z.strictObject({
 export type AutolinkPreviewDto = z.infer<typeof autolinkPreviewDto>;
 
 /** The owner's Link of a seen dialog to a directory record (`key`). */
-export const autolinkLinkBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), chatId: z.string().regex(/^\+?\d{1,20}$/), key: z.string().min(1).max(64), title: z.string().trim().max(200).optional() });
+/** A user account's chat id: a Telegram user id, a WhatsApp number, or `lid:<digits>` for a WhatsApp chat whose number is hidden (P141 W1). */
+const userChatId = z.string().regex(/^(\+?\d{1,20}|lid:\d{1,20})$/);
+export const autolinkLinkBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), chatId: userChatId, key: z.string().min(1).max(64), title: z.string().trim().max(200).optional() });
 export const autolinkRecordsBody = z.strictObject({ q: z.string().trim().min(2).max(100) });
 export const autolinkRecordsDto = z.strictObject({
   records: z.array(autolinkRecordDto),
@@ -198,7 +214,7 @@ export const autolinkRecordsDto = z.strictObject({
 export const autolinkCreateBody = z.strictObject({
   channel: userChannel,
   account: z.string().regex(/^\d{1,20}$/),
-  chatId: z.string().regex(/^\+?\d{1,20}$/),
+  chatId: userChatId,
   title: z.string().trim().max(200).optional(),
   name: z.string().trim().min(1).max(200),
   email: z.email().max(254),
@@ -216,7 +232,7 @@ export const autolinkLinkedDto = z.strictObject({
 });
 export type AutolinkLinkedDto = z.infer<typeof autolinkLinkedDto>;
 /** P84c: Hide ("not a client") and Unhide of a chat the Hub saw; a linked chat is hidden by `/chats/:id/never`, which unlinks it first. */
-export const autolinkHideBody = z.strictObject({ channel: userChannel, chatId: z.string().regex(/^\+?\d{1,20}$/) });
+export const autolinkHideBody = z.strictObject({ channel: userChannel, chatId: userChatId });
 export const autolinkHiddenDto = z.strictObject({ ok: z.literal(true), channel: userChannel, chatId: z.string(), hidden: z.boolean() });
 /** P102: the dialogs of one account for the Link a chat box, marked against the picked client record (`key`); read on demand, never stored. */
 export const autolinkDialogsBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), key: z.string().min(1).max(64) });
@@ -241,7 +257,7 @@ export const chatMoveUndoneDto = z.strictObject({ ok: z.literal(true), id: z.num
 /** Unlink and Never link answer which chat went and how many of its stored messages. */
 export const chatUnlinkedDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), never: z.boolean() });
 
-const proposalChat = z.strictObject({ channel: userChannel, chatId: z.string().regex(/^\+?\d{1,20}$/) });
+const proposalChat = z.strictObject({ channel: userChannel, chatId: userChatId });
 /** The agent's proposal (`hub mcp`'s loopback call with its token): at most 200 chats, a reason each. */
 export const autolinkProposeBody = z.strictObject({ items: z.array(proposalChat.extend({ reason: z.string().trim().min(1).max(200) })).min(1).max(200) });
 export const autolinkProposedDto = z.strictObject({ ok: z.literal(true), kept: z.number().int(), skipped: z.number().int() });

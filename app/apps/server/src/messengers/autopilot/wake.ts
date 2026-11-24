@@ -67,6 +67,8 @@ export function createAutopilot(d: AutopilotDeps): AutopilotHandle {
 
   const wake = async (project: string, chats: StoredChat[]) => {
     for (const s of chats) {
+      // Decision 0049 point 9: a chat cached before it is linked never wakes the autopilot.
+      if (!s.linked) continue;
       const c = await switches.chat(project, s);
       if (!c || (c.state.state !== "on" && c.state.state !== "dry_run")) continue;
       const chat = switches.chatOf(project, c.row);

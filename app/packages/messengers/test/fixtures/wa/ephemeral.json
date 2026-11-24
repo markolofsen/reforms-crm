@@ -1,0 +1,39 @@
+{
+  "note": "A disappearing-messages chat: ephemeralMessage wraps a conversation.",
+  "message": {
+    "key": {
+      "remoteJid": "491510000002@s.whatsapp.net",
+      "fromMe": false,
+      "id": "3EB0EPH00003"
+    },
+    "messageTimestamp": "1763989100",
+    "pushName": "Anna",
+    "message": {
+      "ephemeralMessage": {
+        "message": {
+          "conversation": "this one disappears",
+          "messageContextInfo": {
+            "deviceListMetadata": {
+              "senderKeyHash": "c2VuZGVyLWtleS1oYXNo",
+              "senderTimestamp": "1763900000",
+              "recipientKeyHash": "cmVjaXBpZW50LWtleQ==",
+              "recipientTimestamp": "1763800000"
+            },
+            "deviceListMetadataVersion": 2,
+            "messageSecret": "ZmFrZS1zZWNyZXQ="
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "id": "3EB0EPH00003",
+    "chatId": "+491510000002",
+    "jid": "491510000002@s.whatsapp.net",
+    "fromMe": false,
+    "at": "2025-11-24T12:58:20.000Z",
+    "text": "this one disappears",
+    "kind": "text",
+    "pushName": "Anna"
+  }
+}

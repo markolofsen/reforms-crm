@@ -4,9 +4,13 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   getContentType,
   initAuthCreds,
+  isJidBroadcast,
+  isJidGroup,
+  isJidNewsletter,
   isLidUser,
   isPnUser,
   jidDecode,
+  jidNormalizedUser,
   normalizeMessageContent,
   proto,
   type AuthenticationCreds,
@@ -17,7 +21,7 @@ import makeWASocket, {
   type WAVersion,
 } from "baileys";
 import { CREDS, keyName, type WaAuthFiles } from "./whatsapp-auth";
-import type { WaChat, WaMe, WaMessage, WaSocket } from "./whatsapp";
+import type { WaAddress, WaChat, WaMe, WaMessage, WaSocket } from "./whatsapp-socket";
 import { ops } from "@hub/log/ops";
 import { disconnectDetail, waLogger } from "./whatsapp-log";
 
@@ -56,39 +60,124 @@ export function latestWaVersion(): Promise<WAVersion | undefined> {
   return latest;
 }
 
-/** A person's chat as the hub names it: `+` and the number's digits. A LID chat is read through its phone alias, else dropped. */
+/**
+ * A person's chat as the hub names it: `+` and the number's digits. A LID chat (`…@lid`, Baileys 7) is read through its phone alias
+ * when the message carries one; without it the chat is `lid:<digits>` (P141 W1, verdict 5): stored, never dropped silently.
+ */
 export function chatIdOf(jid: string | null | undefined, alt?: string | null): string | null {
   const pn = isPnUser(jid ?? undefined) ? jid : isLidUser(jid ?? undefined) && isPnUser(alt ?? undefined) ? alt : null;
   const user = pn ? jidDecode(pn)?.user : undefined;
-  return user && /^\d{7,15}$/.test(user) ? `+${user}` : null;
+  if (user) return /^\d{7,15}$/.test(user) ? `+${user}` : null;
+  const lid = isLidUser(jid ?? undefined) ? jidDecode(jid ?? undefined)?.user : undefined;
+  return lid && /^\d{1,20}$/.test(lid) ? `lid:${lid}` : null;
 }
-const jidOf = (chatId: string) => `${chatId.replace(/^\+/, "")}@s.whatsapp.net`;
+
+/** The chat's real address, which WhatsApp files it under: the `@lid` one when the key names one (Defect 4), else the phone JID. */
+export function realJidOf(jid: string | null | undefined, alt?: string | null): string | null {
+  const lid = isLidUser(jid ?? undefined) ? jid : isLidUser(alt ?? undefined) ? alt : null;
+  const out = lid ?? (isPnUser(jid ?? undefined) ? jid : null);
+  return out ? jidNormalizedUser(out) : null;
+}
+
+/** The address a request names: the stored real JID, else the one the chat id spells (`lid:` → `@lid`, a number → `@s.whatsapp.net`). */
+export const jidOf = (chat: WaAddress): string => chat.jid ?? (chat.chatId.startsWith("lid:") ? `${chat.chatId.slice(4)}@lid` : `${chat.chatId.replace(/^\+/, "")}@s.whatsapp.net`);
 
 /** Messages that carry nothing to keep: protocol frames, reactions, receipts of a poll, key distribution. */
 const NOT_CONTENT = new Set(["protocolMessage", "reactionMessage", "senderKeyDistributionMessage", "messageContextInfo", "pollUpdateMessage", "keepInChatMessage", "encReactionMessage", "pinInChatMessage"]);
 
+/** Content types that are a person's text, though not `conversation`: a reply to a button, a list or a template. */
+const REPLY_TYPES = new Set(["buttonsResponseMessage", "listResponseMessage", "templateButtonReplyMessage"]);
+/** The kind a content type is stored as, where it is not the type's own name without `Message`. */
+const KIND_OF: Record<string, string> = { pollCreationMessage: "poll", pollCreationMessageV2: "poll", pollCreationMessageV3: "poll", pollCreationMessageV5: "poll" };
+
 const secondsOf = (t: WAMessage["messageTimestamp"]): number => (typeof t === "number" ? t : t ? Number(t.toString()) : 0);
 
-/** Maps Baileys' `WAMessage` to the hub's; null for anything but a person's private chat. Media bytes are never fetched. */
-export function fromBaileys(m: WAMessage): WaMessage | null {
+type Content = NonNullable<ReturnType<typeof normalizeMessageContent>>;
+
+/** The text a content of this type carries (P141 W1, verdict 4). Media stays kind-only: a caption is text, the bytes are never read. */
+function textOf(c: Content, type: string): string {
+  switch (type) {
+    case "conversation":
+      return c.conversation ?? "";
+    case "extendedTextMessage": {
+      // A link preview's text may omit the URL it previews: the matched URL is kept.
+      const text = c.extendedTextMessage?.text ?? "";
+      const url = c.extendedTextMessage?.matchedText ?? "";
+      return url && !text.includes(url) ? (text ? `${text}\n${url}` : url) : text;
+    }
+    case "imageMessage":
+      return c.imageMessage?.caption ?? "";
+    case "videoMessage":
+      return c.videoMessage?.caption ?? "";
+    case "documentMessage":
+      return c.documentMessage?.caption ?? "";
+    case "buttonsResponseMessage":
+      return c.buttonsResponseMessage?.selectedDisplayText ?? "";
+    case "listResponseMessage":
+      return c.listResponseMessage?.title ?? "";
+    case "templateButtonReplyMessage":
+      return c.templateButtonReplyMessage?.selectedDisplayText ?? "";
+    case "contactMessage":
+      return c.contactMessage?.displayName ?? "";
+    case "locationMessage":
+      return [c.locationMessage?.name, c.locationMessage?.address].filter((x): x is string => !!x).join(", ");
+    case "pollCreationMessage":
+    case "pollCreationMessageV2":
+    case "pollCreationMessageV3":
+    case "pollCreationMessageV5":
+      return (c[type as "pollCreationMessage"] as { name?: string | null } | null | undefined)?.name ?? "";
+    default:
+      return "";
+  }
+}
+
+/** Why a Baileys message did not become a hub message: counted in ops by reason, never with a jid or a text (verdict 5). */
+export type WaDropReason = "no_chat_id" | "not_private" | "no_kind";
+
+/** Maps Baileys' `WAMessage` to the hub's, or says why not. Media bytes are never fetched. */
+export function mapBaileys(m: WAMessage): { message: WaMessage } | { dropped: WaDropReason } {
   const key = m.key;
-  if (!key?.id) return null;
-  const chatId = chatIdOf(key.remoteJid, key.remoteJidAlt);
-  if (!chatId) return null;
+  const remote = key?.remoteJid ?? undefined;
+  if (remote && (isJidGroup(remote) || isJidBroadcast(remote) || isJidNewsletter(remote))) return { dropped: "not_private" };
+  const chatId = chatIdOf(remote, key?.remoteJidAlt);
+  const jid = realJidOf(remote, key?.remoteJidAlt);
+  if (!key?.id || !chatId || !jid) return { dropped: "no_chat_id" };
+  const base = { id: key.id, chatId, jid, fromMe: key.fromMe === true, at: new Date(secondsOf(m.messageTimestamp) * 1000), ...(key.fromMe !== true && m.pushName ? { pushName: m.pushName } : {}) };
   const content = normalizeMessageContent(m.message);
   const type = content ? getContentType(content) : undefined;
-  let kind: string | null = null;
-  let text = "";
-  if (type && !NOT_CONTENT.has(type)) {
-    if (type === "conversation" || type === "extendedTextMessage") {
-      text = content?.conversation ?? content?.extendedTextMessage?.text ?? "";
-      kind = text ? "text" : null;
-    } else {
-      kind = type.replace(/Message$/, "");
-      text = content?.imageMessage?.caption ?? content?.videoMessage?.caption ?? content?.documentMessage?.caption ?? "";
-    }
+  if (!content || !type) return { dropped: "no_kind" };
+  // An edit (WhatsApp wraps it as `editedMessage` → `protocolMessage` MESSAGE_EDIT): the stored row's text is replaced.
+  const p = content.protocolMessage;
+  if (type === "protocolMessage" && p?.type === proto.Message.ProtocolMessage.Type.MESSAGE_EDIT && p.key?.id && p.editedMessage) {
+    const inner = normalizeMessageContent(p.editedMessage);
+    const innerType = inner ? getContentType(inner) : undefined;
+    const text = inner && innerType ? textOf(inner, innerType) : "";
+    return text ? { message: { ...base, text, kind: "text", editOf: p.key.id } } : { dropped: "no_kind" };
   }
-  return { id: key.id, chatId, fromMe: key.fromMe === true, at: new Date(secondsOf(m.messageTimestamp) * 1000), text, kind };
+  if (NOT_CONTENT.has(type)) return { dropped: "no_kind" };
+  const text = textOf(content, type);
+  if (type === "conversation" || type === "extendedTextMessage" || REPLY_TYPES.has(type)) return text ? { message: { ...base, text, kind: "text" } } : { dropped: "no_kind" };
+  return { message: { ...base, text, kind: KIND_OF[type] ?? type.replace(/Message$/, "") } };
+}
+
+/** Maps Baileys' `WAMessage` to the hub's; null for anything it cannot place or keep (`mapBaileys` says why). */
+export function fromBaileys(m: WAMessage): WaMessage | null {
+  const r = mapBaileys(m);
+  return "message" in r ? r.message : null;
+}
+
+/** Maps a batch and counts what did not map, by reason; the line carries counts only (no jid, no text). */
+function mapBatch(ms: WAMessage[], what: "live" | "history"): WaMessage[] {
+  const out: WaMessage[] = [];
+  const dropped: Partial<Record<WaDropReason, number>> = {};
+  for (const m of ms) {
+    const r = mapBaileys(m);
+    if ("message" in r) out.push(r.message);
+    else dropped[r.dropped] = (dropped[r.dropped] ?? 0) + 1;
+  }
+  // A reaction or a receipt is routine; a message that could not be placed in a chat is worth a line.
+  if (dropped.no_chat_id) log.warn("messages not mapped to a chat", { source: what, ...dropped });
+  return out;
 }
 
 const meOf = (c: Contact | undefined): WaMe | null => {
@@ -98,7 +187,7 @@ const meOf = (c: Contact | undefined): WaMe | null => {
 
 const chatOf = (id: string | null | undefined, name: string | null | undefined, alt?: string | null): WaChat | null => {
   const chatId = chatIdOf(id, alt);
-  return chatId ? { chatId, name: name ?? null } : null;
+  return chatId ? { chatId, name: name ?? null, jid: realJidOf(id, alt) } : null;
 };
 
 /** Baileys' auth state over the hub's store: every value serialized with `BufferJSON`, one file each (`whatsapp-auth.ts`). */
@@ -169,20 +258,35 @@ export function baileysSocket(store: WaAuthFiles, version?: WAVersion): WaSocket
           e.connection({ state: "close", code: typeof code === "number" ? code : null, reason });
         }
       });
-      on("messages.upsert", (u) => e.messages(u.messages.map(fromBaileys).filter((m): m is WaMessage => m !== null), "live"));
+      /** A `lid:` chat whose phone Baileys' own LID store knows is moved onto the phone's chat id before the hub sees it. */
+      const placed = async (ms: WaMessage[]): Promise<WaMessage[]> => {
+        for (const m of ms) {
+          if (!m.chatId.startsWith("lid:")) continue;
+          const pn = await sock.signalRepository.lidMapping.getPNForLID(m.jid ?? `${m.chatId.slice(4)}@lid`).catch(() => null);
+          const id = pn ? chatIdOf(jidNormalizedUser(pn)) : null;
+          if (id && !id.startsWith("lid:")) m.chatId = id;
+        }
+        return ms;
+      };
+      const deliver = (ms: WaMessage[], source: "live" | "history") =>
+        void placed(ms)
+          .then((placedMs) => e.messages(placedMs, source))
+          .catch((err: unknown) => log.warn("a message batch could not be handed on", { source, kind: err instanceof Error ? err.name : "Error" }));
+      on("messages.upsert", (u) => deliver(mapBatch(u.messages, "live"), "live"));
       on("messaging-history.set", (h) => {
         e.chats([...h.chats.map((c) => chatOf(c.id, c.name)), ...h.contacts.map((c) => chatOf(c.id, c.name ?? c.notify, c.phoneNumber))].filter((c): c is WaChat => c !== null));
-        e.messages(h.messages.map(fromBaileys).filter((m): m is WaMessage => m !== null), "history");
+        deliver(mapBatch(h.messages, "history"), "history");
       });
       on("chats.upsert", (cs) => e.chats(cs.map((c) => chatOf(c.id, c.name)).filter((c): c is WaChat => c !== null)));
       on("contacts.upsert", (cs) => e.chats(cs.map((c) => chatOf(c.id, c.name ?? c.notify, c.phoneNumber)).filter((c): c is WaChat => c !== null)));
     },
-    async sendText(chatId, text) {
-      const m = await sock.sendMessage(jidOf(chatId), { text });
+    async sendText(chat, text) {
+      const m = await sock.sendMessage(jidOf(chat), { text });
       return { id: m?.key.id ?? "", at: m ? new Date(secondsOf(m.messageTimestamp) * 1000 || Date.now()) : new Date() };
     },
-    async requestHistory(chatId, anchor, count) {
-      await sock.fetchMessageHistory(count, { remoteJid: jidOf(chatId), id: anchor.id, fromMe: anchor.fromMe }, Math.floor(anchor.at.getTime() / 1000));
+    async requestHistory(chat, anchor, count) {
+      // Baileys' `oldestMsgTimestampMs` is milliseconds (P141 Defect 1), and the chat is named by its real JID (Defect 4).
+      await sock.fetchMessageHistory(count, { remoteJid: jidOf(chat), id: anchor.id, fromMe: anchor.fromMe }, anchor.at.getTime());
     },
     async logout() {
       await sock.logout();

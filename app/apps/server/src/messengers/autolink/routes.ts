@@ -166,7 +166,8 @@ export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: M
       guarded(c, autolinkHideBody, async (b, slug, al) => {
         if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
         if (await repos.messengers.isAllowed(slug, b.channel, b.chatId)) return c.json({ error: "That chat is linked: unlink it on its rules row first.", code: "wrong_state" as const }, 409);
-        await al.autolink.refuse(b.channel, b.chatId);
+        // Decision 0049 point 6: Hide also deletes what the cache holds of the chat (it is not linked: that was checked above).
+        await al.autolink.refuse(b.channel, b.chatId).then(() => repos.messengers.dropCachedChat(slug, b.channel, b.chatId));
         return c.json(autolinkHiddenDto.parse({ ok: true, channel: b.channel, chatId: b.chatId, hidden: true }));
       }),
     )

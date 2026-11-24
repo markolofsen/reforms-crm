@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { createHubMcpServer } from "../src/mcp/server";
-import { draftVerdict } from "../src/messenger/rules";
+import { draftVerdict, NO_INBOUND } from "../src/messenger/rules";
 import type { WithRepos } from "../src/mail/write-log";
 
 // P71 M2 and M2b: the agent's two messenger tools driven over MCP against a throwaway database (the fake store): no Telegram,
@@ -250,5 +250,12 @@ describe("draftVerdict", () => {
     expect(draftVerdict({ rules: { ...DEFAULT_CHAT_RULES, replyMode: "on_request" }, activity: act({ lastOutAt: "2026-11-19T10:00:00.000Z" }), ownerRequest: "напомни ему" })).toEqual({ refusal: null, nudge: true });
     expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ lastOutAt: "2026-11-19T10:00:00.000Z" }) })).toEqual({ refusal: null, nudge: true });
     expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act() })).toEqual({ refusal: null, nudge: false });
+  });
+  it("P141 W4: the proof of inbound is the server's fact (lastInAt), so a pruned cache still drafts; no fact is the new refusal sentence", () => {
+    // The client wrote 31 days ago: the cache let the row go, the chat row's last_inbound_at kept the fact.
+    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ inbound: 0, lastInAt: "2026-10-20T09:00:00.000Z" }) }).refusal).toBeNull();
+    expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ inbound: 0, lastInAt: null }) }).refusal).toEqual({ code: "no_inbound", message: NO_INBOUND });
+    expect(NO_INBOUND).toMatch(/^No message from this person is stored yet; if they wrote, the Hub has not received it\. Refresh the chat/);
+    expect(NO_INBOUND).toMatch(/the owner's word that they wrote does not change that/);
   });
 });

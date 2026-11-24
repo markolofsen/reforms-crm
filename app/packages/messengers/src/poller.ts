@@ -2,7 +2,7 @@ import { TELEGRAM_IN_TEXT } from "@hub/connections";
 import type { Repos } from "@hub/db";
 import { ops, type OpsSource } from "@hub/log/ops";
 import { AdapterError, isParkedCode, parkedLine, type MessengerAdapter } from "./adapter";
-import { ingest, type IngestResult } from "./ingest";
+import { ingest, type IngestResult, type UnlinkedCache } from "./ingest";
 
 export interface PollDeps {
   project: string;
@@ -12,6 +12,10 @@ export interface PollDeps {
   /** Long-poll wait on the provider side. Default 30. */
   timeoutSec?: number;
   limit?: number;
+  /** The cache's TTL for this receiver's rows (decision 0049); default `RETENTION_DAYS`. */
+  retentionDays?: number;
+  /** Cache this receiver's unlinked chats (decision 0049, P141 W2: WhatsApp). */
+  cache?: UnlinkedCache;
 }
 
 export interface PollResult extends IngestResult {
@@ -38,7 +42,7 @@ export async function pollOnce(deps: PollDeps, signal?: AbortSignal): Promise<Po
       limit: deps.limit ?? 100,
       ...(signal ? { signal } : {}),
     });
-    const res = await ingest({ project, repos, ...(deps.now ? { now: deps.now } : {}) }, batch.messages);
+    const res = await ingest({ project, repos, ...(deps.now ? { now: deps.now } : {}), ...(deps.retentionDays ? { retentionDays: deps.retentionDays } : {}), ...(deps.cache ? { cache: deps.cache } : {}) }, batch.messages);
     await repos.messengers.markPollOk(project, adapter.channel, adapter.account, batch.cursor ?? acc?.cursor ?? null, at());
     return { ...res, fetched: batch.messages.length, cursor: batch.cursor };
   } catch (err) {

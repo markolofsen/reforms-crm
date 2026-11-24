@@ -9,7 +9,9 @@ export type MessengerChatRow = typeof messengerChats.$inferSelect;
 
 /** What a chat holds that its rules are judged against (P71 M2b): the newest inbound and outbound row, and the count of inbound. */
 export interface ChatActivity {
+  /** Inbound messages in the cache now (decision 0049: it expires). */
   inbound: number;
+  /** The newest inbound message: the cached one, or the chat row's `last_inbound_at` when that is newer (it outlives the cache). Null: the person never wrote. */
   lastInAt: string | null;
   lastOutAt: string | null;
 }
@@ -78,7 +80,11 @@ export function messengerChatsRepo(db: Db) {
         .from(messengerMessages)
         .where(msgsOf(project, channel, chatId))
         .get();
-      return { inbound: Number(r?.inbound ?? 0), lastInAt: r?.lastInAt ?? null, lastOutAt: r?.lastOutAt ?? null };
+      // Decision 0049 (P141 W4): the chat row's `last_inbound_at` outlives the cache, so a client who wrote 31 days ago still wrote.
+      const fact = db.select({ at: messengerChats.lastInboundAt }).from(messengerChats).where(key(project, channel, chatId)).get()?.at ?? null;
+      const cached = r?.lastInAt ?? null;
+      const lastInAt = !fact ? cached : !cached ? fact : fact > cached ? fact : cached;
+      return { inbound: Number(r?.inbound ?? 0), lastInAt, lastOutAt: r?.lastOutAt ?? null };
     },
 
     /** P102: every stored message of the chat, either side: what Unlink would delete, said in its sentence. */
