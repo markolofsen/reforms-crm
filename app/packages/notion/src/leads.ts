@@ -1,6 +1,7 @@
 // Leads, the one place core understands them: a lead is a row of the project's `leads` database (Notion pack module "Leads"), written by the
 // owner's own backend (e.g. django_notion), the website form or the mail agent, and handled by people. This file only reads. The contract with the
 // writers is @docs/core/21-leads.md; the field list is `app/projects/_template/notion-crm/schema/leads.json`.
+import { leadFormOf, type LeadForm } from "./lead-form";
 import type { PageObject, PropertyValue } from "./types";
 
 export const LEAD_STATUSES = ["New", "In progress", "Won", "Lost", "Spam"] as const;
@@ -67,7 +68,17 @@ export interface LeadDetail extends Lead {
   replyTo: string | null;
   /** The contact the person typed when it is not an email ("WhatsApp: 0804291728"), else null. */
   otherContact: string | null;
+  /** P138 E1: Details sorted into what they want, the channel, the sites and the technical lines. */
+  sheet: LeadForm;
+  /**
+   * P138 verdict 3: the agent's read of the lead, the first line of the page's `Conversation summary` (the bulk-drafts skill writes
+   * it at Prepare reply: fit, segment, the next step), else null. Never written by the admin.
+   */
+  read: string | null;
 }
+
+/** How long the agent's read may be on the card: one line. */
+export const LEAD_READ_CHARS = 200;
 
 const EMAIL_RE = /^[^\s@<>(),;:"']+@[^\s@<>(),;:"']+\.[^\s@<>(),;:"']+$/;
 const richOf = (p: PropertyValue | undefined): string => (p?.type === "rich_text" ? plain(p.rich_text) : p?.type === "title" ? plain(p.title) : "");
@@ -92,13 +103,20 @@ export function parseLeadDetail(page: PageObject): LeadDetail {
   const account = base.email && EMAIL_RE.test(base.email.trim()) ? base.email.trim().toLowerCase() : null;
   const url = prop(page, "Page URL")?.url;
   const phone = prop(page, "Phone")?.phone_number;
+  const company = richOf(prop(page, "Company")).trim() || null;
+  const message = richOf(prop(page, "Message"));
+  const form = richOf(prop(page, "Form")).trim() || null;
+  const pageUrl = typeof url === "string" ? url : null;
+  const read = richOf(prop(page, "Conversation summary")).split(/\r?\n/).map((l) => l.trim()).find(Boolean) ?? null;
   return {
     ...base,
-    company: richOf(prop(page, "Company")).trim() || null,
-    message: richOf(prop(page, "Message")),
+    company,
+    message,
     details,
-    form: richOf(prop(page, "Form")).trim() || null,
-    pageUrl: typeof url === "string" ? url : null,
+    form,
+    pageUrl,
+    sheet: leadFormOf({ details, company, message, form, pageUrl }),
+    read: read ? read.slice(0, LEAD_READ_CHARS) : null,
     phone: typeof phone === "string" && phone.trim() ? phone.trim() : null,
     replyTo: channel && "email" in channel ? channel.email : account,
     otherContact: channel && "other" in channel ? channel.other : null,

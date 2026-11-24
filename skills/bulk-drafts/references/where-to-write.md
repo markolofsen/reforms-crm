@@ -33,3 +33,7 @@ Prepare reply). Read that Leads page by id (`notion-fetch`, never search) for th
 a short `subject` in their language, `content`, `owner_request`, `record` with `notion: {"kind":"lead","page_id":"<id>"}`. Never
 set the lead's Status or create a Clients card: the Hub does at his first sent reply. A lead with only a phone or Telegram gets no
 draft. A lead that looks like spam: propose Spam on the card in one line, never mark it.
+After the draft (P138 verdict 3), when the page's `Conversation summary` is empty, write your read there as ONE English line: who
+they are, where, their size, and the next step you suggest ("Dealer in the UAE, under 10k/month: offer the Pro trial"), from the
+page's own fields and their words only; never a price or a term the knowledge lacks. The lead card shows it on top. Never overwrite a
+summary someone wrote, and never touch another field of the lead.

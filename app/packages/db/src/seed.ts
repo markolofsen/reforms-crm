@@ -197,9 +197,10 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
     { project: "demo-shop", account: "demo-shop@example.test", mailbox: "INBOX", messageId: "<seed-in-omar@example.test>", email: "omar@example.test", name: "Omar Test", subject: "Question about sizes", receivedAt: daysAgo(now, 3 / 24), read: true, why: "client", preview: "Do you have the jacket in a larger size?" },
   ], now);
   // The Leads reader (P97 S2): two New leads of demo-shop, as the server keeps them from Notion Leads (page id, name, the two
-  // addresses, brand, when, 120 characters of the Message). Invented page ids and addresses; a seeded instance reads no Notion.
+  // addresses, brand, when, 120 characters of the Message, and P138's four facts on the first). Invented page ids and addresses;
+  // a seeded instance reads no Notion.
   await repos.leadRows.sync([
-    { project: "demo-shop", pageId: "5eed0000000000000000000000000001", name: "Harbor Bikes", email: "nina@harbor-bikes.test", accountEmail: "nina@harbor-bikes.test", brand: null, receivedAt: daysAgo(now, 2 / 24), preview: "We run three shops and want the wholesale price list for the spring jackets.", notionStatus: "New", hasClient: false },
+    { project: "demo-shop", pageId: "5eed0000000000000000000000000001", name: "Harbor Bikes", email: "nina@harbor-bikes.test", accountEmail: "nina@harbor-bikes.test", brand: null, receivedAt: daysAgo(now, 2 / 24), preview: "We run three shops and want the wholesale price list for the spring jackets.", notionStatus: "New", hasClient: false, facts: { site: "harbor-bikes.test", country: "Portugal", segment: "Retail", volume: "3 shops" } },
     { project: "demo-shop", pageId: "5eed0000000000000000000000000002", name: "Paulo Ensaio", email: "paulo@example.test", accountEmail: "paulo.account@example.test", brand: null, receivedAt: daysAgo(now, 26 / 24), preview: "Is delivery to Madeira possible?", notionStatus: null, hasClient: false },
   ], now);
   // Follow-ups (P47): one client enrolled and due now (we wrote 25 days ago), and one candidate (Ines: our message 9 days ago, hers 11).

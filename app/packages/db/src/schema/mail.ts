@@ -117,6 +117,11 @@ export const leadRows = sqliteTable(
     brand: text("brand"),
     receivedAt: text("received_at").notNull().default(""),
     preview: text("preview").notNull().default(""),
+    // P138 E1 (migration 0039): four short facts of the form for the list row (decision 0013 widened by these, 60 characters each).
+    site: text("site"),
+    country: text("country"),
+    segment: text("segment"),
+    volume: text("volume"),
     notionStatus: text("notion_status"), // as last read; null: the Status cell is empty (handled as New)
     hasClient: integer("has_client", { mode: "boolean" }).notNull().default(false),
     dismissedAt: text("dismissed_at"),

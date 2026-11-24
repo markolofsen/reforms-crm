@@ -42,6 +42,11 @@ export type MailReadDto = z.infer<typeof mailReadDto>;
 
 // P97 S2 (decision 0044): the Leads group of Inbox, read from the project's Notion Leads (never from a notice mail).
 
+/** P138 verdict 6: the list row's facts, read from the form when the lead was stored (each at most 60 characters), else null. */
+export const leadFactsDto = z.strictObject({ site: z.string().nullable(), country: z.string().nullable(), segment: z.string().nullable(), volume: z.string().nullable() });
+export type LeadFactsDto = z.infer<typeof leadFactsDto>;
+export const NO_LEAD_FACTS: LeadFactsDto = { site: null, country: null, segment: null, volume: null };
+
 /** One person of the Leads group: their newest open request (Status New or empty, in the window, not dismissed, no draft yet). */
 export const leadRowDto = z.strictObject({
   pageId: z.string(),
@@ -54,6 +59,7 @@ export const leadRowDto = z.strictObject({
   preview: z.string(),
   /** Open requests sharing the address (verdict 7: one person, "2 requests"). */
   requests: z.number().int(),
+  facts: leadFactsDto,
 });
 export type LeadRowDto = z.infer<typeof leadRowDto>;
 
@@ -143,6 +149,32 @@ export const inboundUndismissBody = z.strictObject({ ids: z.array(z.number().int
 /** `POST .../inbound/check` (Check now): the line after the pass this request waited for. */
 export const inboundCheckedDto = z.strictObject({ ok: z.literal(true), read: mailReadDto });
 
+/** P138 E1: how the person asked to be contacted (the form's `Contact channel`); WhatsApp and Telegram open the app, never send. */
+export const LEAD_CHANNEL_KINDS = ["whatsapp", "telegram", "email", "phone", "other"] as const;
+
+/**
+ * P138 verdicts 1-2: the lead's form, read from the page's Details: what they want (known fields first, then every unknown one),
+ * the channel, the sites they named, and the technical lines (locale, hosts, consent, environment), shown last and smaller.
+ */
+export const leadSheetDto = z.strictObject({
+  fields: z.array(z.strictObject({ key: z.string(), label: z.string(), value: z.string(), href: z.string().nullable() })),
+  channel: z.strictObject({ kind: z.enum(LEAD_CHANNEL_KINDS), value: z.string() }).nullable(),
+  sites: z.array(z.strictObject({ name: z.string(), href: z.string().nullable() })),
+  technical: z.array(z.strictObject({ label: z.string(), value: z.string() })),
+});
+export type LeadSheetDto = z.infer<typeof leadSheetDto>;
+
+/**
+ * P138 verdict 4: what the owner should know before replying. `typo`: the address's domain is a common typo; `client`: a client of
+ * the project has this address, or an address at the company's website domain; `repeat`: the same address sent `count` forms.
+ */
+export const leadNoteDto = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("typo"), address: z.string(), suggestion: z.string(), domain: z.string(), meant: z.string() }),
+  z.strictObject({ kind: z.literal("client"), by: z.enum(["address", "company"]), clientId: z.number().int(), name: z.string(), email: z.string() }),
+  z.strictObject({ kind: z.literal("repeat"), count: z.number().int() }),
+]);
+export type LeadNoteDto = z.infer<typeof leadNoteDto>;
+
 /** `GET /api/projects/:slug/leads/:pageId`: one lead, its page read from Notion now (`lead` null with `note` when it cannot be). */
 export const leadDetailDto = z.strictObject({
   row: leadRowDto.extend({
@@ -159,8 +191,10 @@ export const leadDetailDto = z.strictObject({
     .strictObject({
       company: z.string().nullable(),
       message: z.string(),
-      details: z.string(),
       form: z.string().nullable(),
+      sheet: leadSheetDto,
+      /** P138 verdict 3: the agent's read (the page's Conversation summary, first line), else null; never written by the admin. */
+      read: z.string().nullable(),
       pageUrl: z.string().nullable(),
       phone: z.string().nullable(),
       brands: z.array(z.string()),
@@ -169,6 +203,7 @@ export const leadDetailDto = z.strictObject({
     })
     .nullable(),
   note: z.string().nullable(),
+  notes: z.array(leadNoteDto),
   /** The Hub's drafts to this lead's address, newest first. */
   drafts: z.array(z.strictObject({ id: z.number().int(), clientId: z.number().int(), subject: z.string(), status: z.string() })),
 });

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { LEAD_PREVIEW_CHARS, type NewLead, type Repos } from "@hub/db";
-import { createNotionReader, loadToken, NoTokenError, parseLeadDetail, secretsDir, type LeadDetail, type NotionReader } from "@hub/notion";
+import { createNotionReader, leadFactsOf, loadToken, NoTokenError, parseLeadDetail, secretsDir, type LeadDetail, type NotionReader } from "@hub/notion";
 import { convertLead, createLeadWriter, notionFailure, writeLeadStatus, type LeadWriter, type LeadWriteStatus } from "@hub/notion/leads-write";
 import { projectStore } from "@hub/projects/store";
 import type { ProjectConfig } from "@hub/projects/model";
@@ -95,7 +95,7 @@ export function windowOf(pages: ReadonlyArray<{ created_time?: unknown } & Param
     }
     // P98 item 4: the preview is what the person wrote (Message); the form's metadata (Details: locale, host, consent) never is.
     const text = l.message.replace(/\s+/g, " ").trim();
-    rows.push({ project: o.project, pageId: pageKey(l.id), name: l.name, email: l.replyTo, accountEmail: l.email ? l.email.trim().toLowerCase() : null, brand: brandOf(l, o.config), receivedAt: at, preview: text.slice(0, LEAD_PREVIEW_CHARS), notionStatus: l.status, hasClient: l.hasClient });
+    rows.push({ project: o.project, pageId: pageKey(l.id), name: l.name, email: l.replyTo, accountEmail: l.email ? l.email.trim().toLowerCase() : null, brand: brandOf(l, o.config), receivedAt: at, preview: text.slice(0, LEAD_PREVIEW_CHARS), notionStatus: l.status, hasClient: l.hasClient, facts: leadFactsOf(l.sheet) });
   }
   return { rows, older };
 }

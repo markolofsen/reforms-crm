@@ -191,6 +191,19 @@ export function clientsRepo(db: Db) {
     },
 
     /** One client of a project (id, name, primary address), or null: the id of another project is not found. */
+    /** P138 verdict 4: the project's clients with an address at this domain (a lead's company website), at most `limit`. */
+    async atDomain(project: string, domain: string, limit = 3): Promise<{ id: number; name: string; email: string }[]> {
+      const d = domain.trim().toLowerCase().replace(/^@/, "");
+      if (!d) return [];
+      return db
+        .select({ id: clients.id, name: clients.name, email: clients.email })
+        .from(clients)
+        .where(and(eq(clients.project, project), sql`${clients.email} like ${`%@${d}`}`))
+        .orderBy(asc(clients.id))
+        .limit(limit)
+        .all();
+    },
+
     async get(project: string, id: number): Promise<{ id: number; name: string; email: string } | null> {
       return (
         db

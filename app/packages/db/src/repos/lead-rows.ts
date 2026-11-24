@@ -7,7 +7,8 @@ import { leadRows, type LeadDismissReason } from "../schema";
 // the hub token and keeps one row per page received in the project's window (`leads.window_days`); this repo stores them and
 // answers Mail ▸ Inbox's Leads group. A row is "open" while its Status as read is New (or empty), the owner did not press Not now
 // or Spam, no first send converted it, and no Hub draft to its address was recorded after it arrived. Decision 0013: nothing but
-// the page id, the name, the two addresses, the brand, when, the Status and 120 characters of the Message.
+// the page id, the name, the two addresses, the brand, when, the Status and 120 characters of the Message, and (P138, migration
+// 0039) four short facts of the form for the list row: the website or first site, the country, the segment, the volume.
 
 export type LeadRow = typeof leadRows.$inferSelect;
 /** One person of the Leads group: their newest open request, and how many open requests share the address (verdict 7). */
@@ -26,7 +27,13 @@ export interface NewLead {
   /** The Status as read; null: the cell is empty (handled as New). */
   notionStatus: string | null;
   hasClient: boolean;
+  /** P138 E1: the list row's facts from the form (the website or first site, country, segment, volume); absent: none. */
+  facts?: { site: string | null; country: string | null; segment: string | null; volume: string | null };
 }
+
+/** How long one stored fact may be (P138: a chip, not a field). */
+export const LEAD_FACT_CHARS = 60;
+const fact = (v: string | null | undefined): string | null => (v?.trim() ? v.trim().slice(0, LEAD_FACT_CHARS) : null);
 
 export const LEAD_PREVIEW_CHARS = 120;
 /** P134 verdict 7: the views of Mail ▸ Leads (the contract's `LEAD_VIEWS`). */
@@ -117,6 +124,10 @@ export function leadRowsRepo(db: Db) {
             brand: r.brand,
             receivedAt: r.receivedAt,
             preview: r.preview.slice(0, LEAD_PREVIEW_CHARS),
+            site: fact(r.facts?.site),
+            country: fact(r.facts?.country),
+            segment: fact(r.facts?.segment),
+            volume: fact(r.facts?.volume),
             notionStatus: r.notionStatus,
             hasClient: r.hasClient,
             readAt: at,
