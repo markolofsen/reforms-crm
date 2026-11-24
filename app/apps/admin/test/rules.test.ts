@@ -217,6 +217,14 @@ describe("shared UI ownership", () => {
     expect(files.filter((p) => forbidden.test(read(p))).map((p) => path.relative(repo, p))).toEqual([]);
   });
 
+  // A messenger draft is sent as plain text, so it is shown as plain text: a `[words](url)` in it is never rendered as a link.
+  it("a messenger draft renders as plain text, the way it is sent", () => {
+    const draft = read(path.resolve(repo, "app/apps/admin/src/features/messengers/draft.tsx"));
+    expect(draft).toContain('<ConversationText format="plain" text={shown} />');
+    expect(draft).not.toContain('format="markdown"');
+    expect(read(path.resolve(repo, "app/packages/ui/src/product/composer/markdown-editor.tsx"))).toMatch(/Link\.configure\(\{[^}]*linkOnPaste: false/);
+  });
+
   // P123 U0 (`ui-composition.md` rule 8): the conversation composers are plain text until P93's RTF path lands.
   it("conversation editors are the plain-text editor in production and Storybook: no Markdown toolbar", () => {
     const composer = read(path.resolve(repo, "app/packages/ui/src/product/composer/editor.tsx"));

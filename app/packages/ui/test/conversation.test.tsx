@@ -20,6 +20,14 @@ describe("ConversationText", () => {
     expect(html).not.toContain('href="javascript:');
   });
 
+  it("keeps a Markdown link in plain text as written: only the typed URL is a link", () => {
+    const html = renderToStaticMarkup(<ConversationText format="plain" text="[Zhen, e](https://orval.dev/)to chto" />);
+    expect(html).toContain("[Zhen, e](");
+    expect(html).toContain('href="https://orval.dev/"');
+    expect(html).toContain(">https://orval.dev/</a>)to chto");
+    expect(html).not.toContain(">Zhen, e</a>");
+  });
+
   it("renders bounded Markdown and rejects unsafe links", () => {
     const html = renderToStaticMarkup(<ConversationText format="markdown" text={'# Title\n\n## Section\n\n### Detail\n\n**bold** ~~removed~~ `code` [safe](https://example.test) [bad](javascript:alert(1))\n\n> quoted\n\n---\n\n```ts\nconst answer = 42;\n'} />);
     expect(html).toContain("<h3");

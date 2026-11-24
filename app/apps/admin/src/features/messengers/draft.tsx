@@ -61,7 +61,8 @@ export function MessengerDraft({ d, name, project, actions, embedded = false }: 
       ) : (
         <>
           <div className="measure min-w-0 break-words text-sm" data-agent-label="">
-            <ConversationText format="markdown" text={shown} />
+            {/* A messenger draft goes out as plain text (no parse mode): shown as written, so `[a](url)` is never a link it does not send. */}
+            <ConversationText format="plain" text={shown} />
           </div>
         </>
       )}

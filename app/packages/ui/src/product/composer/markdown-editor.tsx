@@ -150,7 +150,8 @@ export function MarkdownEditor({ value, onChange, onSubmit, onCancel, placeholde
   const extensions = useMemo<AnyExtension[]>(() => [
     // StarterKit 3 bundles Link; it is off there so the one Link below (no open on click) is not registered twice (tiptap warns).
     StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false }),
-    Link.configure({ openOnClick: false }),
+    // A URL pasted over selected words is pasted as text, never turned into a link the owner did not write (the 2026-11-22 draft).
+    Link.configure({ openOnClick: false, linkOnPaste: false }),
     Placeholder.configure({ placeholder }),
     Markdown,
   ], [placeholder]);
