@@ -24,7 +24,7 @@ const OLD = "drafts";
 
 describe("resolveRoute", () => {
   it("reads the route, params, search and the project from the first path segment", () => {
-    expect(at("/mail?filter=waiting")).toEqual({ route: "mail.list", section: "mail", project: null, inPath: false, entry: false, params: {}, search: { filter: "waiting", q: "", batch: null, m: null } });
+    expect(at("/mail?filter=waiting")).toEqual({ route: "mail.list", section: "mail", project: null, inPath: false, entry: false, params: {}, search: { filter: "waiting", q: "", batch: null, brand: null, m: null } });
     // P99, P103: a conversation is a client key under /mail/c/ (his email, or id-<n>); `?m=` names one of their messages.
     expect(at("/mail/c/Ana%40Example.com")).toMatchObject({ route: "mail.conversation", params: { key: "ana@example.com" } });
     expect(at("/lisbon/mail/c/id-42")).toMatchObject({ route: "mail.conversation", project: "lisbon", inPath: true, params: { key: "id-42" }, search: { filter: "needs_you", q: "" } });

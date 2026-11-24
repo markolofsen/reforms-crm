@@ -25,6 +25,8 @@ export function undoTarget(last: { draft: ReviewDraft; at: number } | null, open
   return open?.canUndo ? open : null;
 }
 
+const BATCH_SHORT_MAX = 28;
+
 /**
  * P134 verdict 2: a batch is shown only while drafts of it still wait for the owner's review (To review or Checked; a held draft
  * waits for nobody), as one line on top of Needs you; the number is how many. Zero: the line is gone. Hold is the owner's own word.

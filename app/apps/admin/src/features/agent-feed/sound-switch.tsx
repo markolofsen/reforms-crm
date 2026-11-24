@@ -1,6 +1,6 @@
 "use client";
 
-import { Switch } from "@hub/ui/switch";
+import { SettingSwitch } from "@hub/ui/product/field";
 import { save, useStored } from "@/lib/storage";
 import { useFeed } from "./use-agent-feed";
 
@@ -14,9 +14,9 @@ export function SoundSwitch() {
   const muted = useStored("sound") === "off";
   if (!feed?.project) return null;
   return (
-    <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-0" htmlFor="sound-switch">
-      <Switch checked={!muted} id="sound-switch" onCheckedChange={(on) => save("sound", on ? "on" : "off")} />
-      Agent sounds
-    </label>
+    <span className="flex items-center gap-2 text-sm">
+      <SettingSwitch checked={!muted} id="sound-switch" labelledBy="sound-switch-label" onChange={(on) => save("sound", on ? "on" : "off")} pending={false} />
+      <span id="sound-switch-label">Agent sounds</span>
+    </span>
   );
 }

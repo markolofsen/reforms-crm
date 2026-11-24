@@ -25,7 +25,7 @@ describe("applyLive", () => {
   it("a change invalidates only its topic's prefixes for its project", () => {
     const qc = seed();
     applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "drafts", project: "p" }] }, false);
-    expect(stale(qc).sort()).toEqual(["drafts/p/ready//", "overview"]);
+    expect(stale(qc).sort()).toEqual(["drafts/p/ready///", "overview"]);
   });
   it("P98 item 3: a recorded draft (topic drafts) refreshes the open Inbox card's state, never its Mail text", () => {
     const qc = new QueryClient();
@@ -52,7 +52,7 @@ describe("applyLive", () => {
     applyLive(qc, { type: "hello", seq: 3, apiVersion: 9 }, false);
     expect(stale(qc)).toEqual([]);
     applyLive(qc, { type: "reset", seq: 3 }, false);
-    expect(stale(qc).sort()).toEqual(["activity/p/all/every", "connections", "doctor/p", "drafts/p/ready//", "drafts/q/ready//", "overview"]);
+    expect(stale(qc).sort()).toEqual(["activity/p/all/every", "connections", "doctor/p", "drafts/p/ready///", "drafts/q/ready///", "overview"]);
   });
   it("a hidden tab only marks: a watched query refetches only when the tab is seen", async () => {
     const qc = seed();

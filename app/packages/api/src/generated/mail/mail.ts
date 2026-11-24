@@ -38,11 +38,13 @@ import type {
   Inbox,
   LeadAction,
   LeadDetail,
+  LeadsList,
   ListBatchesParams,
   ListConversationsParams,
   ListDraftsParams,
   ListEnrollmentsParams,
   ListInboxParams,
+  ListLeadsParams,
   ListNotByEmailParams,
   MailTidy,
   ManualReplyBody,
@@ -1873,6 +1875,62 @@ export const getInboundText = async (slug: string,
     id: number, options?: Parameters<typeof hubMutator>[1]): Promise<getInboundTextResponse> => {
 
   return hubMutator<getInboundTextResponse>(getGetInboundTextUrl(slug,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type listLeadsResponse200 = {
+  data: LeadsList
+  status: 200
+}
+
+export type listLeadsResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type listLeadsResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type listLeadsResponseSuccess = (listLeadsResponse200) & {
+  headers: Headers;
+};
+export type listLeadsResponseError = (listLeadsResponse400 | listLeadsResponse404) & {
+  headers: Headers;
+};
+
+export type listLeadsResponse = (listLeadsResponseSuccess | listLeadsResponseError)
+
+export const getListLeadsUrl = (slug: string,
+    params?: ListLeadsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/projects/${encodeURIComponent(String(slug))}/leads?${stringifiedParams}` : `/api/projects/${encodeURIComponent(String(slug))}/leads`
+}
+
+/**
+ * @summary List one view of the project's leads
+ */
+export const listLeads = async (slug: string,
+    params?: ListLeadsParams, options?: Parameters<typeof hubMutator>[1]): Promise<listLeadsResponse> => {
+
+  return hubMutator<listLeadsResponse>(getListLeadsUrl(slug,params),
   {
     ...options,
     method: 'GET'

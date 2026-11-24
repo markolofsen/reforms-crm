@@ -17,6 +17,11 @@ export type ListConversationsParams = {
    */
   batch?: number;
   /**
+   * @minLength 1
+   * @maxLength 100
+   */
+  brand?: string;
+  /**
    * @minimum 1
    * @maximum 500
    */
