@@ -3,7 +3,6 @@
 import { useLinks } from "@/lib/data/project";
 import { phrase } from "@hub/contract/help";
 import { useMemo, type ReactNode } from "react";
-import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
 import { useLitRoutes } from "@/components/nav-dot";
@@ -62,7 +61,7 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
  * opens the live stream (P50), reads the projects, the brand and the pulse, makes the address canonical (`useEnsureAddress`), and renders the page it
  * was given only when there is a project. The screens read their project from the scope, never from the address.
  */
-export function ShellFrame({ children }: { children: ReactNode }) {
+export function ShellFrame({ children, instanceName }: { children: ReactNode; /** Read on the server (P133): the brand of the first paint. */ instanceName: string }) {
   const route = useRoute();
   const go = useGo();
   useLive();
@@ -78,7 +77,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const heading = route.section ? sectionTitle(route.section) : "Not found";
   const onProject = useMemo(() => (p: string) => route.section && go(sectionList(route.section), { project: p, replace: true }), [route.section, go]);
   const scope = useMemo<ProjectScope | null>(() => (project ? { project, projects: list, multi, onProject: (p) => void onProject(p) } : null), [project, list, multi, onProject]);
-  const brand = { name: instance.data?.name ?? DEFAULT_INSTANCE_NAME, logoSrc: instance.data?.hasLogo ? instanceLogoUrl() : null };
+  const brand = { name: instance.data?.name ?? instanceName, logoSrc: instance.data?.hasLogo ? instanceLogoUrl() : null };
   // The projectless pages (Overview, Help, Settings ▸ Connections and This Mac) are about the whole instance: the switcher belongs to the scoped ones.
   const scoped = route.route !== "notFound" && PROJECTLESS.has(route.route) ? null : project;
   return (
