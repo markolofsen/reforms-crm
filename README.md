@@ -75,6 +75,7 @@ The one index. Every page below owns its facts; others link to it.
 | Shared focus: what the agent knows of your screen (`hub mcp`, `hub focus`, the session rules, the prompt hook) | [`@docs/core/24-terminal.md`, Shared focus](@docs/core/24-terminal.md#shared-focus-the-agent-sees-what-the-owner-sees-p51-decision-0029) |
 | The agent session log: every prompt, answer and tool call of a session, redacted, per project and day (`hub log`, `hub log summary`) | [`@docs/core/25-agent-log.md`](@docs/core/25-agent-log.md) |
 | The ops log: what failed or happened in the server and every package, one redacted JSON line each, 7 days (`hub logs --level error`, Overview's Recent errors) | [`@docs/core/28-ops-log.md`](@docs/core/28-ops-log.md) |
+| The client map: one Mermaid picture per client, redrawn by the agent after a draft (`client_map`), shown by Mail's and Messengers' Map button and copied to the client's Notion page | [`@docs/core/29-client-map.md`](@docs/core/29-client-map.md) |
 | Capabilities: what a project's session reaches (mail, Notion, knowledge, Google Calendar and Drive connectors), the allowlists, the link onto a client's profile (`hub connectors`) | [`@docs/core/26-capabilities.md`](@docs/core/26-capabilities.md) |
 | A package's own layout: `@hub/agent` (sessions, `hub mcp`, focus), `@hub/terminal`, `@hub/contract` (the API schemas), `@hub/sequences`, `@hub/ui`, `@hub/knowledge`, `@hub/notion` | `app/packages/<name>/README.md` |
 | Rules for changing the admin app | [`app/@rules/README.md`](app/@rules/README.md) |

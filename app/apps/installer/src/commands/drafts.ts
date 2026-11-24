@@ -8,6 +8,8 @@ import type { SentNotice } from "@hub/send/assess";
 import { runDraftsSweep } from "../drafts/sweep-command";
 import { ctxOf, projectsDir, ledgerRoot, done } from "./shared";
 import type { Command } from "commander";
+import { parseClientKey } from "@hub/contract/client-key";
+import { createRepos, openDbReadOnly } from "@hub/db";
 
 /** P126 C1: the draft and send commands: send, drafts, audit-run, batch-check. */
 export function register(program: Command): void {
@@ -44,6 +46,30 @@ export function register(program: Command): void {
       if (action === "sweep") return done(await runDraftsSweep(o, env));
       console.log(JSON.stringify({ ok: false, error: `unknown action ${action}: the action is sweep` }));
       return done(2);
+    });
+
+  // P135 verdict 8: the client's map as the Hub holds it (the Mermaid source), for a terminal or a session. Read only.
+  program.command("client").argument("<action>", "`map`: print the client's map").argument("<key>", "the client's address, or id-<n>").description("A client of one project as the Hub holds it. `hub client map <address> --project <slug>` prints the client's map (the Mermaid text the agent last drew, P135), or says there is none. Read only.")
+    .requiredOption("--project <slug>", "the project the client belongs to")
+    .option("--previous", "print the version before the current one")
+    .action(async (action: string, key: string, o: { project: string; previous?: boolean }) => {
+      if (action !== "map") { console.log(JSON.stringify({ ok: false, error: `unknown action ${action}: the action is map` })); return done(2); }
+      const ref = parseClientKey(key);
+      if (!ref) { console.log(JSON.stringify({ ok: false, error: `${key} is no client key: an address or id-<n>` })); return done(2); }
+      const handle = openDbReadOnly(ctxOf().paths.db);
+      try {
+        const repos = createRepos(handle.db);
+        const id = "id" in ref ? ref.id : await repos.clients.idByEmail(o.project, ref.email);
+        const m = id === undefined ? null : await repos.clientMaps.get(o.project, id);
+        if (!m) { console.log(`no client ${key} in project ${o.project}`); return done(1); }
+        const text = o.previous ? m.previous?.source : m.source;
+        if (!text) { console.log(o.previous ? `${m.name} has no previous map` : `${m.name} has no map yet: the agent draws one with the next reply`); return done(0); }
+        console.log(`%% ${m.name}, ${o.previous ? `previous, drawn ${m.previous?.at ?? ""}` : `updated ${m.updatedAt ?? ""}`} (${m.versions} version(s))`);
+        process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+        return done(0);
+      } finally {
+        handle.close();
+      }
     });
 
   program.command("audit-run").description("Audit of one finished session: did any tool call leave the project (foreign mail account, foreign knowledge project, another project's folder, a send-capable tool)? And a table of the evidence behind every reply (messages read, profile, facts, anchors, similarity); exit 1 on a breach or a red row. Read only.")

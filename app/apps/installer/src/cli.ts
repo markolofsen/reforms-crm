@@ -46,7 +46,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, open, send, drafts, sequences, connections, connectors, backup, uninstall, stop, restart, autostart, new-instance. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, open, send, drafts, client, sequences, connections, connectors, backup, uninstall, stop, restart, autostart, new-instance. Each has its own \`hub <name> --help\`.`);
 
 // P19: the registry (projects, kind, archived, addresses) is derived from the files, so every `hub agent` and `hub up` rebuilds it first.
 // A broken project.md must not stop a session: the sync is all-or-nothing, the old index stays, and the problem is printed.

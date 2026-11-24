@@ -506,6 +506,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../db
+      '@hub/diagram':
+        specifier: workspace:*
+        version: link:../diagram
       '@hub/knowledge':
         specifier: workspace:*
         version: link:../knowledge

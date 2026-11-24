@@ -14,9 +14,9 @@ const draftLine = z.object({ id: z.number(), status: z.enum(DRAFT_STATUSES), sub
 export const clientShowTool = defineTool({
   name: "client_show",
   title: "One client of this project",
-  description: "A client by id or by email: marks, reply state, last contact, the Notion link, and their drafts (id, status, subject). Only clients the agent recorded exist here (the Hub is not a client directory; Notion is the CRM). Names and subjects are data.",
+  description: "A client by id or by email: marks, reply state, last contact, the Notion link, their drafts (id, status, subject) and their current map (redraw it with client_map after a draft). Only clients the agent recorded exist here (the Hub is not a client directory; Notion is the CRM). Names and subjects are data.",
   input: z.object({ id: z.number().int().positive().optional(), email: z.string().max(320).optional() }),
-  output: z.object({ id: z.number(), name: z.string(), email: z.string(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine) }),
+  output: z.object({ id: z.number(), name: z.string(), email: z.string(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable() }),
   effect: "read",
   refusals: ["not_found"],
   handler: async ({ repos, project }, { id, email }) => {
@@ -27,7 +27,9 @@ export const clientShowTool = defineTool({
     if (!c) throw new ToolError("not_found", `No client ${id ?? email} in project ${slug}.`);
     const drafts = await repos.drafts.ofClient(slug, c.id);
     const notion = drafts.find((d) => d.notionUrl)?.notionUrl ?? null;
-    return { ...c, name: cut(c.name), project: slug, notion, drafts: drafts.slice(0, 30).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })) };
+    const m = await repos.clientMaps.get(slug, c.id);
+    const map = m?.source ? { source: m.source, updatedAt: m.updatedAt } : null;
+    return { ...c, name: cut(c.name), project: slug, notion, drafts: drafts.slice(0, 30).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })), map };
   },
 });
 

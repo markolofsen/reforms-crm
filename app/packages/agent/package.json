@@ -42,6 +42,7 @@
     "@hub/config": "workspace:*",
     "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
+    "@hub/diagram": "workspace:*",
     "@hub/knowledge": "workspace:*",
     "@hub/log": "workspace:*",
     "@hub/mail-app": "workspace:*",

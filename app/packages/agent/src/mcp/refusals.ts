@@ -44,6 +44,8 @@ export const REFUSAL_CODES = [
   "recipient_not_allowed",
   "context_refused",
   "record_failed",
+  // client_map (P135)
+  "map_invalid",
   // knowledge_search (P129 A4: the knowledge tools are hub mcp's)
   "empty_query",
   "brand_required",
@@ -119,6 +121,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   recipient_not_allowed: { retry: "no", next: `${ONE_LINE} that draft.recipients does not permit this address; nothing was written. He changes it himself: hub send policy set <slug> draft.recipients any.` },
   context_refused: { retry: "now", next: "Read what the message says is missing (thread, profile, knowledge), then call once more with the context block." },
   record_failed: { retry: "no", next: `${ONE_LINE} that the draft is in Mail but the Hub could not record it (the message says why).` },
+  map_invalid: { retry: "now", next: "Redraw the whole map so the line the message names passes (the shape rules are in client_map's map field), then call once more." },
   empty_query: { retry: "now", next: "Search with the client's own words (letters, not only punctuation)." },
   brand_required: { retry: "now", next: "Pass brand = the brand message_show gave for this mail, or ANY for a mail with no brand." },
   unknown_brand: { retry: "now", next: "Use one of the brands the message lists (project_show names them too), or ANY." },

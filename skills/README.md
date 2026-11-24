@@ -62,6 +62,7 @@ session rules (`sessionRules()`, the core `CLAUDE.md` section "Shared focus"), o
 | 11 Ambiguous intent | "The skills" above: two skills fit, one question |
 | 12 Per client, always | `skills/triage-mail/references/per-client.md`, `skills/bulk-drafts` |
 | 13 Focus | session rules (`this` of the focus) |
+| 14 The client map (P135) | session rules (after a draft, `client_map`); `client_map`'s `map` description (the shape); `skills/triage-mail` step 6, `skills/triage-messages` step 5a; `@docs/core/29-client-map.md` |
 
 ## Report (every run skill, this order, Russian)
 1. **Table**, one row per client: `# | клиент | класс | действие | черновик | запись | основа`. `основа` = what the draft rests on ("6 пис., профиль, 2 факта"; "нет данных" when nothing was read). Действие is one of `drafted`, `skipped:<code>`, `injection_suspected`, `noted`, `escalated`.
