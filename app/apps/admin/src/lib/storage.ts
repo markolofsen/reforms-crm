@@ -10,7 +10,8 @@ import { NO_SHELL_PREFS, SHELL_COOKIE, atLeast, breakpointOf, formatShellPrefs, 
 // The terminal's active tab (P49) is a viewing preference, not screen state; its open state and width are in the shell cookie
 // below (P128 X8), with the rail's pin, because the server lays them out. Quick Links keeps its shell disclosure and each expanded group separately; `sound` (P59) is the agent feed's mute switch,
 // "off" when muted; the sound is on by default.
-const KEYS = { shortcuts: "hub.shortcuts", "terminal-tab": "hub.terminal-tab", sound: "hub.sound" } as const;
+// `leads-seen` (P138 verdict 6): per project, the newest lead the last visit and this one saw, for the "new since last visit" dot.
+const KEYS = { shortcuts: "hub.shortcuts", "terminal-tab": "hub.terminal-tab", sound: "hub.sound", "leads-seen": "hub.leads-seen" } as const;
 type Key = keyof typeof KEYS;
 
 const listeners = new Set<() => void>();
