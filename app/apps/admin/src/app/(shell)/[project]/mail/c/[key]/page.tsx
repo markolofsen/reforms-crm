@@ -6,7 +6,7 @@ import { clientKeyParam } from "@/routes/search";
 export async function generateMetadata(props: PageProps<"/[project]/mail/c/[key]">): Promise<Metadata> {
   const { key, project } = await props.params;
   const k = clientKeyParam(key);
-  return { title: { absolute: k === null ? NOT_FOUND_TITLE : pageTitle("mail.conversation", addressedProject(project), k) } };
+  return { title: k === null ? NOT_FOUND_TITLE : pageTitle("mail.conversation", addressedProject(project), k) };
 }
 
 export default async function ConversationPage(props: PageProps<"/[project]/mail/c/[key]">) {

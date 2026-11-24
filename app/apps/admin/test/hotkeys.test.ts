@@ -94,20 +94,20 @@ describe("hotkeys dispatcher", () => {
 });
 
 describe("document title", () => {
-  it("names the item, the section, the project and the app; Not found names no section", () => {
-    expect(titleOf(resolveRoute("/mail", ""), "lisbon")).toBe("Mail · lisbon · Hub Workflow");
-    expect(titleOf(resolveRoute("/mail/c/id-42", ""), "lisbon")).toBe("Conversation id-42 · Mail · lisbon · Hub Workflow");
+  it("names the item, the section and the project (the instance name is the root layout template's, P133); Not found names no section", () => {
+    expect(titleOf(resolveRoute("/mail", ""), "lisbon")).toBe("Mail · lisbon");
+    expect(titleOf(resolveRoute("/mail/c/id-42", ""), "lisbon")).toBe("Conversation id-42 · Mail · lisbon");
     // P128 X4: the tab names the person by his address.
-    expect(titleOf(resolveRoute("/mail/c/ana%40example.com", ""), "lisbon")).toBe("ana@example.com · Mail · lisbon · Hub Workflow");
-    expect(titleOf(resolveRoute("/log", ""), "x")).toBe("Activity · x · Hub Workflow");
-    expect(titleOf(resolveRoute("/clients", ""), "x")).toBe("Not found · Hub Workflow");
+    expect(titleOf(resolveRoute("/mail/c/ana%40example.com", ""), "lisbon")).toBe("ana@example.com · Mail · lisbon");
+    expect(titleOf(resolveRoute("/log", ""), "x")).toBe("Activity · x");
+    expect(titleOf(resolveRoute("/clients", ""), "x")).toBe("Not found");
     expect(crumbsOf(resolveRoute("/mail/c/id-42", ""))).toEqual(["Mail", "Conversation id-42"]);
   });
   it("a page file gives the same title as the address it serves (generateMetadata reads pageTitle)", () => {
     expect(pageTitle("mail.list", "lisbon")).toBe(titleOf(resolveRoute("/mail", ""), "lisbon"));
     expect(pageTitle("mail.conversation", "lisbon", "id-42")).toBe(titleOf(resolveRoute("/mail/c/id-42", ""), "lisbon"));
-    expect(pageTitle("overview.page", "lisbon")).toBe("Overview · Hub Workflow");
-    expect(titleOf(resolveRoute("/overview", ""), "lisbon")).toBe("Overview · Hub Workflow");
+    expect(pageTitle("overview.page", "lisbon")).toBe("Overview");
+    expect(titleOf(resolveRoute("/overview", ""), "lisbon")).toBe("Overview");
   });
 });
 
@@ -134,11 +134,11 @@ describe("the Overview chord", () => {
     expect(SECTIONS.find((s) => s.id === "knowledge")?.chord).toEqual(["g", "k"]);
     expect(SECTIONS.find((s) => s.id === "settings")?.chord).toEqual(["g", "s"]);
     expect(SECTIONS.find((s) => s.id === "help")?.chord).toEqual(["g", "h"]);
-    expect(titleOf(resolveRoute("/settings/connections", ""), "lisbon")).toBe("Connections · Hub Workflow");
-    expect(titleOf(resolveRoute("/settings", ""), "lisbon")).toBe("Sending · lisbon · Hub Workflow");
-    expect(titleOf(resolveRoute("/help", ""), "lisbon")).toBe("Help · Hub Workflow");
+    expect(titleOf(resolveRoute("/settings/connections", ""), "lisbon")).toBe("Connections");
+    expect(titleOf(resolveRoute("/settings", ""), "lisbon")).toBe("Sending · lisbon");
+    expect(titleOf(resolveRoute("/help", ""), "lisbon")).toBe("Help");
     expect(titleOf(resolveRoute("/lisbon/settings/agent", ""), "lisbon")).toBe(pageTitle("settings.agent", "lisbon"));
-    expect(pageTitle("knowledge.page", "lisbon")).toBe("Knowledge · lisbon · Hub Workflow");
+    expect(pageTitle("knowledge.page", "lisbon")).toBe("Knowledge · lisbon");
     expect(crumbsOf(resolveRoute("/settings/mail", ""))).toEqual(["Settings", "Mail"]);
   });
 });

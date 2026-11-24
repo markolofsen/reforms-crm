@@ -14,7 +14,7 @@ Scope: navigation in the admin: real paths, the project in the path with two or 
 8. MUST: search is parsed once, in `routes/search.ts`, over the enums of `@hub/config`; a value outside its enum resets to the default.
 9. MUST: a filter replaces the history entry, a subject pushes; a default drops its key from the address.
 10. MUST: the project is a path segment, never a query. There is one route tree, `app/(shell)/[project]/…`; with one project `src/proxy.ts` rewrites the bare address to it, never redirects. Overview, Help and the instance Settings panes are the projectless routes.
-11. MUST: the title comes from the route (`pageTitle()` over `ROUTE_META`); nothing writes `document.title`.
+11. MUST: the title comes from the route (`pageTitle()` over `ROUTE_META`) and ends with the instance's name, appended by the root layout's title template (P133); no page writes the name or `title.absolute`, and nothing writes `document.title`.
 12. MUST: navigating keys come from `SECTIONS` through `use-section-nav`, and every key map goes through `useHotkeys` of `@hub/ui/use-hotkey`.
 13. MUST: the skip link focuses `#main` and leaves the address alone.
 14. MUST: `src/routes/` imports no React, component, feature, hook or navigation library (`import type { Route } from "next"` excepted).

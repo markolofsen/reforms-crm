@@ -48,7 +48,7 @@ test("knowledge: every entry is a row with its title, its status in words and it
   const d = await list(page);
   expect(d.entries.length).toBeGreaterThan(10);
   await page.goto(`/${PROJECT}/knowledge`);
-  await expect(page).toHaveTitle(`Knowledge · ${PROJECT} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Knowledge · ${PROJECT} · Hub`);
   await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(d.entries.length);
   for (const e of d.entries) {
     const row = table(page).locator(`tr[data-entry="${e.key}"]`);

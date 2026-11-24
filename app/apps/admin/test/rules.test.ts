@@ -265,6 +265,12 @@ describe("the Next shell of the app", () => {
     // The theme is `@hub/ui/product/shell/theme`'s alone: nothing else toggles the class or imports next-themes.
     expect(offenders(appFiles, /classList\.(toggle|add|remove)\(\s*["']dark["']|from ["']next-themes["']/)).toEqual([]);
   });
+  // P133 (P128 X4; architecture rule 3, routes rule 11): the tab ends with the instance's name, appended in one place.
+  it("only app/instance-name.ts reads the instance; the root layout's template appends its name and no page writes title.absolute", () => {
+    expect(offenders(appFiles.filter((p) => rel(p) !== "app/instance-name.ts"), /from ["']@hub\/config\/paths["']/)).toEqual([]);
+    expect(code(path.join(src, "app/layout.tsx"))).toMatch(/template: `%s · \$\{name\}`/);
+    expect(offenders(appFiles, /absolute:\s*(pageTitle|NOT_FOUND_TITLE)/)).toEqual([]);
+  });
   it("proxy.ts lives in src/ (at the app root Next ignores it) and guards Host and Origin", () => {
     expect(existsSync(path.join(admin, "proxy.ts"))).toBe(false);
     const proxy = read(path.join(src, "proxy.ts"));

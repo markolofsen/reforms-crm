@@ -3,7 +3,7 @@ import { addressedProject, pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/mail">): Promise<Metadata> {
   const { project } = await props.params;
-  return { title: { absolute: pageTitle("mail.list", addressedProject(project)) } };
+  return { title: pageTitle("mail.list", addressedProject(project)) };
 }
 
 export default function MailPage() {

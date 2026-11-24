@@ -4,7 +4,7 @@ import { addressedProject, pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/knowledge">): Promise<Metadata> {
   const { project } = await props.params;
-  return { title: { absolute: pageTitle("knowledge.page", addressedProject(project)) } };
+  return { title: pageTitle("knowledge.page", addressedProject(project)) };
 }
 
 export default function KnowledgePage() {

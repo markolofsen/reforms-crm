@@ -3,8 +3,6 @@ import type { Resolved } from "./resolve";
 import { sectionTitle } from "./sections";
 import { DRAFT_VIEW_LABELS } from "./search";
 
-const APP = "Hub Workflow";
-
 /** Title and breadcrumb per route: read from the route table, the one declaration. */
 const metaOf = (id: RouteId): { title: string; crumb: string | null } => {
   const row = ROUTE_TABLE[id];
@@ -27,9 +25,12 @@ export function crumbsOf(r: Resolved): string[] {
   return crumbs;
 }
 
-/** `Conversation 42 · Mail · lisbon · Hub Workflow`, `Setup · lisbon · Hub Workflow`. The projectless pages name no project. */
+/**
+ * `Conversation 42 · Mail · lisbon`, `Setup · lisbon`. The projectless pages name no project. The instance's name ("Hub SaaS")
+ * is not here: the root layout's title template appends it (P133, `app/instance-name.ts`), so a page's title is its route's alone.
+ */
 export function titleOf(r: Resolved, project: string | null): string {
-  if (r.route === "notFound") return `Not found · ${APP}`;
+  if (r.route === "notFound") return NOT_FOUND_TITLE;
   return pageTitle(r.route, project, itemOf(r));
 }
 
@@ -38,7 +39,7 @@ export function pageTitle(id: RouteId, project: string | null | undefined, item?
   const { title, crumb } = metaOf(id);
   // P128 X4: a person's address names him ("ana@example.com · Mail · …"); an id keeps its crumb ("Conversation id-12").
   const sub = crumb && item !== undefined ? (typeof item === "string" && item.includes("@") ? item : `${crumb} ${item}`) : null;
-  return [sub, title, PROJECTLESS.has(id) ? null : project, APP].filter(Boolean).join(" · ");
+  return [sub, title, PROJECTLESS.has(id) ? null : project].filter(Boolean).join(" · ");
 }
 
 /**
@@ -55,7 +56,7 @@ export function screenTitleOf(r: Resolved): string {
   return title;
 }
 
-export const NOT_FOUND_TITLE = `Not found · ${APP}`;
+export const NOT_FOUND_TITLE = "Not found";
 
 /**
  * The project a page file's `[project]` segment names, for its title: none for the segment a bare address is served under

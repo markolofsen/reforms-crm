@@ -82,7 +82,7 @@ test("activity ▸ sends: the history is an item of Activity's kinds column; non
 
 test("checks: every rule in view, grouped Blocks Send then Warns, each with its switch; the words and the days inline; nothing folded", async ({ page }) => {
   await page.goto(CHECKS);
-  await expect(page).toHaveTitle(`Checks · ${PROJECT} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Checks · ${PROJECT} · Hub`);
   await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Checks", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(checksStatus(page)).toHaveText(/^All \d+ on$/);
   const table = page.getByRole("table", { name: "Checks before sending" });

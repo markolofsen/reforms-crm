@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 test("agent tools: the sentence, the settings per agent, then one Tools table of the rows that need a fix or a look (each with its fix line and Copy); the View menu shows all, and a reload keeps it", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto(at(P, "/settings/agent"));
-  await expect(page).toHaveTitle(`Agent · ${P} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Agent · ${P} · Hub`);
   // UX pass 2026-11-20: no eyebrow repeating the pane's name.
   await expect(page.getByRole("heading", { name: "Agent tools" })).toHaveCount(0);
   await expect(block(page).getByTestId("agent-tools-status")).toContainText(/to fix/);

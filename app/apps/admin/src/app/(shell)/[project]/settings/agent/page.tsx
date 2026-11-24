@@ -4,7 +4,7 @@ import { addressedProject, pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/settings/agent">): Promise<Metadata> {
   const { project } = await props.params;
-  return { title: { absolute: pageTitle("settings.agent", addressedProject(project)) } };
+  return { title: pageTitle("settings.agent", addressedProject(project)) };
 }
 
 export default function AgentSettingsPage() {

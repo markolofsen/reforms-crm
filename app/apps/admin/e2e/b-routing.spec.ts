@@ -43,10 +43,10 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await page.goto(at(P, "/knowledge"));
   await expect.poll(() => address(page)).toBe(at(P, "/knowledge"));
   await page.reload();
-  await expect(page).toHaveTitle(`Knowledge · ${P} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Knowledge · ${P} · Hub`);
   await page.goto("/help");
   await expect.poll(() => address(page)).toBe("/help");
-  await expect(page).toHaveTitle("Help · Hub Workflow");
+  await expect(page).toHaveTitle("Help · Hub");
   // P71 M3: Messengers is scoped (the linked chats are a project's); its View and its Settings page reload in place.
   // No channel is connected in the e2e instance, so an asked channel falls back to all and leaves the address (it says what is shown).
   await page.goto("/messengers?filter=all&link=linked&channel=whatsapp");
@@ -54,7 +54,7 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await page.goto("/settings/messengers");
   await expect.poll(() => address(page)).toBe(at(P, "/settings/messengers"));
   await page.reload();
-  await expect(page).toHaveTitle(`Messengers · ${P} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Messengers · ${P} · Hub`);
 });
 
 test("saved links of the query era (until 2026-11-18) open the same view in the path form", async ({ page }) => {
@@ -77,7 +77,7 @@ test("a Mail deep link with an open conversation survives a reload", async ({ pa
   await expect(current).toHaveAttribute("data-open", "true");
   // P103: the address names him by his email (the id form replaced in place).
   await expect.poll(() => address(page)).toBe(at(P, await clientPath(page, P, id)));
-  await expect(page).toHaveTitle(new RegExp(`^\\S+@\\S+ · Mail · ${P} · Hub Workflow$`));
+  await expect(page).toHaveTitle(new RegExp(`^\\S+@\\S+ · Mail · ${P} · Hub$`));
 });
 
 test("a view in the address survives a reload, and a bad one resets", async ({ page }) => {
@@ -111,14 +111,14 @@ test("the Activity deep link keeps its view and its one client", async ({ page }
   await expect.poll(() => address(page)).toBe(at(P, "/log?client=1"));
   await page.reload();
   await expect(page.getByTestId("activity-client")).toBeVisible();
-  await expect(page).toHaveTitle(`Activity · ${P} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Activity · ${P} · Hub`);
 });
 
 test("Settings ▸ Sending survives a reload", async ({ page }) => {
   await page.goto(at(P, "/settings"));
   await page.reload();
   await expect(page.getByTestId("sending-status")).toBeVisible();
-  await expect(page).toHaveTitle(`Sending · ${P} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Sending · ${P} · Hub`);
 });
 
 // P70: the addresses of the Project section, Agents and Connections are gone, with no redirect (routes rule 6).
@@ -130,7 +130,7 @@ for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/m
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
     await expect(page.locator('ul[aria-label="People"]')).toHaveCount(0);
-    await expect(page).toHaveTitle("Not found · Hub Workflow");
+    await expect(page).toHaveTitle("Not found · Hub");
     await page.getByRole("link", { name: "Go to Mail" }).click();
     await expect.poll(() => address(page)).toMatch(listed(P));
     await expect(cards(page).first()).toBeVisible();
