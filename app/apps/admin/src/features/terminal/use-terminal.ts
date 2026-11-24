@@ -5,13 +5,12 @@ import { createContext, useCallback, useContext, useRef, useState } from "react"
 import type { CliFactDto, TerminalPreset, TerminalProblemDto, TerminalSessionDto, TerminalStateDto } from "@hub/contract/terminal";
 import { MAX_SESSIONS } from "@hub/contract/terminal";
 import type { TerminalHandle } from "@hub/ui/product/terminal";
-import { parseWidth } from "@hub/ui/product/side-dock";
+import { DOCK_WIDTH } from "@hub/ui/product/side-dock";
 import { useHotkey } from "@hub/ui/use-hotkey";
-import { useMediaQuery } from "@hub/ui/use-media-query";
 import { useHotkeys } from "@hub/ui/use-hotkey";
 import { sentence } from "@/lib/api/client";
 import { terminalApi } from "@/lib/api/terminal";
-import { save, useStored } from "@/lib/storage";
+import { save, saveShell, useAtLeast, useShellPrefs, useStored } from "@/lib/storage";
 import { sessionFor, useAutoStart } from "./use-auto-start";
 
 export const TERMINAL_KEY = ["terminal"] as const;
@@ -124,9 +123,10 @@ function useFocus() {
 }
 
 /**
- * The terminal's state: the server's sessions and `problem` (`GET /api/terminal`), and three viewing preferences in storage
- * (open, width, active tab; read after mount, so the first render is closed). A saved "open" is restored only from 1024px;
- * below that the person opens it. Ctrl+` and Meta/Ctrl+J toggle it from anywhere, including the terminal.
+ * The terminal's state: the server's sessions and `problem` (`GET /api/terminal`), and three viewing preferences: open and
+ * width in the shell cookie (P128 X8: read on the server too, so a column left open is in the first render at its width,
+ * and it keeps that column while the terminal read loads), the active tab in storage (after mount). A saved "open" is
+ * restored only from 1024px; below that the person opens it. Ctrl+` and Meta/Ctrl+J toggle it from anywhere, including the terminal.
  */
 export function useTerminalModel(place: string | null | undefined): TerminalModel {
   // `undefined`: the shell does not know the project yet; nothing starts by itself until it does.
@@ -135,15 +135,16 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const qc = useQueryClient();
   const q = useQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state });
   const state = q.data ?? null;
-  const wide = useMediaQuery("lg");
-  const stored = useStored("terminal");
+  const wide = useAtLeast("lg");
+  const prefs = useShellPrefs();
   const [chosen, setChosen] = useState<boolean | null>(null);
   // P128 X0 (F2): the terminal takes focus only when the owner opened it on this page (accessibility rule 10: "opening"); a
   // column restored open by a reload or a launchd restart shows its session and leaves focus where the page put it.
   const ownerOpened = useRef(false);
-  const open = state !== null && (chosen ?? (stored === "open" && wide));
+  // P128 X8: not waiting for the read: the column the last page left open stands from the first paint (its body says it loads).
+  const open = chosen ?? (prefs.dock && wide);
   const mounted = open || chosen !== null;
-  const width = parseWidth(useStored("terminal-width"));
+  const width = prefs.width ?? DOCK_WIDTH.default;
   const sessions = state?.sessions ?? [];
   const storedTab = useStored("terminal-tab");
   // The stored tab, unless it belongs to another project and this one has a session (P57 2e).
@@ -160,7 +161,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const setOpenRaw = useCallback((next: boolean) => {
     ownerOpened.current = next;
     setChosen(next);
-    save("terminal", next ? "open" : "closed");
+    saveShell({ dock: next });
     if (!next) focusBack();
   }, []);
 
@@ -249,7 +250,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     open,
     mounted,
     width,
-    setWidth: (w) => save("terminal-width", String(w)),
+    setWidth: (w) => saveShell({ width: w }),
     active,
     setActive,
     offered,

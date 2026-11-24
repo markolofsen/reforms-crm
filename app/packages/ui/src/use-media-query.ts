@@ -59,10 +59,6 @@ function parseQuery(
   return parts.length > 0 ? parts.join(" and ") : query;
 }
 
-function getServerSnapshot(): boolean {
-  return false;
-}
-
 export type MediaQueryInput = {
   min?: Breakpoint | number;
   max?: Breakpoint | number;
@@ -70,8 +66,14 @@ export type MediaQueryInput = {
   pointer?: "coarse" | "fine";
 };
 
+/**
+ * Whether the viewport matches. The server has no viewport: `serverMatches` (false by default) is the answer of the server
+ * render and of the first client render (hydration); a consumer that remembers the last viewport (the admin's shell cookie,
+ * P128 X8) passes its guess, so a right guess changes nothing after hydration.
+ */
 export function useMediaQuery(
   query: BreakpointQuery | MediaQueryInput | (string & {}),
+  serverMatches = false,
 ): boolean {
   const mediaQuery = parseQuery(query);
 
@@ -90,7 +92,7 @@ export function useMediaQuery(
     return window.matchMedia(mediaQuery).matches;
   }, [mediaQuery]);
 
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useSyncExternalStore(subscribe, getSnapshot, () => serverMatches);
 }
 
 export function useIsMobile(): boolean {

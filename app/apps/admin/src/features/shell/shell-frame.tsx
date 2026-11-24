@@ -21,6 +21,8 @@ import { useSectionNav } from "@/hooks/use-section-nav";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
 import { instanceLogoUrl, useInstance, useProjects } from "@/lib/data/instance";
+import type { ShellPrefs } from "@/lib/shell-prefs";
+import { ShellPrefsContext } from "@/lib/storage";
 import { dest, sectionList } from "@/routes/paths";
 import { PROJECTLESS } from "@/routes/table";
 import { sectionTitle } from "@/routes/sections";
@@ -61,7 +63,7 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
  * opens the live stream (P50), reads the projects, the brand and the pulse, makes the address canonical (`useEnsureAddress`), and renders the page it
  * was given only when there is a project. The screens read their project from the scope, never from the address.
  */
-export function ShellFrame({ children, instanceName }: { children: ReactNode; /** Read on the server (P133): the brand of the first paint. */ instanceName: string }) {
+export function ShellFrame({ children, instanceName, shell }: { children: ReactNode; /** Read on the server (P133): the brand of the first paint. */ instanceName: string; /** The shell cookie, read on the server (P128 X8): the layout of the first paint. */ shell: ShellPrefs }) {
   const route = useRoute();
   const go = useGo();
   useLive();
@@ -81,39 +83,41 @@ export function ShellFrame({ children, instanceName }: { children: ReactNode; /*
   // The projectless pages (Overview, Help, Settings ▸ Connections and This Mac) are about the whole instance: the switcher belongs to the scoped ones.
   const scoped = route.route !== "notFound" && PROJECTLESS.has(route.route) ? null : project;
   return (
-    <PlaceContext value={place}>
-      <Shell brand={brand} dotsProject={project} links={links.data ?? null} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={terminalProjectOf({ loaded: projects.isSuccess, pending, project, multi, scoped })}>
-        <h2 className="sr-only">{heading}</h2>
-        {/* P72: the agent's pointer, drawn over the rows of `#main`; it changes nothing on the page. */}
-        <PointerLayer project={project} />
-        {pending ? (
-          <Page>
-            <Loading what="projects" />
-          </Page>
-        ) : (
-          <QueryView
-            frame={(note) => <Page>{note}</Page>}
-            loading={
-              <Page>
-                <Loading what="projects" />
-              </Page>
-            }
-            query={projects}
-            what="projects"
-          >
-            {() =>
-              !scope ? (
+    <ShellPrefsContext value={shell}>
+      <PlaceContext value={place}>
+        <Shell brand={brand} dotsProject={project} links={links.data ?? null} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={terminalProjectOf({ loaded: projects.isSuccess, pending, project, multi, scoped })}>
+          <h2 className="sr-only">{heading}</h2>
+          {/* P72: the agent's pointer, drawn over the rows of `#main`; it changes nothing on the page. */}
+          <PointerLayer project={project} />
+          {pending ? (
+            <Page>
+              <Loading what="projects" />
+            </Page>
+          ) : (
+            <QueryView
+              frame={(note) => <Page>{note}</Page>}
+              loading={
                 <Page>
-                  <EmptyState action={<AppLink to={dest("settings.connections")}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
+                  <Loading what="projects" />
                 </Page>
-              ) : (
-                <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>
-              )
-            }
-          </QueryView>
-        )}
-      </Shell>
-    </PlaceContext>
+              }
+              query={projects}
+              what="projects"
+            >
+              {() =>
+                !scope ? (
+                  <Page>
+                    <EmptyState action={<AppLink to={dest("settings.connections")}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
+                  </Page>
+                ) : (
+                  <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>
+                )
+              }
+            </QueryView>
+          )}
+        </Shell>
+      </PlaceContext>
+    </ShellPrefsContext>
   );
 }
 

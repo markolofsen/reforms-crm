@@ -96,3 +96,12 @@ export function SideDock({ label, width, onWidth, children, className }: Props) 
     </div>
   );
 }
+
+/**
+ * The column's box before it can be drawn (P128 X8): the server and the first render know the saved width but no viewport and
+ * no content, so the screen beside it is laid out at its final width and names nothing (no column, no separator).
+ */
+export function SideDockPlaceholder({ width, className }: { width: number; className?: string }) {
+  const style: CSSProperties & Record<"--terminal-w", string> = { "--terminal-w": `${clampWidth(width, 0)}px` };
+  return <div aria-hidden="true" className={cn("h-full w-(--terminal-w) shrink-0 border-s bg-background", className)} data-slot="side-dock-placeholder" style={style} />;
+}

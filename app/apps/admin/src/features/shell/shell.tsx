@@ -4,14 +4,13 @@ import type { Dest } from "@/routes/paths";
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "@hub/ui/link";
 import { SidebarInset, SidebarProvider, useSidebar } from "@hub/ui/sidebar";
-import { useMediaQuery } from "@hub/ui/use-media-query";
 import { cn } from "@hub/ui/cn";
 import { useHotkeys, type KeyMap } from "@hub/ui/use-hotkey";
 import { shortcutsOn, useShortcutsSwitch } from "@/hooks/use-shortcuts";
 import { PaneNarrowContext, useMeasuredNarrow } from "@/hooks/use-pane";
 import type { NavItem } from "@/hooks/use-section-nav";
 import { useTerminalDocked } from "@/features/terminal/terminal";
-import { save, useStored } from "@/lib/storage";
+import { saveShell, useAtLeast, useRememberBreakpoint, useShellPrefs } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
 import type { ProjectLinksDto } from "@hub/contract/project";
 import { AppSidebar, type Brand } from "./app-sidebar";
@@ -84,19 +83,21 @@ function Frame({ items, projects, project, onProject, brand, route, dock, links,
 /**
  * The one frame of every screen: sidebar | the screen (its own list and detail) | the terminal dock. No top bar
  * (a phone gets one line: brand, switcher, theme). The sidebar is open from 1280px and a rail below it unless the person
- * pinned it (remembered in `lib/storage`); while the terminal is docked below 1600px it folds to the rail without touching
- * the pin (an expand then holds for this page only). Hydration: the width comes from `useMediaQuery` and the pin from
- * `useStored`, both external stores with a server snapshot, so the first render is the server's and the real values follow.
+ * pinned it; while the terminal is docked below 1600px it folds to the rail without touching the pin (an expand then holds
+ * for this page only). Hydration (P128 X8): the pin and the last breakpoint are the `hub_shell` cookie, which the shell
+ * layout read on the server, so the server's first render is already the rail or the open sidebar of the last page; the
+ * real viewport follows through `useMediaQuery` and changes nothing when the guess was right.
  */
 export function AppShell(props: Props) {
-  const wide = useMediaQuery("xl");
-  const roomy = useMediaQuery("3xl");
-  const pin = useStored("rail");
+  useRememberBreakpoint();
+  const wide = useAtLeast("xl");
+  const roomy = useAtLeast("3xl");
+  const pin = useShellPrefs().rail;
   const folded = useTerminalDocked() && !roomy;
   const [unfolded, setUnfolded] = useState(false);
   const open = folded ? unfolded : pin === "open" ? true : pin === "closed" ? false : wide;
   return (
-    <SidebarProvider className="h-svh min-h-0" onOpenChange={(next) => (folded ? setUnfolded(next) : save("rail", next ? "open" : "closed"))} open={open} style={WIDTHS}>
+    <SidebarProvider className="h-svh min-h-0" onOpenChange={(next) => (folded ? setUnfolded(next) : saveShell({ rail: next ? "open" : "closed" }))} open={open} style={WIDTHS}>
       <Frame {...props} />
     </SidebarProvider>
   );

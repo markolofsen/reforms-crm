@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { basename } from "node:path";
-import { at, remember } from "./support";
+import { at, remember, rememberShell } from "./support";
 
 // The embedded terminal (P49 T3) on the fake shell (`HUB_TERMINAL_SHELL=fake`, `test-support/fake-shell.mjs`): it prints the
 // line `exec [argv]` when it stands in for an agent preset (`--exec`), then the prompt `fake$ `, echoes each line as `> <line>`, answers `size` with `<cols> <rows>`, `pwd` with its folder, and `[esc]` for
@@ -310,8 +310,8 @@ test("terminal: a restored open column whose sessions were closed starts one by 
 
 test("terminal: two admin pages opening the column at once get one session (P57 2d)", async ({ page, context }) => {
   // Both pages load with the column remembered open, so both call `ensure` as they come up. (Clicking both strips does not
-  // work: the pages share localStorage, so the first click opens the other page's column too and its strip is gone.)
-  await context.addInitScript(() => window.localStorage.setItem("hub.terminal", "open"));
+  // work: the pages share the shell cookie, so the first click opens the other page's column too and its strip is gone.)
+  await rememberShell(context, "dock-open");
   const other = await context.newPage();
   await Promise.all([page.goto(at(P, "/mail")), other.goto(at(P, "/mail"))]);
   await Promise.all([expect(dock(page)).toBeVisible(), expect(dock(other)).toBeVisible()]);

@@ -5,9 +5,10 @@ import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } 
 import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { AgentPanelFrame } from "@hub/ui/product/shell/agent-panel";
-import { SideDock } from "@hub/ui/product/side-dock";
+import { SideDock, SideDockPlaceholder } from "@hub/ui/product/side-dock";
 import { TerminalDictationButton, type TerminalHandle } from "@hub/ui/product/terminal";
-import { useMediaQuery } from "@hub/ui/use-media-query";
+import { Loading } from "@/components/state-views";
+import { useAtLeast } from "@/lib/storage";
 import { HostPortal, HostSlot } from "./host";
 import { SessionPane } from "./session";
 import { ProblemLine, TerminalHeader } from "./tabs";
@@ -18,8 +19,8 @@ import { TerminalContext, useTerminal, useTerminalModel } from "./use-terminal";
 // height); below 640px the strip would take a column from a 360px screen, so the phone's top line holds the one button instead.
 // Always on (decision 0032): the strip, the column and the chord are always there in the browser, including while the first
 // state read loads. When no tab can start (P66, the state's `problem`), the column says why and the one line that fixes it;
-// nothing hides. None of it is in the server HTML (P49, `state-and-data.md` rule 11): the strip and the phone's button draw an
-// empty box of their size until mounted, so nothing jumps, and a terminal saved open is restored after mount.
+// nothing hides. None of it is in the server HTML (P49, `state-and-data.md` rule 11): the strip, the phone's button and a column
+// the shell cookie remembers open (P128 X8) draw an empty box of their size until mounted, so nothing jumps.
 
 const noop = () => () => {};
 /** False on the server and in the first render, true after mount (the theme switcher's pattern in `@hub/ui/product/shell/theme`). */
@@ -33,7 +34,7 @@ export function TerminalProvider({ project, children }: { project: string | null
 /** Whether the column is docked beside the screen now (the shell folds the sidebar to its rail beside it below 1600px). */
 export function useTerminalDocked(): boolean {
   const { open } = useTerminal();
-  return useMediaQuery("lg") && open;
+  return useAtLeast("lg") && open;
 }
 
 /** The phone button's name while the agent waits on him (P59; the strip adds the same words to its own): colour is not the only carrier (`accessibility.md` rule 6). */
@@ -119,6 +120,13 @@ function startingWhat(t: { project: string | null; offered: readonly string[]; c
 function Empty() {
   const t = useTerminal();
   if ((t.state?.sessions.length ?? 0) > 0) return null;
+  // P128 X8: the column restored from the cookie stands while the first read loads.
+  if (t.state === null)
+    return (
+      <div className="p-4">
+        <Loading what="the terminal" />
+      </div>
+    );
   if (t.problem) return <ProblemLine problem={t.problem} />;
   return <p className="measure p-4 text-muted-foreground text-sm">{t.creating ? `Starting ${startingWhat(t)}...` : "No terminal is running. Start one with +."}</p>;
 }
@@ -179,7 +187,8 @@ function useMenuHandoff(on: boolean, focusActive: () => void) {
  */
 export function TerminalDock({ attention = false, onSeen }: { attention?: boolean; onSeen?: () => void }) {
   const t = useTerminal();
-  const wide = useMediaQuery("lg");
+  const wide = useAtLeast("lg");
+  const mounted = useMounted();
   const activeSession = t.active !== null && (t.state?.sessions.some((session) => session.id === t.active) ?? false);
   const activeScreen = useRef<TerminalHandle | null>(null);
   const onActiveScreen = useCallback((screen: TerminalHandle | null) => {
@@ -197,7 +206,9 @@ export function TerminalDock({ attention = false, onSeen }: { attention?: boolea
           <Sessions onActiveScreen={onActiveScreen} />
         </HostPortal>
       )}
-      {t.open && wide ? (
+      {t.open && wide && !mounted ? (
+        <SideDockPlaceholder className="max-md:hidden" width={t.width} />
+      ) : t.open && wide ? (
         <SideDock label="Terminal" onWidth={t.setWidth} width={t.width}>
           <AgentPanelFrame footer={activeSession ? <TerminalDictationButton screen={activeScreen} /> : undefined} header={<TerminalHeader layer={false} />}>
             <Empty />

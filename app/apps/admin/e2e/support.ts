@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
 
 /** The address of the page as the person reads it: `/lisbon-realty/mail/c/42`. */
 export const address = (page: Page) => page.evaluate(() => location.pathname + location.search);
@@ -9,6 +9,9 @@ export const at = (project: string, path: string) => `/${encodeURIComponent(proj
 
 /** The remembered project is the cookie `hub_project` (the shell writes it, a bare `/mail` reads it); a spec sets it before the first load. */
 export const remember = (page: Page, slug: string) => page.context().addCookies([{ name: "hub_project", value: slug, domain: "127.0.0.1", path: "/" }]);
+
+/** P128 X8: the shell's layout preferences are the cookie `hub_shell` (`src/lib/shell-prefs.ts`, e.g. `dock-open.w-480.bp-xl`); a spec sets it before the first load. */
+export const rememberShell = (context: BrowserContext, value: string) => context.addCookies([{ name: "hub_shell", value, domain: "127.0.0.1", path: "/" }]);
 
 /** The people of the Mail list, in order (P99: a row is a person; since P130 a link to the conversation, and a checkbox for the bulk mode). */
 export const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { at, remember } from "./support";
+import { at, remember, rememberShell } from "./support";
 
 // Hydration is the new bug class of the Next port (P32 risk R1): the server renders without a viewport, storage or clock,
 // and a client that reads them in its first render shows a mismatch as a console error ("Hydration failed", React #418,
@@ -69,16 +69,23 @@ test("theme: a choice made in the sidebar survives a reload", async ({ page }) =
   await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
 });
 
-test("the terminal saved open (P49) loads cold with a clean console: it restores from 1024px after mount, never in the server HTML", async ({ page }) => {
+test("the terminal saved open (P49, P128 X8) loads cold with a clean console: the server lays its column out at the saved width, unnamed, and the column follows from 1024px", async ({ page }) => {
   const noise: string[] = [];
   page.on("console", (m) => (m.type() === "error" || m.type() === "warning" || /hydrat|#418|#423|#425/i.test(m.text())) && noise.push(`${m.type()}: ${m.text()}`));
   page.on("pageerror", (e) => noise.push(`pageerror: ${e.message}`));
-  await page.addInitScript(() => window.localStorage.setItem("hub.terminal", "open"));
+  const width = page.viewportSize()?.width ?? 0;
+  const wide = width >= 1024;
+  // The breakpoint the last page left in the cookie: the one of this viewport, as the shell writes it.
+  const bp = width >= 1600 ? "3xl" : width >= 1280 ? "xl" : wide ? "lg" : width >= 640 ? "md" : "phone";
+  await rememberShell(page.context(), `dock-open.w-480.bp-${bp}`);
   await page.goto(at(P, "/mail"));
   await page.waitForLoadState("networkidle");
-  const wide = (page.viewportSize()?.width ?? 0) >= 1024;
   await expect(page.getByRole("complementary", { name: "Terminal" })).toHaveCount(wide ? 1 : 0);
+  if (wide) expect(await page.getByRole("complementary", { name: "Terminal" }).evaluate((el) => Math.round(el.getBoundingClientRect().width))).toBe(480);
   expect(noise).toEqual([]);
   const html = (await (await page.request.get(at(P, "/mail"))).text()).replaceAll("<!-- -->", "");
   expect(html).not.toContain('aria-label="Terminal"');
+  // No jump: the server's first paint already holds the column's box at its saved width (none below 1024px).
+  expect(html.includes('data-slot="side-dock-placeholder"')).toBe(wide);
+  if (wide) expect(html).toContain("--terminal-w:480px");
 });
