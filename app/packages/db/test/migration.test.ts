@@ -387,3 +387,18 @@ describe("restoreCheck", () => {
     expect(() => restoreCheck(bad, tmp)).toThrow();
   });
 });
+
+describe("only a migrating opener applies migrations to an existing database (P141)", () => {
+  it("refuses a database that is behind unless the opener migrates, and migrates a new one", async () => {
+    const { DbBehindError, openDb } = await import("../src/client");
+    const tmp = mkdtempSync(join(tmpdir(), "hub-guard-"));
+    const old = join(tmp, "old.db");
+    const sqlite = new Database(old);
+    migrate(drizzle(sqlite), { migrationsFolder: folderUpTo(14) });
+    sqlite.close();
+    expect(() => openDb(old)).toThrow(DbBehindError);
+    openDb(old, { migrate: true }).close();
+    openDb(old).close(); // nothing pending now: any opener may open it
+    openDb(join(tmp, "fresh.db")).close(); // a new database migrates by itself
+  });
+});

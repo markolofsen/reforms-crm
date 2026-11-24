@@ -5,7 +5,7 @@ import { seed, seedMany } from "./seed";
 // `seed-cli` seeds an empty database; `seed-cli --many 120 [project]` adds that many drafted clients to a project (manual viewing of a long list).
 const args = process.argv.slice(2);
 const at = args.indexOf("--many");
-const { db, close } = openDb();
+const { db, close } = openDb(undefined, { migrate: true });
 const repos = createRepos(db);
 if (at >= 0) {
   const count = Number(args[at + 1]);

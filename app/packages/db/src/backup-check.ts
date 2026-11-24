@@ -73,7 +73,7 @@ export function restoreCheck(snapshotDb: string, tmpDir: string): RestoreCheck {
   const before = inspectCopy(copy);
   if (before.integrity !== "ok") return { before, after: before, migrationsApplied: 0 };
   const ledger = (c: CopyCheck) => c.rows - c.dataRows;
-  openDb(copy).close();
+  openDb(copy, { migrate: true }).close();
   const after = inspectCopy(copy);
   return { before, after, migrationsApplied: ledger(after) - ledger(before) };
 }

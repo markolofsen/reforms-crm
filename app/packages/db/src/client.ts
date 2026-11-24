@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hubPaths } from "@hub/config/paths";
@@ -30,12 +30,40 @@ function appliedMigrations(sqlite: Database.Database): number {
   }
 }
 
+/** How many migrations this core ships (its journal's entries). */
+function shippedMigrations(): number {
+  const journal: unknown = JSON.parse(readFileSync(resolve(migrationsFolder, "meta/_journal.json"), "utf8"));
+  const entries: unknown = journal && typeof journal === "object" ? Reflect.get(journal, "entries") : [];
+  return Array.isArray(entries) ? entries.length : 0;
+}
+
+/**
+ * A database that has migrations still to apply, opened by a process that does not migrate (decision of P141, 2026-11-24): only the
+ * Hub server applies migrations to an existing database, so a half-written migration in a working tree never reaches the live one
+ * through a CLI command or an agent tool. The fix is one restart of the server.
+ */
+export class DbBehindError extends Error {
+  constructor(readonly path: string, readonly pending: number) {
+    super(`The database ${path} is ${pending} migration(s) behind this core: the Hub server applies them when it starts (restart it), then run this again.`);
+    this.name = "DbBehindError";
+  }
+}
+
+export interface OpenDbOptions {
+  /**
+   * Apply the pending migrations of an existing database. Only the server (`apps/server/src/main.ts`), `migrate-cli`, `seed-cli` and
+   * the restore check pass it. A new database (no migration applied yet: a test's, a first install's) is always migrated.
+   */
+  migrate?: boolean;
+}
+
 /**
  * Opens SQLite with the settings the research asks for: WAL, busy_timeout, foreign keys,
  * and applies the committed SQL migrations. One writer process owns the file; the sync
- * driver is hidden behind the async repositories in `repos/`.
+ * driver is hidden behind the async repositories in `repos/`. An existing database that is behind is migrated only with
+ * `migrate: true`; any other opener refuses it (`DbBehindError`) instead of running on a schema the code does not expect.
  */
-export function openDb(path: string = defaultDbPath()): DbHandle {
+export function openDb(path: string = defaultDbPath(), o: OpenDbOptions = {}): DbHandle {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const sqlite = new Database(path);
   sqlite.pragma("journal_mode = WAL");
@@ -43,8 +71,13 @@ export function openDb(path: string = defaultDbPath()): DbHandle {
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("synchronous = NORMAL");
   const db = drizzle(sqlite, { schema });
+  const before = appliedMigrations(sqlite);
+  const pending = shippedMigrations() - before;
+  if (before > 0 && pending > 0 && !o.migrate) {
+    sqlite.close();
+    throw new DbBehindError(path, pending);
+  }
   try {
-    const before = appliedMigrations(sqlite);
     const t0 = Date.now();
     migrate(db, { migrationsFolder });
     // P137 L2: migrations that ran are one line (how many, how long); an open with nothing new says nothing.

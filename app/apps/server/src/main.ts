@@ -45,7 +45,8 @@ if (modeLine) log.info(`switches: ${modeLine}`);
 // P137 L4: both logs keep 30 days, gzipped after 2; applied now and every night (the timer never holds the process).
 scheduleRetention(paths.opsLog, { sessionKeepDays: instanceLogRetention(paths) });
 
-const { db, close } = openDb();
+// The server is the one process that migrates an existing database (`OpenDbOptions.migrate`).
+const { db, close } = openDb(undefined, { migrate: true });
 const port = Number(process.env.HUB_PORT ?? SERVER_PORT);
 const started = await startRuntime({ db, modes, paths, apiPort: port });
 const server = serve({ fetch: createApp(started.runtime).fetch, hostname: HOST, port }, (info) => log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid }));
