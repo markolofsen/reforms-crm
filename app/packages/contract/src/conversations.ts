@@ -21,6 +21,8 @@ export const conversationsQuery = z.object({
   view: z.enum(CONVERSATION_VIEWS).default("needs_you"),
   search: z.string().trim().max(200).default(""),
   batch: z.coerce.number().int().positive().optional(),
+  /** P134 verdict 4: only the people with a draft of this brand (the counts of the views are never narrowed by it). */
+  brand: z.string().trim().min(1).max(100).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -51,6 +53,8 @@ export const conversationsDto = z.strictObject({
   total: z.number().int(),
   nextOffset: z.number().int().nullable(),
   counts: z.strictObject({ needs_you: z.number().int(), waiting: z.number().int(), all: z.number().int(), sequences: z.number().int() }),
+  /** P134 verdict 4: the brands of the view's people (no search, no brand applied) with how many people each, most first; the filter shows them only with two or more. */
+  brands: z.array(z.strictObject({ name: z.string(), count: z.number().int() })),
 });
 export type ConversationsDto = z.infer<typeof conversationsDto>;
 

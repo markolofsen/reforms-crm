@@ -50,10 +50,10 @@ export function conversationRoutes({ repos, projects, mail, directory }: MailCon
       const slug = c.req.param("slug");
       if (!(await repos.projects.get(slug))) return notFound(c, "project");
       const q = c.req.valid("query");
-      const r = await repos.conversations.list(slug, q.view, { batch: q.batch ?? null, search: q.search, limit: q.limit, offset: q.offset });
+      const r = await repos.conversations.list(slug, q.view, { batch: q.batch ?? null, search: q.search, brand: q.brand ?? null, limit: q.limit, offset: q.offset });
       const inboxRefs = await repos.inbox.notionByEmails(slug, r.rows.map((item) => item.client.email));
       const next = q.offset + r.rows.length < r.total ? q.offset + r.rows.length : null;
-      return c.json(conversationsDto.parse({ rows: await Promise.all(r.rows.map((item) => rowDto(slug, item, inboxRefs))), total: r.total, nextOffset: next, counts: r.counts }));
+      return c.json(conversationsDto.parse({ rows: await Promise.all(r.rows.map((item) => rowDto(slug, item, inboxRefs))), total: r.total, nextOffset: next, counts: r.counts, brands: r.brands }));
     })
     // P103: the client a key names (his email, or `id-<n>`), with the canonical key the admin's address replaces to. Verdict 4:
     // his primary address first, then any other address of his in P100's identity table (`client_identifiers`, kind `email`),

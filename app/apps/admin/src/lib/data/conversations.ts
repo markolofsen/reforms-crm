@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { ConversationRowDto, ConversationViewDto } from "@hub/contract/conversations";
+import type { ConversationRowDto, ConversationsDto, ConversationViewDto } from "@hub/contract/conversations";
 import { reviewApi } from "@/lib/api/review";
 import { keys } from "@/lib/cache/keys";
 
@@ -13,7 +13,9 @@ import { keys } from "@/lib/cache/keys";
  */
 
 /** One page of the list of people (a view, a batch's people). */
-export type ReviewPage = { rows: ConversationRowDto[]; total: number; nextOffset: number | null; counts: Partial<Record<string, number>> };
+export type ReviewPage = { rows: ConversationRowDto[]; total: number; nextOffset: number | null; counts: Partial<Record<string, number>>; brands: readonly BrandCountDto[] };
+/** P134 verdict 4: one brand of the view's people and how many. */
+export type BrandCountDto = ConversationsDto["brands"][number];
 
 /** What the review screen needs from the screen that hosts it. It never learns which endpoint answered. */
 export type ReviewSource = {
@@ -28,11 +30,12 @@ export type ReviewSource = {
   undoLast?: () => Promise<unknown>;
 };
 
-type Scope = { search: string; batch: number | null };
+type Scope = { search: string; batch: number | null; brand?: string | null };
+const NO_BRANDS: readonly BrandCountDto[] = [];
 
 const page = async (project: string, view: ConversationViewDto, offset: number, scope: Scope): Promise<ReviewPage> => {
   const r = await reviewApi.conversations(project, view, offset, scope);
-  return { rows: r.rows, total: r.total, nextOffset: r.nextOffset, counts: r.counts };
+  return { rows: r.rows, total: r.total, nextOffset: r.nextOffset, counts: r.counts, brands: r.brands };
 };
 
 /** The number a view shows next to its name, from the counts of the first page. */
@@ -45,7 +48,7 @@ export const countOf = (counts: ReviewPage["counts"], view: string): number | un
 export function mailSource(project: string, filter: string, view: ConversationViewDto, scope: Scope): ReviewSource {
   const { batch } = scope;
   return {
-    queryKey: keys.conversations(project, filter, batch, scope.search),
+    queryKey: keys.conversations(project, filter, batch, scope.search, scope.brand ?? null),
     project,
     filter,
     countOf,
@@ -65,7 +68,7 @@ export function useReviewRows(source: ReviewSource) {
   });
   const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data]);
   const total = query.data?.pages[0]?.total ?? 0;
-  return { query, rows, total, counts: query.data?.pages[0]?.counts ?? {} };
+  return { query, rows, total, counts: query.data?.pages[0]?.counts ?? {}, brands: query.data?.pages[0]?.brands ?? NO_BRANDS };
 }
 
 /**

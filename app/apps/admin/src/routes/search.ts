@@ -99,8 +99,11 @@ export const queryId: SearchKeySpec<number | null> = { read: (v) => positiveInt(
 /** A Message-ID in the address (`?m=`, P99: the conversation scrolls to that message), none by default. */
 const messageRef: SearchKeySpec<string | null> = { read: (v) => (v !== undefined && v.length >= 3 && v.length <= 998 && !/\s/.test(v) ? v : null), fallback: null };
 
+/** P134 verdict 4: a brand of the list (`?brand=Carapis`), as the rows name it; none by default. Blank or longer than 100: none. */
+export const brandParam: SearchKeySpec<string | null> = { read: (v) => (v !== undefined && v.trim() !== "" && v.length <= 100 ? v.trim() : null), fallback: null };
+
 /** Mail's three routes share one search, so a person opened from the list keeps its view, search and batch. `batch` limits the list to the drafts one batch wrote. An old view value (`ready`, `inbox`, `hold`, ...) resets to Needs you; no alias. */
-export const MAIL_SEARCH = { filter: view(DRAFT_VIEWS, DEFAULT_DRAFT_VIEW), q: text, batch: queryId, m: messageRef } as const;
+export const MAIL_SEARCH = { filter: view(DRAFT_VIEWS, DEFAULT_DRAFT_VIEW), q: text, batch: queryId, brand: brandParam, m: messageRef } as const;
 /** Activity (P73): the kind (P125 L3: `?kind=`, the menu column's; it was `?filter=`, no alias), and `client` narrows the timeline to one client (the draft card's history opens it). */
 export const LOG_SEARCH = { kind: view(ACTIVITY_VIEWS, "all"), client: queryId } as const;
 /**

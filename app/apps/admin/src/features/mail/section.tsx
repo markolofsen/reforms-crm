@@ -60,13 +60,14 @@ export function useMailNeedsYou(project: string | null): number {
   return project === null ? 0 : (countOf(counts, "needs_you") ?? 0);
 }
 
-type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pending: boolean; pointed: string | null; leadPageId: string | null };
+type Props = { project: string; filter: DraftView; q: string; batch: number | null; brand: string | null; clientId: number | null; pending: boolean; pointed: string | null; leadPageId: string | null };
 
 /** Mail: the list column (title, status line, people) and the open conversation. The view, the search, the batch and the person live in the address. */
-function MailSection({ project, filter, q, batch, clientId, pending, pointed, leadPageId }: Props) {
+function MailSection({ project, filter, q, batch, brand, clientId, pending, pointed, leadPageId }: Props) {
   const go = useGo();
   const [, setSearch] = useSearch(MAIL_SEARCH);
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
+  const setBrand = useCallback((b: string | null) => setSearch({ brand: b }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const batches = useBatches(project);
   const notByEmail = useNotByEmailTotal(project);
@@ -74,7 +75,7 @@ function MailSection({ project, filter, q, batch, clientId, pending, pointed, le
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
   const current = batch === null ? undefined : batches.data?.batches.find((b) => b.id === batch);
   // Not by email lists client rows, not conversations: the list query still runs (as All) so the View menu keeps every count.
-  const source = useMemo(() => mailSource(project, filter, filter === "not_by_email" ? "all" : filter, { search, batch }), [project, filter, batch, search]);
+  const source = useMemo(() => mailSource(project, filter, filter === "not_by_email" ? "all" : filter, { search, batch, brand }), [project, filter, batch, search, brand]);
   const countFor = (counts: ReviewPage["counts"], v: DraftView) => (v === "not_by_email" ? notByEmail : countOf(counts, v));
   // The title names the view on screen: one of the sidebar's three, a filter of All, or the batch a link opened (P134 verdict 2: no batch list).
   const header = (counts: ReviewPage["counts"], brands: readonly BrandCount[]): { views: View[]; filters: Filters } => ({
@@ -85,13 +86,13 @@ function MailSection({ project, filter, q, batch, clientId, pending, pointed, le
     filters: {
       options: DRAFT_VIEWS.filter((v) => DRAFT_FILTERS.has(v)).map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: countFor(counts, v) })),
       value: DRAFT_FILTERS.has(filter) && batch === null ? filter : null,
-      onChange: (v) => go(dest("mail.list", { filter: DRAFT_VIEWS.find((x) => x === v) ?? "all", q }), { replace: true }),
+      onChange: (v) => go(dest("mail.list", { filter: DRAFT_VIEWS.find((x) => x === v) ?? "all", q, brand }), { replace: true }),
       brands,
-      brand: null,
-      onBrand: () => undefined,
+      brand,
+      onBrand: setBrand,
     },
   });
-  const onView = (v: string) => go(dest("mail.list", { filter: SIDEBAR_VIEWS.find((x) => x === v) ?? "needs_you", q }), { replace: true });
+  const onView = (v: string) => go(dest("mail.list", { filter: SIDEBAR_VIEWS.find((x) => x === v) ?? "needs_you", q, brand }), { replace: true });
   // P134 verdict 2: on Needs you, one line per batch whose drafts wait for review; the batch's own list stays a link (`?batch=`).
   const waiting = filter === "needs_you" && batch === null ? (batches.data?.batches ?? []).filter((b) => batchAwaiting(b) > 0) : [];
   const batchLines = waiting.map((b) => (
@@ -128,7 +129,7 @@ function MailSection({ project, filter, q, batch, clientId, pending, pointed, le
       onView={onView}
       pointed={pointed}
       search={[q, setQ]}
-      place={{ filter, q, batch }}
+      place={{ filter, q, batch, brand }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={
         <>
@@ -157,10 +158,10 @@ export function MailScreen() {
 /** P103: the address's client key to his row id, then the Mail section; a key nobody has is "No such client", not a blank pane. */
 function KeyedMail({ project, routeKey, search, leadPageId, pointed }: { project: string; routeKey: string | null; search: SearchFor<"mail.conversation">; leadPageId: string | null; pointed: string | null }) {
   const client = useClientKey(project, routeKey, search);
-  const { q, batch, filter } = search;
+  const { q, batch, filter, brand } = search;
   if (client.missing) return <NoSuchClient />;
   const clientId = client.id;
   // An email key the server has not answered yet: the address names someone, so the wide pane must not open the first row.
   const pending = routeKey !== null && clientId === null;
-  return <MailSection batch={batch} clientId={clientId} pending={pending} filter={filter} leadPageId={leadPageId} pointed={pointed} project={project} q={q} />;
+  return <MailSection batch={batch} brand={brand} clientId={clientId} pending={pending} filter={filter} leadPageId={leadPageId} pointed={pointed} project={project} q={q} />;
 }

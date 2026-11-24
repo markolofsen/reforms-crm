@@ -43,7 +43,7 @@ type Props = {
   clientId: number | null;
   /** The address names a person by email and the server has not yet said who (P103): nobody is auto-opened in the meantime. */
   pending?: boolean;
-  place: { filter: DraftView; q: string; batch: number | null };
+  place: { filter: DraftView; q: string; batch: number | null; brand: string | null };
   /** `?m=`: one of their messages the open conversation scrolls to. */
   pointed?: string | null;
   /** Shown when the list is empty (the host knows its own words). */
@@ -138,9 +138,9 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
   const searchRef = useRef<HTMLInputElement>(null);
   const { query, rows, total, counts, brands } = useReviewRows(source);
   const sel = useSelection(rows);
-  const { filter, batch } = place;
+  const { filter, batch, brand } = place;
   const emailOf = (id: number) => rows.find((r) => rowId(r) === id)?.client.email ?? null;
-  const channelTo = (id: number | null): Dest => (id === null ? dest("mail.list", { filter, q: place.q, batch }) : dest("mail.conversation", { key: clientKey({ id, email: emailOf(id) }) }, { filter, q: place.q, batch }));
+  const channelTo = (id: number | null): Dest => (id === null ? dest("mail.list", { filter, q: place.q, batch, brand }) : dest("mail.conversation", { key: clientKey({ id, email: emailOf(id) }) }, { filter, q: place.q, batch, brand }));
   const toRef = (id: number) => refOf("client", id);
   const openRow = useOpenRow({ to: channelTo, refOf: toRef }, clientId);
 
@@ -184,7 +184,7 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
     sel.clear();
   };
 
-  const filtered = source.filter !== "all";
+  const filtered = source.filter !== "all" || brand !== null;
   const line = headerOf(counts, brands);
   const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
   const channel: Channel = {

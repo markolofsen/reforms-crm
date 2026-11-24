@@ -9,8 +9,8 @@ import { clientKeyDto } from "@hub/contract/client-key";
 /** Everything a person can do to a draft and a client. None of it sends mail. */
 export const reviewApi = {
   /** P99: the list of people, one row per client with its state word and its open draft; `search` narrows rows, never counts. */
-  conversations: (project: string, view: ConversationViewDto, offset: number, scope: { search?: string; batch?: number | null } = {}) =>
-    readGenerated(listConversations(project, { view, offset, search: scope.search || undefined, batch: scope.batch ?? undefined }), conversationsDto),
+  conversations: (project: string, view: ConversationViewDto, offset: number, scope: { search?: string; batch?: number | null; brand?: string | null } = {}) =>
+    readGenerated(listConversations(project, { view, offset, search: scope.search || undefined, batch: scope.batch ?? undefined, brand: scope.brand ?? undefined }), conversationsDto),
   /** One conversation's header and its unsent message, from the Hub's rows (refreshed by the live topics). */
   conversation: (project: string, clientId: number) => readGenerated(getConversation(project, clientId), conversationDto),
   /** P103: the client a key of the address names, and his canonical key. */

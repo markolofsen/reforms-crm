@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, type DbHandle } from "../src/client";
 import { createRepos, type Repos } from "../src/repos";
-import { stateOf } from "../src/repos/conversations";
+import { brandCounts, stateOf } from "../src/repos/conversations";
 
 let handle: DbHandle;
 let repos: Repos;
@@ -101,5 +101,16 @@ describe("P99 the list of people", () => {
     expect(stateOf({ wrote: false, open: null, theirLastAt: "2026-11-03", ourLastAt: "2026-11-02" })).toBe("done");
     expect(stateOf({ wrote: false, open: null, theirLastAt: null, ourLastAt: null })).toBe("done");
     expect(stateOf({ wrote: true, open: "ready", theirLastAt: null, ourLastAt: null })).toBe("wrote");
+  });
+});
+
+// P134 verdict 4: the brand filter's counts: people per brand, most first, a person with no draft brand counted nowhere.
+describe("brandCounts", () => {
+  it("counts each person once per brand, most people first, then by name", () => {
+    expect(brandCounts([{ brands: ["Reforms", "Carapis"] }, { brands: ["Carapis"] }, { brands: [] }, { brands: ["Akme"] }])).toEqual([
+      { name: "Carapis", count: 2 },
+      { name: "Akme", count: 1 },
+      { name: "Reforms", count: 1 },
+    ]);
   });
 });

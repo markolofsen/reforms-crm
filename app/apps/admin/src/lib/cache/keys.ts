@@ -24,7 +24,7 @@ export const keys = {
   agentTools: (project: string) => ["agent-tools", project] as const,
   /** The agent activity feed (P59): the ended turns' tones and the wait, read from the session log on the server (P73: no rows). */
   agentFeed: (project: string) => ["agent-feed", project] as const,
-  conversations: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
+  conversations: (project: string, view: string, batch: number | null, search: string, brand: string | null = null) => ["drafts", project, view, batch, search, brand] as const,
   /** P99: one conversation's header and unsent message (the Hub's rows): under `drafts`, so every topic that moves a row moves it. */
   conversation: (project: string, clientId: number) => ["drafts", project, "conversation", clientId] as const,
   /** P103: a client's key in the address to his row (under `drafts`, so a topic that moves a client refreshes it too). */

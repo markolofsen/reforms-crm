@@ -43,6 +43,15 @@ export interface ConversationItem {
 }
 
 export type ConversationCounts = Record<ConversationView, number>;
+/** P134 verdict 4: a brand of the view's people and how many people have a draft of it. */
+export type BrandCount = { name: string; count: number };
+
+/** The brands of these people, most people first, then by name. */
+export function brandCounts(rows: readonly { brands: readonly string[] }[]): BrandCount[] {
+  const n = new Map<string, number>();
+  for (const r of rows) for (const b of r.brands) n.set(b, (n.get(b) ?? 0) + 1);
+  return [...n].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
 
 const NEEDS: ReadonlySet<ConversationState> = new Set(["wrote", "draft"]);
 const max = (...v: Array<string | null | undefined>): string | null => v.filter((x): x is string => !!x).sort().at(-1) ?? null;
@@ -134,10 +143,11 @@ export function conversationsRepo(db: Db) {
     /**
      * The Mail list (verdicts 2, 3): one row per client in the view, Needs you's states first (Wrote you, Draft ready), then the
      * newest activity on top; the client id breaks a tie. `batch` keeps the clients a batch wrote a draft for (a read-only view,
-     * decision 0025); `search` narrows by name, address or subject. Counts are never narrowed by the search; a batch narrows them.
+     * decision 0025); `search` narrows by name, address or subject, `brand` to the people with a draft of that brand (P134). Counts
+     * and the brands' counts are never narrowed by the search or the brand; a batch narrows them.
      */
     /** `ensure: false` (P129 A4: `hub mcp`'s `mail_list` on its read-only connection) lists without writing the senders' client rows. */
-    async list(project: string, view: ConversationView, opts: { batch?: number | null; search?: string; limit?: number; offset?: number; now?: Date; ensure?: boolean } = {}): Promise<{ rows: ConversationItem[]; total: number; counts: ConversationCounts }> {
+    async list(project: string, view: ConversationView, opts: { batch?: number | null; search?: string; brand?: string | null; limit?: number; offset?: number; now?: Date; ensure?: boolean } = {}): Promise<{ rows: ConversationItem[]; total: number; counts: ConversationCounts; brands: BrandCount[] }> {
       let rows = build(project, opts.now, { ensure: opts.ensure ?? true });
       if (opts.batch) {
         const inBatch = new Set(db.select({ id: drafts.clientId }).from(drafts).where(and(eq(drafts.project, project), eq(drafts.batchId, opts.batch))).all().map((r) => r.id));
@@ -146,11 +156,13 @@ export function conversationsRepo(db: Db) {
       const n = (v: ConversationView) => rows.filter((r) => inView(v, r)).length;
       const counts: ConversationCounts = { needs_you: n("needs_you"), waiting: n("waiting"), all: n("all"), sequences: n("sequences") };
       const hit = opts.search?.trim() ? matches(project, opts.search) : null;
+      const brands = brandCounts(rows.filter((r) => inView(view, r)));
+      const brand = opts.brand?.trim().toLowerCase() || null;
       const shown = rows
-        .filter((r) => inView(view, r) && (hit === null || hit.has(r.client.id)))
+        .filter((r) => inView(view, r) && (hit === null || hit.has(r.client.id)) && (brand === null || r.brands.some((b) => b.toLowerCase() === brand)))
         .sort((a, b) => Number(NEEDS.has(b.state)) - Number(NEEDS.has(a.state)) || b.at.localeCompare(a.at) || a.client.id - b.client.id);
       const offset = opts.offset ?? 0;
-      return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit), total: shown.length, counts };
+      return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit), total: shown.length, counts, brands };
     },
 
     /** One conversation's row (the pane's header and its unsent message), or null when the client is not this project's. */
