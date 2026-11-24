@@ -57,6 +57,12 @@ export function matchesHiddenSearch(row: HiddenDialogDto, query: string): boolea
 type Memory = Pick<AutolinkStateDto, "recent" | "unlinked" | "hidden"> | undefined;
 
 /**
+ * P141 U2: the unlinked chats, the server's known ones or the autolink's memory, whichever holds more. While the cache is on every
+ * unlinked chat that wrote is a known row, so the memory is a subset of the server's; with it off the server knows none.
+ */
+const unlinkedCount = (linked: MessengerChatsDto["counts"], st: Memory, channel: MessengerChannelFilter): number => Math.max(linked.unlinked, notLinkedRows(st, channel).length);
+
+/**
  * The View menu's counts under a link state (P123 U3b): Needs you is the linked chats that wait plus the fresh undecided unlinked
  * ones; Waiting the linked chats whose newest message is ours; All every chat of the link state. Hidden chats are counted only
  * under Hidden, and only in All: a chat the owner said is not a client needs nothing.
@@ -64,7 +70,7 @@ type Memory = Pick<AutolinkStateDto, "recent" | "unlinked" | "hidden"> | undefin
 export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: Memory, channel: MessengerChannelFilter, link: MessengerLinkFilter): Record<MessengerView, number> | undefined {
   if (!linked) return undefined;
   const fresh = unlinkedRows(st, channel).length;
-  const notLinked = notLinkedRows(st, channel).length;
+  const notLinked = unlinkedCount(linked, st, channel);
   if (link === "hidden") return { needs_you: 0, waiting: 0, all: hiddenRows(st, channel).length };
   if (link === "unlinked") return { needs_you: fresh, waiting: 0, all: notLinked };
   if (link === "linked") return { needs_you: linked.needs_you, waiting: linked.waiting, all: linked.all };
@@ -74,6 +80,6 @@ export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: 
 /** The link filter's counts, in the channel asked: Any is the linked and the remembered unlinked chats (P123 U3b). */
 export function linkCounts(linked: MessengerChatsDto["counts"] | undefined, st: Memory, channel: MessengerChannelFilter): Record<MessengerLinkFilter, number> | undefined {
   if (!linked) return undefined;
-  const notLinked = notLinkedRows(st, channel).length;
+  const notLinked = unlinkedCount(linked, st, channel);
   return { any: linked.all + notLinked, linked: linked.all, unlinked: notLinked, hidden: hiddenRows(st, channel).length };
 }

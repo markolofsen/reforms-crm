@@ -12,6 +12,7 @@ import { sentence } from "@/lib/api/client";
 import { StatusMenu, type StatusAction } from "./status/status-menu";
 import type { useChatMoves } from "./status/use-moves";
 import { RecordSearch } from "./unlinked/record-search";
+import { dialogOf, useUnlinkedMoves } from "./unlinked/known-unlinked";
 
 /**
  * One linked chat on the panel (P71 M3, P102): a compact identity row with its channel mark, Notion state, newest message state
@@ -26,12 +27,15 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
   const chat = c.title || name;
   const done = () => setMode(null);
   const on = (a: StatusAction) => setMode(a === "change" ? "change" : a === "unlink" ? "unlink" : a === "hide-linked" ? "hide" : null);
+  // P141 U3: a known chat that is not linked offers Link, Create and Hide (decision 0049), not the linked chat's moves.
+  const unlinked = useUnlinkedMoves(project, dialogOf(c), moves);
   const notionState = notionIndicatorState(c);
   const notionMarker = notionState ? <IntegrationStatus compact className="shrink-0" detail={notionIdentityLine(c) ?? undefined} label="Notion" state={notionState} /> : null;
   return (
     <ConversationRow
       below={
         <>
+          {unlinked.panel && <div className="flex flex-col gap-2 border-t px-3 py-2 empty:hidden">{unlinked.panel}</div>}
           {mode === "change" && (
             <div className="border-t px-3 py-2">
               <RecordSearch autoFocus onCancel={done} onPick={(rec) => moves.change.mutate({ id: c.id, key: rec.key, name: chat }, { onSuccess: done })} project={project} />
@@ -39,7 +43,7 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
           )}
           {/* P105 S3: a move that deletes is reviewed in the one dialog; the sentence says what goes and what linking again brings back. */}
           <ReviewDialog
-            confirmLabel={mode === "hide" ? "Unlink, hide and delete" : "Unlink and delete"}
+            confirmLabel={mode === "hide" ? "Unlink, hide and delete" : "Unlink"}
             items={moves.unlink.isError ? [{ key: "failed", severity: "blocker", text: sentence(moves.unlink.error), action: { label: "Try again", onClick: () => moves.unlink.reset() } }] : []}
             lead={unlinkSentence({ name: chat, client: clientName(c), stored: c.stored, hide: mode === "hide" })}
             onConfirm={() => moves.unlink.mutate({ id: c.id, never: mode === "hide", name: chat }, { onSuccess: done })}
@@ -71,7 +75,7 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
         marker: notionMarker,
         data: { "data-chat": c.id },
       }}
-      trailing={c.channel !== "telegram_bot" ? <StatusMenu compact contact={c.contact} disabled={moves.pending} name={name} onAction={on} s={{ state: "linked", client: clientName(c) }} /> : undefined}
+      trailing={!c.client ? unlinked.menu ?? undefined : c.channel !== "telegram_bot" ? <StatusMenu compact contact={c.contact} disabled={moves.pending} name={name} onAction={on} s={{ state: "linked", client: clientName(c) }} /> : undefined}
     />
   );
 }

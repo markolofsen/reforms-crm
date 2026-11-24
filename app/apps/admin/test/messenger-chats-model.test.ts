@@ -37,17 +37,17 @@ describe("Chats: channel filter and views", () => {
     // Not linked keeps the old chat the fresh window drops, suggestions first.
     expect(notLinkedRows(st, "all").map((r) => r.chatId)).toEqual(["2", "1", "9", "+62"]);
     expect(hiddenRows(st, "telegram").map((h) => h.chatId)).toEqual(["3"]);
-    const server = { needs_you: 1, waiting: 2, all: 4 };
+    const server = { needs_you: 1, waiting: 2, all: 4, unlinked: 0 };
     expect(viewCounts(server, st, "all", "any")).toEqual({ needs_you: 4, waiting: 2, all: 8 });
     expect(viewCounts(server, st, "all", "linked")).toEqual({ needs_you: 1, waiting: 2, all: 4 });
     expect(viewCounts(server, st, "all", "unlinked")).toEqual({ needs_you: 3, waiting: 0, all: 4 });
     expect(viewCounts(server, st, "all", "hidden")).toEqual({ needs_you: 0, waiting: 0, all: 2 });
-    expect(viewCounts({ needs_you: 0, waiting: 1, all: 1 }, st, "telegram", "any")).toEqual({ needs_you: 2, waiting: 1, all: 4 });
+    expect(viewCounts({ needs_you: 0, waiting: 1, all: 1, unlinked: 0 }, st, "telegram", "any")).toEqual({ needs_you: 2, waiting: 1, all: 4 });
     expect(linkCounts(server, st, "all")).toEqual({ any: 8, linked: 4, unlinked: 4, hidden: 2 });
     expect(linkCounts(server, st, "telegram")).toEqual({ any: 7, linked: 4, unlinked: 3, hidden: 1 });
     expect(viewCounts(undefined, st, "all", "any")).toBeUndefined();
     expect(linkCounts(undefined, st, "all")).toBeUndefined();
-    expect(viewCounts({ needs_you: 0, waiting: 0, all: 0 }, undefined, "all", "any")).toEqual({ needs_you: 0, waiting: 0, all: 0 });
+    expect(viewCounts({ needs_you: 0, waiting: 0, all: 0, unlinked: 0 }, undefined, "all", "any")).toEqual({ needs_you: 0, waiting: 0, all: 0 });
   });
 
   it("names the three views in order (P123 U3b: the link state is a filter), and says the unlinked sentence once with its window", () => {
@@ -60,8 +60,8 @@ describe("Chats: channel filter and views", () => {
     // P138 verdict 9: the group heading is short; the sentence above is its tooltip.
     expect(unlinkedHeading({ count: 2, noLinked: false })).toBe("Not linked · 2");
     expect(unlinkedHeading({ count: 1, noLinked: true })).toBe("No linked chats yet · Not linked · 1");
-    expect(unlinkSentence({ name: "Anna", client: "Anna Lee", stored: 12, hide: false })).toBe("Unlink Anna from Anna Lee: its 12 stored messages and its draft are deleted. Linking again reloads the last 30 days.");
-    expect(unlinkSentence({ name: "Anna", client: "Anna Lee", stored: 1, hide: true })).toBe("Unlink and hide Anna (not a client): its 1 stored message and its draft are deleted. The Hub never links it by itself again. Linking again reloads the last 30 days.");
+    expect(unlinkSentence({ name: "Anna", client: "Anna Lee", stored: 12, hide: false })).toBe("Unlink Anna from Anna Lee: the chat stays in Messengers as not linked, with its 12 stored messages; the agent no longer reads it and the autopilot stops.");
+    expect(unlinkSentence({ name: "Anna", client: "Anna Lee", stored: 1, hide: true })).toBe("Unlink and hide Anna (not a client): its 1 stored message and its draft are deleted, and the Hub never links it by itself again. Linking again reloads the last 30 days.");
     expect(movedLine({ name: "Anna", to: "Bob" })).toBe("Moved Anna to Bob");
     expect(wroteLine({ at: "x", inbound: true }, "2 h ago")).toBe("wrote 2 h ago");
     expect(wroteLine({ at: "x", inbound: false }, "2 h ago")).toBe("you wrote 2 h ago");

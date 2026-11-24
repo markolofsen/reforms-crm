@@ -1,6 +1,6 @@
-import { changeChatClient, createChatRecord, createMessengerDraft, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, hideChat, linkChatRecord, listAccountDialogs, listMessengerChats, neverLinkChat, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft, undoChatClient, unhideChat, unlinkChat } from "@hub/api";
+import { addChatClientEmail, changeChatClient, createChatRecord, createMessengerDraft, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, hideChat, linkChatRecord, listAccountDialogs, listMessengerChats, neverLinkChat, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft, undoChatClient, unhideChat, unlinkChat } from "@hub/api";
 import { messengerChatDto, messengerChatsDto, messengerConversationDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChatsQuery } from "@hub/contract/messenger-panel";
-import { autolinkProposalsDroppedDto, autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
+import { chatEmailDto, autolinkProposalsDroppedDto, autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { readGenerated } from "../client";
 
 type MessengerChatsInput = Pick<MessengerChatsQuery, "filter"> & Partial<Pick<MessengerChatsQuery, "link" | "channel" | "q">>;
@@ -28,7 +28,7 @@ export const messengersApi = {
   findRecords: (project: string, q: string) => readGenerated(findAutolinkRecords(project, { q }), autolinkRecordsDto),
   linkRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; key: string; title?: string }) => readGenerated(linkChatRecord(project, body), autolinkLinkedDto),
   // P100: nobody in Notion matches: one Clients card from the chat (Name, Email, its username or number), then the link.
-  createRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title?: string; name: string; email: string }) =>
+  createRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title?: string; name: string; email?: string }) =>
     readGenerated(createChatRecord(project, body), autolinkLinkedDto),
   // P102: one account's dialogs marked against the picked record (Link a chat…), Change client and its Undo.
   dialogsOf: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; key: string }) => readGenerated(listAccountDialogs(project, body), userDialogsDto),
@@ -38,5 +38,7 @@ export const messengersApi = {
   hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => readGenerated(hideChat(project, body), autolinkHiddenDto),
   unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => readGenerated(unhideChat(project, body), autolinkHiddenDto),
   dropProposals: (project: string, items: { channel: "telegram_user" | "whatsapp"; chatId: string }[]) => readGenerated(dropHideProposals(project, { items }), autolinkProposalsDroppedDto),
+  /** P141 C4: the Email of a chat's client known only by the chat; an address another client has merges the two. */
+  addClientEmail: (project: string, id: number, email: string) => readGenerated(addChatClientEmail(project, id, { email }), chatEmailDto),
   unlinkChat: (project: string, id: number, never: boolean) => readGenerated((never ? neverLinkChat : unlinkChat)(project, id), chatUnlinkedDto),
 };

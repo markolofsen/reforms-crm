@@ -22,7 +22,11 @@ import { focusAgentRow } from "@/lib/focus";
 import { useManualMessengerDraft, useMessengerConversation, usePrepareReply } from "@/lib/data/messengers";
 import { isNotFound, sentence } from "@/lib/api/client";
 import { dayOf, formatDay, formatTime } from "@/lib/format";
-import { CHANNEL_LABEL, chatName, chatStateLine, notionIdentityLine, notionIndicatorState } from "../labels";
+import { CHANNEL_LABEL, chatName, chatStateLine, identityLine, notionIdentityLine, notionIndicatorState } from "../labels";
+import { CreateClient, RecordSearch } from "../unlinked/record-search";
+import { dialogOf, UnlinkedHeaderButtons } from "../unlinked/known-unlinked";
+import { useChatMoves } from "../status/use-moves";
+import { AddClientEmail } from "./add-email";
 import { MessengerDraft } from "../draft";
 import type { useChatActions } from "../use-chat-actions";
 
@@ -122,6 +126,13 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     const list = (data?.messages ?? []).map((m) => ({ key: String(m.id), at: m.at, channel: chat?.channel ?? "" }));
     setMarked({ chatId, keys: matchSources(refs, list), label });
   };
+  // P141 U3: a known chat that is not linked says who the person is and offers Link, Create and Hide in its header.
+  const moves = useChatMoves(project);
+  const dialog = chat ? dialogOf(chat) : null;
+  const [linking, setLinking] = useState<{ chatId: number; mode: "search" | "create" } | null>(null);
+  const linkMode = linking?.chatId === chatId ? linking.mode : null;
+  const stopLinking = () => setLinking(null);
+  const who = chat && !chat.client ? identityLine(chat.identity) : null;
   const marks = marked?.chatId === chatId ? { keys: marked.keys, label: marked.label, onClear: () => setMarked(null) } : null;
   const ringed = new Set(marks?.keys ?? []);
   const firstMark = marks?.keys[0] ?? null;
@@ -150,7 +161,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
   if (q.isPending) history = <ConversationHistoryState><Loading what="the conversation" /></ConversationHistoryState>;
   else if (q.isError && (!data || isNotFound(q.error))) {
     history = isNotFound(q.error) ? (
-      <ConversationHistoryState flush><EmptyState action={<ActionButton onClick={onBack} size="s" variant="secondary">Back to chats</ActionButton>} title="Chat not found">This conversation is no longer linked to this project.</EmptyState></ConversationHistoryState>
+      <ConversationHistoryState flush><EmptyState action={<ActionButton onClick={onBack} size="s" variant="secondary">Back to chats</ActionButton>} title="Chat not found">The Hub no longer knows this chat (it was hidden, or its copy expired).</EmptyState></ConversationHistoryState>
     ) : (
       <ConversationHistoryState><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the conversation" /></ConversationHistoryState>
     );
@@ -159,10 +170,20 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     history = (
       <>
         {q.isFetching && <ConversationRefreshing />}
+        {data.copy === "saved" && <ConversationHistorySummary>Showing the saved copy: Telegram did not answer in time.</ConversationHistorySummary>}
+        {dialog && linkMode && (
+          <ConversationHistoryNotice>
+            {linkMode === "search" ? (
+              <RecordSearch autoFocus onCancel={stopLinking} onLinked={(res) => { void moves.announce(res, dialog); stopLinking(); }} onPick={(rec) => moves.link.mutate({ ...dialog, rec }, { onSuccess: stopLinking })} project={project} r={dialog} />
+            ) : (
+              <CreateClient onDone={(res) => { void moves.announce(res, dialog); stopLinking(); }} project={project} r={dialog} />
+            )}
+          </ConversationHistoryNotice>
+        )}
         {marks && <MapMarksNote marks={marks} />}
         {q.isError && <ConversationHistoryNotice><ConversationStaleNotice detail={sentence(q.error)} onRetry={() => void q.refetch()} retrying={q.isFetching} /></ConversationHistoryNotice>}
         {earlier > 0 && <ConversationHistorySummary>Earlier: {earlier} messages are not shown.</ConversationHistorySummary>}
-        {messages.length === 0 ? <ConversationHistoryState flush><EmptyState title="No messages yet">New messages from this linked chat will appear here.</EmptyState></ConversationHistoryState> : <ConversationMessageList ariaLabel={`Messages with ${name}`}>{messages.reduce<ReactNode[]>((items, message, index) => {
+        {messages.length === 0 ? <ConversationHistoryState flush><EmptyState title="No messages yet">{chat?.client ? "New messages from this linked chat will appear here." : "New messages from this chat will appear here. Link it to a client to keep its history."}</EmptyState></ConversationHistoryState> : <ConversationMessageList ariaLabel={`Messages with ${name}`}>{messages.reduce<ReactNode[]>((items, message, index) => {
           const previous = messages[index - 1];
           const currentDay = dayOf(message.at);
           // Decision 0049 point 5: a day that holds a message only the Mac's WhatsApp app supplied says so once, on its divider.
@@ -181,7 +202,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     <ConversationFrame
       ariaLabel={`Conversation with ${name}`}
       composer={composer}
-      header={<ConversationHeader actions={<ConversationHeaderActions contact={chat?.contact} notionPageId={pageId} />} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts>{chat.client && <ClientMapLine onShowSources={showSources} subject={{ project, clientId: chat.client.id, name: chat.client.name || chat.client.email, email: chat.client.email, notionPageId: pageId }} />}<span>{CHANNEL_LABEL[chat.channel]}</span><span>{chatStateLine(chat)}</span>{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
+      header={<ConversationHeader actions={dialog ? <UnlinkedHeaderButtons moves={moves} onMode={(mode) => setLinking({ chatId, mode })} project={project} r={dialog} /> : <ConversationHeaderActions contact={chat?.contact} notionPageId={pageId} />} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts>{chat.client && <ClientMapLine onShowSources={showSources} subject={{ project, clientId: chat.client.id, name: chat.client.name || chat.client.email || "this client", email: chat.client.email, notionPageId: pageId }} />}<span>{CHANNEL_LABEL[chat.channel]}</span>{!chat.client && <span>Not linked</span>}{who && <span>{who}</span>}<span>{chatStateLine(chat)}</span>{chat.client && !chat.client.email && <AddClientEmail chatId={chatId} name={chat.client.name} project={project} />}{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
       testId="messenger-conversation"
       dataAgentRef={refOf("chat", chat?.id ?? chatId)}
       historyActions={!scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}

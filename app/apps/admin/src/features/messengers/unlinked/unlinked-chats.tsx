@@ -22,7 +22,7 @@ type Moves = ReturnType<typeof useChatMoves>;
 function UnlinkedRow({ project, r, now, moves }: { project: string; r: RecentDialogDto; now: number; moves: Moves }) {
   const { hide } = useHide(project);
   const [mode, setMode] = useState<"search" | "create" | null>(null);
-  const suggested = r.candidates.filter((c) => c.email);
+  const suggested = r.candidates;
   const on = (a: StatusAction) => {
     if (a === "link") setMode("search");
     else if (a === "create") setMode("create");

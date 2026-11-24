@@ -27,6 +27,7 @@ const chat = (patch: Partial<MessengerChatDto> = {}): MessengerChatDto => ({
   autolinked: null,
   triage: { judged: 0, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 },
   contact: { telegramUsername: null, telegramPhone: null, whatsappPhone: null },
+  identity: { phone: null, username: null, profileName: null, firstSeen: "2026-11-20T08:00:00.000Z", account: null, suggestions: [] },
   ...patch,
 });
 

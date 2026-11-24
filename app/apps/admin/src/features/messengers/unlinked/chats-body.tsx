@@ -68,7 +68,7 @@ function Lists(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkStateDto 
     return hidden.length === 0 && p.searchEmpty ? p.searchEmpty : <HiddenChats moves={moves} now={now} project={project} rows={hidden} unnamed={channel === "all" && !searchQuery ? (st?.hiddenUnnamed ?? 0) : 0} />;
   }
   const linkedList =
-    link !== "unlinked" && d.chats.length > 0 ? (
+    d.chats.length > 0 ? (
       <ConversationList ariaLabel="Chats">
         {d.chats.map((c) => (
           <ChatRow c={c} key={c.id} moves={moves} now={now} open={c.id === p.chatId} project={project} replace={p.chatId !== null} to={p.chatTo(c.id)} />
@@ -90,16 +90,19 @@ function Lists(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkStateDto 
 function UnlinkedPart(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkStateDto | undefined; linkedShown: boolean }) {
   const { st, channel, now, moves, project, searchQuery } = p;
   if (!st) return null;
+  // P141 U3: a chat the server lists already (a known chat, linked or not) is not repeated from the autolink's memory.
+  const listed = new Set(p.d.chats.map((c) => `${c.channel}:${c.chatId}`));
+  const fresh = (r: { channel: string; chatId: string }) => !listed.has(`${r.channel}:${r.chatId}`);
   // P128 X5: the agent's proposed hides, said once above the chats they name, on this channel only.
   const proposed = <ProposedHides project={project} proposals={st.proposals.filter((x) => channel === "all" || (channel === "whatsapp") === (x.channel === "whatsapp"))} />;
   if (p.view === "needs_you") {
-    const fresh = unlinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
-    if (fresh.length === 0) return null;
+    const rows = unlinkedRows(st, channel).filter((row) => fresh(row) && matchesRecentSearch(row, searchQuery));
+    if (rows.length === 0) return null;
     return (
-      <UnlinkedChats action={proposed} freshDays={st.freshDays} moves={moves} noLinked={!p.linkedShown && p.d.counts.all === 0} now={now} project={project} rows={fresh} />
+      <UnlinkedChats action={proposed} freshDays={st.freshDays} moves={moves} noLinked={!p.linkedShown && p.d.counts.all === 0} now={now} project={project} rows={rows} />
     );
   }
-  const all = notLinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
+  const all = notLinkedRows(st, channel).filter((row) => fresh(row) && matchesRecentSearch(row, searchQuery));
   const { shown, older } = foldOlder(all, now, searchQuery !== "");
   if (shown.length === 0 && older === 0) return null;
   return (

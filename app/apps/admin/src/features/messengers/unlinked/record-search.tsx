@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import type { AutolinkLinkedDto, AutolinkRecordDto, RecentDialogDto } from "@hub/contract/messengers";
+import { chatClientTitle } from "@hub/config/profile";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { useDebounced } from "@/hooks/use-debounced";
@@ -10,17 +11,18 @@ import { createIdentityLine, createLabel, RECORD_SEARCH_PLACEHOLDER } from "../l
 export const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this client";
 
 /**
- * P100: nobody in Notion matches, so the owner makes the card here: Name (the chat's name), Email (a link needs one: it is how Mail
- * knows the person) and the chat's own Telegram username or WhatsApp number, written to the card. Then the chat is linked to it.
+ * P100: nobody in Notion matches, so the owner makes the card here: Name (the chat's name, or the person's own name when it is a
+ * real one), an Email when he has one (P141 C3: a chat alone is enough; an address added later merges, C4) and the chat's own
+ * Telegram username or WhatsApp number, written to the card. Then the chat is linked to it.
  */
 export function CreateClient({ project, r, onDone }: { project: string; r: RecentDialogDto; onDone: (res: AutolinkLinkedDto) => void }) {
   const id = useId();
-  const [name, setName] = useState(r.title);
+  const [name, setName] = useState(chatClientTitle({ channel: r.channel === "whatsapp" ? "whatsapp" : "telegram", name: r.title, username: r.username, phone: r.phone, chatId: r.chatId }));
   const [email, setEmail] = useState("");
   const create = useCreateRecord(project, onDone);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim() && email.trim()) create.mutate({ channel: r.channel, account: r.account, chatId: r.chatId, title: r.title, name: name.trim(), email: email.trim() });
+    if (name.trim()) create.mutate({ channel: r.channel, account: r.account, chatId: r.chatId, title: r.title, name: name.trim(), ...(email.trim() ? { email: email.trim() } : {}) });
   };
   const identity = createIdentityLine(r);
   return (
@@ -33,8 +35,8 @@ export function CreateClient({ project, r, onDone }: { project: string; r: Recen
         <label className="sr-only" htmlFor={`${id}-email`}>
           Email
         </label>
-        <Input autoComplete="off" className="control-m sm:w-64" id={`${id}-email`} onChange={(e) => setEmail(e.target.value)} placeholder="Email (how Mail knows them)" required type="email" value={email} />
-        <ActionButton disabled={create.isPending || !name.trim() || !email.trim()} size="s" type="submit" variant="primary">
+        <Input autoComplete="off" className="control-m sm:w-64" id={`${id}-email`} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" type="email" value={email} />
+        <ActionButton disabled={create.isPending || !name.trim()} size="s" type="submit" variant="primary">
           Create and link
         </ActionButton>
       </div>

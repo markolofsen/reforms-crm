@@ -260,4 +260,8 @@ export const useRecordSearch = (project: string, term: string) =>
 
 /** Create a Notion client record for an unlinked chat and link it (P84). */
 export const useCreateRecord = (project: string, onSuccess: (res: AutolinkLinkedDto) => void) =>
-  useCommand({ project, touches: MESSENGERS, run: (body: Linkable & { name: string; email: string }) => messengersApi.createRecord(project, body), onSuccess });
+  useCommand({ project, touches: MESSENGERS, run: (body: Linkable & { name: string; email?: string }) => messengersApi.createRecord(project, body), onSuccess });
+
+/** P141 C4: "Add email…" on a chat's client known only by the chat (the server merges when another client has the address). */
+export const useAddClientEmail = (project: string, chatId: number, onSuccess: (r: { merged: boolean }) => void) =>
+  useCommand({ project, touches: MESSENGERS, run: (email: string) => messengersApi.addClientEmail(project, chatId, email), onSuccess });

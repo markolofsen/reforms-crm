@@ -26,7 +26,7 @@ import { MapDrawing, MapLegend, MapOutline } from "./client-map-view";
  * changed since the previous version with the agent's reasons, and the outline, whose source buttons show the node's messages in
  * the thread (`onShowSources`). The map is read with the header; a new version moves the client row (the live `clients` topic).
  */
-export type MapSubject = { project: string; clientId: number; name: string; email: string; notionPageId?: string | null };
+export type MapSubject = { project: string; clientId: number; name: string; email: string | null; notionPageId?: string | null };
 type ShowSources = (refs: string[], label: string) => void;
 
 export function ClientMapLine({ subject, onShowSources }: { subject: MapSubject; onShowSources?: ShowSources }) {

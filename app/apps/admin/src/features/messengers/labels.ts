@@ -109,8 +109,6 @@ export function whyLine(r: Pick<RecentDialogDto, "why" | "by" | "candidates">): 
   switch (r.why) {
     case "ambiguous":
       return `Its ${by} belongs to ${n} clients: pick the right one.`;
-    case "no_email":
-      return `Its ${by} matches a client with no email in Notion: add one, or link it here.`;
     case "off":
       return `Its ${by} matches this client. Autolink is off for this project, so it waits for your Link.`;
     case "failed":
@@ -209,11 +207,20 @@ export function notionStatusLine(c: Pick<MessengerChatDto, "client">): string | 
 const messages = (n: number): string => (n === 1 ? "1 stored message" : `${n} stored messages`);
 
 /**
- * The one sentence of Unlink (and of Hide on a linked chat), shown in place before anything is deleted (`ui-specifications.md`
- * rule 5d): what goes (the stored messages and the draft) and what linking again brings back.
+ * The one sentence of Unlink and of Hide on a linked chat, shown in place before anything changes (`ui-specifications.md` rule 5d).
+ * Decision 0049: Unlink only takes the client away (the chat stays, not linked, its copy kept for the cache's days); Hide forgets
+ * the chat: its stored messages and its draft are deleted.
  */
 export const unlinkSentence = (o: { name: string; client: string; stored: number; hide: boolean }): string =>
-  `${o.hide ? "Unlink and hide" : "Unlink"} ${o.name} ${o.hide ? "(not a client)" : `from ${o.client}`}: its ${messages(o.stored)} and its draft are deleted. ${o.hide ? "The Hub never links it by itself again. " : ""}Linking again reloads the last ${IMPORT_DAYS} days.`;
+  o.hide
+    ? `Unlink and hide ${o.name} (not a client): its ${messages(o.stored)} and its draft are deleted, and the Hub never links it by itself again. Linking again reloads the last ${IMPORT_DAYS} days.`
+    : `Unlink ${o.name} from ${o.client}: the chat stays in Messengers as not linked, with its ${messages(o.stored)}; the agent no longer reads it and the autopilot stops.`;
 
 /** The toast after Change client: both names. The chat's messages stay with it. */
 export const movedLine = (o: { name: string; to: string }): string => `Moved ${o.name} to ${o.to}`;
+
+/** P141 U3: who the person of a chat is, as the messenger shows it: "+966 …, @user, calls themselves Qimma"; null when nothing is known. */
+export function identityLine(i: Pick<MessengerChatDto["identity"], "phone" | "username" | "profileName">): string | null {
+  const parts = [i.phone, i.username ? `@${i.username.replace(/^@/, "")}` : null, i.profileName ? `calls themselves ${i.profileName}` : null].filter((x): x is string => Boolean(x));
+  return parts.length ? parts.join(", ") : null;
+}
