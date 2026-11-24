@@ -79,12 +79,13 @@ export function BatchLine({ project, batchId, awaiting, checked, request, to }: 
   return (
     <section aria-label={`Batch ${request}`} className="flex flex-col gap-2 border-b px-3 py-2" data-testid="batch-line">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <p className="min-w-0 flex-1 truncate">
-          {plural(awaiting, "draft")} from{" "}
-          <AppLink className="font-medium" to={to}>
-            „{request}“
+        {/* The request link truncates itself: clipped inside a truncated line, a narrow list column (a conversation open) left it out of reach. */}
+        <p className="flex min-w-0 flex-1 items-baseline gap-1">
+          <span className="shrink-0 whitespace-nowrap">{plural(awaiting, "draft")} from</span>
+          <AppLink className="min-w-0 max-w-full font-medium" to={to}>
+            <span className="min-w-0 truncate">„{request}“</span>
           </AppLink>
-          {checked > 0 && checked < awaiting && <span className="text-muted-foreground"> · {checked} Checked</span>}
+          {checked > 0 && checked < awaiting && <span className="shrink-0 whitespace-nowrap text-muted-foreground">· {checked} Checked</span>}
         </p>
         {!f.running && (
           <ActionButton aria-disabled={checked === 0 || f.step.k === "reading"} className="aria-disabled:opacity-64" onClick={() => checked > 0 && f.open()} size="s" tooltip={checked === 0 ? "Check each draft first (C on its card)" : "Read the Checked drafts' checks, then send them once"} variant="secondary">
