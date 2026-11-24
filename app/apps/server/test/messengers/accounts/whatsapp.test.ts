@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
+import { createRepos, liveSeq, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeWaSocket, type WaAuthFiles } from "@hub/messengers";
 import { allowChat, humanActor, linkUserChat } from "@hub/messengers/human";
 import { testApp } from "../../support/runtime";
@@ -141,12 +141,21 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     expect(await wa?.refill("p", { chatId: ANNA, jid: null })).toBe(0);
     await wa?.stop();
     const appRows = [{ channel: "whatsapp" as const, account: ACCOUNT, chatId: ANNA, remoteMessageId: "APP1", kind: "text", text: "from the Mac's app", sentAt: "2026-11-24T11:50:40.000Z", direction: "in" as const, source: "wa_app" as const }];
-    const reader = { state: () => ({ state: "on" as const }), read: (chat: { chatId: string }) => (chat.chatId === ANNA ? appRows : []) };
+    let reads = 0;
+    const reader = { state: () => ({ state: "on" as const }), read: (chat: { chatId: string }) => ((reads += 1), chat.chatId === ANNA ? appRows : []) };
     wa = await startWhatsApp({ repos, env: {}, dir, sockets: (auth: WaAuthFiles) => ((socks.push(new FakeWaSocket(auth)), last())), appReader: () => reader });
     expect(wa.appHistory()).toMatchObject({ state: "on", cacheDays: 30 });
     await allowChat(repos, humanActor("test"), { project: "p", channel: "whatsapp", chatId: ANNA });
     expect(await wa.refill("p", { chatId: ANNA, jid: null })).toBe(1);
+    // Within a minute the app is not read again: a conversation read per live change must not loop (2026-11-24, saas).
+    const readsAfterFirst = reads;
     expect(await wa.refill("p", { chatId: ANNA, jid: null })).toBe(0);
+    expect(reads).toBe(readsAfterFirst);
+    // Refresh forces the read; nothing new is no write: no row, no chat update, no live bump.
+    const seq = liveSeq(handle.db);
+    expect(await wa.refill("p", { chatId: ANNA, jid: null }, { force: true })).toBe(0);
+    expect(reads).toBe(readsAfterFirst + 1);
+    expect(liveSeq(handle.db)).toBe(seq);
     expect((await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: ANNA }], { limit: 5 }))[0]).toMatchObject({ text: "from the Mac's app", source: "wa_app" });
   });
 

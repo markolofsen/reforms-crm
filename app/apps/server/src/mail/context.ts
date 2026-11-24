@@ -34,7 +34,7 @@ export type MailContext = {
   /** P140 R5: one pass of the Sent reconciler now (Refresh). */
   sentPass?: () => Promise<void>;
   /** P140 R5 (P141 W3): refills one WhatsApp chat's cache from the Mac's WhatsApp app; the rows it stored. */
-  refillWhatsApp?: (project: string, chat: { chatId: string; jid: string | null }) => Promise<number>;
+  refillWhatsApp?: (project: string, chat: { chatId: string; jid: string | null }, opts?: { force?: boolean }) => Promise<number>;
   /** P131 O5: the Notion Clients records in memory, for the client's Telegram and WhatsApp. */
   directory?: MessengerDirectory;
 };

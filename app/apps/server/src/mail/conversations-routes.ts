@@ -150,7 +150,7 @@ export function conversationRoutes({ repos, projects, mail, directory, reader, s
         const numbers = new Set((await repos.messengers.identifiersOf(slug, f.client.id)).filter((x) => x.kind === "whatsapp").map((x) => x.value));
         for (const row of (await repos.messengers.allowedChats(slug)).filter((r) => r.channel === "whatsapp" && numbers.has(r.chatId))) {
           chats++;
-          stored += await refillWhatsApp(slug, { chatId: row.chatId, jid: row.jid }).catch(() => 0);
+          stored += await refillWhatsApp(slug, { chatId: row.chatId, jid: row.jid }, { force: true }).catch(() => 0);
         }
       }
       const ms = Date.now() - t0;

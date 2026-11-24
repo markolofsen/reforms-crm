@@ -92,9 +92,11 @@ export interface WhatsAppHandle {
   appHistory(): WaAppHistoryDto;
   /**
    * P141 W3 (decision 0049 point 3): opening a chat refills its cache from the Mac's WhatsApp app (read only, local, no socket),
-   * through the one ingest. Returns how many rows it stored; 0 when the app is off or holds nothing new.
+   * through the one ingest. Returns how many rows it stored; 0 when the app is off or holds nothing new. A chat is read from the app at
+   * most once per `REFILL_EVERY_MS` (every conversation read calls it, and the admin re-reads on each live change); `force`, the
+   * conversation's Refresh, reads it now.
    */
-  refill(project: string, chat: WaAddress): Promise<number>;
+  refill(project: string, chat: WaAddress, opts?: { force?: boolean }): Promise<number>;
   project(): { project: string } | { project: null; reason: string };
   /** The live adapter of a connected number (the picker and the link read through it), else undefined. It has no send. */
   adapter(account: string): WhatsAppAdapter | undefined;
@@ -108,6 +110,9 @@ export interface WhatsAppHandle {
   disconnect(account: string): Promise<boolean>;
   stop(): Promise<void>;
 }
+
+/** P141 W3 fix (2026-11-24): a chat is read from the Mac's app at most once a minute, unless the conversation's Refresh asks. */
+export const REFILL_EVERY_MS = 60_000;
 
 /**
  * P141 W3: the Mac's WhatsApp app, probed once at start. While it is readable the cache keeps 30 days (it refills a chat); else 90
@@ -134,6 +139,8 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   const env = o.env ?? process.env;
   const dir = o.dir ?? sessionsDir(env);
   const now = o.now ?? (() => new Date());
+  /** When each chat was last read from the Mac's app (memory only): the refill's throttle. */
+  const refilledAt = new Map<string, number>();
   const run = o.runner ?? runPoller;
   const slots = new Map<string, Slot>();
   let sockets = o.sockets;
@@ -238,8 +245,12 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   return {
     status: () => (project ? { state: "on", project, accounts: [...slots.values()].map((s) => ({ ...s.st })), appHistory: appHistory() } : { state: "off", reason, accounts: [] }),
     appHistory,
-    async refill(p, chat) {
+    async refill(p, chat, opts) {
       if (!reader || p !== project) return 0;
+      const key = `${p}|${chat.chatId}`;
+      const last = refilledAt.get(key);
+      if (!opts?.force && last !== undefined && now().getTime() - last < REFILL_EVERY_MS) return 0;
+      refilledAt.set(key, now().getTime());
       // The chat is read by its account: the one stored on its row, else the only connected number.
       const row = await o.repos.messengers.chat(p, CHANNEL, chat.chatId);
       const account = row?.account ?? (slots.size === 1 ? [...slots.keys()][0] : undefined);

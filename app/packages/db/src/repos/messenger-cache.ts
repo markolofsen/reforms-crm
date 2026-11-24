@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { messengerChats, messengerMessages, type MessengerChannel } from "../schema";
 import { write, type WriteTx } from "../tx";
@@ -8,15 +8,23 @@ export type ChatFact = { inboundAt?: string | null; account?: string | null; jid
 
 type MessengerMessage = typeof messengerMessages.$inferSelect;
 
-/** The fact on a linked chat's row: `last_inbound_at` only moves forward; a null leaves what is stored. */
+/**
+ * The fact on a linked chat's row: `last_inbound_at` only moves forward; a null leaves what is stored. The row is written only when a
+ * value changes: an UPDATE that matches fires the `live_*` trigger, and a refill that brought nothing new must not wake the admin.
+ */
 function noteFact(tx: WriteTx, project: string, channel: MessengerChannel, chatId: string, f: ChatFact): boolean {
+  const changes = [
+    ...(f.inboundAt ? [sql`(${messengerChats.lastInboundAt} is null or ${messengerChats.lastInboundAt} < ${f.inboundAt})`] : []),
+    ...(f.account ? [sql`${messengerChats.account} is not ${f.account}`] : []),
+    ...(f.jid ? [sql`${messengerChats.jid} is not ${f.jid}`] : []),
+  ];
   const set = {
     ...(f.inboundAt ? { lastInboundAt: sql<string>`case when ${messengerChats.lastInboundAt} is null or ${messengerChats.lastInboundAt} < ${f.inboundAt} then ${f.inboundAt} else ${messengerChats.lastInboundAt} end` } : {}),
     ...(f.account ? { account: f.account } : {}),
     ...(f.jid ? { jid: f.jid } : {}),
   };
-  if (!Object.keys(set).length) return false;
-  return tx.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId))).run().changes > 0;
+  if (!changes.length) return false;
+  return tx.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId), or(...changes))).run().changes > 0;
 }
 
 /**
@@ -58,7 +66,8 @@ export function messengerCacheRepo(db: Db) {
     },
     /** An edit (WhatsApp's `editedMessage`) replaces the text of the stored row; false when no such row is cached. */
     async editMessageText(project: string, channel: MessengerChannel, chatId: string, remoteMessageId: string, text: string): Promise<boolean> {
-      return db.update(messengerMessages).set({ text }).where(and(msgsOf(project, channel, chatId), eq(messengerMessages.remoteMessageId, remoteMessageId))).run().changes > 0;
+      // The same text again is no edit: no write, no `live_*` bump.
+      return db.update(messengerMessages).set({ text }).where(and(msgsOf(project, channel, chatId), eq(messengerMessages.remoteMessageId, remoteMessageId), sql`${messengerMessages.text} is not ${text}`)).run().changes > 0;
     },
     /** The chat's oldest cached message, or null: the anchor of WhatsApp's on-demand history, which answers only what came before it. */
     async oldestMessage(project: string, channel: MessengerChannel, chatId: string): Promise<MessengerMessage | null> {
