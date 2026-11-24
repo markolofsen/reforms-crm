@@ -54,6 +54,7 @@ import type {
   Sequences,
   StatusBody,
   StopEnrollmentBody,
+  StuckClients,
   Timeline,
   ToneBody,
   UndoBatchParams,
@@ -1226,6 +1227,48 @@ export const getClientMap = async (slug: string,
     id: number, options?: Parameters<typeof hubMutator>[1]): Promise<getClientMapResponse> => {
 
   return hubMutator<getClientMapResponse>(getGetClientMapUrl(slug,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type listStuckClientsResponse200 = {
+  data: StuckClients
+  status: 200
+}
+
+export type listStuckClientsResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type listStuckClientsResponseSuccess = (listStuckClientsResponse200) & {
+  headers: Headers;
+};
+export type listStuckClientsResponseError = (listStuckClientsResponse400) & {
+  headers: Headers;
+};
+
+export type listStuckClientsResponse = (listStuckClientsResponseSuccess | listStuckClientsResponseError)
+
+export const getListStuckClientsUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/client-maps/stuck`
+}
+
+/**
+ * @summary List the clients whose map has a blocked node or one waiting a week
+ */
+export const listStuckClients = async (slug: string, options?: Parameters<typeof hubMutator>[1]): Promise<listStuckClientsResponse> => {
+
+  return hubMutator<listStuckClientsResponse>(getListStuckClientsUrl(slug),
   {
     ...options,
     method: 'GET'

@@ -384,6 +384,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@hub/diagram':
+        specifier: workspace:*
+        version: link:../../packages/diagram
       '@hub/knowledge':
         specifier: workspace:*
         version: link:../../packages/knowledge

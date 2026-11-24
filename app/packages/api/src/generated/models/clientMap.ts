@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { ClientMapPrevious } from './clientMapPrevious';
+import type { ClientMapReasons } from './clientMapReasons';
+import type { ClientMapSources } from './clientMapSources';
 
 export interface ClientMap {
   /**
@@ -14,6 +16,7 @@ export interface ClientMap {
      */
   clientId: number;
   name: string;
+  email: string;
   /** @nullable */
   source: string | null;
   /** @nullable */
@@ -24,4 +27,6 @@ export interface ClientMap {
      * @maximum 9007199254740991
      */
   versions: number;
+  sources: ClientMapSources;
+  reasons: ClientMapReasons;
 }

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./map": "./src/map.ts",
+    "./map-status": "./src/map-status.ts",
     "./render": "./src/render.ts"
   },
   "scripts": {

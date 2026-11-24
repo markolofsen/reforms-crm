@@ -2237,6 +2237,42 @@
         }
       }
     },
+    "/api/projects/{slug}/client-maps/stuck": {
+      "get": {
+        "operationId": "listStuckClients",
+        "summary": "List the clients whose map has a blocked node or one waiting a week",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List the clients whose map has a blocked node or one waiting a week",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StuckClients"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/projects/{slug}/clients/{id}/draft": {
       "post": {
         "operationId": "createManualMailDraft",
@@ -14215,6 +14251,9 @@
           "name": {
             "type": "string"
           },
+          "email": {
+            "type": "string"
+          },
           "source": {
             "type": [
               "string",
@@ -14254,15 +14293,130 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasons": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "clientId",
           "name",
+          "email",
           "source",
           "updatedAt",
           "previous",
-          "versions"
+          "versions",
+          "sources",
+          "reasons"
+        ],
+        "additionalProperties": false
+      },
+      "StuckClients": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "waitingDays": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clientId": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "nodes": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "blocked",
+                          "waiting"
+                        ]
+                      },
+                      "since": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label",
+                      "state",
+                      "since"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "clientId",
+                "name",
+                "email",
+                "nodes"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "project",
+          "waitingDays",
+          "clients"
         ],
         "additionalProperties": false
       },

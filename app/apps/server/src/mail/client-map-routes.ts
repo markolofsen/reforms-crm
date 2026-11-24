@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { stuckNodes } from "@hub/diagram/map";
+import { stuckNodes } from "@hub/diagram/map-status";
 import { clientMapDto, stuckClientsDto, type StuckClientDto } from "@hub/contract/client-map";
 import { sendParam, slugParam } from "@hub/contract/requests";
 import { notFound, v } from "../http/http";

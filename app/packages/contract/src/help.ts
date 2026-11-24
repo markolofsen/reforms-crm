@@ -92,7 +92,7 @@ export function messengerPhrase(project: string, chat: { channel: string; chatId
 }
 
 /** One line, no control character: what reaches the dock terminal never holds a line break (so nothing is entered by itself). */
-const oneLine = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f  ]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+const oneLine = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 const clientOf = (c: { name: string; email: string }): string => {
   const name = oneLine(c.name, 80);
   const email = oneLine(c.email, 320);

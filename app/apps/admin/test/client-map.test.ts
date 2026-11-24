@@ -38,7 +38,7 @@ describe("the dock phrases (verdicts 7a, 7d)", () => {
     expect(mapCorrectPhrase({ name: "Ana Lopes", email: "ana@x.example" })).toBe("redraw the map of Ana Lopes <ana@x.example>: ");
     expect(mapCorrectPhrase({ name: "ana@x.example", email: "ana@x.example" })).toBe("redraw the map of ana@x.example: ");
     expect(mapDrawPhrase({ name: "Ana\nLopes\r", email: "ana@x.example" })).toBe("draw the map of Ana Lopes <ana@x.example> from their whole history");
-    expect(mapCorrectPhrase({ name: "A B", email: "a@x" })).not.toMatch(/[\r\n ]/);
+    expect(mapCorrectPhrase({ name: "A\u2028B", email: "a@x" })).not.toMatch(/[\r\n\u2028]/);
   });
 });
 

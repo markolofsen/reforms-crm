@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkClientMap, diffMaps, MAP_LIMITS, mapCounts, mapOutline, nextStepOf, notionMapSource, parseSourceRef, stuckNodes, whyNeeded } from "../src/map";
+import { checkClientMap, diffMaps, MAP_LIMITS, mapOutline, notionMapSource, parseSourceRef, whyNeeded } from "../src/map";
+import { mapCounts, nextStepOf, stuckNodes } from "../src/map-status";
 
 // P135 verdicts 5 and 6: the server's check of a client map (a strict subset of Mermaid's flowchart plus the shape rules).
 const GOOD = `flowchart TD
@@ -47,6 +48,7 @@ describe("checkClientMap", () => {
     ["flowchart TD\n a[A] --> b[one two three four five six seven]:::open", 2, "words"],
     ["flowchart TD\n a[A] --> b[ana@example.com]:::open", 2, "address or phone"],
     ["flowchart TD\n a[A] --> b[Call +351 912 345 678]:::open", 2, "address or phone"],
+    ["flowchart TD\n a[A] --> b[2026-11-30 or 912 345 678]:::open", 2, "address or phone"],
     ["flowchart TD\n a[A] --> a", 2, "itself"],
     ["flowchart TD\n a[A] -- text --> b[B]:::open", 2, "edge"],
     ["flowchart TD\n subgraph s[S]\n subgraph t[T]\n end\n end", 3, "nest"],

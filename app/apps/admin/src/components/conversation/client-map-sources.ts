@@ -1,4 +1,5 @@
-import { mapCounts, parseSourceRef, type MapClass, type MapGraph } from "@hub/diagram/map";
+import { parseSourceRef, type MapClass, type MapGraph } from "@hub/diagram/map";
+import { mapCounts } from "@hub/diagram/map-status";
 
 /**
  * P136 verdict 7c: which messages of the open thread a map node rests on. A node's refs (its `%% src` line) are Message-IDs or
