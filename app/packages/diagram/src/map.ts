@@ -279,7 +279,7 @@ export function checkClientMap(source: string, o: CheckOptions = {}): MapCheck {
   }
 }
 
-export interface OutlineLine { depth: number; label: string; state: MapClass | null; via: string | null }
+export interface OutlineLine { id: string; depth: number; label: string; state: MapClass | null; via: string | null }
 
 /** The map as an indented outline from the client down (first path wins), for a reader, the text fallback and `hub client map`. */
 export function mapOutline(g: MapGraph): OutlineLine[] {
@@ -291,7 +291,7 @@ export function mapOutline(g: MapGraph): OutlineLine[] {
     seen.add(id);
     const n = byId.get(id);
     if (!n) return;
-    lines.push({ depth, label: n.label, state: n.cls, via });
+    lines.push({ id, depth, label: n.label, state: n.cls, via });
     for (const e of g.edges) if (e.from === id) walk(e.to, depth + 1, e.label);
   };
   walk(g.root, 0, null);
@@ -389,10 +389,9 @@ const ISO_DAY = /\b(\d{4}-\d{2}-\d{2})\b/;
  */
 export function nextStepOf(g: MapGraph): string | null {
   const parents = new Set(g.edges.map((e) => e.from));
-  const byLabel = new Map(g.nodes.map((n) => [n.id, n]));
-  const order = mapOutline(g).map((l) => l.label);
-  const leaves = g.nodes.filter((n) => n.id !== g.root && !parents.has(n.id) && byLabel.has(n.id));
-  const inOrder = (list: MapNode[]) => [...list].sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+  const order = mapOutline(g).map((l) => l.id);
+  const leaves = g.nodes.filter((n) => n.id !== g.root && !parents.has(n.id));
+  const inOrder = (list: MapNode[]) => [...list].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   const open = inOrder(leaves.filter((n) => n.cls === "open"));
   const dated = open.flatMap((n) => {
     const d = ISO_DAY.exec(n.label)?.[1];

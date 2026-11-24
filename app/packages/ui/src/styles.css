@@ -387,6 +387,19 @@
 .client-map[data-size="actual"] svg {
   max-width: none;
 }
+/* P136 verdict 7e: the legend's swatch of each state, the same token as the drawing's border; its word is beside it. */
+.client-map-swatch[data-state="open"] {
+  border-color: var(--info);
+}
+.client-map-swatch[data-state="waiting"] {
+  border-color: var(--warning);
+}
+.client-map-swatch[data-state="done"] {
+  border-color: var(--success);
+}
+.client-map-swatch[data-state="blocked"] {
+  border-color: var(--destructive);
+}
 
 .markdown-editor-content.ProseMirror {
   color: var(--foreground);

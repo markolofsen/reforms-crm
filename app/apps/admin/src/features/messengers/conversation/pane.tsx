@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MESSENGER_TEXT_MAX } from "@hub/config/chat-rules";
 import { composerStateOf } from "@hub/contract/composer";
 import type { MessengerConversationMessageDto } from "@hub/contract/messenger-panel";
@@ -12,6 +12,10 @@ import { ConversationComposerEditor } from "@hub/ui/product/composer/editor";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { useConversationScroll } from "@hub/ui/product/conversation/scroll";
 import { ConversationHeaderActions } from "@/components/conversation/header-actions";
+import { ClientMapLine } from "@/components/conversation/client-map";
+import { MapMarksNote } from "@/components/conversation/client-map-view";
+import { matchSources } from "@/components/conversation/client-map-sources";
+import { cn } from "@hub/ui/cn";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { notionPageIdOf } from "@/lib/notion";
 import { focusAgentRow } from "@/lib/focus";
@@ -24,10 +28,10 @@ import type { useChatActions } from "../use-chat-actions";
 
 type Actions = ReturnType<typeof useChatActions>;
 
-function Message({ m, name }: { m: MessengerConversationMessageDto; name: string }) {
+function Message({ m, name, marked }: { m: MessengerConversationMessageDto; name: string; marked: boolean }) {
   const incoming = m.direction === "in";
   return (
-    <ConversationMessage author={incoming ? name : "You"} dateTime={m.at} direction={m.direction} hidden={m.hidden} testId="messenger-conversation-message" time={formatTime(m.at)}>
+    <ConversationMessage author={incoming ? name : "You"} bubbleClassName={cn(marked && "ring-2 ring-ring/40 ring-offset-2 ring-offset-background")} dateTime={m.at} direction={m.direction} hidden={m.hidden} id={`mm-${m.id}`} testId="messenger-conversation-message" time={formatTime(m.at)}>
       <ConversationText format={m.format} text={m.text.trim() || `(${m.kind})`} />
     </ConversationMessage>
   );
@@ -112,6 +116,20 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
   const restoreListFocus = () => {
     focusAgentRow(refOf("chat", chatId));
   };
+  // P136 verdict 7c: a map node's sources, ringed in this chat ("YYYY-MM-DD <channel>" of this chat's channel).
+  const [marked, setMarked] = useState<{ chatId: number; keys: string[]; label: string } | null>(null);
+  const showSources = (refs: string[], label: string) => {
+    const list = (data?.messages ?? []).map((m) => ({ key: String(m.id), at: m.at, channel: chat?.channel ?? "" }));
+    setMarked({ chatId, keys: matchSources(refs, list), label });
+  };
+  const marks = marked?.chatId === chatId ? { keys: marked.keys, label: marked.label, onClear: () => setMarked(null) } : null;
+  const ringed = new Set(marks?.keys ?? []);
+  const firstMark = marks?.keys[0] ?? null;
+  useEffect(() => {
+    if (!firstMark) return;
+    const frame = window.requestAnimationFrame(() => document.getElementById(`mm-${firstMark}`)?.scrollIntoView({ block: "center" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [firstMark]);
   const composer = chat && data ? chat.draft ? (
     <MessengerDraft actions={actions} d={chat.draft} embedded key={`draft:${chatId}:${chat.draft.id}`} name={name} project={project} />
   ) : (
@@ -141,13 +159,14 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     history = (
       <>
         {q.isFetching && <ConversationRefreshing />}
+        {marks && <MapMarksNote marks={marks} />}
         {q.isError && <ConversationHistoryNotice><ConversationStaleNotice detail={sentence(q.error)} onRetry={() => void q.refetch()} retrying={q.isFetching} /></ConversationHistoryNotice>}
         {earlier > 0 && <ConversationHistorySummary>Earlier: {earlier} messages are not shown.</ConversationHistorySummary>}
         {messages.length === 0 ? <ConversationHistoryState flush><EmptyState title="No messages yet">New messages from this linked chat will appear here.</EmptyState></ConversationHistoryState> : <ConversationMessageList ariaLabel={`Messages with ${name}`}>{messages.reduce<ReactNode[]>((items, message, index) => {
           const previous = messages[index - 1];
           const currentDay = dayOf(message.at);
           if (!previous || dayOf(previous.at) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={formatDay(message.at)} />);
-          items.push(<Message key={message.id} m={message} name={name} />);
+          items.push(<Message key={message.id} m={message} marked={ringed.has(String(message.id))} name={name} />);
           return items;
         }, [])}</ConversationMessageList>}
       </>
@@ -160,7 +179,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     <ConversationFrame
       ariaLabel={`Conversation with ${name}`}
       composer={composer}
-      header={<ConversationHeader actions={<ConversationHeaderActions contact={chat?.contact} map={chat?.client ? { project, clientId: chat.client.id, name: chat.client.name || chat.client.email } : null} notionPageId={pageId} />} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts><span>{CHANNEL_LABEL[chat.channel]}</span><span>{chatStateLine(chat)}</span>{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
+      header={<ConversationHeader actions={<ConversationHeaderActions contact={chat?.contact} notionPageId={pageId} />} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts>{chat.client && <ClientMapLine onShowSources={showSources} subject={{ project, clientId: chat.client.id, name: chat.client.name || chat.client.email, email: chat.client.email, notionPageId: pageId }} />}<span>{CHANNEL_LABEL[chat.channel]}</span><span>{chatStateLine(chat)}</span>{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
       testId="messenger-conversation"
       dataAgentRef={refOf("chat", chat?.id ?? chatId)}
       historyActions={!scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}

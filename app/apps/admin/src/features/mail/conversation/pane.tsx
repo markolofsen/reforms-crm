@@ -11,12 +11,14 @@ import type { ConversationScrollState } from "@hub/ui/product/conversation/scrol
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { toastManager } from "@hub/ui/toast";
 import { ConversationHeaderActions } from "@/components/conversation/header-actions";
+import { ClientMapLine } from "@/components/conversation/client-map";
+import { matchSources } from "@/components/conversation/client-map-sources";
 import { EmptyState, LoadFailed } from "@/components/state-views";
 import { DraftCard } from "@/features/mail/draft/draft-card";
 import type { ConversationRow } from "@/features/mail/model";
 import type { Notice, ReviewActions } from "@/features/mail/list/use-review-actions";
 import { isNotFound, sentence } from "@/lib/api/client";
-import { useConversation } from "@/lib/data/conversations";
+import { useConversation, useConversationMail } from "@/lib/data/conversations";
 import { useDismissInbound } from "@/lib/data/inbound";
 import { agentLine } from "@/lib/agent-reasons";
 import { focusAgentRow } from "@/lib/focus";
@@ -114,6 +116,14 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
   const onHistoryScrollState = useCallback((next: ConversationScrollState) => setScroll({ key: scrollKey, state: next }), [scrollKey]);
   const onHistorySourceMessageId = useCallback((messageId: string | null) => setSource({ clientId, messageId }), [clientId]);
   const row = q.data?.row ?? listRow;
+  // P136 verdict 7c: a map node's sources, ringed in this person's thread (the Mail read the history already holds).
+  const mail = useConversationMail(project, clientId);
+  const [marked, setMarked] = useState<{ clientId: number; keys: string[]; label: string } | null>(null);
+  const showSources = (refs: string[], label: string) => {
+    const messages = (mail.data?.threads ?? []).flatMap((t) => t.messages).map((m) => ({ key: m.messageId, at: m.date, channel: "mail", messageId: m.messageId }));
+    setMarked({ clientId, keys: matchSources(refs, messages), label });
+  };
+  const marks = marked?.clientId === clientId ? { keys: marked.keys, label: marked.label, onClear: () => setMarked(null) } : null;
   const notion = row?.notion;
   const notionState = notion ? notionIndicatorState(notion) : null;
   const notionDetail = notion && row ? notionIdentityLine(notion, row.client.name) : undefined;
@@ -145,7 +155,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
     />
   ) : undefined;
   const history = row ? (
-    <History clientId={row.client.id} name={row.client.name || row.client.email} onNote={onHistoryNote} onScrollState={onHistoryScrollState} onSourceMessageId={onHistorySourceMessageId} pointed={pointed} project={project} />
+    <History clientId={row.client.id} marks={marks} name={row.client.name || row.client.email} onNote={onHistoryNote} onScrollState={onHistoryScrollState} onSourceMessageId={onHistorySourceMessageId} pointed={pointed} project={project} />
   ) : q.isPending ? (
     <ConversationHistoryState flush><EmptyState title="Opening the conversation">The Hub looks the person up.</EmptyState></ConversationHistoryState>
   ) : q.isError && !isNotFound(q.error) ? (
@@ -160,7 +170,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
       dataAgentRef={refOf("client", row?.client.id ?? clientId)}
       dataState={row?.state}
       historyActions={scrollState && !scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}
-      header={<ConversationHeader back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} actions={<ConversationHeaderActions contact={row?.contact} mailMessageId={newest} map={row ? { project, clientId: row.client.id, name: row.client.name || row.client.email } : null} notionPageId={pageId} />} subtitle={row ? <ConversationHeaderFacts><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={row.client.email} /><span data-testid="conversation-state">{CONVERSATION_STATE_LABELS[row.state]}</span>{notionState && <span data-testid="conversation-notion"><IntegrationStatus detail={notionDetail} label="Notion" state={notionState} /></span>}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={row?.client.name || row?.client.email || "Conversation"} />}
+      header={<ConversationHeader back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} actions={<ConversationHeaderActions contact={row?.contact} mailMessageId={newest} notionPageId={pageId} />} subtitle={row ? <ConversationHeaderFacts><ClientMapLine onShowSources={showSources} subject={{ project, clientId: row.client.id, name: row.client.name || row.client.email, email: row.client.email, notionPageId: pageId }} /><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={row.client.email} /><span data-testid="conversation-state">{CONVERSATION_STATE_LABELS[row.state]}</span>{notionState && <span data-testid="conversation-notion"><IntegrationStatus detail={notionDetail} label="Notion" state={notionState} /></span>}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={row?.client.name || row?.client.email || "Conversation"} />}
       testId="conversation"
     >
       {history}

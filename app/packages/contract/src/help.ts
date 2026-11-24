@@ -90,3 +90,20 @@ export function messengerPhrase(project: string, chat: { channel: string; chatId
   const who = chat.clientName ? ` for ${chat.clientName}` : "";
   return `Prepare one reply${who} from the ${chat.channel} chat ${chat.chatId} in project ${project}. Read only this linked chat with messenger_history, then leave one unsent draft with messenger_draft_write; do not send anything.`;
 }
+
+/** One line, no control character: what reaches the dock terminal never holds a line break (so nothing is entered by itself). */
+const oneLine = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f  ]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+const clientOf = (c: { name: string; email: string }): string => {
+  const name = oneLine(c.name, 80);
+  const email = oneLine(c.email, 320);
+  return name && name !== email ? `${name} <${email}>` : email;
+};
+
+/**
+ * P136 verdict 7d: the request the client map sheet's Correct puts into the dock, without Enter: "redraw the map of <client>: ",
+ * for the owner to finish with what is wrong and press Enter himself. It ends in a space; nothing after it is ours.
+ */
+export const mapCorrectPhrase = (client: { name: string; email: string }): string => `redraw the map of ${clientOf(client)}: `;
+
+/** P136 verdict 7a: "Draw map" (a client with none) puts this into the dock, without Enter; the owner presses Enter. */
+export const mapDrawPhrase = (client: { name: string; email: string }): string => `draw the map of ${clientOf(client)} from their whole history`;
