@@ -15306,6 +15306,42 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "facts": {
+                      "type": "object",
+                      "properties": {
+                        "site": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "country": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "segment": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "volume": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "site",
+                        "country",
+                        "segment",
+                        "volume"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -15316,7 +15352,8 @@
                     "brand",
                     "receivedAt",
                     "preview",
-                    "requests"
+                    "requests",
+                    "facts"
                   ],
                   "additionalProperties": false
                 }
@@ -15739,6 +15776,42 @@
                   "type": "integer",
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
+                },
+                "facts": {
+                  "type": "object",
+                  "properties": {
+                    "site": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "country": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "segment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "volume": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "site",
+                    "country",
+                    "segment",
+                    "volume"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -15749,7 +15822,8 @@
                 "brand",
                 "receivedAt",
                 "preview",
-                "requests"
+                "requests",
+                "facts"
               ],
               "additionalProperties": false
             }
@@ -15914,6 +15988,42 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "facts": {
+                "type": "object",
+                "properties": {
+                  "site": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "country": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "segment": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "volume": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "site",
+                  "country",
+                  "segment",
+                  "volume"
+                ],
+                "additionalProperties": false
+              },
               "open": {
                 "type": "boolean"
               },
@@ -15971,6 +16081,7 @@
               "receivedAt",
               "preview",
               "requests",
+              "facts",
               "open",
               "notionStatus",
               "dismissedAt",
@@ -15995,10 +16106,126 @@
                   "message": {
                     "type": "string"
                   },
-                  "details": {
-                    "type": "string"
-                  },
                   "form": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sheet": {
+                    "type": "object",
+                    "properties": {
+                      "fields": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "key": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            },
+                            "href": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "label",
+                            "value",
+                            "href"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "channel": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "whatsapp",
+                                  "telegram",
+                                  "email",
+                                  "phone",
+                                  "other"
+                                ]
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "value"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sites": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "href": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "href"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "technical": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "fields",
+                      "channel",
+                      "sites",
+                      "technical"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "read": {
                     "type": [
                       "string",
                       "null"
@@ -16032,8 +16259,9 @@
                 "required": [
                   "company",
                   "message",
-                  "details",
                   "form",
+                  "sheet",
+                  "read",
                   "pageUrl",
                   "phone",
                   "brands",
@@ -16051,6 +16279,96 @@
               "string",
               "null"
             ]
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "typo"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "suggestion": {
+                      "type": "string"
+                    },
+                    "domain": {
+                      "type": "string"
+                    },
+                    "meant": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "address",
+                    "suggestion",
+                    "domain",
+                    "meant"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "client"
+                    },
+                    "by": {
+                      "type": "string",
+                      "enum": [
+                        "address",
+                        "company"
+                      ]
+                    },
+                    "clientId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "by",
+                    "clientId",
+                    "name",
+                    "email"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "repeat"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
           },
           "drafts": {
             "type": "array",
@@ -16088,6 +16406,7 @@
           "row",
           "lead",
           "note",
+          "notes",
           "drafts"
         ],
         "additionalProperties": false

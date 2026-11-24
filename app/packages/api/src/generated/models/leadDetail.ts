@@ -7,6 +7,7 @@
  */
 import type { LeadDetailDraftsItem } from './leadDetailDraftsItem';
 import type { LeadDetailLead } from './leadDetailLead';
+import type { LeadDetailNotesItem } from './leadDetailNotesItem';
 import type { LeadDetailRow } from './leadDetailRow';
 
 export interface LeadDetail {
@@ -14,5 +15,6 @@ export interface LeadDetail {
   lead: LeadDetailLead;
   /** @nullable */
   note: string | null;
+  notes: LeadDetailNotesItem[];
   drafts: LeadDetailDraftsItem[];
 }

@@ -5,14 +5,17 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { LeadDetailLeadSheet } from './leadDetailLeadSheet';
 
 export type LeadDetailLead = {
   /** @nullable */
   company: string | null;
   message: string;
-  details: string;
   /** @nullable */
   form: string | null;
+  sheet: LeadDetailLeadSheet;
+  /** @nullable */
+  read: string | null;
   /** @nullable */
   pageUrl: string | null;
   /** @nullable */

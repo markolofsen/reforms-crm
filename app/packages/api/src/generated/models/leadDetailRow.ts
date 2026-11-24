@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { LeadDetailRowDismissedReason } from './leadDetailRowDismissedReason';
+import type { LeadDetailRowFacts } from './leadDetailRowFacts';
 
 export type LeadDetailRow = {
   pageId: string;
@@ -23,6 +24,7 @@ export type LeadDetailRow = {
      * @maximum 9007199254740991
      */
   requests: number;
+  facts: LeadDetailRowFacts;
   open: boolean;
   /** @nullable */
   notionStatus: string | null;
