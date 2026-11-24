@@ -88,6 +88,7 @@ export async function runPoller(deps: RunDeps): Promise<void> {
   let failures = 0;
   let lastPurge = Number.NEGATIVE_INFINITY;
 
+  signal?.addEventListener("abort", () => ops(opsSourceOf(adapter.channel)).info("receiver stopped", { account: adapter.account }), { once: true });
   while (!signal?.aborted) {
     try {
       if (now().getTime() - lastPurge >= purgeEvery) {
@@ -99,8 +100,11 @@ export async function runPoller(deps: RunDeps): Promise<void> {
         await repos.projects.requireProject(project);
         await adapter.start?.();
         started = true;
+        // P137 L2: the receiver's connect, and later a reconnect after failures, are one line each.
+        ops(opsSourceOf(adapter.channel)).info("receiver connected", { account: adapter.account });
       }
       const result = await pollOnce(deps, signal);
+      if (failures > 0) ops(opsSourceOf(adapter.channel)).info("receiver reconnected", { account: adapter.account, failures });
       failures = 0;
       deps.onEvent?.({ type: "poll", result });
     } catch (err) {

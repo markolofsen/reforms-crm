@@ -35,6 +35,11 @@ const refused = (what: Record<string, unknown>, reasons: string[]) => {
   log.warn("a confirmed send was refused", { ...what, reasons });
   return refusal(reasons);
 };
+/** P137 L2: a dry run (the send check) is one `info` line: ready, or its reasons (the answer, not a failure). */
+const checked = (what: Record<string, unknown>, reasons: readonly string[], t0: number) =>
+  log.info(reasons.length ? "send check: not ready" : "send check: ready", { ...what, ...(reasons.length ? { reasons: [...reasons] } : {}), ms: Date.now() - t0 });
+/** P137 L2: a send that went out is one `info` line with its time. */
+const sentLine = (what: Record<string, unknown>, t0: number) => log.info("send applied", { ...what, ms: Date.now() - t0 });
 
 /**
  * Sending, the one place the admin can do it (decision 0011, stage 1). A person decides each send: the first call is a
@@ -85,6 +90,7 @@ function agentSendRoute({ repos, sender, messengers }: SendContext) {
     }
     if ("failed" in r) return c.json(agentRefusal("failed", `the send failed: ${r.failed}. Nothing was retried; the draft waits again.`, `Tell the owner in one line that it failed and why; never retry.`), 500);
     const sent = await repos.sends.get(r.sendId);
+    log.info("agent send on the owner's word applied", { project: slug, messengerDraft: id, send: r.sendId });
     return c.json(agentSentDto.parse({ ok: true, sendId: r.sendId, channel: a.preview.channel, chatId: a.preview.chatId, to: a.preview.to, text: a.preview.text, at: sent?.doneAt ?? now.toISOString() }));
   });
 }
@@ -131,9 +137,11 @@ export function sendRoutes(services: SendContext) {
       const body = c.req.valid("json");
       if (!deps || !sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
       if (!(await repos.batches.get(slug, id))) return notFound(c, "batch");
+      const t0 = Date.now();
       if (!body.apply) {
         const plan = await planBatch(deps, slug, id, limits);
         if (!plan) return notFound(c, "batch");
+        log.info("batch send check", { project: slug, batch: id, items: plan.items.length, ms: Date.now() - t0 });
         return c.json(batchSendPlanDto.parse({ ok: true, dryRun: true, ...plan }));
       }
       if (!tickets.take(body.ticket, batchTicketKey(id, body.items))) return forbidden(c, "a batch send needs the admin's ticket for exactly the drafts you confirmed; press Send all Checked in the admin");
@@ -145,6 +153,7 @@ export function sendRoutes(services: SendContext) {
       if (changed.length) return c.json(refused({ project: slug, batch: id }, changed.map((i) => `draft ${i.draftId} ${now.has(i.draftId) ? "changed in Mail after you confirmed it" : "can no longer be sent (read the batch again)"}`)), 409);
       const r = runs.start(deps, { project: slug, batchId: id, items: body.items.flatMap((i) => now.get(i.draftId) ?? []) });
       if ("refused" in r) return c.json(refused({ project: slug, batch: id }, [r.refused]), 409);
+      log.info("batch send started", { project: slug, batch: id, items: body.items.length });
       return c.json(batchRunStateDto.parse({ run: r.run }), 202);
     })
     .get("/api/projects/:slug/batches/:id/send", v("param", batchSendParam), async (c) => {
@@ -163,9 +172,11 @@ export function sendRoutes(services: SendContext) {
       const body = c.req.valid("json");
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
       const door = { repos, recipients: messengerRecipients(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
+      const t0 = Date.now();
       if (!body.apply) {
         const a = await assessMessenger(door, slug, id);
         if (!a) return notFound(c, "draft");
+        checked({ project: slug, messengerDraft: id }, a.reasons.length || a.preview ? a.reasons : ["nothing to send"], t0);
         if (a.reasons.length || !a.preview) return c.json(refusal(a.reasons.length ? a.reasons : ["nothing to send"]), 409);
         return c.json(messengerSendPreviewDto.parse({ ok: true, dryRun: true, ...a.preview }));
       }
@@ -176,6 +187,7 @@ export function sendRoutes(services: SendContext) {
       if ("refused" in r) return c.json(refused({ project: slug, messengerDraft: id }, r.refused), 409);
       // The failure itself is logged by the door, with its channel and account.
       if ("failed" in r) return c.json({ error: `The send failed: ${r.failed}. Nothing was retried; the draft waits again.`, code: "server" as const }, 500);
+      sentLine({ project: slug, messengerDraft: id, send: r.sendId }, t0);
       return c.json(sentDto.parse({ ok: true, sendId: r.sendId }));
     })
     .post("/api/projects/:slug/drafts/:id/send", v("param", sendParam), v("json", sendBody), async (c) => {
@@ -185,8 +197,10 @@ export function sendRoutes(services: SendContext) {
       if (!draft || draft.project !== slug) return notFound(c, "draft");
       if (!deps) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
 
+      const t0 = Date.now();
       if (!body.apply) {
         const a = await assess(deps, id, { mode: "manual" });
+        checked({ project: slug, draft: id }, a.ok && a.mail ? [] : a.reasons, t0);
         if (!a.ok || !a.mail) return c.json(refusal(a.reasons), 409);
         const m = a.mail;
         // What would go out: exactly the Mail text (decision 0031: nothing of the Hub's is in it).
@@ -196,7 +210,10 @@ export function sendRoutes(services: SendContext) {
       if (!tickets.take(body.ticket, `send:${id}`)) return forbidden(c, "a send needs the admin's ticket; press Send in the admin");
       const r = await sendDraft(deps, { draftId: id, apply: true, actor: "admin", confirm: body.confirm });
       const out = JSON.parse(r.line) as { sendId?: number; refused?: string[]; error?: string };
-      if (r.code === 0 && out.sendId !== undefined) return c.json(sentDto.parse({ ok: true, sendId: out.sendId }));
+      if (r.code === 0 && out.sendId !== undefined) {
+        sentLine({ project: slug, draft: id, send: out.sendId }, t0);
+        return c.json(sentDto.parse({ ok: true, sendId: out.sendId }));
+      }
       if (r.code === 2) return c.json(refused({ project: slug, draft: id }, out.refused ?? [out.error ?? "refused"]), 409);
       log.error("a mail send failed; nothing was retried", { project: slug, draft: id, reason: out.error ?? "no reason given" });
       return c.json({ error: out.error ?? "The send failed.", code: "server" as const }, 500);

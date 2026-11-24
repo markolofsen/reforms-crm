@@ -59,6 +59,10 @@ export function batchRuns(o: { limits?: BatchLimits; onChange?: (project: string
       const update = (u: BatchOutcome) => {
         const item = run.items.find((i) => i.draftId === u.draftId);
         if (item) Object.assign(item, { status: u.status, reasons: u.reasons, sendId: u.sendId, at: u.at });
+        // P137 L2: each draft's outcome in the run is one line (sent, held with its reasons, failed).
+        if (u.status === "sent") ops("send").info("batch item sent", { project: s.project, batch: s.batchId, draft: u.draftId, send: u.sendId });
+        else if (u.status === "failed") ops("send").error("batch item failed", { project: s.project, batch: s.batchId, draft: u.draftId, reasons: u.reasons });
+        else if (u.status !== "sending" && u.status !== "waiting") ops("send").warn(`batch item ${u.status}`, { project: s.project, batch: s.batchId, draft: u.draftId, reasons: u.reasons });
         changed(s.project);
       };
       const wait = (ms: number) =>
@@ -82,6 +86,7 @@ export function batchRuns(o: { limits?: BatchLimits; onChange?: (project: string
         .finally(() => {
           run.state = run.stopRequested ? "stopped" : "finished";
           run.finishedAt = now();
+          ops("send").info(`batch run ${run.state}`, { project: s.project, batch: s.batchId, sent: run.items.filter((i) => i.status === "sent").length, items: run.items.length });
           changed(s.project);
         });
       return { run: view(run) };

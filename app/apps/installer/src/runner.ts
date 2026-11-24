@@ -2,6 +2,19 @@ import * as p from "@clack/prompts";
 import type { Ctx } from "./context";
 import { redact } from "@hub/connections";
 import type { Outcome, Step, StepReport } from "./types";
+import { ops } from "@hub/log/ops";
+
+/**
+ * P137 L2: an install or doctor run is one ops line at its end (file only: the CLI prints its own table): `info` with the counts
+ * and the time, `warn` naming the failing steps. Never a step's detail (it can name a path or an address; the table has it).
+ */
+function runLine(kind: "install" | "doctor", reports: StepReport[], t0: number): void {
+  const failed = reports.filter((r) => r.outcome === "failed" || r.outcome === "manual").map((r) => r.step.id).slice(0, 20);
+  const fields = { steps: reports.length, failed, warned: reports.filter((r) => r.outcome === "warn").length, ms: Date.now() - t0 };
+  const log = ops("installer", { fileOnly: true });
+  if (failed.length) log.warn(`${kind}: ${failed.length} step(s) failing`, fields);
+  else log.info(`${kind}: ${summary(reports)}`, fields);
+}
 
 const safe = (ctx: Ctx, s: string) => redact(ctx.configDir, s).replace(/\s+/g, " ").trim();
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -25,6 +38,7 @@ export async function expandSteps(ctx: Ctx, steps: Step[]): Promise<Step[]> {
 
 /** Runs the checks in order (after {@link expandSteps}). `onStep` is called with each report the moment its step finishes, so a slow doctor is never silent. Each report carries its wall time. */
 export async function doctor(ctx: Ctx, steps: Step[], onStep?: (r: StepReport) => void): Promise<StepReport[]> {
+  const started = Date.now();
   const out: StepReport[] = [];
   for (const step of await expandSteps(ctx, steps)) {
     const t0 = Date.now();
@@ -33,11 +47,13 @@ export async function doctor(ctx: Ctx, steps: Step[], onStep?: (r: StepReport) =
     out.push(report);
     onStep?.(report);
   }
+  runLine("doctor", out, started);
   return out;
 }
 
 /** check -> apply only when the check fails -> check again. Manual steps are never applied. */
 export async function install(ctx: Ctx, steps: Step[]): Promise<StepReport[]> {
+  const started = Date.now();
   const out: StepReport[] = [];
   for (const step of steps) {
     const r = await check(ctx, step);
@@ -55,6 +71,7 @@ export async function install(ctx: Ctx, steps: Step[]): Promise<StepReport[]> {
       out.push({ step, outcome: "failed", detail: safe(ctx, errText(e)) });
     }
   }
+  if (!ctx.dryRun) runLine("install", out, started);
   return out;
 }
 

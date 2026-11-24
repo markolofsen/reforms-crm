@@ -19,6 +19,17 @@ export function defaultDbPath(): string {
   return hubPaths().db;
 }
 
+/** How many migrations the file records as applied (Drizzle's own table); 0 before the first. */
+function appliedMigrations(sqlite: Database.Database): number {
+  try {
+    const row: unknown = sqlite.prepare("SELECT count(*) AS n FROM __drizzle_migrations").get();
+    const n: unknown = row && typeof row === "object" ? Reflect.get(row, "n") : 0;
+    return typeof n === "number" ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Opens SQLite with the settings the research asks for: WAL, busy_timeout, foreign keys,
  * and applies the committed SQL migrations. One writer process owns the file; the sync
@@ -33,7 +44,12 @@ export function openDb(path: string = defaultDbPath()): DbHandle {
   sqlite.pragma("synchronous = NORMAL");
   const db = drizzle(sqlite, { schema });
   try {
+    const before = appliedMigrations(sqlite);
+    const t0 = Date.now();
     migrate(db, { migrationsFolder });
+    // P137 L2: migrations that ran are one line (how many, how long); an open with nothing new says nothing.
+    const after = appliedMigrations(sqlite);
+    if (after > before && path !== ":memory:") ops("db").info("database migrations applied", { db: path, applied: after - before, total: after, ms: Date.now() - t0 });
   } catch (e) {
     // P86: a migration that fails stops whoever opened the database; the line says which file and why.
     ops("db").error("a database migration failed", { db: path, ...errFields(e, true) });

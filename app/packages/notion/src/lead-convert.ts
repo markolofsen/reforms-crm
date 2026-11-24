@@ -4,6 +4,7 @@
 // where the schema has them). Never an intake field, never Owner, Next step or Notes, never a delete. Like `stamp.ts` there is no
 // generic page update here. A refusal never reaches the send: the caller stores the note for the owner and logs one line.
 import notionhq from "@notionhq/client";
+import { notionSdkLog } from "./sdk-log";
 import { findClientPages } from "./client-lookup";
 import { parseLeadPage } from "./leads";
 import type { DataSourceInfo, NotionReader, PageObject, PropertyConfig } from "./types";
@@ -23,7 +24,7 @@ export interface LeadWriter {
 }
 
 export function createLeadWriter(token: string, options: { fetch?: typeof fetch } = {}): LeadWriter {
-  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
+  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...notionSdkLog, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
   return {
     async setStatus(pageId, property, value) {
       await client.pages.update({ page_id: pageId, properties: { [property.name]: property.type === "status" ? { status: { name: value } } : { select: { name: value } } } as never });

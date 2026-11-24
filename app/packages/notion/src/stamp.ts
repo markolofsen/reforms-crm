@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join } from "node:path";
 import notionhq from "@notionhq/client";
+import { notionSdkLog } from "./sdk-log";
 import { readPerson } from "@hub/config/person";
 import { ops } from "@hub/log/ops";
 import { projectStore } from "@hub/projects/store";
@@ -21,7 +22,7 @@ export interface StampWriter {
 }
 
 export function createStampWriter(token: string, options: { fetch?: typeof fetch } = {}): StampWriter {
-  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
+  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...notionSdkLog, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
   return {
     async stamp(pageId, at, by) {
       await client.pages.update({

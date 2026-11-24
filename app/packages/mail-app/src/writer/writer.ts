@@ -22,6 +22,13 @@ import { DraftWriteError, type DraftWriter, type InboundMessage } from "./types"
 /** How long the writer waits for Mail to show the draft it saved (P65 S5: Mail took 74 s once on 2026-11-19; past this the write is `mail_slow`). */
 export const WRITE_WAIT_SECONDS = 45;
 
+/** P137 L2: a draft Mail saved is one `info` line with its time (a refusal is the protocol's `error` line, a slow Mail a `warn`). */
+function saved(kind: "reply" | "new", account: string, t0: number, out: string): ReturnType<typeof parseWriteOutput> {
+  const r = parseWriteOutput(out);
+  ops("mail").info(kind === "reply" ? "Mail reply draft saved" : "Mail new-message draft saved", { account, ms: Date.now() - t0 });
+  return r;
+}
+
 /** Mail.app through osascript, run by the hub MCP server. Plain text. */
 export function mailAppDraftWriter(osa: OsaRun = osaFor("write")): DraftWriter {
   const fail = (e: Error) => {
@@ -46,6 +53,7 @@ export function mailAppDraftWriter(osa: OsaRun = osaFor("write")): DraftWriter {
     async writeReply(i) {
       const body = writtenBody(i.body);
       if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
+      const t0 = Date.now();
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
       const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? "", i.quote ?? "add", probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
@@ -56,11 +64,12 @@ export function mailAppDraftWriter(osa: OsaRun = osaFor("write")): DraftWriter {
         }
         return fail(e);
       });
-      return parseWriteOutput(out);
+      return saved("reply", i.account, t0, out);
     },
     async writeNew(i) {
       const body = writtenBody(i.body);
       if (!body.trim()) throw new DraftWriteError("empty", "The message has no text.");
+      const t0 = Date.now();
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
       const out = await osa(WRITE_NEW_SCRIPT, [i.account, i.sender ?? "", i.to, i.subject, body, probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
@@ -70,7 +79,7 @@ export function mailAppDraftWriter(osa: OsaRun = osaFor("write")): DraftWriter {
         }
         return fail(e);
       });
-      return parseWriteOutput(out);
+      return saved("new", i.account, t0, out);
     },
     async threadDrafts(accounts, thread, subject) {
       const id = thread.trim().replace(/^<|>$/g, "");
