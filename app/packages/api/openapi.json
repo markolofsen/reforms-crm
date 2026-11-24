@@ -362,6 +362,30 @@
         }
       }
     },
+    "/api/ops/lines": {
+      "get": {
+        "operationId": "getOpsLines",
+        "summary": "Read the last day's operational warnings and errors",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read the last day's operational warnings and errors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsLines"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getHealth",
@@ -7040,6 +7064,115 @@
         "required": [
           "rows",
           "total",
+          "hours"
+        ],
+        "additionalProperties": false
+      },
+      "OpsLines": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 600
+                },
+                "place": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "overview",
+                        "knowledge",
+                        "sending",
+                        "mail",
+                        "agent",
+                        "connections",
+                        "mac",
+                        "messengers"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "project": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warn"
+                  ]
+                },
+                "action": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 48
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "time",
+                "source",
+                "message",
+                "place",
+                "project",
+                "level",
+                "action"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "errors": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "warnings": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "hours": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "rows",
+          "errors",
+          "warnings",
           "hours"
         ],
         "additionalProperties": false

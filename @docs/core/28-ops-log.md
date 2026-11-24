@@ -21,7 +21,7 @@ Writing: `ops("whatsapp").error("socket closed", { status, reason })`. The write
 
 The owner's click, the server request it starts, the agent session and its `hub mcp` tool calls, and the Notion, Mail and send writes they make share one id, so a failure is read with what caused it instead of by time.
 
-- The admin's generated client sends `x-hub-action` with every write (`packages/api/src/runtime/mutator.ts`, a fresh `w-` id; the busy retry resends it). The server (`apps/server/src/app.ts`) runs each request inside `withAction` (the header when it is a valid id, else a fresh `r-` id) and answers with the header. Every ops line written inside, however deep (`@hub/notion`, `@hub/mail-app`, the send door), carries it (`AsyncLocalStorage` in `src/ops/action.ts`).
+- The admin's generated client sends `x-hub-action` with every write (`packages/api/src/runtime/mutator.ts`, a fresh `w-` id; the busy retry resends it). The server (`apps/server/src/http/request-action.ts`) runs each request inside `withAction` (the header when it is a valid id, else a fresh `r-` id) and answers with the header. Every ops line written inside, however deep (`@hub/notion`, `@hub/mail-app`, the send door), carries it (`AsyncLocalStorage` in `src/ops/action.ts`).
 - A terminal tab started by a click gets `HUB_ACTION` (`apps/server/src/terminal/terminal.ts`); `hub agent` keeps it or makes an `s-` id and passes it to the session's `hub` MCP server. `hub mcp` runs each tool call as the session's id plus five letters of the call id Claude Code sends (`claudecode/toolUseId`), and the session log's hooks stamp the same id on that call's events (`stampAction`, `@docs/core/25-agent-log.md`).
 - `./run.sh logs --action <id>` shows one action's lines; a session's id includes its tool calls. The stderr copy and `hub logs` end a line with `action=<id>`.
 
@@ -42,7 +42,7 @@ One line at each critical place's outcome: `info` on success with its time (`ms`
 | Agent session started, stopped, ended with an error, did not start | `agent` | `apps/server/src/terminal/terminal.ts` |
 | Migrations applied, a migration failed | `db` | `packages/db/src/client.ts` |
 | A backup (`--apply`), an install or doctor run (file only: the CLI prints its own table) | `installer` | `apps/installer/src/commands/backup/snapshot.ts`, `apps/installer/src/runner.ts` |
-| A request slower than 2 s, a 5xx, a 500 with its stack | `server` | `apps/server/src/app.ts` |
+| A request slower than 2 s, a 5xx (`apps/server/src/http/request-action.ts`), a 500 with its stack (`app.ts`) | `server` | `apps/server/src/` |
 | The retention run when it changed something | `server` | `packages/log/src/retention.ts` |
 
 ## Redaction (one place)

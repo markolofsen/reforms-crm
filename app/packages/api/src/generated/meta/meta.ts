@@ -28,6 +28,7 @@ import type {
   LocalArgs,
   LocalOpened,
   OpsErrors,
+  OpsLines,
   Overview,
   ProjectLinks,
   ProjectOverview,
@@ -277,6 +278,48 @@ export const getGetOpsErrorsUrl = () => {
 export const getOpsErrors = async ( options?: Parameters<typeof hubMutator>[1]): Promise<getOpsErrorsResponse> => {
 
   return hubMutator<getOpsErrorsResponse>(getGetOpsErrorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getOpsLinesResponse200 = {
+  data: OpsLines
+  status: 200
+}
+
+export type getOpsLinesResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type getOpsLinesResponseSuccess = (getOpsLinesResponse200) & {
+  headers: Headers;
+};
+export type getOpsLinesResponseError = (getOpsLinesResponse503) & {
+  headers: Headers;
+};
+
+export type getOpsLinesResponse = (getOpsLinesResponseSuccess | getOpsLinesResponseError)
+
+export const getGetOpsLinesUrl = () => {
+
+
+
+
+  return `/api/ops/lines`
+}
+
+/**
+ * @summary Read the last day's operational warnings and errors
+ */
+export const getOpsLines = async ( options?: Parameters<typeof hubMutator>[1]): Promise<getOpsLinesResponse> => {
+
+  return hubMutator<getOpsLinesResponse>(getGetOpsLinesUrl(),
   {
     ...options,
     method: 'GET'

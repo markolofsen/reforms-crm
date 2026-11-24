@@ -42,7 +42,7 @@ const CRITICAL_PLACES: readonly Place[] = [
   { place: "migration failed", file: "packages/db/src/client.ts", line: /ops\("db"\)\.error\("a database migration failed"/ },
   { place: "backup", file: "apps/installer/src/commands/backup/snapshot.ts", line: /log\.info\("backup snapshot made"/ },
   { place: "installer and doctor runs", file: "apps/installer/src/runner.ts", line: /runLine\("doctor"/ },
-  { place: "slow request and 5xx", file: "apps/server/src/app.ts", line: /ops\("server"\)\.warn\(`slow request/ },
+  { place: "slow request and 5xx", file: "apps/server/src/http/request-action.ts", line: /ops\("server"\)\.warn\(`slow request/ },
   { place: "server 500", file: "apps/server/src/app.ts", line: /ops\("server"\)\.error\(`500 / },
   { place: "log retention", file: "packages/log/src/retention.ts", line: /ops\("server"\)\.info\("logs: retention/ },
 ];

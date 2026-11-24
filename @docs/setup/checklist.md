@@ -164,5 +164,10 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **Secret files exist with the right modes** (`backup.secrets`; `hub doctor` only; setup and install never run it)
   - Proves: The secrets folder is mode 700, every secret file in it is mode 600, and each token file a project names (`notion.token_file`) exists. Only names and modes are read; no value is opened. Keeping an off-machine copy of the folder is yours to do and to remember: nothing here can see it.
   - You: `chmod 700 state/secrets` and `chmod 600 state/secrets/*`. Keep one off-machine copy of `state/secrets/` (a password manager or an encrypted drive).
+## Log
+
+- [ ] **Nothing failed in the last day** (`log.errors`; `hub doctor` only; setup and install never run it)
+  - Proves: The ops log (state/log/ops-<day>.jsonl) has no error line in the last 24 h (FAIL with the most frequent messages), and at most 50 warnings (else WARN).
+  - You: Read the lines: `./run.sh logs --level warn` or Activity ▸ Errors in the admin. Each names its part and the page that fixes it. Fix the cause; the row passes once a day has passed without a new error.
 
 Update this page when the architecture changes.
