@@ -2,7 +2,7 @@
 
 Source: Help / Modules / Sales and Clients, Deals = Opportunities, Participants, Guides: Opportunity model, Dedupe by email, Drive folder, Email tracks (2026-11-09/10); live property lists from the owner's live schema notes (custom layer) (read 2026-11-14). Read via the Notion MCP.
 
-Purpose: everyone we work with or sell to, the deals in progress and what each needs next. Clients (the person database, formerly People; the relation properties that pointed at it are now named `Clients`) is the master person. Rows of Clients, Deals, Organizations and Open loops are created by the CRM sync, never by hand in Notion. Where a project has no sync, the databases still exist.
+Purpose: everyone we work with or sell to, the deals in progress and what each needs next. Clients (the person database, formerly People; the relation properties that pointed at it are now named `Clients`) is the master person. Rows of Deals, Organizations and Open loops are created by the CRM sync, never by hand in Notion; a Clients row is created by the Hub (Create client from a chat, a lead's first send) or the sync, and its profile is kept current by the agent. Where a project has no sync, the databases still exist.
 
 ## Clients (title `Name`)
 

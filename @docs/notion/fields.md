@@ -4,7 +4,7 @@
 
 Every property of every database the Notion CRM deploys, with its type, who writes it and the select options. Names are exactly as Notion shows them: Hub and the CRM sync look fields up by name, so never rename one. The meaning and the rules behind a module are in the pack's markdown (`02` to `07`); how to set Notion up is in [`README.md`](README.md).
 
-**Writer** says who may change the field: `Hub` (the local app), `CRM` or `sync` (the Django CRM), `people` (a person by hand), `agent` (a workflow, after the owner's OK). One owner per field.
+**Writer** says who may change the field: `Hub` (the local app), `CRM` or `sync` (the Django CRM), `people` (a person by hand), `agent` (a workflow, after the owner's OK), `agent and people` (the client profile: the agent keeps it current from what the client says, the owner may edit). One owner per field. A field with a `Description` has it synced to the live database by `hub install --only notion.descriptions`.
 
 ## Databases
 
@@ -52,19 +52,19 @@ Pack file: `schema/clients.json`.
 
 | Field | Type | Writer | Options and notes |
 |---|---|---|---|
-| Name | title | CRM |  |
-| Email | email | CRM |  |
+| Name | title | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." The person's real name, plus the company (Ahmed, Qimma Auctions). A Hub write replaces only an empty title, an address, a phone number or a chat id, never a real name (P140 P1b). |
+| Email | email | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." The Hub's link key: filled when empty, never cleared or replaced; a second address goes to Other emails (P140 P1b). |
 | Other emails | text | people |  |
-| Phone | phone_number | CRM |  |
+| Phone | phone_number | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." |
 | Telegram | text | people | Description: "Edited by people. Telegram username without @ (e.g. anna_k) or a phone in +E.164. The Hub links this person's Telegram chat to the client when it matches exactly one client." Read by the Hub's messenger autolink (P84). |
 | WhatsApp | phone_number | people | Description: "Edited by people. WhatsApp number in +E.164 (country code first), only when it differs from Phone. The Hub matches WhatsApp chats against Phone and this field." Read by the Hub's messenger autolink (P84). |
 | Gmail | url | CRM |  |
 | Drive folder | url | people |  |
-| Relationship | select | CRM | Options: Lead, Prospect, Client, Partner, Other. |
+| Relationship | select | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." Options: Lead, Prospect, Client, Partner, Other. |
 | Activity | select | CRM | Options: Active, Quiet, Dormant, Lapsed. |
 | Grade | select | human | Options: Priority, Standard, Low. |
-| Type | select | CRM | Options: Agent/Broker, CBI agent, Lawyer, Banker/Lender, Accountant/Tax, Developer, Service provider, Media, Colleague, Other. generic: drop Agent/Broker, CBI agent |
-| Lead source | select | CRM | Options: Partner brokerage, Resort partner, Portal, Own website, Referral, CBI partner, Past client, Event, Outbound, Other. generic: Referral, Past client, Event, Outbound, Other |
+| Type | select | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." Options: Agent/Broker, CBI agent, Lawyer, Banker/Lender, Accountant/Tax, Developer, Service provider, Media, Colleague, Other. generic: drop Agent/Broker, CBI agent |
+| Lead source | select | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." Options: Partner brokerage, Resort partner, Portal, Own website, Referral, CBI partner, Past client, Event, Outbound, Other. generic: Referral, Past client, Event, Outbound, Other |
 | Islands | multi_select |  | Options: Region A, Region B, Region C, Other. Flags: vertical. |
 | Waiting band | select | CRM | Options: Today, 1-3 days, Up to 2 weeks, Up to a month, Over a month. |
 | Waiting since | date | CRM |  |
@@ -81,7 +81,7 @@ Pack file: `schema/clients.json`.
 | Do not contact | checkbox | CRM |  |
 | Do not follow up | checkbox | people |  |
 | Do not follow up reason | text | people |  |
-| Next step | text | Hub |  |
+| Next step | text | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." The Hub also writes it from the client map's nearest open step (`client_map`); the agent and the owner may edit it. |
 | Conversation summary | text | Hub |  |
 | Synthetic | checkbox | people |  |
 | Owner note | text | read back | Flags: vertical. |

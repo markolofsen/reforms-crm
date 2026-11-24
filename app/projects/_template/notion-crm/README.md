@@ -36,5 +36,5 @@ Contacts stays separate from Clients. Clients = the people we sell to (formerly 
 1. A snapshot, not a contract: counts, record numbers and the previous owner's option lists in Help are history. Take structure and rules, not numbers.
 2. Every property name is as Notion shows it (sentence case, English). Hub and the CRM sync look fields up by name; do not rename.
 3. A property marked **vertical** is an example vertical configuration (real estate). Deploy it only when the project's interview asks for it.
-4. A property marked **sync** is written by the Django CRM sync or Hub. A fresh project without those integrations still gets the column (the integration needs it later), with the description "Filled by CRM, do not edit".
+4. A property marked **sync** is written by the Django CRM sync or Hub. A fresh project without those integrations still gets the column (the integration needs it later), with the description "Written by the CRM sync, do not edit." Only machine fields (dates, ids, sync state) are marked **sync**; the client profile on Clients is described "Kept current by the agent from what the client says (never invented); the owner may edit."
 5. Refresh this pack when the live Help changes (the `Changes` list on Help is the trigger): re-read the page, edit the file, update its `Source:` date.

@@ -21,7 +21,7 @@ Checklist for a new module: purpose in one sentence and the daily user; source o
 ## Field conventions
 
 - Every property has a description that starts with who writes it, in one of these four forms:
-  - `Filled by CRM, do not edit`
+  - `Written by the CRM sync` (machine fields only: dates, ids, sync state)
   - `Written by the integration` (or by name: `Written by Hub`)
   - `Edited by people` (or `Edited by <name>`)
   - `Kept current by the agent from what the client says (never invented); the owner may edit.` (the client profile: Clients' Name, Email, Phone, Relationship, Type, Lead source and Next step)
@@ -48,7 +48,7 @@ Checklist for a new module: purpose in one sentence and the daily user; source o
 
 | Tag | Meaning |
 |---|---|
-| CRM | filled by the Django CRM sync; do not edit; may be overwritten |
+| CRM | a machine field the Django CRM sync writes (dates, ids, sync state); do not edit. The client profile (Clients' Name, Email, Phone, Relationship, Type, Lead source, Next step) is not a CRM field: the agent keeps it current |
 | read back | a person edits it and the sync reads it |
 | Hub | written by the Hub integration (leads, summaries); Hub run id is its idempotency key |
 | notion | never synced; people, agents or formulas |
@@ -70,7 +70,7 @@ How to adapt a project (from Help):
 
 - Create tasks only in Tasks, with `Area` set (and Client or Deal for client work).
 - Draft messages; never send without a person's OK.
-- Never edit the machine fields (`Filled by CRM`, `Written by Hub`): their writer owns them.
+- Never edit the machine fields (dates, ids, sync state, `Written by Hub`): their writer owns them.
 - Keep the client profile current: after every conversation or new fact, refresh the fields described `Kept current by the agent` from what the client said, never from a guess (`skills/triage-mail/references/profile.md`). A real name is never replaced by a phone number or an address, and an Email is never cleared.
 - Create a Clients row only through the Hub (Create client from a chat, a lead's first send); never create Deals or Organizations rows: they come from the CRM.
 - Propose changes first, write after confirmation, unless the workflow says otherwise.

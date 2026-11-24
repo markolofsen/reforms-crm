@@ -20,7 +20,7 @@ visible to the Notion workspace; who can open the Drive item stays as it was.
      never a second row. One file per row; a folder is never a Documents row.
    - **A calendar event** (the calendar connector's `get_event`, or a hold the `calendar` skill just created) → append one dated line to the
      client's page body: `Next call: <date> <time> <zone>, <event url>`. A Tasks row (`Due`, `Client`, `Doc link`) only when he asks.
-4. **Never** write `Follow-up on` (CRM-synced), never a CRM-synced field, never a file's content into Notion. A fact read in a Drive file is
+4. **Never** write `Follow-up on` or another machine field (dates, the send stamp, ids; the client profile is yours: `profile.md`), never a file's content into Notion. A fact read in a Drive file is
    not a knowledge fact: it is not stated in a draft as one; to become one it goes into `knowledge/files/` through `kb-review`
    (`@docs/core/16-projects-and-knowledge.md`).
 5. **Report** one line in Russian: what was linked where ("Папка «Dan Wright» → Clients/Dan Wright, Drive folder"), or why not.
