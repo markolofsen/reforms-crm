@@ -13,6 +13,8 @@ export interface TurnRunnerDeps {
   /** Absent: this server has no brain (a test's wiring), and every turn is `skipped: no_brain`. */
   brain?: AutopilotBrain | undefined;
   deliver?: AutopilotDeliver | undefined;
+  /** P143 D3: whether the turn's chat is marked no reply needed now (the turn's own `conversation_done`); absent: never. */
+  isDone?: ((turn: Turn) => Promise<boolean>) | undefined;
 }
 
 export function turnRunner(d: TurnRunnerDeps): (turn: Turn, signal: AbortSignal) => Promise<TurnResult> {
@@ -25,6 +27,8 @@ export function turnRunner(d: TurnRunnerDeps): (turn: Turn, signal: AbortSignal)
       case "failed":
         return { outcome: "refused", reason: "brain_failed", note: r.detail, costUsd: r.costUsd ?? null };
       case "no_draft":
+        // P143 D3: the turn closed the chat as no reply needed ("yes", "thanks"): nothing to hand back, the chat stays on.
+        if (await d.isDone?.(turn).catch(() => false)) return { outcome: "skipped", reason: "done", note: r.reason, costUsd: r.costUsd };
         return { outcome: "handed_back", reason: "model_hand_back", note: r.reason, costUsd: r.costUsd };
       case "draft": {
         const base = { costUsd: r.costUsd, draftId: r.draftId, note: r.reason };

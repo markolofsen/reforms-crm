@@ -118,9 +118,9 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   };
   // P135 K5: a new client map goes to the client's Notion page (its own section and "Map updated"), with the states' classDefs.
   // P136 verdict 5: the profile's Next step comes from the same map (its open leaf with the nearest date, else the first one).
-  const syncMap = (slug: string, m: { email: string; source: string; at: string }) => {
+  const syncMap = (slug: string, m: { email: string | null; pageId: string | null; source: string; at: string }) => {
     const g = checkClientMap(m.source, { sources: "optional" });
-    return syncClientMap({ projectsDir: paths.projects, secretsDir: paths.secrets }, { project: slug, email: m.email, text: notionMapSource(m.source), at: m.at, nextStep: g.ok ? nextStepOf(g) : null });
+    return syncClientMap({ projectsDir: paths.projects, secretsDir: paths.secrets }, { project: slug, email: m.email, pageId: m.pageId, text: notionMapSource(m.source), at: m.at, nextStep: g.ok ? nextStepOf(g) : null });
   };
   // P112 S3: the slug binds only with its capability, once, for this process's life.
   const binding = bindProject(paths, env);

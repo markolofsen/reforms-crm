@@ -1,6 +1,6 @@
 import { isHiddenLabel } from "@hub/config/chat-rules";
 import { AUTOPILOT_DRAFT_AUTHOR, AUTOPILOT_SEND_ACTOR, isPausingReason, type AutopilotBrain, type AutopilotChat } from "@hub/config/autopilot";
-import type { Repos } from "@hub/db";
+import { isDoneThrough, type Repos } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";
 import type { StoredChat } from "@hub/messengers";
 import { memoryLedger } from "./budget";
@@ -64,6 +64,8 @@ async function precheck(repos: Repos, switches: AutopilotSwitches, chat: Autopil
   if (!newest || newest.direction !== "in") return { skip: "not_inbound" };
   const verdict = (await repos.messengers.verdictsOf(chat.project, [newest.id])).get(newest.id);
   if (isHiddenLabel(verdict)) return { skip: "hidden" };
+  // P143 D3: a chat marked no reply needed through this message waits for their next one.
+  if (isDoneThrough(c.row, newest.sentAt)) return { skip: "done" };
   // Verdict 29: a draft the owner (or an attended session) wrote or edited is his; a turn never touches it.
   const open = await repos.messengers.openDraft(chat.project, chat.channel, chat.chatId);
   if (open && open.createdBy !== AUTOPILOT_DRAFT_AUTHOR) return { skip: "your_draft" };
@@ -74,6 +76,13 @@ async function precheck(repos: Repos, switches: AutopilotSwitches, chat: Autopil
     daily = true;
   }
   return { mode: c.state.state, revise: open?.id ?? null, disclose: await disclosesNow(repos, chat, daily, dayStart) };
+}
+
+/** P143 D3: the chat is marked no reply needed through its newest stored message (its own time). */
+async function doneNow(repos: Repos, chat: AutopilotChat): Promise<boolean> {
+  const row = await repos.messengers.chat(chat.project, chat.channel, chat.chatId);
+  const [newest] = await repos.messengers.messagesOf(chat.project, [{ channel: chat.channel, chatId: chat.chatId }], { limit: 1 });
+  return !!row && !!newest && newest.direction === "in" && isDoneThrough(row, newest.sentAt);
 }
 
 export function createAutopilot(d: AutopilotDeps): AutopilotHandle {
@@ -92,7 +101,7 @@ export function createAutopilot(d: AutopilotDeps): AutopilotHandle {
   const late: { deliver?: AutopilotDeliver } = {};
   const scheduler = new AutopilotScheduler({
     precheck: (chat) => precheck(repos, switches, chat, dayStart(clockNow())),
-    run: (turn, signal) => turnRunner({ brain: d.brain, deliver: late.deliver ?? d.deliver })(turn, signal),
+    run: (turn, signal) => turnRunner({ brain: d.brain, deliver: late.deliver ?? d.deliver, isDone: (t) => doneNow(repos, t.chat) })(turn, signal),
     onOutcome,
     ...(d.clock ? { clock: d.clock } : {}),
     ...d.scheduler,

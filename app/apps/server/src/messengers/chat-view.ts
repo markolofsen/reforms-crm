@@ -1,6 +1,6 @@
 import { isHiddenLabel } from "@hub/config/chat-rules";
 import { messengerChatDto, messengerDraftDto, type ChatSuggestionDto, type MessengerChatDto } from "@hub/contract/messenger-panel";
-import { rulesOf, type MessengerChatRow, type MessengerDraftRow, type MessengerProjectionRow, type Repos } from "@hub/db";
+import { isDoneThrough, rulesOf, type MessengerChatRow, type MessengerDraftRow, type MessengerProjectionRow, type Repos } from "@hub/db";
 import { type MessengerIdentityResolver } from "./identity";
 
 // P120 W4: a chat's row and its open draft as the panel shows them, built from the repos' rows (route files import no @hub/db).
@@ -17,6 +17,8 @@ export function projectedChatRow(projected: MessengerProjectionRow, identity: Me
   const { row, client, notion, activity, last, lastVerdict } = projected;
   const digits = row.phone ?? (row.channel === "whatsapp" && /^\+\d{7,15}$/.test(row.chatId) ? row.chatId.slice(1) : null);
   const hidden = isHiddenLabel(lastVerdict) ? lastVerdict : null;
+  // P143 D1: done through the newest inbound message (the cached one or the row's own fact); a newer one reopens it.
+  const done = isDoneThrough(row, [activity.lastInAt, row.lastInboundAt].filter((x): x is string => !!x).sort().at(-1) ?? null);
   return messengerChatDto.parse({
     id: row.id,
     channel: row.channel,
@@ -27,7 +29,8 @@ export function projectedChatRow(projected: MessengerProjectionRow, identity: Me
     inbound: activity.inbound,
     stored: projected.stored,
     last: last ? { direction: last.direction, kind: last.kind, text: last.text, at: last.sentAt, hidden } : null,
-    owed: last?.direction === "in" && hidden === null,
+    owed: last?.direction === "in" && hidden === null && !done,
+    done: done && row.doneAt && row.doneBy ? { at: row.doneAt, by: row.doneBy, reason: row.doneReason } : null,
     draft: projected.draft ? draftOf(projected.draft) : null,
     autolinked: row.autolinked ?? null,
     triage: projected.triage,

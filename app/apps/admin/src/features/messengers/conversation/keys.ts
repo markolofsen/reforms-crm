@@ -12,6 +12,24 @@ export const MESSENGER_DRAFT_KEYS: readonly (readonly [string, string])[] = [
 ];
 export const MESSENGER_UNDO_KEYS: readonly (readonly [string, string])[] = [["U", "undo the last Skip"]];
 
+/** P143 D2: D marks the open chat No reply needed (Mail's D is "done"; E stays Edit of a draft). */
+export const MESSENGER_DONE_KEYS: readonly (readonly [string, string])[] = [["D", "no reply needed: the chat leaves Needs you until they write again (Undo on its toast)"]];
+
+/** D on an open chat that owes a reply and has no draft; nothing happens otherwise. */
+export function useMessengerDoneKey(k: { enabled: () => boolean; done: (() => void) | null }): void {
+  useHotkeys(
+    {
+      d: (e) => {
+        if (!k.done) return;
+        e.preventDefault();
+        k.done();
+      },
+    },
+    k.enabled,
+    MESSENGER_DONE_KEYS,
+  );
+}
+
 /** S and E on the open draft; off while a move is pending or the editor is open (the editor owns its keys). */
 export function useMessengerDraftKeys(k: { enabled: () => boolean; busy: boolean; editing: boolean; skip: () => void; edit: () => void }): void {
   const idle = () => !k.busy && !k.editing;

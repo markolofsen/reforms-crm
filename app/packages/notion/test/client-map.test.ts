@@ -54,6 +54,13 @@ describe("writeClientMap", () => {
     expect(await writeClientMap({ reader: reader(DATE, [page("p1", "ann@x.example")]), writer: w }, { clientsDataSource: "ds", email: "bob@x.example", text: "m", at: AT })).toMatchObject({ state: "skipped", reason: "not_client" });
     expect(w.calls).toEqual([]);
   });
+  it("P143 L2: a client with no address is found by its card's page id; with neither, nothing is written", async () => {
+    const w = writer([]);
+    expect(await writeClientMap({ reader: reader(DATE, []), writer: w }, { clientsDataSource: "ds", pageId: "p8", text: "m", at: AT })).toMatchObject({ state: "synced", pageId: "p8" });
+    const none = writer([]);
+    expect(await writeClientMap({ reader: reader(DATE, []), writer: none }, { clientsDataSource: "ds", text: "m", at: AT })).toMatchObject({ state: "skipped", reason: "not_client" });
+    expect(none.calls).toEqual([]);
+  });
 });
 
 describe("the map writer", () => {

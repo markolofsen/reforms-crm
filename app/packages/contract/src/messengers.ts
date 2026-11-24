@@ -272,3 +272,28 @@ export const agentUnlinkedDto = z.strictObject({
   chats: z.array(z.strictObject({ channel: userChannel, chatId: z.string(), title: z.string(), why: z.string(), lastAt: z.string().nullable(), inbound: z.boolean().nullable(), proposed: z.boolean() })),
 });
 export type AgentUnlinkedDto = z.infer<typeof agentUnlinkedDto>;
+
+/**
+ * P143 L2: `hub mcp`'s two doors in an attended session (the agent token, never the browser). Create from this chat: one lookup by
+ * the person's identities first (a Hub client, then the Notion card with this email or this chat's number or username), else one
+ * new Clients card (Name, Email when known, the chat's number or username), then the link. Link: the chat to a client the Hub knows
+ * (`client`) or to a Notion card (`record`, its page id). Both answer what happened in one line for the owner.
+ */
+export const agentClientCreateBody = z.strictObject({
+  chat: z.number().int().positive(),
+  name: z.string().trim().min(1).max(200),
+  email: z.email().max(254).optional(),
+  company: z.string().trim().min(1).max(200).optional(),
+});
+export const agentChatLinkBody = z.strictObject({ chat: z.number().int().positive(), client: z.number().int().positive().optional(), record: z.string().min(1).max(64).optional() });
+export const agentChatLinkedDto = z.strictObject({
+  ok: z.literal(true),
+  chat: z.number().int(),
+  clientId: z.number().int().nullable(),
+  name: z.string(),
+  how: z.enum(["created", "linked_existing", "linked"]),
+  notion: z.string().nullable(),
+  imported: z.number(),
+  importError: z.string().nullable(),
+});
+export type AgentChatLinkedDto = z.infer<typeof agentChatLinkedDto>;

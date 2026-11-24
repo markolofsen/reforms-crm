@@ -66,7 +66,7 @@ export type {
 export type { MessengerProjectionRow } from "./messenger-projection";
 export type { ChatActivity, MessengerChatRow } from "./messenger-chats";
 export type { NewTriage, TriageCounts } from "./messenger-triage";
-export { rulesOf } from "./messenger-chats";
+export { isDoneThrough, rulesOf } from "./messenger-chats";
 export type { BatchRow, BatchSummary } from "./batches";
 export type { BasedOn, ReviewDraft, TeamNotice } from "./review";
 export { senderName, teamNoticeOf } from "./review";

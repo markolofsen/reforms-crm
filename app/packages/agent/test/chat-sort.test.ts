@@ -18,6 +18,8 @@ function fakePort(): { port: ChatSortPort; proposed: unknown[] } {
         proposed.push(...items);
         return { ok: true, value: { kept: items.length, skipped: 0 } };
       },
+      create: async () => ({ ok: false, status: 0, error: "not in this test" }),
+      link: async () => ({ ok: false, status: 0, error: "not in this test" }),
     },
   };
 }

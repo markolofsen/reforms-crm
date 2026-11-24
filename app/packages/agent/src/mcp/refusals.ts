@@ -70,6 +70,10 @@ export const REFUSAL_CODES = [
   // decision 0048: an autopilot turn's hub mcp serves one chat (verdict 20)
   "autopilot_other_chat",
   "autopilot_verdict",
+  // P143: conversation_done, client_create, chat_link
+  "nothing_to_close",
+  "already_linked",
+  "not_in_notion",
 ] as const;
 
 export type RefusalCode = (typeof REFUSAL_CODES)[number];
@@ -126,7 +130,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   empty_query: { retry: "now", next: "Search with the client's own words (letters, not only punctuation)." },
   brand_required: { retry: "now", next: "Pass brand = the brand message_show gave for this mail, or ANY for a mail with no brand." },
   unknown_brand: { retry: "now", next: "Use one of the brands the message lists (project_show names them too), or ANY." },
-  not_linked: { retry: "no", next: "Only chats the owner linked exist here, or, in a session he attends, a chat his own words name (pass them as owner_request); else say so in one line." },
+  not_linked: { retry: "no", next: "Outside a session the owner attends only linked chats are read: say so in one line." },
   empty_text: { retry: "now", next: "Give the reply's text." },
   reply_off: { retry: "no", next: "The owner set this chat to never draft: write nothing and say so in one line." },
   no_inbound: { retry: "no", next: "No message from this person is stored yet: tell the owner in one line to Refresh the chat or check the receiver; his word that they wrote does not count. Write nothing." },
@@ -143,6 +147,9 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   failed: { retry: "no", next: `${ONE_LINE} that the send failed and why; never retry.` },
   autopilot_other_chat: { retry: "now", next: "This turn answers one chat: use its chat id and its client only (the prompt names them)." },
   autopilot_verdict: { retry: "now", next: "Call messenger_draft_write once more with autopilot = {verdict, reason} as the skill says." },
+  nothing_to_close: { retry: "no", next: "Nothing of theirs waits for an answer here: leave it and say so in one line." },
+  already_linked: { retry: "no", next: "The chat is linked already: say to whom in one line (messenger_history names the client)." },
+  not_in_notion: { retry: "now", next: "Find the client with client_create's lookup (by email or phone), or create one from this chat with client_create." },
 };
 
 export const isRefusalCode = (code: string): code is RefusalCode => (REFUSAL_CODES as readonly string[]).includes(code);

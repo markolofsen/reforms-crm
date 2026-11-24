@@ -23,7 +23,7 @@ export const GENERATED_OPERATIONS = {
   messengers: [
     "getTelegramUserStatus", "startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser", "getWhatsAppStatus", "startWhatsAppConnect", "readWhatsAppConnect", "cancelWhatsAppConnect", "disconnectWhatsApp",
     "getAutolinkState", "previewAutolink", "findAutolinkRecords", "linkChatRecord", "createChatRecord", "hideChat", "unhideChat", "dropHideProposals", "listAccountDialogs", "changeChatClient", "undoChatClient", "addChatClientEmail", "unlinkChat", "neverLinkChat",
-    "listMessengerChats", "getMessengerConversation", "createMessengerDraft", "editMessengerDraft", "skipMessengerDraft", "restoreMessengerDraft", "prepareMessengerReply", "setMessengerChatRules",
+    "listMessengerChats", "getMessengerConversation", "createMessengerDraft", "editMessengerDraft", "skipMessengerDraft", "restoreMessengerDraft", "prepareMessengerReply", "setMessengerChatRules", "markMessengerChatDone", "undoMessengerChatDone",
     "createAutopilotTicket", "getAutopilot", "setAutopilot", "getProjectAutopilot", "setProjectAutopilot",
   ],
   send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "listSends", "cancelSend", "stopSends", "resumeSends"],

@@ -3,6 +3,7 @@ import type { ToolDef } from "../define";
 import { chatsProposeHideTool, chatsUnlinkedTool } from "./chat-sort";
 import { clientMapTool, mapsDueTool } from "./client-map";
 import { clientRecordTool } from "./client-record";
+import { chatLinkTool, clientCreateTool, conversationDoneTool } from "./conversation";
 import { draftShowTool } from "./draft-show";
 import { draftWriteTool } from "./draft-write";
 import { focusTool, highlightTool } from "./focus";
@@ -16,7 +17,8 @@ import { projectShowTool } from "./project";
 
 // P129 verdict 5 (A4): `project_show` replaced `project_notion` and `project_links`; `message_show` replaced `inbound_show`
 // and `mail_brand`; `mail_list` replaced `drafts_list`; the knowledge tools moved here from the `knowledge-mcp` server.
-export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool] as const satisfies readonly ToolDef[];
+// P143: `conversation_done` (also an autopilot turn's, its own chat), `client_create` and `chat_link` (attended only, at run time).
+export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool] as const satisfies readonly ToolDef[];
 
 /** Decision 0048 (verdict 28 as built): an autopilot turn's `hub mcp` registers exactly these, each bound to the turn's chat. */
 export const AUTOPILOT_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (AUTOPILOT_HUB_TOOLS as readonly string[]).includes(t.name));

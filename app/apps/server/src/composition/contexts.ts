@@ -127,6 +127,7 @@ export function contexts(rt: Runtime): Contexts {
       ...optional("wa", rt.messengers.whatsapp),
       ...optional("autolink", al),
       ...optional("agentToken", sender?.agent?.token),
+      ...optional("agentUnattended", sender?.agent?.unattended),
       ...optional("autopilot", rt.messengers.autopilot),
     },
   };

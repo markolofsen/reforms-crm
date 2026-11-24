@@ -170,6 +170,13 @@ export const usePrepareReply = (project: string) => useCommand({ project, touche
 /** The owner's own words as an unsent draft of the chat (never sent here). */
 export const useManualMessengerDraft = (project: string, chatId: number, onSuccess: () => void) => useCommand({ project, touches: MESSENGERS, run: (text: string) => messengersApi.createManualDraft(project, chatId, text), onSuccess });
 
+/** P143 D2: No reply needed on a chat (Done) and its Undo; the panel and the open conversation are read again either way. */
+export function useChatDone(project: string, on: { onDone: (v: { id: number; name: string }) => void; onError: (e: unknown) => void }) {
+  const done = useCommand({ project, touches: MESSENGERS, onError: on.onError, run: ({ id }: { id: number; name: string }) => messengersApi.markDone(project, id), onSuccess: (_r, v) => on.onDone(v) });
+  const undo = useCommand({ project, touches: MESSENGERS, onError: on.onError, run: (id: number) => messengersApi.undoDone(project, id) });
+  return { done, undo };
+}
+
 /** Edit, Skip and its Undo (Restore) of a messenger draft (P71 M3). Send is not here: it is the door's (`useMessengerSendFlow`). */
 export function useMessengerDraftCommands(project: string, on: { onSuccess: () => void; onError: (e: unknown) => void; onSkipped: (v: { id: number; name: string }) => void }) {
   const o = { project, touches: MESSENGERS, onError: on.onError };

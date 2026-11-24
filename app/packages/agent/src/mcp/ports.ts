@@ -90,7 +90,7 @@ export interface HubMcpEnv {
    * P135 K5: copies a saved client map to the client's Notion page (the "Client map" code block and the "Map updated" date). Never
    * throws; its state is what `client_map` answers (`synced`, `skipped`, `off`, `failed`). Absent: the map stays in the Hub only.
    */
-  syncClientMap?: (slug: string, m: { email: string; source: string; at: string }) => Promise<{ state: string }>;
+  syncClientMap?: (slug: string, m: { email: string | null; pageId: string | null; source: string; at: string }) => Promise<{ state: string }>;
   /** P129 verdict 7: whether these words are in one of this project's owner prompts of the last 12 hours (the P54 log). Absent: not checked. */
   ownerWords?: (slug: string, words: string) => boolean;
   /**

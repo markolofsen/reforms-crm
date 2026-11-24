@@ -5,8 +5,21 @@
  * Phone, WhatsApp or Telegram is not overwritten. Pure.
  */
 
-/** A phone number however it is spaced (`+966 54 455 5430`, `966544555430`, `(212) 555-0100`). */
+/** A phone number however it is spaced (`+966 54 455 5430`, `966544555430`, `(212) 555-0100`), after `plainName`. */
 const PHONE = /^\+?[\d\s\-().]{6,}$/;
+/** Invisible format characters (Unicode Cf): direction marks and embeddings (U+200E, U+202A to U+202E, U+2066 to U+2069), zero widths, BOM. */
+const FORMAT = /[\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u206f\ufeff]/g;
+/** Dashes that are not U+002D (the non-breaking hyphen U+2011 among them), read as one. */
+const DASHES = /[\u2010-\u2015\u2212\ufe58\ufe63\uff0d]/g;
+
+/**
+ * P143 N2: a name as its characters read, for the tests below and for what a writer stores: WhatsApp and Telegram wrap a number
+ * in direction marks and space it with no-break spaces and non-breaking hyphens ("\u202a+55 44 99920\u20119735\u202c"), which the
+ * phone test did not see, so a bare number passed as a person's name and no real title could replace it. Pure.
+ */
+export function plainName(name: string | null | undefined): string {
+  return (name ?? "").replace(FORMAT, "").replace(DASHES, "-").replace(/\s+/g, " ").trim();
+}
 /** A chat id that is not a name: a WhatsApp `lid:` id, a bare Telegram user id. */
 const CHAT_ID = /^(lid:\d+|\d+)$/i;
 /** The placeholder title a chat-only client gets (P141 verdict 18): "WhatsApp +966…", "Telegram @user". */
@@ -17,7 +30,7 @@ const CHANNEL_PLACEHOLDER = /^(whatsapp|telegram)\s+[+@]?[\w.]+$/i;
  * placeholder. `email` is the client's own address, which a name must not repeat.
  */
 export function isRealName(name: string | null | undefined, email?: string | null): boolean {
-  const n = (name ?? "").trim();
+  const n = plainName(name);
   if (!n || n.includes("@") || PHONE.test(n) || CHAT_ID.test(n) || CHANNEL_PLACEHOLDER.test(n)) return false;
   return !email || n.toLowerCase() !== email.trim().toLowerCase();
 }
@@ -32,8 +45,8 @@ export type ProfileField = "title" | "email" | "phone" | "whatsapp" | "telegram"
  * - `phone`, `whatsapp`, `telegram`: only into an empty field.
  */
 export function betterValue(field: ProfileField, current: string | null | undefined, next: string | null | undefined): string | null {
-  const cur = (current ?? "").trim();
-  const nxt = (next ?? "").trim();
+  const cur = field === "title" ? plainName(current) : (current ?? "").trim();
+  const nxt = field === "title" ? plainName(next) : (next ?? "").trim();
   if (!nxt) return null;
   if (field === "title") {
     if (nxt === cur) return null;
@@ -49,7 +62,7 @@ export function betterValue(field: ProfileField, current: string | null | undefi
  * is a real name, else "WhatsApp +966544555430" or "Telegram @user"; never empty, never the bare number.
  */
 export function chatClientTitle(o: { channel: "telegram" | "whatsapp"; name?: string | null; username?: string | null; phone?: string | null; chatId?: string | null }): string {
-  if (isRealName(o.name)) return (o.name ?? "").trim();
+  if (isRealName(o.name)) return plainName(o.name);
   if (o.channel === "telegram") {
     const u = o.username?.trim().replace(/^@/, "");
     if (u) return `Telegram @${u}`;

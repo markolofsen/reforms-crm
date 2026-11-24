@@ -22,11 +22,14 @@ import { focusAgentRow } from "@/lib/focus";
 import { useManualMessengerDraft, useMessengerConversation, usePrepareReply } from "@/lib/data/messengers";
 import { isNotFound, sentence } from "@/lib/api/client";
 import { dayOf, formatDay, formatTime } from "@/lib/format";
-import { CHANNEL_LABEL, chatName, chatStateLine, identityLine, notionIdentityLine, notionIndicatorState } from "../labels";
+import { CHANNEL_LABEL, chatName, chatStateLine, doneLine, handleLine, identityLine, notionIdentityLine, notionIndicatorState } from "../labels";
 import { CreateClient, RecordSearch } from "../unlinked/record-search";
 import { dialogOf, UnlinkedHeaderButtons } from "../unlinked/known-unlinked";
 import { useChatMoves } from "../status/use-moves";
 import { AddClientEmail } from "./add-email";
+import { useMessengerDoneKey } from "./keys";
+import { useDoneChat } from "./use-done";
+import { shortcutsOn } from "@/hooks/use-shortcuts";
 import { MessengerDraft } from "../draft";
 import { AutopilotChatSwitch, AutopilotStateLine } from "../autopilot/chat-switch";
 import type { useChatActions } from "../use-chat-actions";
@@ -134,6 +137,14 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
   const linkMode = linking?.chatId === chatId ? linking.mode : null;
   const stopLinking = () => setLinking(null);
   const who = chat && !chat.client ? identityLine(chat.identity) : null;
+  // P143 N1: a linked chat is titled by its client; the number or @username is the subtitle.
+  const handle = chat?.client ? handleLine(chat.identity) : null;
+  // P143 D2: No reply needed while a reply is owed and no draft waits (a draft's own Skip covers that case).
+  const doneChat = useDoneChat(project);
+  const canDone = chat !== undefined && chat.owed && chat.draft === null;
+  const markDone = canDone && chat ? () => doneChat.mark(chat.id, name) : null;
+  useMessengerDoneKey({ enabled: shortcutsOn, done: doneChat.pending ? null : markDone });
+  const doneWhy = chat ? doneLine(chat.done) : null;
   const marks = marked?.chatId === chatId ? { keys: marked.keys, label: marked.label, onClear: () => setMarked(null) } : null;
   const ringed = new Set(marks?.keys ?? []);
   const firstMark = marks?.keys[0] ?? null;
@@ -203,7 +214,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     <ConversationFrame
       ariaLabel={`Conversation with ${name}`}
       composer={composer}
-      header={<ConversationHeader actions={dialog ? <UnlinkedHeaderButtons moves={moves} onMode={(mode) => setLinking({ chatId, mode })} project={project} r={dialog} /> : <><AutopilotChatSwitch chatId={chatId} compact project={project} /><ConversationHeaderActions contact={chat?.contact} notionPageId={pageId} /></>} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts>{chat.client && <ClientMapLine onShowSources={showSources} subject={{ project, clientId: chat.client.id, name: chat.client.name || chat.client.email || "this client", email: chat.client.email, notionPageId: pageId }} />}<span>{CHANNEL_LABEL[chat.channel]}</span>{!chat.client && <span>Not linked</span>}{who && <span>{who}</span>}<span>{chatStateLine(chat)}</span>{chat.client && <AutopilotStateLine chatId={chatId} project={project} />}{chat.client && !chat.client.email && <AddClientEmail chatId={chatId} name={chat.client.name} project={project} />}{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
+      header={<ConversationHeader actions={dialog ? <UnlinkedHeaderButtons moves={moves} onMode={(mode) => setLinking({ chatId, mode })} project={project} r={dialog} /> : <>{markDone && <ActionButton data-testid="chat-no-reply-needed" disabled={doneChat.pending} onClick={markDone} size="s" tooltip={{ content: "The chat leaves Needs you until they write again", hotkey: "D" }} variant="secondary">No reply needed</ActionButton>}<AutopilotChatSwitch chatId={chatId} compact project={project} /><ConversationHeaderActions contact={chat?.contact} notionPageId={pageId} /></>} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts>{chat.client && <ClientMapLine onShowSources={showSources} subject={{ project, clientId: chat.client.id, name: chat.client.name || chat.client.email || "this client", email: chat.client.email, notionPageId: pageId }} />}<span>{CHANNEL_LABEL[chat.channel]}</span>{handle && <span data-testid="chat-handle">{handle}</span>}{!chat.client && <span>Not linked</span>}{who && <span>{who}</span>}<span>{chatStateLine(chat)}</span>{doneWhy && <span data-testid="chat-done-line">{doneWhy}</span>}{chat.client && <AutopilotStateLine chatId={chatId} project={project} />}{chat.client && !chat.client.email && <AddClientEmail chatId={chatId} name={chat.client.name} project={project} />}{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
       testId="messenger-conversation"
       dataAgentRef={refOf("chat", chat?.id ?? chatId)}
       historyActions={!scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}

@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { createHubMcpServer } from "../src/mcp/server";
-import { wordsNameChat } from "../src/mcp/tools/messengers";
 import { draftVerdict, NO_INBOUND } from "../src/messenger/rules";
 import type { WithRepos } from "../src/mail/write-log";
 
@@ -266,39 +265,59 @@ describe("draftVerdict", () => {
   });
 });
 
-describe("P141 U5: an unlinked chat reaches the agent only on the owner's words in an attended session", () => {
+describe("P143 L1: in a session the owner attends, any chat of the project is read, linked or not; never unattended", () => {
   const chat44 = { channel: "telegram_user", chat_id: "44" };
-  const said = (words: string) => ({ ownerWords: (_slug: string, w: string) => w === words });
+  const owner = { ownerWords: () => true };
 
-  it("is not_linked in an unattended session, whatever owner_request says", async () => {
+  it("is not_linked in an unattended session", async () => {
     const call = await connect("acme");
-    expect((await call("messenger_history", { ...chat44, owner_request: "ответь Qimma" })).json.error).toBe("not_linked");
-    expect((await call("messenger_draft_write", { ...chat44, text: "Hello", owner_request: "ответь Qimma" })).json.error).toBe("not_linked");
+    expect((await call("messenger_history", chat44)).json.error).toBe("not_linked");
+    expect((await call("messenger_draft_write", { ...chat44, text: "Hello" })).json.error).toBe("not_linked");
   });
 
-  it("is read and drafted in an attended session when the owner's own words name the chat", async () => {
-    const call = await connect("acme", true, undefined, said("ответь Qimma, что мы на связи"));
-    const h = await call("messenger_history", { ...chat44, owner_request: "ответь Qimma, что мы на связи" });
+  it("is read and drafted in an attended session with no naming asked (the chat in focus is named)", async () => {
+    const call = await connect("acme", true, undefined, owner);
+    const h = await call("messenger_history", chat44);
     expect(h.isError).toBe(false);
-    expect(h.json.chats[0]).toMatchObject({ chat_id: "44", client: null });
-    const d = await call("messenger_draft_write", { ...chat44, text: "Мы на связи.", owner_request: "ответь Qimma, что мы на связи" });
+    expect(h.json.chats[0]).toMatchObject({ chat_id: "44", client: null, done: null });
+    const d = await call("messenger_draft_write", { ...chat44, text: "Мы на связи." });
     expect(d.isError).toBe(false);
     expect((await drafts()).find((x) => x.chatId === "44")).toMatchObject({ clientId: null, status: "draft" });
   });
 
-  it("stays not_linked when the words are not the owner's, or do not name this chat", async () => {
-    const call = await connect("acme", true, undefined, said("ответь Анне"));
-    expect((await call("messenger_history", { ...chat44, owner_request: "ответь Qimma" })).json.error).toBe("not_linked");
-    expect((await call("messenger_history", { ...chat44, owner_request: "ответь Анне" })).json.error).toBe("not_linked");
-    expect((await call("messenger_history", chat44)).json.error).toBe("not_linked");
+  it("an unknown chat stays not_linked, attended or not", async () => {
+    const call = await connect("acme", true, undefined, owner);
+    expect((await call("messenger_history", { channel: "telegram_user", chat_id: "999999" })).json.error).toBe("not_linked");
+  });
+});
+
+describe("P143 D3: conversation_done takes a chat out of Needs you until their next message", () => {
+  it("closes a chat through its newest inbound message, logs the reason, and the next message reopens it", async () => {
+    const call = await connect("acme");
+    const chat = (await w.messengers.chat("acme", "telegram_user", "42"))!;
+    const r = await call("conversation_done", { chat: chat.id, reason: "they confirmed with yes" });
+    expect(r.isError).toBe(false);
+    expect(r.json).toMatchObject({ done: true, chat: chat.id, client: ids.ann, name: "Ann" });
+    const row = (await w.messengers.chat("acme", "telegram_user", "42"))!;
+    expect(row).toMatchObject({ doneBy: "agent", doneReason: "they confirmed with yes", doneThrough: "2026-11-19T09:00:00.000Z" });
+    expect((await call("messenger_history", chat42)).json.chats[0]).toMatchObject({ done: { by: "agent", reason: "they confirmed with yes" } });
+    // Their next message is newer than what was closed: the chat needs the owner again.
+    await w.messengers.insertMessage(msg("42", "9", "in", "2026-11-20T09:00:00.000Z"));
+    expect((await call("messenger_history", chat42)).json.chats[0]).toMatchObject({ done: null });
   });
 
-  it("wordsNameChat matches the title, the username or the number, never a fragment", () => {
-    const row = { title: "Qimma", username: "qimma_k", phone: "966544555430", chatId: "44", profileName: null };
-    expect(wordsNameChat("Answer qimma please", row)).toBe(true);
-    expect(wordsNameChat("write to @qimma_k", row)).toBe(true);
-    expect(wordsNameChat("call +966 54 455 5430", row)).toBe(true);
-    expect(wordsNameChat("answer him", row)).toBe(false);
-    expect(wordsNameChat("chat 44", row)).toBe(false);
+  it("refuses nothing_to_close where they never wrote, and an unlinked chat unattended", async () => {
+    const call = await connect("acme");
+    const silent = (await w.messengers.chat("acme", "telegram_user", "43"))!;
+    expect((await call("conversation_done", { chat: silent.id, reason: "nothing there" })).json.error).toBe("nothing_to_close");
+    const qimma = (await w.messengers.chat("acme", "telegram_user", "44"))!;
+    expect((await call("conversation_done", { chat: qimma.id, reason: "a thanks" })).json.error).toBe("not_linked");
+  });
+
+  it("client_create and chat_link refuse outside an attended session", async () => {
+    const call = await connect("acme");
+    const qimma = (await w.messengers.chat("acme", "telegram_user", "44"))!;
+    expect((await call("client_create", { chat: qimma.id, name: "Ahmed", company: "Qimma Auctions" })).json.error).toBe("unattended");
+    expect((await call("chat_link", { chat: qimma.id, client: ids.ann })).json.error).toBe("unattended");
   });
 });

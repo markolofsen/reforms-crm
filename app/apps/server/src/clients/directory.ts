@@ -16,6 +16,8 @@ import { ops } from "@hub/log/ops";
  */
 
 export const DIRECTORY_REFRESH_MS = 6 * 60 * 60 * 1000;
+/** P143 N2: one card is read again at most this often (a conversation opened, its Refresh, a Hub write to the card). */
+export const CARD_READ_MS = 60_000;
 const NUMBER_PROPS = /^(phone|mobile|tel)$/i;
 /** A property of one messenger: its numbers match that messenger's chats only. */
 const channelOf = (key: string): DialogChannel | null => (/^whatsapp$/i.test(key) ? "whatsapp" : /^telegram$/i.test(key) ? "telegram" : null);
@@ -43,6 +45,12 @@ export interface ClientDirectory {
   search(q: string): Promise<{ entries: DirectoryEntry[]; error: string | null }>;
   /** P100: one record into memory now (a live hit, or a card the owner just created), the index rebuilt. */
   put(entry: DirectoryEntry): void;
+  /**
+   * P143 N2: reads ONE card now (a page read, read only) and hands it to the same read-back as the full read (`onRead`), so a
+   * title the agent or the owner wrote in Notion directly names the Hub's client when its conversation opens, not 6 hours later.
+   * At most once per `CARD_READ_MS` per card unless `force` (after a Hub write to it); never throws; resolves when done.
+   */
+  readCard(pageId: string, o?: { force?: boolean }): Promise<void>;
   /** The clients data source id, or null. */
   dataSourceId: string | null;
   /** P100: the reader and the chat writer, built from the instance token (fakes in tests). */
@@ -158,6 +166,24 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
     const rest = (dir?.all ?? []).filter((e) => e.key !== entry.key);
     dir = buildDirectory([...rest, entry]);
   };
+  /** When each card was last read one by one, so an open conversation's re-renders do not each ask Notion. */
+  const cardReadAt = new Map<string, number>();
+  const readCard = async (pageId: string, ro: { force?: boolean } = {}): Promise<void> => {
+    if (!o.dataSourceId || !pageId) return;
+    const t = now().getTime();
+    const last = cardReadAt.get(pageId);
+    if (!ro.force && last !== undefined && t - last < CARD_READ_MS) return;
+    cardReadAt.set(pageId, t);
+    try {
+      const { writer } = await notion();
+      const e = entryOf((await writer.retrievePage(pageId)) as { id: string; properties: Record<string, Prop> });
+      if (!e) return;
+      put(e);
+      await o.onRead?.([e]);
+    } catch (e) {
+      ops("notion").warn("reading one client card from Notion failed", { reason: why(e) });
+    }
+  };
   // An injected reader means a test: the writer is then the injected one or none at all, never a real one from a token on disk.
   const noWriter = (): ChatClientWriter => {
     const refuse = async (): Promise<never> => {
@@ -176,6 +202,7 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
     current: () => dir,
     refresh,
     put,
+    readCard,
     dataSourceId: o.dataSourceId,
     notion,
     async search(q) {

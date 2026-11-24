@@ -8,10 +8,10 @@ import { OpenLinkItem } from "@/components/links/open-link";
 import { dest } from "@/routes/paths";
 
 /** What the menu can ask of its row: the row decides what each does (a search box, a confirmation, a move). */
-export type StatusAction = "change" | "unlink" | "hide-linked" | "link" | "create" | "hide" | "unhide";
+export type StatusAction = "done" | "change" | "unlink" | "hide-linked" | "link" | "create" | "hide" | "unhide";
 
 /** The three states of a chat (P102): the menu's items are the moves that state allows, and only those. */
-export type StatusState = { state: "linked"; client: string } | { state: "unlinked"; canCreate: boolean } | { state: "hidden"; canLink: boolean };
+export type StatusState = { state: "linked"; client: string; /** P143 D2: a reply is owed and no draft waits: No reply needed is offered. */ canDone?: boolean } | { state: "unlinked"; canCreate: boolean } | { state: "hidden"; canLink: boolean };
 
 /**
  * P102 S3: the one state menu of a chat row, the only place a chat changes state, so a row has one control for it instead of a
@@ -38,6 +38,7 @@ export function StatusMenu({ s, name, disabled, onAction, compact = false, conta
       <MenuPopup align="start">
         {s.state === "linked" && (
           <>
+            {s.canDone && item("done", "No reply needed")}
             <OpenLinkItem to={chats.telegram} />
             <OpenLinkItem to={chats.whatsapp} />
             {item("change", "Change client…")}

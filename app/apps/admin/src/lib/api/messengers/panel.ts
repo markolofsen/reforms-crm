@@ -1,5 +1,5 @@
-import { addChatClientEmail, changeChatClient, createChatRecord, createMessengerDraft, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, hideChat, linkChatRecord, listAccountDialogs, listMessengerChats, neverLinkChat, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft, undoChatClient, unhideChat, unlinkChat } from "@hub/api";
-import { messengerChatDto, messengerChatsDto, messengerConversationDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChatsQuery } from "@hub/contract/messenger-panel";
+import { addChatClientEmail, changeChatClient, createChatRecord, createMessengerDraft, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, hideChat, linkChatRecord, listAccountDialogs, listMessengerChats, markMessengerChatDone, neverLinkChat, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft, undoChatClient, undoMessengerChatDone, unhideChat, unlinkChat } from "@hub/api";
+import { messengerChatDoneDto, messengerChatDto, messengerChatsDto, messengerConversationDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChatsQuery } from "@hub/contract/messenger-panel";
 import { chatEmailDto, autolinkProposalsDroppedDto, autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { readGenerated } from "../client";
 
@@ -21,6 +21,9 @@ export const messengersApi = {
   editDraft: (project: string, id: number, text: string) => readGenerated(editMessengerDraft(project, id, { text }), messengerDraftDto),
   skipDraft: (project: string, id: number) => readGenerated(skipMessengerDraft(project, id), messengerSkippedDto),
   restoreDraft: (project: string, id: number) => readGenerated(restoreMessengerDraft(project, id), messengerDraftDto),
+  /** P143 D2: No reply needed on a chat (it leaves Needs you until their next message) and its Undo. */
+  markDone: (project: string, chatId: number) => readGenerated(markMessengerChatDone(project, chatId), messengerChatDoneDto),
+  undoDone: (project: string, chatId: number) => readGenerated(undoMessengerChatDone(project, chatId), messengerChatDoneDto),
   prepareReply: (project: string, chatId: number) => readGenerated(prepareMessengerReply(project, chatId, { ownerRequest: "The owner asked to prepare a reply from the Messenger panel." }), messengerChatDto),
   setRules: (project: string, chatId: number, patch: ChatRulesBody) => readGenerated(setMessengerChatRules(project, chatId, patch), messengerChatDto),
   // P84: the autolink. Every call is a gated POST: the state names the owner's own contacts and the records come from his Notion.

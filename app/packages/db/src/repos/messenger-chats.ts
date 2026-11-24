@@ -27,6 +27,9 @@ export interface ChatActivity {
 
 const now = () => new Date().toISOString();
 
+/** P143 D1: the chat was marked done through this inbound message's time or a later one (the next inbound message reopens it). Pure. */
+export const isDoneThrough = (r: Pick<MessengerChatRow, "doneThrough">, lastInAt: string | null | undefined): boolean => !!r.doneThrough && !!lastInAt && lastInAt <= r.doneThrough;
+
 /** The rules of a chat row, in the shape `@hub/config/chat-rules` names. */
 export const rulesOf = (r: MessengerChatRow): ChatRules => ({ replyMode: r.replyMode, instruction: r.instruction, language: r.language, prefilter: r.prefilter });
 
@@ -104,6 +107,24 @@ export function messengerChatsRepo(db: Db) {
     async setAutopilotPause(project: string, channel: MessengerChannel, chatId: string, reason: string | null, at: string = now()): Promise<MessengerChatRow | null> {
       const set = reason === null ? { autopilotPausedAt: null, autopilotPausedReason: null } : { autopilotPausedAt: at, autopilotPausedReason: reason };
       return db.update(messengerChats).set(set).where(key(project, channel, chatId)).returning().get() ?? null;
+    },
+
+    /**
+     * P143 D1: the chat needs no reply: it is closed through its newest inbound message (that message's own time), so the next one
+     * reopens it. Returns the row, or null when the chat is not this project's or the person never wrote (nothing to close).
+     */
+    async markDone(project: string, id: number, o: { by: "owner" | "agent"; reason?: string | null; at?: string }): Promise<MessengerChatRow | null> {
+      const row = db.select().from(messengerChats).where(and(eq(messengerChats.project, project), eq(messengerChats.id, id))).get();
+      if (!row) return null;
+      const lastIn = db.select({ at: sql<string | null>`max(${messengerMessages.sentAt})` }).from(messengerMessages).where(and(msgsOf(project, row.channel, row.chatId), eq(messengerMessages.direction, "in"))).get()?.at ?? null;
+      const through = [lastIn, row.lastInboundAt].filter((x): x is string => !!x).sort().at(-1) ?? null;
+      if (!through) return null;
+      return db.update(messengerChats).set({ doneAt: o.at ?? now(), doneThrough: through, doneBy: o.by, doneReason: o.reason?.trim().slice(0, 300) || null }).where(eq(messengerChats.id, row.id)).returning().get() ?? null;
+    },
+
+    /** P143 D2: Undo of Done: the chat needs the owner again (null when it is not this project's). */
+    async reopen(project: string, id: number): Promise<MessengerChatRow | null> {
+      return db.update(messengerChats).set({ doneAt: null, doneThrough: null, doneBy: null, doneReason: null }).where(and(eq(messengerChats.project, project), eq(messengerChats.id, id))).returning().get() ?? null;
     },
 
     async activity(project: string, channel: MessengerChannel, chatId: string): Promise<ChatActivity> {

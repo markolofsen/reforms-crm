@@ -257,6 +257,12 @@ export function clientsRepo(db: Db) {
       return id === undefined ? undefined : resolveMerged(db, project, id);
     },
 
+    /** P143 L2: the client's Notion card id (a merged client's survivor's), or null when it has none or is not this project's. */
+    async notionPageOf(project: string, id: number): Promise<string | null> {
+      const at = resolveMerged(db, project, id);
+      return db.select({ page: clients.notionPageId }).from(clients).where(and(eq(clients.project, project), eq(clients.id, at))).get()?.page ?? null;
+    },
+
     /** P141 C1: the client's Notion card, set once (a card already set is kept). Returns whether the row changed. */
     async setNotionPage(project: string, id: number, pageId: string): Promise<boolean> {
       return db.update(clients).set({ notionPageId: pageId }).where(and(eq(clients.project, project), eq(clients.id, id), sql`${clients.notionPageId} is null`)).run().changes > 0;

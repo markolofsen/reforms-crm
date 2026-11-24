@@ -59,15 +59,17 @@ export function noDraftLine(c: MessengerChatDto): string | null {
  * owed `wrote`, a last message the pre-analysis hid `done`, our message last `waiting`); null with no stored message (the empty
  * history, not a row state). Until the server derives it on `messengerChatDto` (C3).
  */
-export function chatState(c: Pick<MessengerChatDto, "last" | "owed" | "draft">): ConversationState | null {
+export function chatState(c: Pick<MessengerChatDto, "last" | "owed" | "draft"> & { done?: MessengerChatDto["done"] }): ConversationState | null {
   if (c.draft) return "draft";
   if (!c.last) return null;
   if (c.last.direction === "in" && c.last.hidden) return "done";
+  // P143 D1: marked "no reply needed" through their newest message.
+  if (c.last.direction === "in" && c.done) return "done";
   return c.owed ? "wrote" : "waiting";
 }
 
 /** The state word a row and the header say: `CONVERSATION_STATE_LABELS`, "No messages yet" without a message. */
-export function chatStateLine(c: Pick<MessengerChatDto, "last" | "owed" | "draft">): string {
+export function chatStateLine(c: Pick<MessengerChatDto, "last" | "owed" | "draft"> & { done?: MessengerChatDto["done"] }): string {
   const state = chatState(c);
   return state === null ? "No messages yet" : CONVERSATION_STATE_LABELS[state];
 }
@@ -218,6 +220,19 @@ export const unlinkSentence = (o: { name: string; client: string; stored: number
 
 /** The toast after Change client: both names. The chat's messages stay with it. */
 export const movedLine = (o: { name: string; to: string }): string => `Moved ${o.name} to ${o.to}`;
+
+/** P143 D2: the toast after Done, and the header's line when the agent closed it ("Done by the agent: they said thanks"). */
+export const doneToast = (name: string): string => `No reply needed: ${name}`;
+export function doneLine(d: MessengerChatDto["done"]): string | null {
+  if (!d) return null;
+  return d.by === "agent" ? `Done by the agent${d.reason ? `: ${d.reason}` : ""}` : "Marked done";
+}
+
+/** P143 N1: a linked chat's subtitle: the person's number or @username, as the messenger shows it; null when neither is known. */
+export function handleLine(i: Pick<MessengerChatDto["identity"], "phone" | "username">): string | null {
+  if (i.username) return `@${i.username.replace(/^@/, "")}`;
+  return i.phone ?? null;
+}
 
 /** P141 U3: who the person of a chat is, as the messenger shows it: "+966 …, @user, calls themselves Qimma"; null when nothing is known. */
 export function identityLine(i: Pick<MessengerChatDto["identity"], "phone" | "username" | "profileName">): string | null {

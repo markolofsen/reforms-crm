@@ -69,6 +69,13 @@ export const messengerChats = sqliteTable(
     // P141 U3 (migration 0044): the name the person gave themselves (WhatsApp's push name, Telegram's display name), shown as theirs;
     // never written to Notion without the owner's click.
     profileName: text("profile_name"),
+    // P143 D1 (migration 0045): "no reply needed", Mail's No reply needed for a chat. `done_through` is the newest inbound message's
+    // own `sent_at` it closes (never the clock), so the next inbound message reopens the chat by itself; `done_by` is owner or
+    // agent, `done_reason` the agent's one line. It removes attention only: the follow-up still judges the chat (P142).
+    doneAt: text("done_at"),
+    doneThrough: text("done_through"),
+    doneBy: text("done_by").$type<"owner" | "agent">(),
+    doneReason: text("done_reason"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );

@@ -9,7 +9,7 @@ import notionhq from "@notionhq/client";
 import { notionSdkLog } from "./sdk-log";
 import { ops } from "@hub/log/ops";
 import { projectStore } from "@hub/projects/store";
-import { findClientByEmail } from "./client-lookup";
+import { findClientByEmail, type ClientLookup } from "./client-lookup";
 import { createNotionReader } from "./notion";
 import type { NotionReader } from "./types";
 
@@ -95,9 +95,10 @@ export type MapSyncOutcome = { state: "synced"; pageId: string; block: "updated"
  * and (P136 verdict 5) `Next step` from the map when the database has it as text and the map has an open or waiting leaf (never
  * cleared: no open leaf leaves the property as it is).
  */
-export async function writeClientMap(deps: { reader: NotionReader; writer: MapWriter }, o: { clientsDataSource: string; email: string; text: string; at: string; nextStep?: string | null }): Promise<MapSyncOutcome> {
-  const found = await findClientByEmail(deps.reader, o.clientsDataSource, o.email);
-  if (found.state === "not_client") return { state: "skipped", reason: "not_client", detail: "no Clients row has this address" };
+export async function writeClientMap(deps: { reader: NotionReader; writer: MapWriter }, o: { clientsDataSource: string; email?: string | null; pageId?: string | null; text: string; at: string; nextStep?: string | null }): Promise<MapSyncOutcome> {
+  // P143 L2: a client known only by a chat has no address; its card is the Hub's `notion_page_id` (P141 C1).
+  const found: ClientLookup = o.email ? await findClientByEmail(deps.reader, o.clientsDataSource, o.email) : o.pageId ? { state: "client", pageId: o.pageId } : { state: "not_client" };
+  if (found.state === "not_client") return { state: "skipped", reason: "not_client", detail: o.email ? "no Clients row has this address" : "the client has no address and no Notion card" };
   if (found.state === "do_not_contact") return { state: "skipped", reason: "do_not_contact", detail: "the client is marked Do not contact" };
   const blocks = await deps.writer.blocks(found.pageId);
   const h = blocks.findIndex((b) => b.type.startsWith("heading_") && b.text.trim() === MAP_HEADING);
@@ -131,7 +132,7 @@ export type MapSyncResult = MapSyncOutcome | { state: "no_database" | "no_token"
  * One new map version to the client's Notion page: the project's `clients` data source, its token file. Never throws; every
  * outcome but `synced` is one ops-log line (`notion`). A Notion error is its status and code, never its message.
  */
-export async function syncClientMap(env: MapSyncEnv, n: { project: string; email: string; text: string; at: string; nextStep?: string | null }): Promise<MapSyncResult> {
+export async function syncClientMap(env: MapSyncEnv, n: { project: string; email?: string | null; pageId?: string | null; text: string; at: string; nextStep?: string | null }): Promise<MapSyncResult> {
   const log = ops("notion");
   try {
     const p = projectStore({ projects: env.projectsDir }).config(n.project);
@@ -141,7 +142,7 @@ export async function syncClientMap(env: MapSyncEnv, n: { project: string; email
     try { token = readFileSync(join(env.secretsDir, p.notion.tokenFile), "utf8").trim(); } catch { /* absent */ }
     if (!token) { log.info("client map not copied to Notion: no token on this Mac", { project: n.project, file: p.notion.tokenFile }); return { state: "no_token", detail: `no ${p.notion.tokenFile} in state/secrets` }; }
     const c = env.clients?.(token) ?? { reader: createNotionReader(token), writer: createMapWriter(token) };
-    const r = await writeClientMap(c, { clientsDataSource: ds, email: n.email, text: n.text, at: n.at, nextStep: n.nextStep ?? null });
+    const r = await writeClientMap(c, { clientsDataSource: ds, email: n.email ?? null, pageId: n.pageId ?? null, text: n.text, at: n.at, nextStep: n.nextStep ?? null });
     if (r.state === "synced") log.info(`client map copied to Notion (${r.block})`, { project: n.project });
     else log.warn(`client map not copied to Notion: ${r.reason}`, { project: n.project });
     return r;

@@ -6,7 +6,8 @@ import { AppLink } from "@/components/app-link";
 import { ago } from "@/lib/format";
 import type { Dest } from "@/routes/paths";
 import { ChannelIcon } from "./channel/channel-icon";
-import { chatName, chatStateLine, clientName, lastText, notionIdentityLine, notionIndicatorState, unlinkSentence } from "./labels";
+import { chatName, chatStateLine, clientName, handleLine, lastText, notionIdentityLine, notionIndicatorState, unlinkSentence } from "./labels";
+import { useDoneChat } from "./conversation/use-done";
 import { ReviewDialog } from "@hub/ui/product/conversation/review-dialog";
 import { sentence } from "@/lib/api/client";
 import { StatusMenu, type StatusAction } from "./status/status-menu";
@@ -27,7 +28,8 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
   // The moves name the chat by its own title, not by the client the row leads with: "Unlink Rita F. from Rita Falsa".
   const chat = c.title || name;
   const done = () => setMode(null);
-  const on = (a: StatusAction) => setMode(a === "change" ? "change" : a === "unlink" ? "unlink" : a === "hide-linked" ? "hide" : null);
+  const doneChat = useDoneChat(project);
+  const on = (a: StatusAction) => (a === "done" ? doneChat.mark(c.id, name) : setMode(a === "change" ? "change" : a === "unlink" ? "unlink" : a === "hide-linked" ? "hide" : null));
   // P141 U3: a known chat that is not linked offers Link, Create and Hide (decision 0049), not the linked chat's moves.
   const unlinked = useUnlinkedMoves(project, dialogOf(c), moves);
   const notionState = notionIndicatorState(c);
@@ -73,12 +75,14 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
         time: c.last ? ago(c.last.at, now) : undefined,
         strong: c.owed || c.draft !== null,
         state: ap ? `${chatStateLine(c)} · ${ap}` : chatStateLine(c),
+        // P143 N1: the client's name leads; the number or @username follows the state word.
+        ...(c.client && handleLine(c.identity) ? { subject: handleLine(c.identity) ?? undefined } : {}),
         preview: c.last ? lastText(c) : undefined,
         mark: <ChannelIcon channel={c.channel} />,
         marker: notionMarker,
         data: { "data-chat": c.id },
       }}
-      trailing={!c.client ? unlinked.menu ?? undefined : c.channel !== "telegram_bot" ? <StatusMenu compact contact={c.contact} disabled={moves.pending} name={name} onAction={on} s={{ state: "linked", client: clientName(c) }} /> : undefined}
+      trailing={!c.client ? unlinked.menu ?? undefined : c.channel !== "telegram_bot" ? <StatusMenu compact contact={c.contact} disabled={moves.pending || doneChat.pending} name={name} onAction={on} s={{ state: "linked", client: clientName(c), canDone: c.owed && c.draft === null }} /> : undefined}
     />
   );
 }

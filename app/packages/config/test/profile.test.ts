@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { betterValue, chatClientTitle, isRealName } from "../src/profile";
+import { betterValue, chatClientTitle, isRealName, plainName } from "../src/profile";
 
 // P140 P1b: one write-precedence rule for the client profile.
 describe("the client profile's write precedence", () => {
@@ -26,6 +26,18 @@ describe("the client profile's write precedence", () => {
     expect(betterValue("email", "info@qemah.com", "")).toBeNull();
     expect(betterValue("phone", "+966544555430", "+966500000000")).toBeNull();
     expect(betterValue("whatsapp", "", "+966544555430")).toBe("+966544555430");
+  });
+  it("P143 N2: a number wrapped in direction marks and spaced with no-break characters is a number, not a name", () => {
+    const marked = "\u202a+55\u00a044\u00a099920\u20119735\u202c";
+    expect(plainName(marked)).toBe("+55 44 99920-9735");
+    expect(isRealName(marked)).toBe(false);
+    expect(isRealName("\u200eAhmed\u200f")).toBe(true);
+    // The placeholder replaces it, and a real Notion title replaces either.
+    expect(betterValue("title", marked, "WhatsApp +554499209735")).toBe("WhatsApp +554499209735");
+    expect(betterValue("title", marked, "SMART FIPE")).toBe("SMART FIPE");
+    expect(betterValue("title", marked, marked)).toBeNull();
+    expect(betterValue("title", "Ahmed", marked)).toBeNull();
+    expect(chatClientTitle({ channel: "whatsapp", name: marked, phone: "554499209735" })).toBe("WhatsApp +554499209735");
   });
   it("a chat-only client is titled by the person's name, else by the channel and its number or username, never the bare number", () => {
     expect(chatClientTitle({ channel: "whatsapp", name: "Ahmed", phone: "+966544555430" })).toBe("Ahmed");

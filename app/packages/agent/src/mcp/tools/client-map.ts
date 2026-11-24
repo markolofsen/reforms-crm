@@ -82,8 +82,9 @@ export const clientMapTool = defineTool({
     let notion = "unchanged";
     if (!saved.unchanged) {
       const sync = ctx.env.syncClientMap;
-      // P141 C1: a client known only by a chat has no address to find its Notion card by; its map stays in the Hub.
-      notion = sync && saved.email ? (await sync(slug, { email: saved.email, source: input.map, at: saved.updatedAt }).catch(() => ({ state: "failed" }))).state : "off";
+      // P143 L2: a client known only by a chat has no address; its Notion card is found by its page id (P141 C1), else the map stays in the Hub.
+      const pageId = saved.email ? null : await ctx.repos.clients.notionPageOf(slug, cid);
+      notion = sync && (saved.email || pageId) ? (await sync(slug, { email: saved.email, pageId, source: input.map, at: saved.updatedAt }).catch(() => ({ state: "failed" }))).state : "off";
     }
     return { ok: true as const, project: slug, clientId: cid, updatedAt: saved.updatedAt, versions: saved.versions, unchanged: saved.unchanged, nodes: check.nodes.length, diff, notion };
   },

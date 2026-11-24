@@ -143,8 +143,13 @@ export const messengerChatDto = z.strictObject({
   /** P102: every stored message of the chat, either side: what Unlink deletes, said in its sentence. */
   stored: z.number().int(),
   last: chatMessageDto.nullable(),
-  /** The newest stored message is the client's and the pre-analysis did not hide it: a reply is owed. */
+  /** The newest stored message is the client's, the pre-analysis did not hide it and nobody marked the chat done: a reply is owed. */
   owed: z.boolean(),
+  /**
+   * P143 D1: the owner or the agent marked the chat "no reply needed" through its newest inbound message; null when not done, or
+   * when a newer message of theirs reopened it. It removes attention only (Needs you), never the follow-up.
+   */
+  done: z.strictObject({ at: z.string(), by: z.enum(["owner", "agent"]), reason: z.string().nullable() }).nullable(),
   draft: messengerDraftDto.nullable(),
   /** P84: why the Hub linked the chat by itself ("phone matches the client"), or null when the owner linked it. */
   autolinked: z.string().nullable(),
@@ -186,6 +191,10 @@ export const messengerChatsDto = z.strictObject({
   preanalysis: preanalysisDto,
 });
 export type MessengerChatsDto = z.infer<typeof messengerChatsDto>;
+
+/** P143 D2: Done and its Undo: the chat's id and whether it is done now. */
+export const messengerChatDoneDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), done: z.boolean() });
+export type MessengerChatDoneDto = z.infer<typeof messengerChatDoneDto>;
 
 /** Skip: the draft is set aside (status `discarded`); its Undo is the restore route. */
 export const messengerSkippedDto = z.strictObject({ ok: z.literal(true), id: z.number().int() });

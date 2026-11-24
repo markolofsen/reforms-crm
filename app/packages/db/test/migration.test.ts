@@ -439,3 +439,22 @@ describe("migration 0044 (a client needs no email, P141 C1)", () => {
     sqlite.close();
   });
 });
+
+describe("migration 0045 (no reply needed on a chat, P143 D1)", () => {
+  it("adds the done columns to messenger_chats without a rebuild: rows, the key and the live triggers stay", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(45) }); // 0000 .. 0044
+    sqlite.prepare("insert into messenger_chats (project, channel, chat_id, title) values ('p','whatsapp','+966544555430','+966544555430')").run();
+    migrate(db, { migrationsFolder: source }); // + 0045
+    const cols = (sqlite.prepare("pragma table_info(messenger_chats)").all() as { name: string }[]).map((c) => c.name);
+    expect(cols).toEqual(expect.arrayContaining(["done_at", "done_through", "done_by", "done_reason"]));
+    expect(sqlite.prepare("select chat_id, done_at, done_by from messenger_chats").all()).toEqual([{ chat_id: "+966544555430", done_at: null, done_by: null }]);
+    expect(() => sqlite.prepare("update messenger_chats set done_by = 'someone'").run()).toThrow(/CHECK/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_messenger_chats_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_messenger_chats_ad", "live_messenger_chats_ai", "live_messenger_chats_au"]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});

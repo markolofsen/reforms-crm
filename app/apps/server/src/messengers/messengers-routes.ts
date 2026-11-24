@@ -2,7 +2,7 @@ import { AUTOPILOT_DRAFT_AUTHOR } from "@hub/config/autopilot";
 import { Hono, type Context } from "hono";
 import { chatRulesProblem, isHiddenLabel } from "@hub/config/chat-rules";
 import { sentenceOf } from "@hub/contract/errors";
-import { chatRulesBody, inChannel, messengerChatsQuery, messengerConversationDto, messengerChatsDto, messengerDraftTextBody, messengerPrepareBody, messengerSkippedDto, type MessengerChatDto } from "@hub/contract/messenger-panel";
+import { chatRulesBody, inChannel, messengerChatsQuery, messengerConversationDto, messengerChatDoneDto, messengerChatsDto, messengerDraftTextBody, messengerPrepareBody, messengerSkippedDto, type MessengerChatDto } from "@hub/contract/messenger-panel";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
@@ -83,6 +83,10 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         repos.messengers.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 101 }),
       ]);
       if (!chat) return notFound(c, "chat");
+      // P143 N2: the linked client's one card is read again (throttled, not awaited): a name written in Notion directly names the
+      // chat on this read's live update instead of after the 6-hour full read. Only this project's directory.
+      const page = chat.client?.notionPageId;
+      if (page && directory && directory.project === slug) void directory.directory.readCard(page);
       const verdicts = await repos.messengers.verdictsOf(slug, messages.map((m) => m.id));
       const ordered = messages
         .slice()
@@ -139,6 +143,26 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         await repos.messengers.createDraft({ project: slug, channel: row.channel, chatId: row.chatId, text: b.text, createdBy: "owner", clientId });
         const next = await projectedChatOf(repos, slug, row, identity, suggest);
         return next ? c.json(next) : notFound(c, "chat");
+      }),
+    )
+    // P143 D2: "No reply needed" on a chat (Done) and its Undo: the chat leaves Needs you until their next message reopens it.
+    // Mail's No reply needed (`inbound/:id/dismiss`) is the same rule for a person's mail; neither sends anything.
+    .post("/api/projects/:slug/messengers/chats/:id/done", (c) =>
+      gated(c, noBody, async (_b, slug) => {
+        const id = idOf(c, "id");
+        if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
+        if (!(await repos.messengers.chatById(slug, id))) return notFound(c, "chat");
+        const row = await repos.messengers.markDone(slug, id, { by: "owner" });
+        if (!row) return c.json({ error: "They have not written in this chat: there is nothing to close.", code: "wrong_state" as const }, 409);
+        return c.json(messengerChatDoneDto.parse({ ok: true, id, done: true }));
+      }),
+    )
+    .post("/api/projects/:slug/messengers/chats/:id/done/undo", (c) =>
+      gated(c, noBody, async (_b, slug) => {
+        const id = idOf(c, "id");
+        if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
+        if (!(await repos.messengers.reopen(slug, id))) return notFound(c, "chat");
+        return c.json(messengerChatDoneDto.parse({ ok: true, id, done: false }));
       }),
     )
     .put("/api/projects/:slug/messengers/chats/:id/rules", (c) =>

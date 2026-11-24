@@ -127,7 +127,8 @@ const conversationText = of("conversation-text");
  */
 export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[]> = {
   drafts: (p) => [drafts(p), batches(p), project(p), overview(), inbound(p)],
-  clients: (p) => [drafts(p), notByEmail(p), enrollments(p), overview()],
+  // P143 N1: a client's new name (the directory's read-back, a rename) retitles its chats too.
+  clients: (p) => [drafts(p), notByEmail(p), enrollments(p), messengerChats(p), overview()],
   activity: (p) => [activity(p), project(p), overview()],
   // P87: a send is a row of Activity ▸ All too (decision 0037 as amended).
   sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), project(p), overview(), scheme(), inbound(p)],

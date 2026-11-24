@@ -1,5 +1,5 @@
 import { AUTOPILOT_ACCOUNT_SHARE, AUTOPILOT_DRAFT_AUTHOR, AUTOPILOT_READ_DELAY_MS, AUTOPILOT_SEND_ACTOR, AUTOPILOT_TYPING } from "@hub/config/autopilot";
-import type { Repos } from "@hub/db";
+import { isDoneThrough, type Repos } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";
 import { applyMessenger, type MessengerDoorDeps } from "@hub/messengers/door";
 import { inQuietHours } from "@hub/projects/autopilot";
@@ -66,6 +66,8 @@ export function autopilotDeliver(d: DeliverDeps): AutopilotDeliver {
     if (c.state.state !== "on") return { outcome: "dry_run", reason: null };
     const [newest] = await d.repos.messengers.messagesOf(chat.project, [{ channel: row.channel, chatId: row.chatId }], { limit: 1 });
     if (!newest || newest.direction !== "in") return { outcome: "skipped", reason: "not_inbound" };
+    // P143 D3: the owner marked it no reply needed while the reply waited.
+    if (isDoneThrough(c.row, newest.sentAt)) return { outcome: "skipped", reason: "done" };
     const stored = await d.repos.messengers.getDraft(chat.project, draft.draftId);
     if (!stored || stored.status !== "draft" || stored.createdBy !== AUTOPILOT_DRAFT_AUTHOR || stored.text.trim() !== draft.text) return { outcome: "skipped", reason: "your_draft" };
     turn.sending();

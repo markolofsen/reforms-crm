@@ -9,7 +9,7 @@ export {
 } from "./generated/mail/mail";
 export {
   addChatClientEmail, cancelTelegramUserLogin, cancelWhatsAppConnect, changeChatClient, createChatRecord, createMessengerDraft, disconnectTelegramUser, disconnectWhatsApp, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, getTelegramUserStatus, getWhatsAppStatus, hideChat,
-  linkChatRecord, listAccountDialogs, listMessengerChats, neverLinkChat, prepareMessengerReply, previewAutolink, readWhatsAppConnect, restoreMessengerDraft, sendTelegramUserCode, sendTelegramUserPassword, setMessengerChatRules, skipMessengerDraft, startTelegramUserLogin, startWhatsAppConnect, undoChatClient, unhideChat, unlinkChat,
+  linkChatRecord, listAccountDialogs, listMessengerChats, markMessengerChatDone, neverLinkChat, prepareMessengerReply, previewAutolink, readWhatsAppConnect, restoreMessengerDraft, sendTelegramUserCode, sendTelegramUserPassword, setMessengerChatRules, skipMessengerDraft, startTelegramUserLogin, startWhatsAppConnect, undoChatClient, undoMessengerChatDone, unhideChat, unlinkChat,
   createAutopilotTicket, getAutopilot, getProjectAutopilot, setAutopilot, setProjectAutopilot,
 } from "./generated/messengers/messengers";
 export { cancelSend, createBatchSendTicket, createSendTicket, getBatchSend, listSends, resumeSends, runBatchSend, sendOneMailDraft, sendMessengerDraft, stopBatchSend, stopSends } from "./generated/sending/sending";

@@ -1,7 +1,7 @@
 ---
 name: triage-messages
 description: Use when the owner wants the linked Telegram and WhatsApp chats of one project answered: read each linked chat with its rules, and leave one unsent reply draft where the client's newest message has none, within that chat's rules. Ends with a report table. Draft only: never sends on its own (one draft only on the owner's word, through messenger_send, decision 0046), never writes first, never touches a chat the owner did not link. Unlike triage-mail, which works on Mail, this reads only the hub's stored chat messages; both refresh the client's Notion profile from what they read.
-allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messenger_history mcp__hub__messenger_draft_write mcp__hub__client_map mcp__hub__messenger_send mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-update-page
+allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messenger_history mcp__hub__messenger_draft_write mcp__hub__client_map mcp__hub__messenger_send mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-update-page mcp__hub__conversation_done mcp__hub__client_create mcp__hub__chat_link
 ---
 
 # Triage messages (manual run, one project; also one chat)
@@ -16,7 +16,8 @@ Why a skill of its own (P71 M2): `triage-mail` works on Mail (mail-mcp reads, th
 Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one project per session). A paused project: stop.
 
 ## 1. Which chats
-- Only chats the owner linked exist for you: a chat the hub does not know is `not_linked`, never searched for. Nothing of an unlinked chat reaches the hub (decision 0036 point 3).
+- The linked chats are the work: a chat the hub does not know is `not_linked`, never searched for. An unlinked chat the Hub knows is read only in this attended session, and its client is created or linked (`client_create`, `chat_link`) only on the owner's word or when the chat is plainly business; never a card for a personal chat (decision 0049 as amended by P143).
+- A client's newest message that is a short non-question ("yes", "thanks", an emoji) owes no draft: `conversation_done` with the chat and a one-line reason, reported as `done:<reason>`.
 - The whole project: the clients come from the owner's words, the focus (`focus`: "этот клиент" is the focused client) or the clients he names; for each, `messenger_history` with `client` = its id. One chat: use `chat` with the numeric id from a focused `chat:<id>` ref; otherwise use `channel` and the external `chat_id` from focus.
 - Owner names no one and the focus shows no client: ask in one line which clients (there is no list of every chat to read).
 - A chat on autopilot (decision 0048: its `open_draft.autopilot` is true, or the owner says so) is the server's: skip it (`skipped:autopilot`) unless the owner names that chat.

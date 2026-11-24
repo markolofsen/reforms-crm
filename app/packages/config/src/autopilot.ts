@@ -63,7 +63,7 @@ export const AUTOPILOT_CHAT_ENV = "HUB_AUTOPILOT_CHAT";
  * the project's knowledge, and write one draft. `client_map` is left out: it writes the map and its Notion copy, and verdict 20
  * keeps the map read-only for autopilot (`client_show` returns it).
  */
-export const AUTOPILOT_HUB_TOOLS = ["messenger_history", "client_show", "knowledge_search", "knowledge_get", "messenger_draft_write"] as const;
+export const AUTOPILOT_HUB_TOOLS = ["messenger_history", "client_show", "knowledge_search", "knowledge_get", "messenger_draft_write", "conversation_done"] as const;
 /** Pacing before a send (verdict 13): a read delay, then the typing status for a length-based time, each with jitter. */
 export const AUTOPILOT_READ_DELAY_MS = { min: 2_000, max: 6_000 } as const;
 export const AUTOPILOT_TYPING = { baseMs: 1_500, perCharMs: 35, maxMs: 12_000, jitter: 0.2 } as const;
@@ -93,6 +93,7 @@ export const AUTOPILOT_REASONS = [
   "paused",
   "hidden", // the newest message is one the pre-analysis hid (verdict 10)
   "not_inbound", // the newest message is not the client's
+  "done", // P143 D3: the owner or the agent marked the chat no reply needed through the newest message
   "your_draft", // the owner's own draft waits (verdict 29)
   "interrupted", // a newer client message: the turn runs again for the whole burst
   "no_brain", // no brain on this server (a test's wiring)
@@ -128,6 +129,7 @@ export const AUTOPILOT_REASON_WORDS: Record<AutopilotReason, string> = {
   paused: "autopilot is paused in this chat",
   hidden: "the newest message needs no answer",
   not_inbound: "the newest message is not the client's",
+  done: "marked no reply needed",
   your_draft: "your draft waits",
   interrupted: "a newer message arrived",
   no_brain: "no autopilot model on this server",
