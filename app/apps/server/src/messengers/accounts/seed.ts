@@ -1,5 +1,5 @@
 import type { Repos } from "@hub/db";
-import { CACHE_DAYS, ingest, type InboundMessage, type UserDialog, type WaAddress, type WaAppSession } from "@hub/messengers";
+import { CACHE_DAYS, ingest, type DialogIdentity, type InboundMessage, type UserDialog, type WaAddress, type WaAppSession } from "@hub/messengers";
 import { errFields, ops } from "@hub/log/ops";
 
 /**
@@ -37,6 +37,8 @@ export async function seedWhatsApp(o: {
   recent: (since: Date, limit: number) => WaAppSession[];
   read: (chat: WaAddress, since: Date, account: string) => InboundMessage[];
   cacheDays: number;
+  /** The autolink's matcher: a seeded chat's number and name (never a text), so an exact Notion match links it (verdict b). */
+  onUnlinked?: (d: DialogIdentity, inbound: boolean) => void;
   now?: () => Date;
 }): Promise<{ adopted: number; seeded: number }> {
   const at = (o.now ?? (() => new Date()))();
@@ -49,7 +51,10 @@ export async function seedWhatsApp(o: {
       if (s.chatId === `+${o.account}` || (await o.repos.messengers.isKnown(o.project, "whatsapp", s.chatId)) || (await o.hidden(s.chatId))) continue;
       const rows = o.read({ chatId: s.chatId, jid: s.jid }, since, o.account).map((m) => ({ ...m, chatJid: s.jid, ...(s.name ? { chatTitle: s.name } : {}) }));
       const r = await ingest({ project: o.project, repos: o.repos, now: () => at, retentionDays: o.cacheDays, cache: { channel: "whatsapp", hidden: o.hidden } }, rows);
-      if (r.stored && (await o.repos.messengers.isKnown(o.project, "whatsapp", s.chatId))) seeded++;
+      if (r.stored && (await o.repos.messengers.isKnown(o.project, "whatsapp", s.chatId))) {
+        seeded++;
+        o.onUnlinked?.({ chatId: s.chatId, title: s.name || s.chatId, phone: s.chatId.startsWith("lid:") ? null : s.chatId, username: null }, true);
+      }
     }
     if (adopted || seeded) log.info("known chats seeded from the Mac's WhatsApp app", { account: o.account, adopted, seeded });
     return { adopted, seeded };

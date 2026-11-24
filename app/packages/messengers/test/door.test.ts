@@ -37,6 +37,15 @@ describe("the messenger door's stages (P112 S2)", () => {
     expect(cap.lines.filter((l) => l.source === "send").map((l) => [l.level, l.message])).toEqual([["info", "messenger door: sent"]]);
   });
 
+  it("P141 U4: a known chat no client is linked to takes the owner's own reply; without an inbound message it is first contact", async () => {
+    expect(await env.repos.messengers.isLinked("p", "telegram_bot", "100")).toBe(false);
+    const id = await draft();
+    expect((await assessMessenger(depsWith(() => open), "p", id))?.reasons).toEqual([]);
+    await env.repos.messengers.knowChat("p", "telegram_bot", "200", { title: "Quiet" });
+    const quiet = (await env.repos.messengers.createDraft({ project: "p", channel: "telegram_bot", chatId: "200", text: "Hello", createdBy: "owner" })).id;
+    expect((await assessMessenger(depsWith(() => open), "p", quiet))?.reasons).toContain("nobody wrote in this chat yet: the hub never makes the first contact");
+  });
+
   it("another project's draft is not found: the door answers null and writes nothing", async () => {
     const id = await draft();
     expect(await assessMessenger(depsWith(() => open), "other", id)).toBeNull();

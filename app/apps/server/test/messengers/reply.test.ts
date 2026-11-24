@@ -61,4 +61,12 @@ describe("prepareMessengerReply", () => {
     await expect(prepareMessengerReply({ repos, llm, projectsDir, project: "p", chatId, body: {} })).rejects.toMatchObject({ code: "refused" });
     expect(await repos.messengers.openDraft("p", "telegram_user", "1001")).toBeNull();
   });
+
+  it("P141 verdict (c): sends no message of an unlinked chat to a model, and writes nothing", async () => {
+    await repos.messengers.removeIdentifier("p", "telegram", "1001");
+    const llm = createLlm({ ledger: repos.llmCalls, transport: fakeTransport() });
+    await expect(prepareMessengerReply({ repos, llm, projectsDir, project: "p", chatId, body: {} })).rejects.toMatchObject({ code: "refused" });
+    expect(await repos.messengers.openDraft("p", "telegram_user", "1001")).toBeNull();
+    expect(handle.db.$client.prepare("select count(*) n from llm_calls").get()).toEqual({ n: 0 });
+  });
 });

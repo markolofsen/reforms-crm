@@ -51,6 +51,8 @@ export async function prepareMessengerReply(d: {
   const now = d.now ?? (() => new Date());
   const row = await d.repos.messengers.chatById(d.project, d.chatId);
   if (!row || !CHANNELS.includes(row.channel as (typeof CHANNELS)[number])) throw new MessengerReplyError("not_found", "The linked chat was not found.");
+  // P141 verdict (c): a chat no client is linked to is the owner's personal one; its messages never go to a model. He writes the reply himself.
+  if (!(await d.repos.messengers.isLinked(d.project, row.channel, row.chatId))) throw new MessengerReplyError("refused", "This chat is not linked to a client, so the Hub prepares no reply here: write it yourself, or link the chat first.");
   const rules = effectiveRules(row, d.projectsDir, d.project, d.policyDir);
   const activity = await d.repos.messengers.activity(d.project, row.channel, row.chatId);
   const ownerRequest = d.body.ownerRequest?.trim() || undefined;

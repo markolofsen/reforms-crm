@@ -148,7 +148,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
       chatId={chatId}
       isReply={chat.owed}
       onPrepare={() => prepare.mutate(chatId)}
-      prepareAvailable={chat.owed && chat.rules.replyMode !== "off"}
+      prepareAvailable={chat.owed && chat.rules.replyMode !== "off" && chat.client !== null}
       prepareError={prepareFailed}
       prepareLabel={preparing ? "Preparing…" : "Prepare reply"}
       preparePending={preparing}

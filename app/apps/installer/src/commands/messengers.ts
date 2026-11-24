@@ -6,7 +6,7 @@ import { userInfo } from "node:os";
 import { createRepos, openDb, type IdentifierKind, type MessengerChannel } from "@hub/db";
 import { MessengersError, pollCommand, purgeNow, readBotToken, statusLines, telegramAdapterFromToken } from "@hub/messengers";
 import { forgetChat, humanActor, knowChat, linkIdentifier, unlinkIdentifier, type HumanActor } from "@hub/messengers/human";
-import { betterValue } from "@hub/config/profile";
+import { betterValue, chatClientTitle } from "@hub/config/profile";
 
 const KINDS = ["email", "telegram", "telegram_username", "phone", "whatsapp"] as const;
 const CHANNELS = ["telegram_bot", "telegram_user", "whatsapp"] as const;
@@ -84,26 +84,28 @@ export function registerMessengersCommands(parent: Command): Command {
     );
 
   // P141 C5: a client the Hub named by a number or a chat id ("+966…", "lid:…") takes the person's own name from its linked chat
-  // (the Telegram display name, the WhatsApp profile name, the chat title) when that is a real name. A dry run unless --apply.
+  // (the WhatsApp profile name, the chat title) when that is a real name, else the channel placeholder ("WhatsApp +966…"), by the
+  // profile rule (`betterValue`): a name is never replaced. A dry run unless --apply; like `drafts heal-brands`, no TTY needed.
   program
     .command("heal-names")
     .description("rename clients named by a number to the real name their linked chat shows (dry run unless --apply)")
     .option("--apply", "write the renames")
     .action((o: { apply?: boolean }) =>
       withRepos(async (repos, project) => {
-        const actor = o.apply ? person() : null;
         let n = 0;
         for (const chat of (await repos.messengers.knownChats(project)).filter((r) => r.linked)) {
           const id = await repos.messengers.clientByIdentifier(project, chat.channel === "whatsapp" ? "whatsapp" : "telegram", chat.chatId);
           const client = id === null ? null : await repos.clients.get(project, id);
           if (!client) continue;
-          const next = [chat.profileName, chat.title].map((x) => betterValue("title", client.name, x)).find((x) => x !== null);
+          const placeholder = chatClientTitle({ channel: chat.channel === "whatsapp" ? "whatsapp" : "telegram", username: chat.username, phone: chat.phone, chatId: chat.chatId });
+          const next = [chat.profileName, chat.title, placeholder].map((x) => betterValue("title", client.name, x)).find((x) => x !== null);
           if (!next) continue;
           n++;
-          if (actor) await repos.clients.renameIfBetter(project, client.id, next);
-          console.log(`${actor ? "renamed" : "would rename"} client ${client.id} "${client.name}" -> "${next}" (chat:${chat.id})`);
+          if (o.apply) await repos.clients.renameIfBetter(project, client.id, next);
+          const back = o.apply ? (await repos.clients.get(project, client.id))?.name : null;
+          console.log(`${o.apply ? "renamed" : "would rename"} client ${client.id} "${client.name}" -> "${next}" (chat:${chat.id})${back !== null && back !== undefined ? `; reads back "${back}"` : ""}`);
         }
-        console.log(n ? (actor ? `${n} renamed` : `${n} to rename; run again with --apply`) : "nothing to rename");
+        console.log(n ? (o.apply ? `${n} renamed` : `${n} to rename; run again with --apply`) : "nothing to rename");
       }),
     );
 

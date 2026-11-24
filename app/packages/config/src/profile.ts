@@ -26,7 +26,8 @@ export type ProfileField = "title" | "email" | "phone" | "whatsapp" | "telegram"
 
 /**
  * What a Hub writer may put into a profile field: `next` when it is better than `current`, else null (write nothing).
- * - `title`: only a real name, and only over an empty title, an address, a phone number, a chat id or the placeholder.
+ * - `title`: a real name, only over an empty title, an address, a phone number, a chat id or the placeholder; the channel
+ *   placeholder ("WhatsApp +966…", P141 C5) only over an empty title, a bare phone number or a chat id.
  * - `email`: only into an empty Email; never cleared, never replaced (a second address goes to Other emails).
  * - `phone`, `whatsapp`, `telegram`: only into an empty field.
  */
@@ -34,7 +35,11 @@ export function betterValue(field: ProfileField, current: string | null | undefi
   const cur = (current ?? "").trim();
   const nxt = (next ?? "").trim();
   if (!nxt) return null;
-  if (field === "title") return isRealName(nxt) && !isRealName(cur) && nxt !== cur ? nxt : null;
+  if (field === "title") {
+    if (nxt === cur) return null;
+    if (isRealName(nxt)) return isRealName(cur) ? null : nxt;
+    return CHANNEL_PLACEHOLDER.test(nxt) && (!cur || PHONE.test(cur) || CHAT_ID.test(cur)) ? nxt : null;
+  }
   if (field === "email") return !cur && nxt.includes("@") ? nxt.toLowerCase() : null;
   return cur ? null : nxt;
 }

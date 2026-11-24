@@ -53,8 +53,11 @@ export function clientMergeRepo(db: Db) {
         const email = betterValue("email", into.email, from.email);
         const page = into.notionPageId ? null : from.notionPageId;
         const name = betterValue("title", into.name, from.name);
+        // The map and the last contact follow the person: the survivor takes the old row's map when it has none, and the later contact.
+        const map = !into.map && from.map ? { map: from.map, mapUpdatedAt: from.mapUpdatedAt } : {};
+        const contact = from.lastContactAt && (!into.lastContactAt || from.lastContactAt > into.lastContactAt) ? { lastContactAt: from.lastContactAt } : {};
         tx.update(clients).set({ mergedInto: intoId, updatedAt: at, ...(email ? { email: null } : {}), ...(page ? { notionPageId: null } : {}) }).where(eq(clients.id, fromId)).run();
-        if (email || page || name) tx.update(clients).set({ updatedAt: at, ...(email ? { email } : {}), ...(page ? { notionPageId: page } : {}), ...(name ? { name } : {}) }).where(eq(clients.id, intoId)).run();
+        tx.update(clients).set({ updatedAt: at, ...(email ? { email } : {}), ...(page ? { notionPageId: page } : {}), ...(name ? { name } : {}), ...map, ...contact }).where(eq(clients.id, intoId)).run();
 
         const run = tx.insert(agentRuns).values({ project, startedAt: at, finishedAt: at, trigger: "owner", skill: null, status: "ok" }).returning({ id: agentRuns.id }).get();
         const label = (r: typeof from) => r.name || r.email || `client ${r.id}`;

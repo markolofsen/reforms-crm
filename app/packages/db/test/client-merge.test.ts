@@ -35,9 +35,10 @@ describe("a client without an email", () => {
     expect((await repos.clients.get("p", a))?.email).toBe("q@example.test");
   });
 
-  it("is renamed only from a number to a real name, never the other way", async () => {
+  it("is renamed from a number to the channel placeholder or a real name, never the other way", async () => {
     const a = await repos.clients.create({ project: "p", email: null, name: "+966544555430" });
-    expect(await repos.clients.renameIfBetter("p", a, "WhatsApp +966544555430")).toBe(false);
+    expect(await repos.clients.renameIfBetter("p", a, "WhatsApp +966544555430")).toBe(true);
+    expect(await repos.clients.renameIfBetter("p", a, "+966544555430")).toBe(false);
     expect(await repos.clients.renameIfBetter("p", a, "Qimma Khalid")).toBe(true);
     expect(await repos.clients.renameIfBetter("p", a, "+966544555430")).toBe(false);
     expect((await repos.clients.get("p", a))?.name).toBe("Qimma Khalid");

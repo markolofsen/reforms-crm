@@ -109,7 +109,7 @@ The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `
 | `link <clientId> <kind> <value>` | yes | links an identity to a client; a chat is also made known |
 | `unlink <kind> <value>` | yes | removes the link; the chat stays known, not linked |
 | `know` / `forget <channel> <chatId>` | yes | makes a chat known without a client; `forget` deletes its row, cached messages and drafts |
-| `heal-names [--apply]` | `--apply` only | P141 C5: renames a client named by a number to the real name its linked chat shows (dry run by default) |
+| `heal-names [--apply]` | no | P141 C5: renames a client named by a number to the real name its linked chat shows, else to "WhatsApp +…" / "Telegram @…" (dry run by default; never replaces a name) |
 | `status` | no | poll health (stale after 10 min), known chats, counts, drafts |
 | `poll [--once]` | no | the worker loop with offset persistence and backoff; `--once` fetches one batch and prints ids of unlisted chats |
 | `purge` | no | deletes rows past retention |

@@ -14,6 +14,11 @@ describe("the client profile's write precedence", () => {
     expect(betterValue("title", "Ahmed", "+966544555430")).toBeNull();
     expect(betterValue("title", "Ahmed", "Ahmed, Qimma Auctions")).toBeNull();
     expect(betterValue("title", "info@qemah.com", "info@qemah.com")).toBeNull();
+    // P141 C5: the channel placeholder takes the place of a bare number, never of a name or an address.
+    expect(betterValue("title", "+966544555430", "WhatsApp +966544555430")).toBe("WhatsApp +966544555430");
+    expect(betterValue("title", "Ahmed", "WhatsApp +966544555430")).toBeNull();
+    expect(betterValue("title", "info@qemah.com", "WhatsApp +966544555430")).toBeNull();
+    expect(betterValue("title", "WhatsApp +966544555430", "Ahmed")).toBe("Ahmed");
   });
   it("an Email is never cleared or replaced, and a filled phone is kept", () => {
     expect(betterValue("email", "", "Info@Qemah.com")).toBe("info@qemah.com");

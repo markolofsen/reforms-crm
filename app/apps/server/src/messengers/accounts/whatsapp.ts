@@ -222,7 +222,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   if (project) for (const a of sessionAccounts(dir, CHANNEL)) await open(a, project);
   // P141 U2: the known chats start from the Mac app's recent private chats (read only), and chats cached before their row get it.
   const first = project ? sessionAccounts(dir, CHANNEL)[0] : undefined;
-  if (project && first) void seedWhatsApp({ repos: o.repos, project, account: first, hidden: isHidden, recent: (since, limit) => reader?.recent(since, limit) ?? [], read: fromApp, cacheDays, now });
+  if (project && first) void seedWhatsApp({ repos: o.repos, project, account: first, hidden: isHidden, recent: (since, limit) => reader?.recent(since, limit) ?? [], read: fromApp, cacheDays, now, ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(first, d, inbound) } : {}) });
 
   const pairing = createWaPairing({
     socketFor: (auth) => {
