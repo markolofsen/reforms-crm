@@ -46,6 +46,7 @@ export const REFUSAL_CODES = [
   "record_failed",
   // client_map (P135)
   "map_invalid",
+  "map_why_missing",
   // knowledge_search (P129 A4: the knowledge tools are hub mcp's)
   "empty_query",
   "brand_required",
@@ -122,6 +123,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   context_refused: { retry: "now", next: "Read what the message says is missing (thread, profile, knowledge), then call once more with the context block." },
   record_failed: { retry: "no", next: `${ONE_LINE} that the draft is in Mail but the Hub could not record it (the message says why).` },
   map_invalid: { retry: "now", next: "Redraw the whole map so the line the message names passes (the shape rules are in client_map's map field), then call once more." },
+  map_why_missing: { retry: "now", next: "Call once more with why: one short reason per node the message names (removed or renamed), or keep those nodes." },
   empty_query: { retry: "now", next: "Search with the client's own words (letters, not only punctuation)." },
   brand_required: { retry: "now", next: "Pass brand = the brand message_show gave for this mail, or ANY for a mail with no brand." },
   unknown_brand: { retry: "now", next: "Use one of the brands the message lists (project_show names them too), or ANY." },
