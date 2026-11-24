@@ -1,12 +1,13 @@
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import type { HubPaths } from "@hub/config/paths";
 import { baseActionOf, isActionId } from "@hub/config/action-id";
+import { readDayFile } from "../day-file";
 import { isOpsLevel, isOpsSource, LEVEL_RANK, type OpsLevel, type OpsLine, type OpsSource } from "./line";
 
 // Where the ops log lives and how it is written and read (P86). `<state>/log/ops-<YYYY-MM-DD>.jsonl` (UTC day), folder 700,
 // file 600, one JSON line per event, append only, flat beside the agent log's project folders (whose readers list folders only).
-// The writer never throws. The first write of a day deletes the files older than `keepDays`; a day file past `softCap` keeps
+// The writer never throws. The first write of a day deletes the files older than `keepDays` (30; P137 L4 gzips those past 2 days); a day file past `softCap` keeps
 // only `error` lines (after one `warn` saying so), past `hardCap` nothing: the log never fills the disk.
 
 export interface OpsStore {
@@ -19,13 +20,14 @@ export interface OpsStore {
   hardCap: number;
 }
 
-export const OPS_KEEP_DAYS = 7;
+/** P137 L4: 30 days (gzipped after 2, `../retention.ts`). */
+export const OPS_KEEP_DAYS = 30;
 export const OPS_SOFT_CAP = 20 * 1024 * 1024;
 export const OPS_HARD_CAP = 25 * 1024 * 1024;
 
 export const opsStoreOf = (paths: Pick<HubPaths, "opsLog" | "secrets">): OpsStore => ({ dir: paths.opsLog, secrets: paths.secrets, keepDays: OPS_KEEP_DAYS, softCap: OPS_SOFT_CAP, hardCap: OPS_HARD_CAP });
 
-const OPS_FILE = /^ops-(\d{4}-\d{2}-\d{2})\.jsonl$/;
+const OPS_FILE = /^ops-(\d{4}-\d{2}-\d{2})\.jsonl(?:\.gz)?$/;
 export const opsFileOf = (store: Pick<OpsStore, "dir">, day: string): string => path.join(store.dir, `ops-${day}.jsonl`);
 
 /** Deletes the ops files older than `days` before `now`. Returns how many went. */
@@ -100,7 +102,7 @@ export function readOps(store: Pick<OpsStore, "dir">, f: OpsFilter = {}): OpsLin
   const out: OpsLine[] = [];
   for (const name of names) {
     let text = "";
-    try { text = readFileSync(path.join(store.dir, name), "utf8"); } catch { continue; }
+    try { text = readDayFile(path.join(store.dir, name)); } catch { continue; }
     for (const l of text.split("\n")) {
       if (!l.trim()) continue;
       let raw: unknown;
@@ -137,7 +139,7 @@ export function opsLineOf(raw: unknown): OpsLine | null {
 /** The day files' sizes and times, for the server's live topic. */
 export function opsSignature(store: Pick<OpsStore, "dir">): string {
   try {
-    return readdirSync(store.dir).filter((x) => OPS_FILE.test(x)).sort().slice(-1).map((n) => { const s = statSync(path.join(store.dir, n)); return `${n}:${s.size}:${s.mtimeMs}`; }).join("|");
+    return readdirSync(store.dir).filter((x) => OPS_FILE.test(x) && !x.endsWith(".gz")).sort().slice(-1).map((n) => { const s = statSync(path.join(store.dir, n)); return `${n}:${s.size}:${s.mtimeMs}`; }).join("|");
   } catch {
     return "";
   }
