@@ -18,6 +18,7 @@ file, so it never names a tool the session lacks. Read this page for how to use 
 | calendar | the attached `gcal-<label>` connector | read the project's calendar; a hold with no guests (`calendar` skill) | invite, notify, delete, answer an invitation |
 | drive | the attached `gdrive-<label>` connector | search, read, link a folder or file onto the client's Notion profile | share, copy, create, update or trash a file, change a permission |
 | browser | the owner's own Chrome extension for each CLI, as he set it up (Claude Code: Claude in Chrome through `--chrome`; Codex: the extension he linked); the Hub adds none | by default, to study any site (ours, a client's, a competitor's), above all when a plain fetch is blocked, empty, needs JavaScript or his sign-in; every tool of it (the guard does not narrow it, 0040); section 8 | send mail or a messenger message: those go only through the hub's drafts and its send door (0011, 0036); submit a lead form |
+| booking link (P155) | one sentence of the line, only when the project sets a link (`BOOKING_CAPABILITY`, `packages/agent/src/session-rules.ts`); the link per thread from `message_show`, `messenger_history`, `leads_open`, `project_show` | offer the thread's link once, literally (`skills/README.md` rule 19) | another brand's link or a second offer (`booking_link_mismatch` at `draft_write` and `messenger_draft_write`) |
 
 A capability the line calls "none attached" is not reachable in this session: the agent says so and never looks for another way (the
 browser, a script, the owner's claude.ai connectors).

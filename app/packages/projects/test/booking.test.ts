@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { ownSignoff, signatureFor, signBody, signingNames } from "../src/brands";
 import { bookingFor, bookingLinkOf, bookingLinks, bookingMismatch, bookingOffers, isSchedulerUrl, type BookingConfig } from "../src/brands";
 import { bookingChecks } from "../src/booking-doctor";
 import { checkValue } from "../src/fields";
@@ -128,5 +129,15 @@ describe("the doctor's booking rows (verdict 11)", () => {
   it("no link set: one skipped row; no probe: not checked here", async () => {
     expect(await bookingChecks({ booking: { url: null }, brands: [] })).toEqual([expect.objectContaining({ outcome: "skipped" })]);
     expect((await bookingChecks({ booking: { url: P }, brands: [] }))[0]?.detail).toMatch(/not checked here/);
+  });
+});
+
+describe("the booking sentence before the signature (verdict 5)", () => {
+  it("is not taken for the agent's own sign-off, and the hub signs after it", () => {
+    const c = { signoff: "", brands: [{ name: "Alpha", receivesAt: [], signature: ["Alpha team", "alpha.example"], displayName: null, booking: A, answered: "2026-11-26", by: "owner" as const }], languages: ["en"] };
+    const body = `Thanks for the details.\n\nIf it is easier to talk it through, pick a time here: https://cal.example.test/alpha/30min`;
+    expect(ownSignoff(body, [], signingNames(c))).toBeNull();
+    const signed = signBody(body, signatureFor(c, { brand: "Alpha", wroteTo: null }));
+    expect(signed.endsWith("pick a time here: https://cal.example.test/alpha/30min\n\nAlpha team\nalpha.example")).toBe(true);
   });
 });

@@ -54,6 +54,11 @@ describe("the messenger door's stages (P112 S2)", () => {
     expect(adapter.sent).toEqual([]);
   });
 
+  it("P155 verdict 8: a booking link of any brand is never a door reason: the owner's Send is not refused for it", async () => {
+    const id = await draft("A one-off slot: https://calendly.com/example-owner/15min");
+    expect((await assessMessenger(depsWith(() => open), "p", id))?.reasons).toEqual([]);
+  });
+
   it("another project's draft is not found: the door answers null and writes nothing", async () => {
     const id = await draft();
     expect(await assessMessenger(depsWith(() => open), "other", id)).toBeNull();

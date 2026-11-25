@@ -20,7 +20,8 @@ export interface PrefetchDeps {
   notionFacts?: ((project: string, c: { email: string | null; pageId: string | null }) => string[]) | undefined;
 }
 
-type Line = { at: string; who: "us" | "them"; via: string; text: string };
+/** `full`: the uncut text (P155 counts a booking link there: the sentence sits at the end of a body that `text` may cut). */
+type Line = { at: string; who: "us" | "them"; via: string; text: string; full?: string };
 
 const cut = (s: string, n: number) => s.replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -38,7 +39,7 @@ async function mailLines(d: PrefetchDeps, slug: string, c: DueClient): Promise<{
   const lines: Line[] = [];
   for (const m of msgs) {
     const t = await d.mail.text({ account: m.account, mailbox: m.mailbox, mailId: m.mailId }).catch(() => ({ note: "unreadable" }));
-    lines.push({ at: m.date, who: m.ours ? "us" : "them", via: "Mail", text: "text" in t ? cut(t.text, 1_200) : `(${t.note}) subject: ${cut(m.subject, 120)}` });
+    lines.push({ at: m.date, who: m.ours ? "us" : "them", via: "Mail", text: "text" in t ? cut(t.text, 1_200) : `(${t.note}) subject: ${cut(m.subject, 120)}`, ...("text" in t ? { full: t.text } : {}) });
   }
   const ours = msgs.filter((m) => m.ours).at(-1);
   return { lines, ref: ours ? { account: ours.account, mailbox_path: ours.mailbox.split("/"), message_id: ours.mailId } : null, note: null };
@@ -50,7 +51,7 @@ export async function prefetch(d: PrefetchDeps, slug: string, c: DueClient): Pro
   const chats: Line[] = [];
   for (const ch of c.chats) {
     const rows = await d.repos.messengers.messagesOf(slug, [{ channel: ch.channel, chatId: ch.chatId }], { limit: FOLLOW_UP_PREFETCH_MESSAGES });
-    for (const m of rows) chats.push({ at: m.sentAt, who: m.direction === "out" ? "us" : "them", via: `${ch.channel} chat:${ch.id}`, text: cut(m.text || `(${m.kind})`, 1_200) });
+    for (const m of rows) chats.push({ at: m.sentAt, who: m.direction === "out" ? "us" : "them", via: `${ch.channel} chat:${ch.id}`, text: cut(m.text || `(${m.kind})`, 1_200), full: m.text ?? "" });
   }
   const all = [...mail.lines, ...chats].sort((a, b) => a.at.localeCompare(b.at)).slice(-FOLLOW_UP_PREFETCH_MESSAGES);
   const plan = await d.repos.followUps.get(slug, c.clientId);
@@ -59,7 +60,7 @@ export async function prefetch(d: PrefetchDeps, slug: string, c: DueClient): Pro
   const notion = d.notionFacts?.(slug, { email: c.email ?? client?.email ?? null, pageId: null }) ?? [];
   // P155 verdict 3: offered already in what WE wrote (mail and chats): a nudge may repeat the link once, never more.
   const cfg = d.project(slug);
-  const booking = cfg ? bookingFor(cfg, await clientBrand(d.repos, slug, c.clientId, cfg), bookingOffers([...mail.lines, ...chats].filter((l) => l.who === "us").map((l) => l.text), cfg), { followUp: true }) : null;
+  const booking = cfg ? bookingFor(cfg, await clientBrand(d.repos, slug, c.clientId, cfg), bookingOffers([...mail.lines, ...chats].filter((l) => l.who === "us").map((l) => l.full ?? l.text), cfg), { followUp: true }) : null;
   const out = [
     `Client ${c.clientId}: ${cut(c.name, 120)}${c.email ? ` <${c.email}>` : ""}.`,
     `Our last message: ${c.ourLastAt} on ${c.lastChannel}. Their last: ${c.theirLastAt ?? "never"}.`,

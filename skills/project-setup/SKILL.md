@@ -25,7 +25,7 @@ Talk to the owner in Russian, briefly; every file is English. Never send mail. N
    - Quick Links, when `notion.teamspace_id` is known: `references/derive-and-files.md`.
    - `languages`, `timezone` from the host and the mail you can see.
 3. **Ask, one question per message**, in this order, skipping any already decided. Each: what, why (one clause), your proposed default, at most three options.
-   The questions (name and kind, Mail, brands and signatures, Notion, the Hub's Notion setup line, knowledge, tone, test mode, connectors) and their limits: `references/questions.md`. Never exceed six questions, plus the brand questions in a multi-product project and the connector question.
+   The questions (name and kind, Mail, brands and signatures, Notion, the Hub's Notion setup line, knowledge, tone, test mode, connectors, the booking link) and their limits: `references/questions.md`. Never exceed six questions, plus the brand questions in a multi-product project, the connector question and the skippable booking question.
 4. **Record after each answer, not at the end.** Write or update the Settings row (value, today's date, `By=owner` for an answer, `agent` for a derived value, `default` for a default); append one row to `## Answers`; mark the `project_questions` row `answered`.
 5. **Create the files** (new): `project.md` in the layout of doc 16 section 3, the starter workflows, sequences and taxonomy, and the project's `@dev/`: `references/derive-and-files.md`. Leave `status: draft`.
 6. **Run `hub project sync`, then `hub doctor --project <slug>`.** On a failed check, do not guess: report the check, then ask one correction question quoting the old answer (doc 16 section 8.6).
