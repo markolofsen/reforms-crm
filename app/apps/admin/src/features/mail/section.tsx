@@ -18,6 +18,7 @@ import { countOf, mailSource, useBatches, useMailCounts, type ReviewPage } from 
 import { dest, type Dest } from "@/routes/paths";
 import { DRAFT_FILTERS, DRAFT_VIEW_LABELS, DRAFT_VIEWS, MAIL_SEARCH, type DraftView } from "@/routes/search";
 import { BatchLine, BatchSend } from "./batch-send";
+import { SendReadyBar, SendReadyProvider } from "./ready/send-ready";
 import { useNewLeads } from "@/lib/data/inbound";
 import { NotByEmail, useNotByEmailTotal } from "./not-by-email";
 import { FollowUps } from "./sequences/follow-ups";
@@ -102,11 +103,13 @@ function MailSection({ project, filter, q, batch, brand, clientId, pending, poin
   });
   const onView = (v: string) => (v === LEADS ? go(dest("mail.leads")) : go(dest("mail.list", { filter: SIDEBAR_VIEWS.find((x) => x === v) ?? "needs_you", q, brand }), { replace: true }));
   // P134 verdict 2: on Needs you, one line per batch whose drafts wait for review; the batch's own list stays a link (`?batch=`).
-  const waiting = filter === "needs_you" && batch === null ? (batches.data?.batches ?? []).filter((b) => batchAwaiting(b) > 0) : [];
+  // P147 3m item 5: not the daily passes' replies (`lead_reply`): Send all ready, on top, is their one door.
+  const waiting = filter === "needs_you" && batch === null ? (batches.data?.batches ?? []).filter((b) => batchAwaiting(b) > 0 && b.intent !== "lead_reply") : [];
   const batchLines = waiting.map((b) => (
     <BatchLine awaiting={batchAwaiting(b)} batchId={b.id} checked={b.counts.checked} key={b.id} project={project} request={shortBatchName(b.brief ?? b.name)} to={dest("mail.list", { filter: "all", batch: b.id })} />
   ));
   return (
+    <SendReadyProvider project={project}>
     <MailWorkspace
       body={filter === "not_by_email" ? <NotByEmail project={project} /> : undefined}
       empty={(filtered) =>
@@ -136,12 +139,14 @@ function MailSection({ project, filter, q, batch, brand, clientId, pending, poin
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={
         <>
+          {filter === "needs_you" && batch === null && <SendReadyBar />}
           <StatusLine project={project} />
           {batchLines}
         </>
       }
       header={header}
     />
+    </SendReadyProvider>
   );
 }
 

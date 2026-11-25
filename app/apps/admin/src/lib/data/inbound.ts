@@ -121,7 +121,7 @@ export function useRedoLead(project: string, pageId: string, on: { onError: (e: 
 }
 
 /** The review of the day's lead batch: each draft's full text read from Mail now (the server keeps the hash it showed). */
-export const useLeadReview = (project: string, batchId: number) => useQuery({ queryKey: keys.leadReview(project, batchId), queryFn: () => leadPassApi.review(project, batchId), staleTime: 0 });
+export const useLeadReview = (project: string, batchId: number | null) => useQuery({ queryKey: keys.leadReview(project, batchId ?? 0), queryFn: () => leadPassApi.review(project, batchId ?? 0), staleTime: 0, enabled: batchId !== null && batchId > 0 });
 
 /**
  * 3i P2: the owner's answer to one `[Owner: …]` placeholder of a review draft. The draft's text is read from Mail now, the marker is

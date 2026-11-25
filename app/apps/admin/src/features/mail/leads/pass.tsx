@@ -7,11 +7,11 @@ import type { LeadRowDto } from "@hub/contract/inbound";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
-import { AppLink } from "@/components/app-link";
 import { sentence } from "@/lib/api/client";
 import { useLeadPass, useRedoLead, useRunLeadPass, useRunMailPass } from "@/lib/data/inbound";
+import { SendReadyButton } from "@/features/mail/ready/send-ready";
+import { SendingLine } from "@/features/mail/ready/sending-line";
 import { formatTime } from "@/lib/format";
-import { dest } from "@/routes/paths";
 
 // The daily lead pass in Mail ▸ Leads (P147 L6, decision 0055): the banner over the list (Review today's replies, Run lead pass
 // now, the pass line), each row's decision chip, and the card's decision with Redo. The pass's decisions are the agent's notes:
@@ -53,16 +53,11 @@ export function LeadPassBar({ project }: { project: string }) {
   const runMail = useRunMailPass(project);
   const d = q.data;
   if (!d) return null;
-  const waiting = d.review.drafts + d.review.proposals;
   const off = d.pass.runNowOff;
   return (
     <div className="flex min-w-0 flex-col gap-2 border-b px-3 py-2" data-testid="lead-pass-bar">
       <div className="flex flex-wrap items-center gap-2">
-        {d.review.batchId !== null && waiting > 0 && (
-          <AppLink className="font-medium text-sm" data-testid="lead-review-link" to={dest("mail.lead-review", { batch: d.review.batchId })}>
-            Review today’s replies ({waiting})
-          </AppLink>
-        )}
+        <SendReadyButton />
         <ActionButton disabled={off !== null || run.isPending || d.pass.running} onClick={() => run.mutate()} size="s" tooltip={off ?? undefined} variant="secondary">
           <BotIcon aria-hidden="true" />
           {run.isPending ? "Starting" : d.pass.running ? "Lead pass running" : "Run lead pass now"}
@@ -72,6 +67,7 @@ export function LeadPassBar({ project }: { project: string }) {
           {runMail.isPending ? "Starting" : d.mail.running ? "Mail pass running" : "Run mail pass now"}
         </ActionButton>
       </div>
+      {d.review.batchId !== null && <SendingLine bare batchId={d.review.batchId} project={project} />}
       <p className="text-muted-foreground text-xs tabular-nums" data-testid="lead-pass-line">
         {passLine(d)}
       </p>

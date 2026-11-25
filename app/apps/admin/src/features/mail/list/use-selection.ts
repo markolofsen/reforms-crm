@@ -4,6 +4,13 @@ import { useFocusSelection, useFocusSubject } from "@/lib/focus";
 import { isClosed, rowId, type ConversationRow, type ReviewDraft } from "@/features/mail/model";
 
 /**
+ * Select all (`A`, P147 3m item 4): every person the list shows. The selection is over people (P99); it once kept only the rows
+ * with an open draft, so a Needs you row waiting for its first draft stayed empty, and a list with no open draft ticked nothing and
+ * never entered the selection. Skip, Hold and Send still act only on the open drafts (`drafts`).
+ */
+export const allIds = (rows: readonly ConversationRow[]): ReadonlySet<number> => new Set(rows.map(rowId));
+
+/**
  * The people picked for a bulk action (P99: selection is over conversations, `x` selects the client; Skip and Hold act on each
  * one's open draft): separate from the open row (picking never opens a conversation, opening never picks). `selecting` is on
  * while any row is picked or the person pressed Select (touch has no hover to start from).
@@ -18,7 +25,10 @@ export function useSelection(rows: ConversationRow[]) {
     setIds(new Set());
     setMode(false);
   }, []);
-  const all = useCallback(() => setIds(new Set(rows.filter((r) => r.draft !== null && !isClosed(r.draft)).map(rowId))), [rows]);
+  const all = useCallback(() => {
+    setIds(allIds(rows));
+    setMode(true);
+  }, [rows]);
   /** The open drafts of the picked people: what Skip and Hold act on. */
   const drafts: ReviewDraft[] = picked.flatMap((r) => (r.draft && !isClosed(r.draft) ? [r.draft] : []));
   return { all, picked, drafts, has: (id: number) => ids.has(id), toggle, clear, selecting: mode || picked.length > 0, setMode };

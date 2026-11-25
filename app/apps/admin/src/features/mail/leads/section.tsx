@@ -19,6 +19,7 @@ import { LEAD_VIEWS, type LeadView } from "@/routes/search";
 import { newestOf } from "./groups";
 import { useLeadListKeys } from "./keys";
 import { LeadCard } from "./lead-card";
+import { SendReadyProvider } from "@/features/mail/ready/send-ready";
 import { LeadPassBar } from "./pass";
 import { LeadRows, LeadsReadLine } from "./rows";
 import { useLeadsSeen } from "./use-seen";
@@ -113,7 +114,11 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
         <LeadCard key={pageId} onClosed={() => go(list, { replace: true })} pageId={pageId} project={project} />
       </div>
     );
-  return <ListDetail detail={detail} detailLabel="Lead" list={listColumn} listLabel="Leads" showDetail={pageId !== null} />;
+  return (
+    <SendReadyProvider project={project}>
+      <ListDetail detail={detail} detailLabel="Lead" list={listColumn} listLabel="Leads" showDetail={pageId !== null} />
+    </SendReadyProvider>
+  );
 }
 
 /** The Leads screen, mounted by `mail/leads/layout.tsx`: the view, the brand and the open lead from the address. */

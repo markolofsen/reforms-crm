@@ -31,6 +31,7 @@ import { useFollowUps } from "@/lib/data/project";
 import { chipFor } from "@/components/follow-up/words";
 import { useReviewActions, type Notice } from "./list/use-review-actions";
 import { useSelection, useShareReview } from "./list/use-selection";
+import { selectedReady, useSendReady } from "./ready/send-ready";
 
 const NOTICE_MS = 8000;
 
@@ -189,7 +190,11 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
 
   const filtered = source.filter !== "all" || brand !== null;
   const line = headerOf(counts, brands);
-  const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
+  // P147 3m item 5: the picked replies in today's list; Send N opens the same sheet with only them.
+  const ready = useSendReady();
+  const readyPicked = selectedReady(ready, sel.drafts.map((d) => d.id));
+  const sendPicked = ready && readyPicked.length > 0 ? { count: readyPicked.length, onSend: () => (ready.open(readyPicked), sel.clear()) } : undefined;
+  const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped"), send: sendPicked };
   const channel: Channel = {
     noun: { list: "Mail", detail: "Conversation", back: "Mail" },
     ids: rows.map(rowId),

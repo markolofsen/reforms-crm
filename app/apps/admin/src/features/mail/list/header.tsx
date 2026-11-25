@@ -12,7 +12,8 @@ export type View = { value: string; label: string; count: number | undefined };
 /** The filter button's content (P134 verdicts 1 and 4): the filters of All and the brands of the list. */
 export type Filters = { options: readonly FilterOption[]; value: string | null; onChange: (v: string | null) => void; brands: readonly BrandCount[]; brand: string | null; onBrand: (b: string | null) => void };
 
-type Selection = { count: number; busy: boolean; onSkip: () => void; onHold: () => void; onClear: () => void };
+/** `send`: P147 3m item 5, the picked replies of today's list that can go now; its Send N opens the same sheet with only them. */
+type Selection = { count: number; busy: boolean; onSkip: () => void; onHold: () => void; onClear: () => void; send?: { count: number; onSend: () => void } };
 type Header = {
   views: View[];
   view: string;
@@ -28,13 +29,18 @@ type Header = {
 };
 
 /**
- * "3 selected · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. Its height is
+ * "3 selected · Send 2 · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. Its height is
  * the header line's: the search field is `control-s` inside its 1px border, 2px taller than the buttons beside it.
  */
-function SelectionLine({ count, busy, onSkip, onHold, onClear }: Selection) {
+function SelectionLine({ count, busy, onSkip, onHold, onClear, send }: Selection) {
   return (
     <div aria-label="Selected drafts" className="flex h-[calc(var(--control-s)+2px)] min-w-0 items-center gap-2" role="toolbar">
       <p className="me-auto min-w-0 truncate font-medium text-sm tabular-nums">{count} selected</p>
+      {send && send.count > 0 && (
+        <ActionButton data-testid="selection-send" disabled={busy} onClick={send.onSend} size="s" variant="primary">
+          Send {send.count}
+        </ActionButton>
+      )}
       <ActionButton disabled={busy} onClick={onSkip} size="s" variant="secondary">
         Skip
       </ActionButton>
