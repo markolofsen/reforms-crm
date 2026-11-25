@@ -72,11 +72,11 @@ function ReplyStart({ project, row, onWrite }: { project: string; row: Conversat
     </ActionButton>
   );
   if (row.state !== "wrote") return <DraftActionRow ariaLabel="Write" start={write("Write again")} testId="reply-start" />;
-  const junk = row.junk !== null && row.inboundId !== null;
+  const junk = row.junk !== null && row.mailId !== null;
   const agentSaysNo = row.agent !== null && row.inboundId !== null;
   const moveButton = (to: "junk" | "trash", primary: boolean) =>
-    row.inboundId === null ? null : (
-      <ActionButton data-testid={to === "junk" ? "move-spam" : "move-delete"} disabled={move.isPending} key={to} onClick={() => row.inboundId !== null && move.mutate({ ids: [row.inboundId], to })} size="s" variant={primary ? "primary" : "quiet"}>
+    row.mailId === null ? null : (
+      <ActionButton data-testid={to === "junk" ? "move-spam" : "move-delete"} disabled={move.isPending} key={to} onClick={() => row.mailId !== null && move.mutate({ ids: [row.mailId], to })} size="s" variant={primary ? "primary" : "quiet"}>
         {to === "junk" ? "Spam" : "Delete"}
       </ActionButton>
     );

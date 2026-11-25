@@ -103,8 +103,13 @@ describe("P99 the list of people", () => {
     await wrote("asks@x.example", "as@x", recent);
     await repos.inbox.record({ project: P, email: "asks@x.example", name: "Asker", subject: "Re: Wow", action: "escalated", reason: "asks about a refund, owner to decide" });
     const rows = (await repos.conversations.list(P, "needs_you")).rows;
-    expect(rows.find((r) => r.client.email === "helpdesk@x.example")).toMatchObject({ junk: "looks like phishing, owner to confirm", inboundId: expect.any(Number) });
+    expect(rows.find((r) => r.client.email === "helpdesk@x.example")).toMatchObject({ junk: "looks like phishing, owner to confirm", mailId: expect.any(Number) });
     expect(rows.find((r) => r.client.email === "asks@x.example")?.junk).toBeNull();
+    // The escalation closed the message for the list (inboundId null) but kept the person in Needs you: Spam or Delete moves it
+    // by mailId, and the person leaves Needs you.
+    const helpdesk = rows.find((r) => r.client.email === "helpdesk@x.example");
+    await repos.mailPass.moved({ project: P, inboundId: helpdesk?.mailId as number, to: "junk", by: "owner", at: new Date().toISOString() });
+    expect((await repos.conversations.list(P, "needs_you")).rows.map((r) => r.client.email)).toEqual(["asks@x.example"]);
   });
 
   it("stateOf: our send after their message is Waiting; theirs after ours is Done (nothing open); nothing at all is Done", () => {

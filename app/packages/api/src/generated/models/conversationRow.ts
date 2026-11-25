@@ -30,4 +30,5 @@ export type ConversationRow = {
   agent: ConversationRowAgent;
   /** @nullable */
   junk: string | null;
+  mailId: number | null;
 };

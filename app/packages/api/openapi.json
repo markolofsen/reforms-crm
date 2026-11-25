@@ -14923,6 +14923,19 @@
                     "string",
                     "null"
                   ]
+                },
+                "mailId": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -14939,7 +14952,8 @@
                 "ourLastAt",
                 "contact",
                 "agent",
-                "junk"
+                "junk",
+                "mailId"
               ],
               "additionalProperties": false
             }
@@ -15819,6 +15833,19 @@
                   "string",
                   "null"
                 ]
+              },
+              "mailId": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -15835,7 +15862,8 @@
               "ourLastAt",
               "contact",
               "agent",
-              "junk"
+              "junk",
+              "mailId"
             ],
             "additionalProperties": false
           },

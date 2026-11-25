@@ -47,6 +47,11 @@ export const conversationRowDto = z.strictObject({
   agent: z.strictObject({ action: z.enum(["escalated", "skipped"]), reason: z.string().nullable(), at: z.string() }).nullable(),
   /** P147 3n N6: the mail pass judged their open message phishing or junk (its reason, "" without one); Spam is then the primary. */
   junk: z.string().nullable().default(null),
+  /**
+   * P147 3n: the message Spam and Delete move: their newest stored message not yet moved or dismissed. It is `inboundId` when one is
+   * open; an agent's escalation closes the message for the list (P128) and keeps the person in Needs you, so it is set there too.
+   */
+  mailId: z.number().int().nullable().default(null),
 });
 export type ConversationRowDto = z.infer<typeof conversationRowDto>;
 

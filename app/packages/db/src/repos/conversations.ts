@@ -48,6 +48,8 @@ export interface ConversationItem {
    * an inbox escalation whose reason names phishing or spam (the owner's IT-Helpdesk row, 2026-11-25); else null.
    */
   junk: string | null;
+  /** P147 3n: the message Spam and Delete move: the open one, else their newest not yet dismissed (an escalation closes it for the list). */
+  mailId: number | null;
 }
 
 export type ConversationCounts = Record<ConversationView, number>;
@@ -111,6 +113,7 @@ export function conversationsRepo(db: Db) {
       const mine = all.filter((d) => d.clientId === c.id).sort((a, b) => b.id - a.id);
       const theirs = inbound.filter((r) => r.row.email === c.email && r.row.dismissedReason !== "lead_notice").sort((a, b) => b.row.receivedAt.localeCompare(a.row.receivedAt));
       const openIn = theirs.find((r) => r.open === 1)?.row ?? null;
+      const mailOf = openIn ?? theirs.find((r) => r.row.dismissedAt === null)?.row ?? null;
       const escalated = owed.find((r) => r.email === c.email && !mine.some((d) => d.createdAt > r.recordedAt)) ?? null;
       const sentAts = [...mine.map((d) => d.sentAt), ...sends.filter((s) => (s.draftId !== null && mine.some((d) => d.id === s.draftId)) || s.to.toLowerCase().includes(c.email)).map((s) => s.at ?? s.created)];
       const theirLastAt = max(theirs[0]?.row.receivedAt, escalated?.lastInboundAt);
@@ -135,7 +138,8 @@ export function conversationsRepo(db: Db) {
         theirLastAt,
         ourLastAt,
         agent: verdict && (verdict.action === "escalated" || verdict.action === "skipped") ? { action: verdict.action, reason: verdict.reason, at: verdict.recordedAt } : null,
-        junk: openIn === null ? null : openIn.passDecision === "spam" ? (openIn.passReason ?? "") : verdict?.action === "escalated" && JUNK_WORDS.test(verdict.reason ?? "") ? (verdict.reason ?? "") : null,
+        mailId: mailOf?.id ?? null,
+        junk: mailOf === null ? null : openIn !== null && openIn.passDecision === "spam" ? (openIn.passReason ?? "") : verdict?.action === "escalated" && JUNK_WORDS.test(verdict.reason ?? "") ? (verdict.reason ?? "") : null,
       };
     });
   };

@@ -3,7 +3,7 @@ import { LEAD_PASS_REASON_MAX, MAIL_PASS_DECISION_LABELS, MAIL_PASS_SKILL, type 
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { write, type WriteTx } from "../tx";
-import { clients, drafts, inboundMail, leadPasses, leadRows, sendLog } from "../schema";
+import { clients, drafts, inboundMail, inboxRows, leadPasses, leadRows, sendLog } from "../schema";
 import { SQL_OPEN, type InboundRow } from "./inbound-mail";
 import { insertEvent, sessionRun } from "./runs";
 
@@ -155,8 +155,12 @@ export function mailPassRepo(db: Db) {
       return write(db, (tx) => {
         const r = tx.select().from(inboundMail).where(and(eq(inboundMail.project, d.project), eq(inboundMail.id, d.inboundId))).get();
         if (!r) throw new RepoError("not_found", `No inbound message ${d.inboundId} in project ${d.project}`);
-        const ids = tx.select({ id: inboundMail.id }).from(inboundMail).where(and(eq(inboundMail.project, d.project), eq(inboundMail.email, r.email), SQL_OPEN)).all().map((x) => x.id);
+        const open = tx.select({ id: inboundMail.id }).from(inboundMail).where(and(eq(inboundMail.project, d.project), eq(inboundMail.email, r.email), SQL_OPEN)).all().map((x) => x.id);
+        const ids = r.dismissedAt === null && !open.includes(r.id) ? [...open, r.id] : open;
         if (ids.length) tx.update(inboundMail).set({ dismissedAt: d.at }).where(inArray(inboundMail.id, ids)).run();
+        // The moved message itself even when an agent's escalation closed it for the list (P128), and that owed escalation: it kept
+        // the person in Needs you, and the owner's Spam or Delete is his answer to it.
+        tx.update(inboxRows).set({ repliesOwed: false }).where(and(eq(inboxRows.project, d.project), eq(inboxRows.email, r.email), eq(inboxRows.action, "escalated"), eq(inboxRows.repliesOwed, true))).run();
         const runId = sessionRun(tx, { project: d.project, batchKey: `mail-junk:${d.at.slice(0, 10)}`, skill: MAIL_PASS_SKILL, at: d.at });
         const client = tx.select({ id: clients.id }).from(clients).where(and(eq(clients.project, d.project), eq(clients.email, r.email))).get()?.id ?? null;
         insertEvent(tx, {

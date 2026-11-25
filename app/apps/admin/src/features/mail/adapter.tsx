@@ -180,7 +180,7 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
   const toggleChecked = useToggleChecked(source.project, actions, say);
   // P147 3n: Spam and Delete (keys, the selection bar) for people whose newest mail has no open draft, as the pane's buttons.
   const mover = useMoveToast(source.project);
-  const loose = current && current.inboundId !== null && !(current.draft && !isClosed(current.draft)) ? current.inboundId : null;
+  const loose = current && current.mailId !== null && !(current.draft && !isClosed(current.draft)) ? current.mailId : null;
   const move = loose === null || mover.isPending ? null : (to: "junk" | "trash") => mover.mutate({ ids: [loose], to });
   useMailKeys({ enabled: shortcutsOn, current: current?.draft ?? null, actions, advance, replyAll: (d) => void replyAllInMail(d, say), toggleChecked, undoLast, move, say });
 

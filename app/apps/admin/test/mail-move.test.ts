@@ -7,7 +7,7 @@ import type { ConversationRow } from "../src/features/mail/model";
 // and `#` (Backspace too) are listed beside Mail's other action keys; J stays next conversation.
 
 const row = (o: Partial<ConversationRow> = {}): ConversationRow =>
-  ({ client: { id: 1, name: "Helpdesk", email: "helpdesk@phish.example" }, state: "wrote", at: "2026-11-25T10:00:00Z", subject: "Access Renewal", preview: "", brands: [], inboundId: 7, draft: null, theirLastAt: null, ourLastAt: null, agent: null, junk: null, ...o }) as ConversationRow;
+  ({ client: { id: 1, name: "Helpdesk", email: "helpdesk@phish.example" }, state: "wrote", at: "2026-11-25T10:00:00Z", subject: "Access Renewal", preview: "", brands: [], inboundId: 7, mailId: 7, draft: null, theirLastAt: null, ourLastAt: null, agent: null, junk: null, ...o }) as ConversationRow;
 
 describe("Spam and Delete in the list (P147 3n)", () => {
   it("N6: a message judged phishing or junk carries the Phishing? chip; an ordinary one does not", () => {
