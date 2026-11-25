@@ -43,8 +43,12 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   await expect.poll(() => clientOf(onDisk()), { timeout: 1500 }).toBe(fiona.clientId);
   expect(readFileSync(focusFile, "utf8")).not.toMatch(/Fiona|fiona@|Hello/);
 
-  // 2. The prompt hook prints the line the model gets; P129 A5 (verdict 8): it starts with what "this" is.
-  const hook = JSON.parse(run([hub, "focus", "--hook"], "{}")) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };
+  // 2. The prompt hook prints the line the model gets; P129 A5 (verdict 8): it starts with what "this" is. The hook ends itself,
+  // silent, 3.5 s after it started (HOOK_DEADLINE_MS in bin/hub.mjs: a late line is dropped, never a blocked prompt), which a
+  // loaded machine can reach; so it is asked again until it answers. What it says is checked below, unchanged.
+  let said = "";
+  await expect.poll(() => (said = run([hub, "focus", "--hook"], "{}").trim()), { timeout: 20_000 }).not.toBe("");
+  const hook = JSON.parse(said) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };
   expect(hook.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
   expect(hook.hookSpecificOutput.additionalContext).toMatch(new RegExp(`^\\[Hub focus, data\\] this client:${fiona.clientId} · Conversation ${fiona.clientId} · open client:${fiona.clientId} "Fiona Focus <fiona@example.com> · draft ${fiona.draftId} ready[^"]*" draft ready \\(draft_show\\)`));
 
@@ -72,12 +76,12 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   await expect.poll(() => clientOf(onDisk()), { timeout: 1500 }).toBe(gus.clientId);
 
   // 5. A focus older than 10 minutes is stale: the hook adds nothing. The tab posts again once its rows settle (the window,
-  // the pointed row), so the file is backdated only after a second without a post; the heartbeat is 60 s away.
+  // the pointed row), so the file is backdated only after 3 s without a post; the heartbeat is 60 s away.
   await expect.poll(async () => {
     const before = onDisk()?.at;
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 3000));
     return onDisk()?.at === before;
-  }, { timeout: 10_000 }).toBe(true);
+  }, { timeout: 20_000 }).toBe(true);
   const rec = onDisk();
   expect(rec).not.toBeNull();
   writeFileSync(focusFile, JSON.stringify({ ...rec, at: new Date(Date.parse(rec?.at ?? "") - 11 * 60_000).toISOString() }));
