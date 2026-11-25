@@ -178,6 +178,9 @@ test("chats: nothing matches, so Create client makes the card with the chat's us
   const form = row.getByRole("form", { name: "New client for Delivery bot fan" });
   await expect(form.getByRole("textbox", { name: "Name" })).toHaveValue("Delivery bot fan");
   await expect(form.getByText("Telegram suenot is written to the card, with Relationship Lead.")).toBeVisible();
+  // P141 C3: a chat alone is enough for a client, so the Email is optional and only an empty Name holds Create back.
+  await expect(form.getByRole("button", { name: "Create and link" })).toBeEnabled();
+  await form.getByRole("textbox", { name: "Name" }).fill(" ");
   await expect(form.getByRole("button", { name: "Create and link" })).toBeDisabled();
   await form.getByRole("textbox", { name: "Name" }).fill("Evgeniy");
   await form.getByRole("textbox", { name: "Email" }).fill("suenot@example.test");
@@ -189,7 +192,7 @@ test("chats: nothing matches, so Create client makes the card with the chat's us
 
 const rita = (page: Page) => page.getByRole("list", { name: "Chats", exact: true }).getByRole("listitem", { name: "Rita Falsa" });
 
-test("chats: Change client moves the chat with its messages (Undo moves it back); Unlink says what it deletes and asks once, in place", async ({ page }) => {
+test("chats: Change client moves the chat with its messages (Undo moves it back); Unlink says what stays and asks once, in place", async ({ page }) => {
   const s = await stubChats(page);
   await page.goto(at(P, "/messengers"));
   await expect(rita(page).getByRole("button", { name: /^Chat actions for / })).toBeVisible();
@@ -204,15 +207,16 @@ test("chats: Change client moves the chat with its messages (Undo moves it back)
   expect(writes[0]?.body).toEqual({ key: "n-evg" });
   expect(writes[1]?.body).toEqual({ clientId: 7, draftId: 11 });
 
-  // P105 S3: Unlink is reviewed in the one dialog; Cancel keeps everything.
+  // P105 S3: Unlink is reviewed in the one dialog; Cancel keeps everything. P141 verdict 15 (decision 0049): Unlink takes only the
+  // client away; the chat stays, not linked, with its stored messages (Hide is what deletes).
   const dialog = page.getByTestId("review-dialog");
   await pick(rita(page), "Unlink…");
-  await expect(dialog.getByTestId("review-lead")).toHaveText(/^Unlink Rita F\. from Rita Falsa: its 1 stored message and its draft are deleted\. Linking again reloads the last 30 days\.$/);
+  await expect(dialog.getByTestId("review-lead")).toHaveText(/^Unlink Rita F\. from Rita Falsa: the chat stays in Messengers as not linked, with its 1 stored message; the agent no longer reads it and the autopilot stops\.$/);
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toHaveCount(0);
   await pick(rita(page), "Unlink…");
   await page.waitForTimeout(450);
-  await dialog.getByRole("button", { name: "Unlink and delete" }).click();
+  await dialog.getByRole("button", { name: "Unlink", exact: true }).click();
   await expect(page.getByText("Unlinked Rita F.")).toBeVisible();
   expect(s.posts.at(-1)?.path).toMatch(/\/chats\/\d+\/unlink$/);
 });
