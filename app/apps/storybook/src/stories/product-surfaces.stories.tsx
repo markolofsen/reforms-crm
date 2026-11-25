@@ -22,10 +22,10 @@ function DataTableDemo() {
         </TableHeader>
         <TableBody>
           {[
-            ["Jovan Radmilovic", "Carapis", "Waiting for a reply"],
-            ["Mark Effect", "Reforms", "Draft ready"],
+            ["Alex Morgan", "Carapis", "Waiting for a reply"],
+            ["Bluebird Labs", "Reforms", "Draft ready"],
             ["IT-Helpdesk", "CMDOP", "7 days ago"],
-            ["Türkben Holding", "Carapis", "New lead"],
+            ["Northwind Motors", "Carapis", "New lead"],
           ].map(([client, brand, activity]) => (
             <TableRow key={client}>
               <TableCell className="font-medium">{client}</TableCell>
@@ -79,7 +79,7 @@ function SpotlightDemo() {
         <ActionButton onClick={() => setRun((current) => current + 1)} size="s" variant="secondary">Point at clients</ActionButton>
       </div>
       <ul className="divide-y rounded-md border" aria-label="Clients">
-        {["Mark Effect", "Jovan Radmilovic", "Türkben Holding"].map((name, index) => (
+        {["Bluebird Labs", "Alex Morgan", "Northwind Motors"].map((name, index) => (
           <li className="px-3 py-2 text-sm" data-agent-ref={`client:${index + 1}`} key={name}>{name}</li>
         ))}
       </ul>

@@ -11,9 +11,9 @@ import { Page } from "@hub/ui/product/shell/page";
 import { Spinner } from "@hub/ui/spinner";
 
 const people = [
-  { name: "Jovan Radmilovic", detail: "Waiting for you · Question about data updates", notion: "connected" as const, time: "3 d ago" },
+  { name: "Alex Morgan", detail: "Waiting for you · Question about data updates", notion: "connected" as const, time: "3 d ago" },
   { name: "IT-Helpdesk", detail: "Draft ready · Access Renewal", notion: "not_found" as const, time: "7 d ago" },
-  { name: "Türkben Holding", detail: "New lead · Carapis", notion: "connected" as const, time: "1 h ago" },
+  { name: "Northwind Motors", detail: "New lead · Carapis", notion: "connected" as const, time: "1 h ago" },
   { name: "koreana", detail: "New lead · Carapis", notion: "unavailable" as const, time: "10 h ago" },
   { name: "cost2cost cars", detail: "New lead · Carapis", notion: "connected" as const, time: "29 h ago" },
 ];
