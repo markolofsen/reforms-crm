@@ -91,12 +91,20 @@ describe("P99 the list of people", () => {
     const rows = (await repos.conversations.list(P, "needs_you")).rows;
     expect(rows.find((r) => r.client.email === "phish@x.example")?.agent).toMatchObject({ action: "escalated", reason: "looks like phishing, owner to confirm" });
     expect(rows.find((r) => r.client.email === "quiet@x.example")?.agent).toBeNull();
-    // P147 3n N6: an escalation that names phishing marks the row junk (the pane's Spam primary, the list's Phishing? chip).
-    expect(rows.find((r) => r.client.email === "phish@x.example")?.junk).toBe("looks like phishing, owner to confirm");
-    expect(rows.find((r) => r.client.email === "quiet@x.example")?.junk).toBeNull();
     await tick();
     await record("phish@x.example", "ph@x", "Access Renewal");
     expect((await repos.conversations.list(P, "all")).rows.find((r) => r.client.email === "phish@x.example")?.agent).toBeNull();
+  });
+
+  it("P147 3n N6: an escalation that names phishing marks an open message junk (the pane's Spam primary, the Phishing? chip)", async () => {
+    const recent = new Date(Date.now() - 3_600_000).toISOString();
+    await wrote("helpdesk@x.example", "hd@x", recent, "Access Renewal");
+    await repos.inbox.record({ project: P, email: "helpdesk@x.example", name: "IT Helpdesk", subject: "Access Renewal", action: "escalated", reason: "looks like phishing, owner to confirm" });
+    await wrote("asks@x.example", "as@x", recent);
+    await repos.inbox.record({ project: P, email: "asks@x.example", name: "Asker", subject: "Re: Wow", action: "escalated", reason: "asks about a refund, owner to decide" });
+    const rows = (await repos.conversations.list(P, "needs_you")).rows;
+    expect(rows.find((r) => r.client.email === "helpdesk@x.example")).toMatchObject({ junk: "looks like phishing, owner to confirm", inboundId: expect.any(Number) });
+    expect(rows.find((r) => r.client.email === "asks@x.example")?.junk).toBeNull();
   });
 
   it("stateOf: our send after their message is Waiting; theirs after ours is Done (nothing open); nothing at all is Done", () => {
