@@ -3,6 +3,7 @@ import path from "node:path";
 import { MAP_DATE_FIELD } from "@hub/notion/client-map";
 import type { Ctx } from "./context";
 import type { NotionProject } from "./notion-check";
+import { notionRefusal } from "./notion-api";
 
 // P135 K5 (verdict 2): the Clients database of each project carries the date property "Map updated", so a Notion view sorts
 // clients by their newest map. `hub install` adds it through the API (a date is creatable; a Status or a cross-database formula
@@ -45,7 +46,7 @@ export async function addMapField(ctx: Ctx, rows: readonly Row[]): Promise<strin
   const added: string[] = [];
   for (const r of rows.filter((x) => x.state === "missing")) {
     const res = await ctx.fetch(`${API}/${encodeURIComponent(r.dataSourceId)}`, { method: "PATCH", headers: headers(r.token), body: JSON.stringify({ properties: { [MAP_DATE_FIELD]: { date: {} } } }), signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) throw new Error(`${r.slug}: Notion answered ${res.status} adding "${MAP_DATE_FIELD}" (the integration needs Update content)`);
+    if (!res.ok) throw new Error(`${r.slug}: adding "${MAP_DATE_FIELD}": ${await notionRefusal(res)}`);
     added.push(r.slug);
   }
   return added.length ? `added "${MAP_DATE_FIELD}" to Clients of ${added.join(", ")}` : "nothing to add";

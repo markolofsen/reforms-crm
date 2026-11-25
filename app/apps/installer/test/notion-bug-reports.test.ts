@@ -66,3 +66,27 @@ describe("notion.bug-reports", () => {
     expect(gaps.add["Status"]).toEqual({ select: { options: [{ id: "s1", name: "New" }, ...["Triaged", "In progress", "Fixed", "Won't fix", "Duplicate"].map((name) => ({ name }))] } });
   });
 });
+
+// L9 (2026-11-25): Notion refuses a property description over 280 characters (400 validation_error), and the PATCH that adds the
+// property fails with it. Every description of the pack is within it.
+describe("the pack's descriptions", () => {
+  it("are at most 280 characters, Notion's limit", () => {
+    const dir = path.resolve(__dirname, "../../../projects/_template/notion-crm/schema");
+    const long: string[] = [];
+    for (const f of ["bug-reports", "business-contacts", "clients", "deals", "documents", "expenses", "knowledge", "leads", "open-loops", "organizations", "payments", "tasks"]) {
+      const props = (JSON.parse(readFileSync(path.join(dir, `${f}.json`), "utf8")) as { properties?: Record<string, { description?: string }> }).properties ?? {};
+      for (const [name, p] of Object.entries(props)) if ((p.description ?? "").length > 280) long.push(`${f}.${name}: ${p.description?.length}`);
+    }
+    expect(long).toEqual([]);
+  });
+});
+
+describe("a Notion refusal", () => {
+  it("says Notion's own code and message, and a capability only where the status means one", async () => {
+    const { notionRefusal } = await import("../src/notion-api");
+    const r400 = Response.json({ object: "error", status: 400, code: "validation_error", message: "body.properties.Kind.description.length should be ≤ `280`" }, { status: 400 });
+    expect(await notionRefusal(r400)).toBe("Notion answered 400 validation_error: body.properties.Kind.description.length should be ≤ `280`");
+    expect(await notionRefusal(Response.json({ code: "restricted_resource", message: "Insufficient permissions" }, { status: 403 }))).toMatch(/needs Update content\)$/);
+    expect(await notionRefusal(new Response("not json", { status: 502 }))).toBe("Notion answered 502");
+  });
+});

@@ -3,6 +3,7 @@ import path from "node:path";
 import { LEAD_PASS_NOTION, LEAD_PASS_NOTION_DECISION } from "@hub/config/lead-pass";
 import type { Ctx } from "./context";
 import type { NotionProject } from "./notion-check";
+import { notionRefusal } from "./notion-api";
 
 // P147 L7 (decision 0055 point 5): the Leads database of each project carries the two Hub-owned lead pass properties, `Hub
 // decision` (select of the pass's decisions) and `Hub reason` (text). New names on purpose: Status, Owner and Notes have other
@@ -67,7 +68,7 @@ export async function addLeadPassFields(ctx: Ctx, rows: readonly Row[]): Promise
   for (const r of rows.filter((x) => x.missing.length && (x.state === "missing" || x.state === "wrong_type"))) {
     const properties = Object.fromEntries(LEAD_PASS_FIELDS.filter((f) => r.missing.includes(f.name)).map((f) => [f.name, f.create]));
     const res = await ctx.fetch(`${API}/${encodeURIComponent(r.dataSourceId)}`, { method: "PATCH", headers: headers(r.token), body: JSON.stringify({ properties }), signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) throw new Error(`${r.slug}: Notion answered ${res.status} adding the lead pass properties (the integration needs Update content)`);
+    if (!res.ok) throw new Error(`${r.slug}: adding the lead pass properties: ${await notionRefusal(res)}`);
     added.push(`${r.slug} (${r.missing.length})`);
   }
   return added.length ? `added the lead pass properties to Leads of ${added.join(", ")}` : "nothing to add";

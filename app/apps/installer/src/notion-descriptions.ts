@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "./context";
 import type { NotionProject } from "./notion-check";
+import { notionRefusal } from "./notion-api";
 
 // P140 P1a: the pack's property descriptions are the rule a person and an agent read in Notion ("Kept current by the agent from what
 // the client says (never invented); the owner may edit."). Nothing else writes a live description, so `notion.descriptions` compares
@@ -120,7 +121,7 @@ export async function syncDescriptions(ctx: Ctx, rows: readonly DescriptionRow[]
   const done: string[] = [];
   for (const r of rows.filter((x) => x.state === "differs")) {
     const res = await ctx.fetch(`${API}/${encodeURIComponent(r.dataSourceId)}`, { method: "PATCH", headers: headers(r.token), body: JSON.stringify(descriptionPatch(r.changes)), signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) throw new Error(`${r.slug}: Notion answered ${res.status} setting the descriptions of ${r.database} (the integration needs Update content)`);
+    if (!res.ok) throw new Error(`${r.slug}: setting the descriptions of ${r.database}: ${await notionRefusal(res)}`);
     done.push(`${r.slug} ${r.database} (${r.changes.length})`);
   }
   return done.length ? `set the pack's descriptions on ${done.join(", ")}` : "nothing to set";

@@ -29,10 +29,22 @@ export async function readDataSource(ctx: Ctx, token: string, id: string): Promi
   return { ok: true, body: (await r.json().catch(() => ({}))) as LiveDataSource };
 }
 
-/** A PATCH of one data source's properties. Throws with the slug and Notion's status on a refusal. */
+/**
+ * Why Notion refused a write, in one line: its status, its error `code` and `message` (Notion's own words; they carry no token),
+ * and the capability hint only where the status means one (403: the integration lacks Update content or the page).
+ */
+export async function notionRefusal(res: { status: number; json: () => Promise<unknown> }): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { code?: unknown; message?: unknown } | null;
+  const code = typeof body?.code === "string" ? body.code : null;
+  const message = typeof body?.message === "string" ? body.message.replace(/\s+/g, " ").slice(0, 300) : null;
+  const hint = res.status === 403 || code === "restricted_resource" ? " (the integration needs Update content)" : res.status === 404 ? " (the integration cannot see this database: share it with the integration)" : "";
+  return `Notion answered ${res.status}${code ? ` ${code}` : ""}${message ? `: ${message}` : ""}${hint}`;
+}
+
+/** A PATCH of one data source's properties. Throws with the slug and Notion's own refusal. */
 export async function patchDataSource(ctx: Ctx, token: string, id: string, properties: Record<string, unknown>, what: string): Promise<void> {
   const res = await ctx.fetch(`${NOTION_API}/data_sources/${encodeURIComponent(id)}`, { method: "PATCH", headers: notionHeaders(token), body: JSON.stringify({ properties }), signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`${what}: Notion answered ${res.status} (the integration needs Update content)`);
+  if (!res.ok) throw new Error(`${what}: ${await notionRefusal(res)}`);
 }
 
 /** The option names of a select or multi_select, as Notion holds them. */

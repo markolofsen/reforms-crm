@@ -3,6 +3,7 @@ import path from "node:path";
 import { FOLLOW_UP_NOTION, FOLLOW_UP_NOTION_STATUS, FOLLOW_UP_NOTION_WAITING_ON } from "@hub/config/follow-ups";
 import type { Ctx } from "./context";
 import type { NotionProject } from "./notion-check";
+import { notionRefusal } from "./notion-api";
 
 // P142 F7 (verdict 12): the Clients database of each project carries the four Hub-owned follow-up properties: `Next follow-up`
 // (date), `Follow-up status` (select), `Follow-ups sent` (number) and `Waiting on` (select). New names on purpose: the CRM sync's
@@ -71,7 +72,7 @@ export async function addFollowUpFields(ctx: Ctx, rows: readonly Row[]): Promise
   for (const r of rows.filter((x) => x.missing.length && (x.state === "missing" || x.state === "wrong_type"))) {
     const properties = Object.fromEntries(FOLLOW_UP_FIELDS.filter((f) => r.missing.includes(f.name)).map((f) => [f.name, f.create]));
     const res = await ctx.fetch(`${API}/${encodeURIComponent(r.dataSourceId)}`, { method: "PATCH", headers: headers(r.token), body: JSON.stringify({ properties }), signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) throw new Error(`${r.slug}: Notion answered ${res.status} adding the follow-up properties (the integration needs Update content)`);
+    if (!res.ok) throw new Error(`${r.slug}: adding the follow-up properties: ${await notionRefusal(res)}`);
     added.push(`${r.slug} (${r.missing.length})`);
   }
   return added.length ? `added the follow-up properties to Clients of ${added.join(", ")}` : "nothing to add";
