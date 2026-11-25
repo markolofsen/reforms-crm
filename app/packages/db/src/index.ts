@@ -6,6 +6,7 @@ import { agentSettingsOf } from "./repos/agent-settings";
 export { draftCountsReadOnly } from "./status";
 export { copyAndVerify, inspectCopy, restoreCheck, type CopyCheck, type RestoreCheck } from "./backup-check";
 export { DbBehindError, defaultDbPath, openDb, openDbReadOnly, type Db, type DbHandle, type OpenDbOptions } from "./client";
+export { migrationsIn, openOwnFile, openSqliteReadOnly, type OwnFileHandle, type SqliteClient } from "./own-file";
 export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rename";
 export { dataVersion, isBusy } from "./tx";
 export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";

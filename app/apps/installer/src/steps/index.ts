@@ -15,6 +15,7 @@ import { projectSteps } from "./projects";
 import { serverSteps } from "./server";
 import { skillSteps } from "./skills";
 import { toolSteps } from "./tools";
+import { watchSteps } from "./watch";
 
 const tag = (steps: Step[], optional: NonNullable<Step["optional"]>, ids?: string[]): Step[] =>
   steps.map((s) => (!ids || ids.includes(s.id) ? { ...s, optional } : s));
@@ -42,6 +43,8 @@ export const STEPS: Step[] = [
   // P145: notion.projects, notion.project-keys and notion.bug-reports write or judge the live schema: run by `--only` (or --automation), never by a plain install.
   ...tag(notionSteps, "automation", ["notion.token", "notion.access", "notion.projects", "notion.project-keys", "notion.bug-reports"]),
   ...leadSteps,
+  // P144: the watch lists and their lenses, checked offline (no Telegram call, no model).
+  ...watchSteps,
   // P49: the Agent tools rows reach every MCP server once per CLI, so they are an audit (`--fast` leaves them out). The terminal
   // row and the CLIs row (P66: one login-shell detection, cached per run) are the install workflow's: setup and install run them.
   ...agentSteps.map((s): Step => (s.id === "agent.tools" ? { ...s, audit: true } : s)),

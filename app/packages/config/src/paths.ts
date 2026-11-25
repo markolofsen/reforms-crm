@@ -28,7 +28,11 @@ export interface HubPaths {
   /** Skill discovery for agents started in `home`: `<home>/.claude/skills` (generated symlinks into `<core>/skills`). */
   claudeSkills: string;
   projects: string;
+  /** The instance's own code (decision 0018): `<home>/packages`. The watcher loads a project's lens from here only (P144, draft 0052). */
+  instancePackages: string;
   db: string;
+  /** P144: the watcher's own database file per project, `<watch>/<slug>.db` (`<home>/data/watch`; beside a `HUB_DB` override's folder for a throwaway). */
+  watch: string;
   state: string;
   /** Per-project session state: `<state>/projects`. */
   stateProjects: string;
@@ -121,6 +125,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
   if (home === core) throw new Error(`HUB_HOME is the core checkout itself (${home}): the core holds no data, point HUB_HOME at an instance folder`);
   const state = join(home, "state");
   const configDir = join(home, "config");
+  const dbOverride = fromEnv(env, "HUB_DB");
   return {
     core, home,
     skills: join(core, "skills"),
@@ -131,7 +136,9 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     mcpFile: join(home, ".mcp.json"),
     claudeSkills: join(home, ".claude", "skills"),
     projects: fromEnv(env, "HUB_PROJECTS") ? resolve(fromEnv(env, "HUB_PROJECTS")!) : join(home, "projects"),
-    db: fromEnv(env, "HUB_DB") ?? join(home, "data", "app.db"),
+    instancePackages: join(home, "packages"),
+    db: dbOverride ?? join(home, "data", "app.db"),
+    watch: dbOverride ? join(dirname(resolve(dbOverride)), "watch") : join(home, "data", "watch"),
     state,
     stateProjects: join(state, "projects"),
     evidence: join(state, "evidence"),

@@ -43,7 +43,8 @@
     "./notion": "./src/notion.ts",
     "./project": "./src/project.ts",
     "./inbox": "./src/inbox.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./lens": "./src/lens.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

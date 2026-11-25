@@ -17,6 +17,7 @@ export const OPS_SOURCES = [
   "telegram_bot",
   "autolink",
   "preanalysis", // P71 M-P: the cheap model's pass over linked chats (through `@hub/llm`)
+  "watch", // P144: the public-chat watcher (its polls, analyses and retention: counts only, never a text or a handle)
   "autopilot", // decision 0048 (P139): the messenger autopilot's turns, one line per outcome with the turn's action id
   "follow-ups", // decision 0050 (P142): the daily follow-up sweep, one line per sweep, per turn and per autopilot nudge
   "lead-pass", // decision 0055 (P147): the daily lead pass, one line per pass and per lead turn
