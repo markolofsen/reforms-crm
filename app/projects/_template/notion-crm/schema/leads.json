@@ -157,6 +157,27 @@
       "options": [],
       "note": "The project key of the lead's origin (decision 0053): which site or product the lead came from. Leads keeps `Brand` (the other databases use `Projects`): the integration writes it (django_notion matches the backend's project key to the option with the same key: lower case, letters and digits only), the silence check filters on it, and Clients' `Project signals` reads it. The options are named like the project's `## Brands` rows; `hub install --only notion.projects` adds a missing one. A missing option leaves Brand empty, never stops the form. One lead can carry several brands; `Other` is no project.",
       "description": "The project key of the lead's origin: the site or product it came from. Written by the integration; options named like the Hub's ## Brands rows."
+    },
+    "Hub decision": {
+      "type": "select",
+      "writer": "Hub",
+      "optional": true,
+      "options": [
+        "Reply",
+        "Client",
+        "Spam proposed",
+        "Not now proposed",
+        "For you"
+      ],
+      "note": "P147 (decision 0055): the daily lead pass's decision for this lead, copied after each decision. Added by `hub install --only notion.lead-pass`. Not Status, which the owner and the send keep.",
+      "description": "Written by the Hub: what the daily lead pass decided. Do not edit; Redo it in the Hub."
+    },
+    "Hub reason": {
+      "type": "rich_text",
+      "writer": "Hub",
+      "optional": true,
+      "note": "P147 (decision 0055): one line why the pass decided so (for For you, what the owner must do). Added by `hub install --only notion.lead-pass`.",
+      "description": "Written by the Hub: why the daily lead pass decided so."
     }
   },
   "noteVsPack": "Read live 2026-11-17 (CRM: SaaS, Leads moved to the top level of the teamspace). Brand exists now (multi_select, project-specific options). Source and Status are type select (not status). Ad-tracking columns (flag ads) are written by the owner's backend once mapped; deploy them only when the project runs ads. The writer column says 'Hub' for what the integration writes: in the pack 'Hub' means any writer that follows @docs/core/21-leads.md."

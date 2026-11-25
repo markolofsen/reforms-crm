@@ -68,6 +68,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     autopilot: messengers.handles.autopilot,
     leads: mail.handles.leads,
     directory: { get project() { return linker.project; }, all: () => linker.directory.current()?.all },
+    notion: { projectsDir, secretsDir: paths.secrets },
   });
   const { terminal, detector } = startTerminal({ repos, paths, modes, adminPort, apiPort: o.apiPort });
   const agent = startAgent({ repos, paths, modes, detector, recheck: () => void terminal.recheck() });

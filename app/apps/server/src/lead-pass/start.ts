@@ -3,6 +3,7 @@ import { LEAD_PASS_DEFAULT_AT, type LeadPassBrain } from "@hub/config/lead-pass"
 import { throwawayDb, type HubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
 import { ops } from "@hub/log/ops";
+import { syncLeadDecision } from "@hub/notion/lead-decision";
 import type { DirectoryEntry } from "@hub/messengers";
 import type { ProjectStore } from "@hub/projects/store";
 import type { LeadsHandle } from "../clients/leads-reader";
@@ -39,6 +40,8 @@ export function startLeadPass(o: {
   leads?: LeadsHandle | undefined;
   directory?: { project: string | null; all: () => readonly DirectoryEntry[] | undefined } | undefined;
   clock?: Clock;
+  /** L7: where the Notion copy of a decision taken without a turn reads the project and its token. */
+  notion?: { projectsDir: string; secretsDir: string };
 }): LeadPassRuntime {
   const log = ops("lead-pass");
   if (!o.brain) {
@@ -50,6 +53,7 @@ export function startLeadPass(o: {
     brain: o.brain,
     autopilot: o.autopilot,
     ...(o.clock ? { clock: o.clock } : {}),
+    ...(o.notion ? { syncDecision: (slug: string, d: { pageId: string; decision: string; reason: string }) => syncLeadDecision(o.notion as { projectsDir: string; secretsDir: string }, { project: slug, ...d }) } : {}),
     windowDays: (slug) => o.projects.find(slug)?.leads.windowDays ?? 14,
     prefetch: {
       project: (slug) => o.projects.find(slug) ?? undefined,

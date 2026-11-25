@@ -33,6 +33,7 @@
     "./chat-client": "./src/chat-client.ts",
     "./client-map": "./src/client-map.ts",
     "./follow-ups": "./src/follow-ups.ts",
-    "./bug-reports": "./src/bug-reports.ts"
+    "./bug-reports": "./src/bug-reports.ts",
+    "./lead-decision": "./src/lead-decision.ts"
   }
 }

@@ -8,14 +8,14 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 
 ## Databases
 
-- [Bug reports](#bug-reports) (`bug-reports`, 16 fields)
+- [Bug reports](#bug-reports) (`bug-reports`, 17 fields)
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
 - [Clients](#clients) (`clients`, 49 fields)
 - [Deals](#deals) (`deals`, 44 fields)
 - [Documents](#documents) (`documents`, 19 fields)
 - [Expenses](#expenses) (`expenses`, 20 fields)
 - [Knowledge](#knowledge) (`knowledge`, 21 fields)
-- [Leads](#leads) (`leads`, 30 fields)
+- [Leads](#leads) (`leads`, 32 fields)
 - [Open loops](#open-loops) (`open-loops`, 8 fields)
 - [Organizations](#organizations) (`organizations`, 6 fields)
 - [Payments](#payments) (`payments`, 15 fields)
@@ -34,7 +34,8 @@ Pack file: `schema/bug-reports.json`.
 | Source link | url | agent | Description: "Where the first report was made: the conversation in the Hub admin. Written by the tool from the conversation, never typed by the agent." |
 | Client's words | text | agent | Description: "The client's own sentence, quoted (at most 1,500 characters). Later reports are appended to the page body, dated." |
 | Evidence | text | agent | Description: "One line per URL, id or screenshot reference the client gave. Only what the client sent or the agent saw." |
-| Area | select | agent | Description: "<kind>: <name>, lower case (parser: <source>, site: <domain>, api, admin). An option is reused when its normalised form matches." The open-report search keys on Area and Projects. |
+| Kind | select | agent | Description: "Product: our product misbehaves. Knowledge gap: a client asked what the knowledge base does not answer (or only in general). Workflow: the agent could not resolve something itself (a refusal with no path, a lead it could not classify, a missing or contradictory record). Empty is Product." Options: Product, Knowledge gap, Workflow. P147 3g. The open-report search keys on Kind plus Area, so a recurring gap is one row with many Clients. |
+| Area | select | agent | Description: "<kind>: <name>, lower case (parser: <source>, site: <domain>, api, admin; for a Knowledge gap the topic, knowledge: <topic>; for Workflow the step, workflow: <tool or step>). An option is reused when its normalised form matches." The open-report search keys on Area and Projects. |
 | Status | select | people | Description: "The agent sets New only; people move it on. A select, not a Status: the API cannot create a Status." Options: New, Triaged, In progress, Fixed, Won't fix, Duplicate. Fixed with an empty Client told makes the follow-up sweep propose a "fixed" message (B4, after P142). |
 | Severity | select | people | Description: "Set by people at triage; empty until then. The agent never writes it." Options: Critical, High, Normal, Low. |
 | Duplicate of | relation to bug-reports | people | Description: "The report this one repeats (Status Duplicate)." |
@@ -293,6 +294,8 @@ Pack file: `schema/leads.json`.
 | Ad click time | date | Hub | Flags: ads. |
 | Ad consent | checkbox | Hub | Flags: ads. |
 | Brand | multi_select | integration (the owner's backend, e.g. django_notion) | Description: "The project key of the lead's origin: the site or product it came from. Written by the integration; options named like the Hub's ## Brands rows." The project key of the lead's origin (decision 0053): which site or product the lead came from. Leads keeps `Brand` (the other databases use `Projects`): the integration writes it (django_notion matches the backend's project key to the option with the same key: lower case, letters and digits only), the silence check filters on it, and Clients' `Project signals` reads it. The options are named like the project's `## Brands` rows; `hub install --only notion.projects` adds a missing one. A missing option leaves Brand empty, never stops the form. One lead can carry several brands; `Other` is no project. |
+| Hub decision | select | Hub | Description: "Written by the Hub: what the daily lead pass decided. Do not edit; Redo it in the Hub." Options: Reply, Client, Spam proposed, Not now proposed, For you. P147 (decision 0055): the daily lead pass's decision for this lead, copied after each decision. Added by `hub install --only notion.lead-pass`. Not Status, which the owner and the send keep. Flags: optional. |
+| Hub reason | rich_text | Hub | Description: "Written by the Hub: why the daily lead pass decided so." P147 (decision 0055): one line why the pass decided so (for For you, what the owner must do). Added by `hub install --only notion.lead-pass`. Flags: optional. |
 
 ## Open loops
 

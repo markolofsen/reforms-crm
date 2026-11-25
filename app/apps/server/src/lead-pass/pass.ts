@@ -25,6 +25,8 @@ export interface PassDeps {
   windowDays: (slug: string) => number;
   clock?: Clock;
   limits?: Partial<{ passTurns: number; instanceTurns: number; timeoutMs: number; failuresStop: number; slotPollMs: number }>;
+  /** L7: a decision taken without a turn, copied to the lead's Notion page like `lead_decide`'s (never throws). */
+  syncDecision?: (slug: string, d: { pageId: string; decision: string; reason: string }) => Promise<unknown>;
 }
 
 const log = ops("lead-pass");
@@ -120,6 +122,7 @@ export async function runPass(d: PassDeps, project: string, trigger: LeadPassTri
         if (fixed) {
           const r = await d.repos.leadPass.decide({ project, pageId: lead.pageId, decision: fixed.decision, reason: fixed.reason, passId: row.id, at: new Date(clock.now()).toISOString() });
           if (!r.already) counts[COUNT[fixed.decision]]++;
+          if (!r.already) await d.syncDecision?.(project, { pageId: lead.pageId, decision: fixed.decision, reason: fixed.reason });
           log.info(`lead decided without a turn: ${fixed.decision}`, { project, lead: lead.pageId, decision: fixed.decision });
           continue;
         }

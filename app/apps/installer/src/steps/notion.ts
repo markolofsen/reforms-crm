@@ -3,6 +3,7 @@ import { readJson, type McpFile } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
 import { addMapField, mapFieldRows } from "../notion-map-field";
 import { addFollowUpFields, followUpFieldRows } from "../notion-follow-up-fields";
+import { addLeadPassFields, leadPassFieldRows } from "../notion-lead-pass-fields";
 import { descriptionRows, syncDescriptions } from "../notion-descriptions";
 import { addProjectOptions, projectFieldRows, projectKeyVerdict } from "../notion-projects-field";
 import { applyBugReports, bugReportsRows } from "../notion-bug-reports";
@@ -88,6 +89,23 @@ export const notionSteps: Step[] = [
     },
     async apply(ctx) {
       return addFollowUpFields(ctx, await followUpFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
+    },
+  },
+  {
+    id: "notion.lead-pass", group: "Notion", title: "Leads carry the lead pass properties",
+    why: "P147 (decision 0055): the daily lead pass copies each decision to the lead's Notion page as two Hub-owned properties, \"Hub decision\" (Reply, Client, Spam proposed, Not now proposed, For you) and \"Hub reason\" (one line why). A database without them still gets the decisions in the Hub; only the Notion copy is skipped.",
+    verifies: "Each project's Leads database (project.md, `leads`) has \"Hub decision\" (select) and \"Hub reason\" (text). Read only: one GET per project. WARN when there is no token to read with, or a name is taken by another type.",
+    does: "Adds the missing ones to each Leads database (one PATCH of the data source; the select with its options; Status, Owner and Notes are never touched, nothing is deleted). The integration needs Update content.",
+    async check(ctx) {
+      const rows = await leadPassFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list());
+      if (!rows.length) return pass("no project lists a Leads database");
+      const missing = rows.filter((r) => r.state === "missing");
+      if (missing.length) return fail(`${missing.map((r) => r.detail).join("; ")}: \`hub install --only notion.lead-pass\` adds them`);
+      const other = rows.filter((r) => r.state !== "ok");
+      return other.length ? warn(other.map((r) => r.detail).join("; ")) : pass(`${rows.length} Leads database(s) have the lead pass properties`);
+    },
+    async apply(ctx) {
+      return addLeadPassFields(ctx, await leadPassFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
     },
   },
   {
