@@ -81,6 +81,8 @@ export const ROUTE_TABLE = {
   // aliases, owner 2026-11-08; its only door was the Leads group, which left Mail's list in the same change).
   "mail.leads": defineRoute("/mail/leads", { section: "mail", scoped: true, title: "Leads", search: LEADS_SEARCH }),
   // P147 (decision 0055 point 2): the day's lead batch reviewed on one screen, its one click.
+  // P147 3m item 3: what went out, newest first, from the send log (its full text), one row per send with its channel.
+  "mail.sent": defineRoute("/mail/sent", { section: "mail", scoped: true, title: "Sent" }),
   "mail.lead-review": defineRoute("/mail/leads/review/[batch]", { section: "mail", scoped: true, title: "Lead review", crumb: "Review", params: { batch: positiveId } }),
   "mail.lead": defineRoute("/mail/leads/[page]", { section: "mail", scoped: true, title: "Leads", crumb: "Lead", params: { page: notionPage }, search: LEADS_SEARCH }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel

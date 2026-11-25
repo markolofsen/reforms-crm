@@ -42,7 +42,7 @@ const LEADS = "leads";
  * the counts do not depend on the view or the search), so the badge and Mail ▸ Needs you never disagree.
  */
 /** The three views of Mail as its sidebar children (P103 with P104, decision 0045 point 21), each with its count from the same query. */
-export type MailViewItem = { id: "needs_you" | "waiting" | "all" | "leads"; title: string; to: Dest; count: number; active: boolean };
+export type MailViewItem = { id: "needs_you" | "waiting" | "all" | "leads" | "sent"; title: string; to: Dest; count: number; active: boolean };
 
 /**
  * Mail's sidebar submenu (P104's scope, P125 verdict 12): Needs you · Waiting · All with the counts of the Needs you reply (it
@@ -59,6 +59,8 @@ export function useMailViews(project: string | null): MailViewItem[] {
     ...(["needs_you", "waiting", "all"] as const).map((v) => ({ id: v, title: DRAFT_VIEW_LABELS[v], to: dest("mail.list", { filter: v }), count: countOf(counts, v) ?? 0, active: here === v })),
     // P134 verdict 6: Leads, a page of its own under Mail, with the count of new leads.
     { id: "leads" as const, title: "Leads", to: dest("mail.leads"), count: leads, active: onLeads },
+    // P147 3m item 3: what went out; no count (nothing waits there).
+    { id: "sent" as const, title: "Sent", to: dest("mail.sent"), count: 0, active: route.route === "mail.sent" },
   ];
 }
 
