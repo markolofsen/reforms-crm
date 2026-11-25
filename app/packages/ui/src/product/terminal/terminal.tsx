@@ -60,6 +60,17 @@ const FONT = 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace';
 /** Frames to wait for a box that can be measured (hidden, or the font not measured yet) before giving up until the next resize. */
 const FIT_TRIES = 40;
 const encoder = new TextEncoder();
+const NO_AUTOFILL: ReadonlyArray<readonly [string, string]> = [
+  ["autocomplete", "off"],
+  ["autocorrect", "off"],
+  ["autocapitalize", "off"],
+  ["spellcheck", "false"],
+  ["name", "hub-terminal-input"],
+  ["data-form-type", "other"],
+  ["data-1p-ignore", "true"],
+  ["data-lpignore", "true"],
+  ["data-bwignore", "true"],
+];
 /** xterm's `onBinary` is a byte string (non-UTF-8 mouse reports): one char per byte. */
 const bytesOf = (binary: string) => Uint8Array.from(binary, (c) => c.charCodeAt(0) & 0xff);
 
@@ -142,6 +153,9 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
       t.onBinary((d) => cb.current.onInput(bytesOf(d)));
       t.open(el);
       t.textarea?.setAttribute("aria-label", cb.current.inputLabel);
+      // The terminal's input is not a form field: keep password managers (iCloud Passwords, 1Password,
+      // LastPass, Bitwarden) and the browser's autofill, spellcheck and autocorrect off it.
+      if (t.textarea) for (const [k, v] of NO_AUTOFILL) t.textarea.setAttribute(k, v);
       term.current = t;
       let last = "";
       const measure = (tries: number) => {
