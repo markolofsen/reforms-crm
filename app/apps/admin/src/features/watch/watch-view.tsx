@@ -1,39 +1,45 @@
-import type { ReactNode } from "react";
 import type { WatchDto, WatchView as View } from "@hub/contract/watch";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { Page } from "@hub/ui/product/shell/page";
-import { SectionLayout } from "@hub/ui/product/shell/section-layout";
-import { SectionNav, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
+import { FilterChips, type Chip } from "@hub/ui/product/list/filter-chips";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { ApiFailure, isNotFound, sentence } from "@/lib/api/client";
 import { useJoinWatchGroup, useWatch } from "@/lib/data/project";
 import { OpenLinkButton } from "@/components/links/open-link";
 import { formatDay, formatTime, plural } from "@/lib/format";
+import { useGo } from "@/hooks/use-go";
 import { dest, type Dest } from "@/routes/paths";
 import { WATCH_DAYS } from "@/routes/search";
 import { microUsd, spendLine, STATE_WORD, triggerLabel, VIEW_LABEL, VIEW_ORDER } from "./labels";
 
 type Q = { view: View; days: number; trigger: string | null; group: string | null };
+type WatchDays = (typeof WATCH_DAYS)[number];
+const daysKey = (n: number): WatchDays => WATCH_DAYS.find((d) => Number(d) === n) ?? "30";
 const to = (q: Q, patch: Partial<Q>): Dest => {
   const n = { ...q, ...patch };
-  return dest("watch.page", { view: n.view, days: WATCH_DAYS.find((d) => Number(d) === n.days) ?? "30", trigger: n.trigger ?? "", group: n.group ?? "" });
+  return dest("watch.page", { view: n.view, days: daysKey(n.days), trigger: n.trigger ?? "", group: n.group ?? "" });
 };
 
-/** The menu column: the six views, then the period. A link keeps the other choices. */
-function WatchNav({ q }: { q: Q }) {
-  const link = (target: Dest, current: boolean) =>
-    function NavLink(content: ReactNode, className: string) {
-      return (
-        <AppLink aria-current={current ? "page" : undefined} bare className={className} to={target}>
-          {content}
-        </AppLink>
-      );
-    };
-  const views: SectionNavItem[] = VIEW_ORDER.map((v) => ({ id: `view-${v}`, label: VIEW_LABEL[v], current: v === q.view, group: "Show", render: link(to(q, { view: v }), v === q.view) }));
-  const days: SectionNavItem[] = WATCH_DAYS.map((d) => ({ id: `days-${d}`, label: `Last ${d} days`, current: Number(d) === q.days, group: "Period", render: link(to(q, { days: Number(d) }), Number(d) === q.days) }));
-  return <SectionNav items={[...views, ...days]} label="Watch views" />;
+/**
+ * The page header (owner 2026-11-25: tabs, not a drawer): the six views as one segmented row, which scrolls inside its own strip at
+ * phone width, and the period as a compact one beside it. A choice replaces the history entry (`?view=`, `?days=`), like any filter.
+ */
+function WatchHeader({ q }: { q: Q }) {
+  const go = useGo();
+  const views: Chip<View>[] = VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: null }));
+  const days: Chip<WatchDays>[] = WATCH_DAYS.map((d) => ({ value: d, label: `${d} days`, count: null }));
+  return (
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+      <div className="min-w-0 flex-1 basis-80">
+        <FilterChips chips={views} label="Watch views" onChange={(v) => go(to(q, { view: v }), { replace: true })} value={q.view} />
+      </div>
+      <div className="w-48 shrink-0">
+        <FilterChips chips={days} label="Period" onChange={(d) => go(to(q, { days: Number(d) }), { replace: true })} value={daysKey(q.days)} />
+      </div>
+    </div>
+  );
 }
 
 /** One trigger's days as a strip of bars (the height is the day's share of the strip's busiest day). */
@@ -275,7 +281,7 @@ function Standing({ d }: { d: WatchDto }) {
 }
 
 /**
- * Watch (P144, `/watch`): what the public groups of one project talk about. The menu column holds the six views and the period;
+ * Watch (P144, `/watch`): what the public groups of one project talk about. The header holds the six views and the period;
  * the body one view of the project's watch store: Triggers (counts and days), Topics (with each group's last mood), Moments
  * (the quotes, narrowed by a trigger or a group), People, Groups (access, rate, cost, Join) and Trend. Read only, but Join.
  */
@@ -283,8 +289,7 @@ export function WatchView({ project, view, days, trigger, group }: { project: st
   const q: Q = { view, days, trigger, group };
   const watch = useWatch(project, days, view === "moments" ? trigger : null, view === "moments" ? group : null);
   return (
-    <SectionLayout nav={<WatchNav q={q} />} navButton="Views" navLabel="Watch views">
-      <Page label="Watch">
+    <Page label="Watch" nav={<WatchHeader q={q} />}>
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
           {watch.data === undefined && isNotFound(watch.error) ? (
             <EmptyState title="This project watches no public groups">A watch list is a watch.md in the project folder (a lens, the switch, the groups): ask the agent to write one.</EmptyState>
@@ -306,7 +311,6 @@ export function WatchView({ project, view, days, trigger, group }: { project: st
           </QueryView>
           )}
         </div>
-      </Page>
-    </SectionLayout>
+    </Page>
   );
 }
