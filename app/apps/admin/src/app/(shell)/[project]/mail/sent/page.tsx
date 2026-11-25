@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SentScreen } from "@/features/mail/sent";
+import { SentScreen } from "@/features/mail/ready/sent";
 import { addressedProject, pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/mail/sent">): Promise<Metadata> {

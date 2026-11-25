@@ -20,7 +20,7 @@ import { ago, formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 import { useLeadActionKeys } from "./keys";
 import { LeadNotes } from "./lead-notes";
-import { LeadDecision } from "./pass";
+import { LeadDecision } from "./review/pass";
 import { channelDestination, LeadTechnical, LeadWant } from "./lead-sheet";
 
 const DONE: Record<Action, string> = { notNow: "Not now", spam: "Marked as spam" };

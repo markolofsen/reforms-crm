@@ -5,7 +5,7 @@ import type { LeadPassDto } from "@hub/contract/lead-pass";
 import { SectionTitle } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
 import { ListSkeleton, QueryView } from "@/components/state-views";
-import { passLine } from "@/features/mail/leads/pass";
+import { passLine } from "@/features/mail/leads/review/pass";
 import { useLeadPassOf } from "@/lib/data/inbound";
 import { dest } from "@/routes/paths";
 import type { FollowUpNeed } from "../follow-ups/today";

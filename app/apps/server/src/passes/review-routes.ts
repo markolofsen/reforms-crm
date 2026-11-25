@@ -8,7 +8,7 @@ import { mailHash } from "@hub/send/find";
 import { replyAddressOf } from "@hub/notion";
 import { projectStore } from "@hub/projects/store";
 import { ops } from "@hub/log/ops";
-import type { Repos } from "@hub/db";
+import type { ProjectsContext } from "../projects/context";
 import type { LeadsHandle } from "../clients/leads-reader";
 import { gateRefusal, type TicketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
@@ -30,7 +30,7 @@ const NOT_CHECKED = "the draft is not Checked (accepted) yet";
 const log = ops("lead-pass");
 
 export interface LeadReviewDeps {
-  repos: Repos;
+  repos: ProjectsContext["repos"];
   deps: SendDeps | undefined;
   tickets: TicketStore;
   limits: BatchLimits;
@@ -201,7 +201,7 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
 type ReviewRead = (draftId: number) => Promise<{ mail: { sender: string | null; to: string[]; cc: string[]; subject: string; body: string } | null; held: string[] }>;
 
 /** The review's rows: the lead pass's replies, the mail pass's (P147 3h), then the fixed bugs' notes (P145 B4). */
-async function reviewRows(repos: Repos, slug: string, batchId: number, read: ReviewRead, picked: (id: number) => boolean) {
+async function reviewRows(repos: ProjectsContext["repos"], slug: string, batchId: number, read: ReviewRead, picked: (id: number) => boolean) {
   const rows = [];
   for (const r of await repos.leadPass.ofBatch(slug, batchId)) {
     if (r.passDraftId === null || !picked(r.passDraftId)) continue;

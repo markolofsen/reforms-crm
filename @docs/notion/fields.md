@@ -41,7 +41,7 @@ Pack file: `schema/bug-reports.json`.
 | Duplicate of | relation to bug-reports | people | Description: "The report this one repeats (Status Duplicate)." |
 | Reported at | date | agent | Description: "When the first report's message was sent." |
 | Last reported | date | agent | Description: "When the latest report was appended." |
-| Client told | date | Hub | Description: "When the clients were told it is fixed: set by the Hub at the send of the "fixed" message. Do not edit." Written once every linked client the sweep noted was told, with the last send's time. |
+| Client told | date | Hub | Description: "When the clients were told it is fixed: set by the Hub at the send of the "fixed" message. Do not edit." |
 | Fix link | url | people | Description: "The commit, pull request or task that fixed it." |
 | Notes | text | people | Description: "People's notes, the cause among them. The agent never writes here." |
 

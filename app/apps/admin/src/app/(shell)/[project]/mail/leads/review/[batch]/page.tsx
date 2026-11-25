@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { LeadReviewScreen } from "@/features/mail/leads/review";
+import { LeadReviewScreen } from "@/features/mail/leads/review/review";
 import { addressedProject, NOT_FOUND_TITLE, pageTitle } from "@/routes/meta";
 import { positiveId } from "@/routes/search";
 

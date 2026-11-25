@@ -9,7 +9,7 @@ import { inboundApi, inboxApi, leadsApi, sequencesApi } from "@/lib/api/inbox";
 import type { LeadReviewTicketBody, LeadReviewTicketDto } from "@hub/contract/lead-pass";
 import type { BatchRunDto } from "@hub/contract/sending";
 import { leadPassApi, type ReviewRead } from "@/lib/api/project/lead-pass";
-import { leadReviewApi, sendApi } from "@/lib/api/send";
+import { leadReviewApi } from "@/lib/api/send";
 import { keys } from "@/lib/cache/keys";
 import { useCommand, useRefreshTopics } from "@/lib/cache/topics";
 
@@ -126,29 +126,6 @@ export function useRedoLead(project: string, pageId: string, on: { onError: (e: 
  */
 export const useLeadReview = (project: string, batchId: number | null, q: ReviewRead = {}) =>
   useQuery({ queryKey: keys.leadReview(project, batchId ?? 0, `${q.stored ? "stored" : "mail"}:${q.only?.join(",") ?? "all"}`), queryFn: () => leadPassApi.review(project, batchId ?? 0, q), staleTime: 0, refetchOnWindowFocus: false, enabled: batchId !== null && batchId > 0 });
-
-/**
- * 3i P2: the owner's answer to one `[Owner: …]` placeholder of a review draft. The draft's text is read from Mail now, the marker is
- * replaced there, and the text goes back through the one Mail writer (the read's hash guards it); the review is then read again, so
- * the server serves and hashes the new text. Nothing is sent.
- */
-export function useFillMarker(project: string, batchId: number, on: { onDone: (draftId: number) => void; onError: (e: unknown) => void }) {
-  const qc = useQueryClient();
-  return useCommand({
-    project,
-    touches: ["drafts"],
-    run: async (v: { draftId: number; marker: string; value: string }) => {
-      const m = await sendApi.mail(project, v.draftId);
-      if (!m.found || !m.hash) throw new Error(m.reason ?? m.note ?? "Mail does not hold this draft as one text now.");
-      if (!m.body.includes(v.marker)) throw new Error(`The draft in Mail no longer holds ${v.marker}.`);
-      await sendApi.save(project, v.draftId, m.body.split(v.marker).join(v.value), m.hash);
-      await qc.invalidateQueries({ queryKey: keys.leadReview(project, batchId) });
-      return v.draftId;
-    },
-    onSuccess: (id) => on.onDone(id),
-    onError: on.onError,
-  });
-}
 
 /**
  * The review's one click: confirm (Checked on the shown text, the untick, the proposals), then the run of exactly the drafts that

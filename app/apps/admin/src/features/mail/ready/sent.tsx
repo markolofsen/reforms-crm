@@ -17,7 +17,7 @@ import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 
 // Mail ▸ Sent (P147 3m item 3): the mail that went out, newest first, read from the send log, which keeps the full text of each
-// send; a click opens the text. Mail only (owner 2026-11-25: «нет смысла сообщения из мессенджеров выводить»): a messenger send
+// send; a click opens the text. Mail only (owner 2026-11-25: messenger messages do not belong here): a messenger send
 // stays in its chat and in Activity. Queued, failed and cancelled sends stay in
 // Activity ▸ Sends, where Cancel lives. Stock UI Core only.
 

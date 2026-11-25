@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LeadReviewDto } from "@hub/contract/lead-pass";
-import { groupRows, initialTicks, proposalsLine, readyRows, ticketOf } from "../src/features/mail/leads/review";
+import { groupRows, initialTicks, proposalsLine, readyRows, ticketOf } from "../src/features/mail/leads/review/review";
 import { allIds } from "../src/features/mail/list/use-selection";
 import { selectedReady } from "../src/features/mail/ready/send-ready";
 import type { ConversationRow } from "../src/features/mail/model";

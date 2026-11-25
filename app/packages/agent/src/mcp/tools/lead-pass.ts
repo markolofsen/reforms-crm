@@ -21,7 +21,7 @@ export const leadsOpenTool = defineTool({
   name: "leads_open",
   title: "The open leads of this project",
   description:
-    "The Hub's list of this project's open leads (its lead rows, the same rows Mail ▸ Leads shows; never the lead notices in Mail) with no pass decision yet, newest first: page id, name, the reply address the Hub chose and why (reply_to null: no usable address, hand_over), same_as (an older request of a person with a newer row: not_now with that reason), brand, when, the 120-character request, site, country, segment, volume, whether a Clients card exists and the client whose email matches exactly. all: true also lists those older than the window. Leads are not unlinked chats. Decide each with lead_decide.",
+    "The Hub's list of this project's open leads (the rows Mail ▸ Leads shows; never the lead notices in Mail) with no pass decision yet, newest first: page id, name, the reply address the Hub chose and why (reply_to null: no usable address, hand_over), same_as (an older request of a person with a newer row: not_now with that reason), brand, when, the 120-character request, site, country, segment, volume, whether a Clients card exists and the client whose email matches exactly. all: true also lists those past the window. Leads are not unlinked chats. Decide each with lead_decide.",
   input: z.object({ all: z.boolean().optional().describe("also the leads older than leads.window_days (the owner asked for the old ones)"), limit: z.number().int().positive().max(100).optional().describe("at most this many (default 30)") }),
   output: z.object({
     project: z.string(),

@@ -62,7 +62,7 @@ export const bugReportTool = defineTool({
   name: "bug_report",
   title: "File a client's bug report",
   description:
-    "Files one difficulty in the project's Bug reports (kind): Product, what a client reports as broken (with an example, or a known symptom again); Knowledge gap, a client asked what the knowledge base does not answer specifically; Workflow, you handed over, gave up or worked around a refusal. Appended to the open report of the same kind and area, else a new one. Always in addition to the reply or the hand-over, never instead. Give the conversation, the area, the symptom in their terms, their words and the evidence; never a cause. For Product, afterwards reply: recorded, will be looked at; no date, no cause.",
+    "Files one difficulty in the project's Bug reports (kind): Product, what a client reports as broken (with an example, or a known symptom again); Knowledge gap, a client asked what the knowledge base does not answer specifically; Workflow, you handed over, gave up or worked around a refusal. Appended to the open report of that kind and area, else a new one. Always in addition to the reply or the hand-over, never instead. Give the conversation, area, symptom in their terms, their words and evidence; never a cause. For Product, afterwards reply: recorded, will be looked at; no date, no cause.",
   input: z
     .object({
       chat: z.number().int().positive().optional().describe("The internal messenger chat id (chat:<id> from focus) the report is in."),

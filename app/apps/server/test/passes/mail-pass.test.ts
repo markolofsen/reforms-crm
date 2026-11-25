@@ -114,10 +114,11 @@ describe("the mail pass (decision 0055 point 9)", () => {
   });
 
   it("a spam proposal Mail did not move stays in Needs you, and the attended route takes the agent token only", async () => {
-    await repos.inboundMail.store([inbound(3, { email: "it-helpdesk@corp-security.example", subject: "Access Renewal required" })], NOW);
+    // One human message too: the day's batch exists only once a pass drafted something (verdict 6).
+    await repos.inboundMail.store([inbound(1), inbound(3, { email: "it-helpdesk@corp-security.example", subject: "Access Renewal required" })], NOW);
     const row = await run();
     const app = testApp(repos, { sender: { kind: "fake", mailer, projectsDir: deps.projectsDir, policyDir: deps.policyDir, allowList: [], adminPort: 5173, now: () => NOW, batchRuns: batchRuns({ limits: { dailyCap: 50, spacingSeconds: 0 } }), batchLimits: { dailyCap: 50, spacingSeconds: 0 } } });
-    const id = (await repos.mailPass.decided("acme", at(48)))[0]?.id as number;
+    const id = (await repos.mailPass.decided("acme", at(48))).find((m) => m.display === "proposed")?.id as number;
     mailer.failJunk = "the message is no longer in INBOX";
     const t = (await (await app.request(`http://127.0.0.1:4317/api/projects/acme/lead-review/${row?.batchId}/ticket`, { method: "POST", headers: ADMIN, body: JSON.stringify({ send: [], exclude: [], proposals: [{ inbound: id, decision: "spam" }] }) })).json()) as { applied: { junk: number; notMoved: string[] } };
     expect(t.applied.junk).toBe(0);

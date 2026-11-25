@@ -36,6 +36,8 @@ beforeEach(async () => {
     ],
     at,
   );
+  // The turn's pass (`leadPass: 1` below): a decision names its pass row.
+  await repos.leadPass.startPass("acme", "button", at.toISOString());
 });
 afterEach(() => {
   h.close();
@@ -98,7 +100,7 @@ describe("a lead turn's hub mcp (verdict 5)", () => {
 
   it("E2: an attended draft_write with lead takes its address from the row and refuses any other to", async () => {
     const { call } = await connect();
-    const r = await call("draft_write", { kind: "new", lead: B, to: "carapisofficial@gmail.com", subject: "Hi", content: "Hi", owner_request: "x" });
+    const r = await call("draft_write", { kind: "new", lead: B, to: "someone@gmail.example", subject: "Hi", content: "Hi", owner_request: "x" });
     expect(r.json.error).toBe("address_not_on_lead");
     expect(String(r.json.message)).toContain("new@example.test");
   });
@@ -151,7 +153,8 @@ describe("the attended pass", () => {
   });
 
   it("client_create refuses the reply address of a lead not yet converted (D5)", async () => {
-    const { call } = await connect();
+    // An attended session (the owner's: it has the agent send door); an unattended one is refused before this read.
+    const { call } = await connect({ agentSend: (async () => ({ ok: false, reason: "refused", error: "test", next: "test" })) as never });
     const r = await call("client_create", { name: "New Person", email: "new@example.test" });
     expect(r.json.error).toBe("is_lead");
   });

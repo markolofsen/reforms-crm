@@ -8,12 +8,12 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { Sheet, SheetDescription, SheetHeader, SheetPanel, SheetPopup, SheetTitle } from "@hub/ui/sheet";
 import { toastManager } from "@hub/ui/toast";
 import { useLeadPass, useLeadReview } from "@/lib/data/inbound";
-import { ReadyList, sentLine } from "@/features/mail/leads/review";
+import { ReadyList, sentLine } from "@/features/mail/leads/review/review";
 import { SendingLine } from "./sending-line";
 import { useGo } from "@/hooks/use-go";
 import { dest } from "@/routes/paths";
 
-// Send all ready (P147 3m item 5, the owner: «Мне не нравится неочевидно сделанная отправка массовая. Надо упростить.»). One
+// Send all ready (P147 3m item 5; the owner found the mass send unclear and asked for it simpler). One
 // primary button on top of Mail ▸ Needs you and Leads, "Send all ready (N)", N the day's pass drafts still waiting (the pass's own
 // count; the sheet, which reads Mail, ticks only those that go now: no placeholder, nothing held, not a new sender). It opens one
 // sheet (`ReadyList`); its Send N closes it, and the

@@ -6,7 +6,7 @@ import { codexConfigBypasses, codexHome, CODEX_PROFILE } from "./codex";
 import { connectorRows } from "./connector-checks";
 import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, deniedTools, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
-import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
+import { CLI_LABELS, LOOPBACK_HOSTS, MEASURED_VERSIONS } from "./session";
 import { HUB_MCP_WRITE_TOOLS } from "./mcp/server";
 import { codexNotionAuth, NO_NOTION_EVIDENCE, notionFix, notionRow, notionSignIn, type NotionEvidence } from "./notion-signin";
 
@@ -45,7 +45,7 @@ export interface AgentCheckInput {
 /** The fields of a session's settings.json the checks read; JSON is trusted to this shape, every field optional. */
 type SessionSettings = {
   permissions?: { deny?: string[] };
-  sandbox?: { enabled?: unknown; allowUnsandboxedCommands?: unknown; network?: { allowedDomains?: unknown } };
+  sandbox?: { enabled?: unknown; allowUnsandboxedCommands?: unknown; network?: { allowedDomains?: unknown; deniedDomains?: unknown } };
   hooks?: { PreToolUse?: unknown };
 };
 type McpConfig = { mcpServers?: Record<string, Record<string, unknown>> };
@@ -143,12 +143,12 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   const linked = existsSync(skillsDir) ? readdirSync(skillsDir).length : 0;
   row("skills.linked", "Skills linked", linked ? "pass" : "fail", linked ? `${linked} in ${skillsDir}` : `none in ${skillsDir}`, prepare);
 
-  // 7. The mode: the OS sandbox with no network and no bypass.
+  // 7. The mode: the OS sandbox with no bypass, and (P147 3l) the network open but the loopback hosts, as `claudeSandbox` writes it.
   if (cli === "claude") {
     const sb = settings?.sandbox;
-    const domains = sb?.network?.allowedDomains;
-    const good = !!sb && sb.enabled === true && sb.allowUnsandboxedCommands === false && Array.isArray(domains) && domains.length === 0;
-    row("mode", "Mode", good ? "pass" : "fail", good ? "no prompts: OS sandbox on, no network, no unsandboxed commands" : "no OS sandbox block in the session settings", prepare);
+    const denied = sb?.network?.deniedDomains;
+    const good = !!sb && sb.enabled === true && sb.allowUnsandboxedCommands === false && Array.isArray(denied) && LOOPBACK_HOSTS.every((h) => denied.includes(h));
+    row("mode", "Mode", good ? "pass" : "fail", good ? "no prompts: OS sandbox on, loopback closed, no unsandboxed commands" : "no OS sandbox block in the session settings", prepare);
   } else if (toml === null) row("mode", "Mode", "fail", "no Codex config", prepare);
   else if (codexConfigBypasses(toml)) row("mode", "Mode", "fail", "the Codex config bypasses the sandbox", prepare);
   else {

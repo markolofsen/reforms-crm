@@ -8,7 +8,7 @@ import { AppLink } from "@/components/app-link";
 import { ago, plural } from "@/lib/format";
 import type { Dest } from "@/routes/paths";
 import { factChips, isNewSince, leadDays } from "./groups";
-import { PassChip } from "./pass";
+import { PassChip } from "./review/pass";
 
 /** The Leads line: when Notion Leads were last read, or why not (no token, a failed read, demo mode). */
 export function leadsReadText(r: LeadsReadDto, now: number): string {

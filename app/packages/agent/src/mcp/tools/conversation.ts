@@ -108,9 +108,11 @@ export const clientCreateTool = defineTool({
     const slug = ctx.project();
     if (chat === undefined && !email && !phone && !telegram) throw new ToolError("invalid", "Give chat, or at least one of email, phone or telegram: a client is found and reached by one of them.");
     if (chat !== undefined && (phone || telegram)) throw new ToolError("invalid", "With chat, the chat's own number or username fills the card: omit phone and telegram.");
+    // Attended first: an unattended session is refused before anything is read.
+    if (!attended(ctx.env)) port(ctx);
     // P147 D5 (decision 0055 point 6): a lead's card is made when the owner's reply is sent (decision 0044 point 3), never here.
     const lead = email ? await ctx.repos.leadPass.unconvertedLead(slug, email) : null;
-    if (lead) throw new ToolError("is_lead", `${email} is a lead (${lead.name}, Notion Leads): its card is made when your reply is sent; open Review (Mail ▸ Leads). Nothing was created.`, { lead: lead.pageId });
+    if (lead) throw new ToolError("is_lead", `${email} is a lead (${lead.name}, Notion Leads): its card is made when your reply is sent; Send all ready on Mail ▸ Leads sends it. Nothing was created.`, { lead: lead.pageId });
     const p = port(ctx);
     return answer(slug, await p.create(slug, { name, ...(chat !== undefined ? { chat } : {}), ...(company ? { company } : {}), ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(telegram ? { telegram } : {}) }));
   },

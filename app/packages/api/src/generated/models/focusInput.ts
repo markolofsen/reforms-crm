@@ -17,7 +17,7 @@ export type FocusInput = {
   /**
      * @minLength 1
      * @maxLength 40
-     * @pattern ^[A-Za-z][A-Za-z.]*$
+     * @pattern ^[A-Za-z][A-Za-z.-]*$
      */
   route: string;
   /**

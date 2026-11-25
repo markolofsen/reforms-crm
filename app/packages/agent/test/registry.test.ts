@@ -37,7 +37,10 @@ describe("the tool registry", () => {
     // P135: client_map writes the client's map (Hub state and the client's Notion block), never a draft or a send.
     // P142: follow_up_plan writes the sweep's plan of one client (the agent's notes), never a draft or a send.
     // P145 B3: bug_report writes the project's Bug reports in Notion (a report, never a draft or a send).
-    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["bug_report", "client_map", "client_record", "draft_write", "follow_up_plan", "messenger_draft_write"]);
+    // P147 (decision 0055): lead_decide and mail_decide record a pass's decision (the agent's notes), lead_pass_start starts the
+    // server's pass (drafts only), mail_junk moves one inbound message to Mail's Junk (recoverable; coordinator 2026-11-25). None
+    // writes a draft's text or sends.
+    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["bug_report", "client_map", "client_record", "draft_write", "follow_up_plan", "lead_decide", "lead_pass_start", "mail_decide", "mail_junk", "messenger_draft_write"]);
     expect(annotationsOf("read")).toMatchObject({ readOnlyHint: true });
     for (const e of ["pointer", "draft", "send"] as const) expect(annotationsOf(e).readOnlyHint).toBe(false);
   });

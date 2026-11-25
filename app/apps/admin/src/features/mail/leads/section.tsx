@@ -20,7 +20,7 @@ import { newestOf } from "./groups";
 import { useLeadListKeys } from "./keys";
 import { LeadCard } from "./lead-card";
 import { SendReadyProvider } from "@/features/mail/ready/send-ready";
-import { LeadPassBar } from "./pass";
+import { LeadPassBar } from "./review/pass";
 import { LeadRows, LeadsReadLine } from "./rows";
 import { useLeadsSeen } from "./use-seen";
 

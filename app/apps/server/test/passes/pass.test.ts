@@ -8,14 +8,14 @@ import { createRepos, openDb, type DbHandle, type NewLead, type Repos } from "@h
 import { runPass } from "../../src/passes/pass";
 
 // P147 L4: one pass on the fake brain (no model, no Mail): the list, the day's lead batch, the re-check before each turn, the
-// budgets and three failures in a row.
+// budgets and three failures in a row. Each lead has its own domain: one company's leads are one decision (3j J4).
 
 let dir: string;
 let h: DbHandle;
 let repos: Repos;
 const NOW = new Date();
 const received = (h0: number) => new Date(NOW.getTime() - h0 * 3_600_000).toISOString();
-const lead = (n: number, o: Partial<NewLead> = {}): NewLead => ({ project: "acme", pageId: String(n).repeat(32).slice(0, 32), name: `Lead ${n}`, email: `l${n}@x.test`, accountEmail: null, brand: "Acme", receivedAt: received(n), preview: "We need the API", notionStatus: "New", hasClient: false, ...o });
+const lead = (n: number, o: Partial<NewLead> = {}): NewLead => ({ project: "acme", pageId: String(n).repeat(32).slice(0, 32), name: `Lead ${n}`, email: `l${n}@x${n}.test`, accountEmail: null, brand: "Acme", receivedAt: received(n), preview: "We need the API", notionStatus: "New", hasClient: false, ...o });
 
 beforeEach(async () => {
   dir = mkdtempSync(path.join(tmpdir(), "hub-lead-pass-"));
@@ -33,7 +33,8 @@ describe("runPass", () => {
   it("decides every open lead once on the fake brain: drafts join one lead batch, junk is a proposal, no address a hand-over", async () => {
     await repos.leadRows.sync([lead(1), lead(2, { facts: { site: "https://bit.ly/x", country: null, segment: null, volume: null } }), lead(3, { email: null })], NOW);
     const row = await runPass(deps(fakeLeadPassBrain({ repos })), "acme", "button");
-    expect(row).toMatchObject({ listed: 3, turns: 3, replied: 1, spam: 1, handedOver: 1, failed: 0, error: null });
+    // E3: the lead with no address is handed over without a turn.
+    expect(row).toMatchObject({ listed: 3, turns: 2, replied: 1, spam: 1, handedOver: 1, failed: 0, error: null });
     expect(row?.batchId).not.toBeNull();
     expect((await repos.batches.get("acme", row?.batchId as number))?.intent).toBe("lead_reply");
     const again = await runPass(deps(fakeLeadPassBrain({ repos })), "acme", "button");
@@ -41,7 +42,7 @@ describe("runPass", () => {
   });
 
   it("re-checks each lead before its turn: a second request of the same person, closed by the first draft, is skipped", async () => {
-    await repos.leadRows.sync([lead(1), lead(2, { email: "l1@x.test" })], NOW);
+    await repos.leadRows.sync([lead(1), lead(2, { email: "l1@x1.test" })], NOW);
     const row = await runPass(deps(fakeLeadPassBrain({ repos })), "acme", "schedule");
     expect(row).toMatchObject({ listed: 2, turns: 1, replied: 1, skipped: 1 });
   });

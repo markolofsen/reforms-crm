@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SendRowDto } from "@hub/contract/sending";
-import { sentRows } from "../src/features/mail/sent";
+import { sentRows } from "../src/features/mail/ready/sent";
 
 // P147 3m item 3: Mail ▸ Sent lists the mail that went out (and the one going now), newest first; queued, failed and cancelled stay in Activity.
 

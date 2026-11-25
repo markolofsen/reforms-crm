@@ -79,7 +79,8 @@ export function projectSignsIn(c: { signoff: string; brands: readonly Brand[]; l
 }
 
 /** A signature line that names the site (a URL or a bare domain): shared by every language (G2). */
-const SITE_LINE = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|ai|io|net|org|co|app|dev|me|de|es|fr|it|ru|uk|us)\b)/i;
+/** A line that names a site (a URL, www., or a host name with any top-level domain): the brand's shared line in every language. */
+const SITE_LINE = /(https?:\/\/|www\.|\b[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}\b)/i;
 
 export function signatureFor(c: { signoff: string; brands: readonly Brand[]; languages: readonly string[] }, r: Pick<BrandResolution, "brand" | "wroteTo"> | null, lang: ReplyLanguage = "en", own?: OwnSignoff | null): SignatureBlock {
   // G2: a language the project does not sign in: the agent's own sign-off and team line, then the brand's shared site line(s).

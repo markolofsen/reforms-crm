@@ -27,7 +27,7 @@ export const FOCUS_LINE_MAX = 400;
 const slug = z.string().regex(SLUG).max(100);
 const tab = z.string().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/);
 /** A route id of the admin's route table (`knowledge.page`, `log.list`) or `notFound`. */
-const routeId = z.string().min(1).max(40).regex(/^[A-Za-z][A-Za-z.]*$/);
+const routeId = z.string().min(1).max(40).regex(/^[A-Za-z][A-Za-z.-]*$/);
 /** The address's search state (`filter`, `q`): at most 6 keys, each value at most 200 characters. */
 const view = z.record(z.string().regex(/^[a-z]{1,20}$/), z.string().max(200)).refine((v) => Object.keys(v).length <= 6, "at most 6 view keys");
 

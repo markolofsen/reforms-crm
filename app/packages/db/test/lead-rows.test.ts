@@ -68,7 +68,8 @@ describe("leadRows.views", () => {
     );
     await repos.leadRows.dismiss("p", "c".repeat(32), "not_now", NOW);
     const v = await repos.leadRows.views("p", "new", FROM);
-    expect(v.counts).toEqual({ new: 2, not_now: 1, spam: 1, replied: 0 });
+    // P147: the pass views Drafted and For you, empty with no pass.
+    expect(v.counts).toEqual({ new: 2, drafted: 0, for_you: 0, not_now: 1, spam: 1, replied: 0 });
     expect(v.brands).toEqual([{ name: "Carapis", count: 1 }, { name: "Reforms", count: 1 }]);
     const reforms = await repos.leadRows.views("p", "new", FROM, { brand: "reforms" });
     expect(reforms.rows.map((r) => r.email)).toEqual(["b@x.test"]);
