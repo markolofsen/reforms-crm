@@ -3,7 +3,7 @@ import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from "@hub/config";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { connectorDeniedTools, type AttachedConnector } from "./connectors";
 import { deniedTools, denyRules } from "./deny";
-import { CLAUDE_MODE_ARGS, claudeProtectedPaths, claudeSandbox } from "./session";
+import { CLAUDE_MODE_ARGS, claudeProtectedPaths, claudeSandbox, ownerSecretReadRules } from "./session";
 
 // A Claude Code session of `hub agent`, built without writing (the launcher writes it; the Agent tools check reads it).
 
@@ -79,7 +79,7 @@ export function ancestorMemoryExcludes(home: string): string[] {
 export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
   const dbRules = new Set(["Read", "Edit"].map((t) => `${t}(./${(path.relative(i.paths.home, path.dirname(i.paths.db)) || ".").split(path.sep).join("/")}/**)`));
   const all = denyRules(i.projectsDir, i.paths.home, i.slug, i.paths);
-  const deny = [...all.filter((r) => !dbRules.has(r)), ...connectorDeniedTools(i.connectors ?? []), ...protectedEditRules(i.paths)];
+  const deny = [...all.filter((r) => !dbRules.has(r)), ...connectorDeniedTools(i.connectors ?? []), ...protectedEditRules(i.paths), ...ownerSecretReadRules()];
   const hub = `${JSON.stringify(i.nodeBin)} ${JSON.stringify(i.paths.hubBin)} guard`;
   return {
     ...claudeModelSettings(i.agent),

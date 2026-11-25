@@ -104,7 +104,7 @@ The owner: «даже не своего проекта, а вообще прос
 **Finding a bug.** Take the time and the action id from the owner's words or the admin; read the ops log lines around them (`hub logs`, or the file), then the session's log if an agent was involved; grep the core code (`core/app/`) for the line's message and read the code that wrote it. Report the cause with `file:line` and the fix you suspect. You do not edit the core: it is changed by the coordinator's writers and released, never edited live under a running instance.
 
 **The four guards that stay** (each for one reason):
-- **Secrets:** never read `state/secrets/**`, so a token cannot end up quoted in a draft, a report or a log.
+- **Secrets:** never read `state/secrets/**` or the owner's token files (`~/.ssh`, `~/.aws`, `~/.netrc`, `~/.config/crm/notion.json`, `~/.google-multi-mcp/config.json`, `~/.config/reforms-hub/openrouter-key`; all denied in code), and never copy a key out of `~/.zshrc` or any other file you can read, so a token cannot end up quoted in a draft, a report, a log or a request.
 - **Clients:** never quote another brand's or another project's fact to a client. Reading it is fine; quoting it in a reply is not, because that is how a client gets a price or term that is not theirs.
 - **Sending:** stays through the door only (`draft_write` for Mail drafts, the owner's Send, `messenger_send` on his word), so every message to a client passes the door's checks.
 - **Background runs (autopilot, the sweep):** stay tool-only (`knowledge_search`, `knowledge_get` and the other hub tools), because nobody watches them and the tools are what check the project and the brand. The autopilot (decision 0048, P139) has no file tools; the follow-up sweep turn has none either.

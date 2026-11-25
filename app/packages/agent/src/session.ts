@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 
@@ -49,6 +50,18 @@ export function protectedPaths(paths: HubPaths): string[] {
 export const claudeProtectedPaths = (paths: HubPaths): string[] => [...new Set([...protectedPaths(paths), paths.log])];
 
 /**
+ * 3l (coordinator, 2026-11-25): the owner's known token files outside the instance, unreadable in an owner's session now that its
+ * network is open (a Read deny rule and the sandbox's denyRead). A fixed list, no prompts. `~/.zshrc` stays readable (too broad
+ * to deny); the session rules say a key is never copied out of it.
+ */
+export const OWNER_SECRET_FILES: readonly string[] = [".google-multi-mcp/config.json", ".config/crm/notion.json", ".config/reforms-hub/openrouter-key", ".ssh", ".aws", ".netrc"];
+/** The same files as absolute paths under `home` (the sandbox's denyRead). */
+export const ownerSecretPaths = (home: string): string[] => OWNER_SECRET_FILES.map((f) => path.join(home, f));
+/** The Read deny rules of those files (`~/` is the user's home in Claude's rules; a folder is denied with everything under it). */
+const OWNER_SECRET_DIRS = new Set([".ssh", ".aws"]);
+export const ownerSecretReadRules = (): string[] => OWNER_SECRET_FILES.flatMap((f) => (OWNER_SECRET_DIRS.has(f) ? [`Read(~/${f})`, `Read(~/${f}/**)`] : [`Read(~/${f})`]));
+
+/**
  * The names a command may not reach (3l): loopback, where the Hub's own server and admin listen, and the public names known to
  * resolve to it. A defence in depth, not a wall: any other name that resolves to 127.0.0.1 still reaches the admin (the owner's
  * decision, 2026-11-25: open access, no pairing).
@@ -60,14 +73,14 @@ export const LOOPBACK_HOSTS: readonly string[] = ["localhost", "*.localhost", "1
  * run). 3l: every host is open (`*`) but {@link LOOPBACK_HOSTS}, and a local server may bind; the protected paths are
  * read-only. Apple Events stay off (no `osascript` to Mail). The MCP servers are the CLI's own calls.
  */
-export function claudeSandbox(paths: HubPaths): Record<string, unknown> {
+export function claudeSandbox(paths: HubPaths, home: string = os.homedir()): Record<string, unknown> {
   return {
     enabled: true,
     failIfUnavailable: true,
     autoAllowBashIfSandboxed: true,
     allowUnsandboxedCommands: false,
     network: { allowedDomains: ["*"], deniedDomains: [...LOOPBACK_HOSTS], allowLocalBinding: true },
-    filesystem: { denyWrite: claudeProtectedPaths(paths) },
+    filesystem: { denyWrite: claudeProtectedPaths(paths), denyRead: [paths.secrets, ...ownerSecretPaths(home)] },
   };
 }
 
