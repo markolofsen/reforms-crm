@@ -102,7 +102,7 @@ export const draftWriteTool = defineTool({
       await ownClientEmail(s, email);
       await precheckRecord(s, email, call.record);
       const w = await writeNewReply(s, { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId, content: call.content, owner_request: call.owner_request });
-      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, ...(mailTurn ? { mailPass: mailTurn.mailPass } : {}) }, v);
+      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, ...(mailTurn ? { mailPass: mailTurn.mailPass } : {}), ...(s.ctx.env.bugNote !== undefined ? { bugNote: { noteId: s.ctx.env.bugNote, day: s.ctx.now().toISOString().slice(0, 10) } } : {}) }, v);
       return "pending" in w ? await adopted(s, w, first(await replySubjectOf(s, inbound), w.mailRef)) : await afterWrite(s, w, { draft: undefined, content: call.content, to: undefined, owner_request: call.owner_request, reason: undefined }, first(w.r.subject, w.mailRef));
     } catch (e) {
       // A Mail script's own code is a registered refusal; one from outside the registry is Mail's error.

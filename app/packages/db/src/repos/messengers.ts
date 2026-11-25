@@ -6,6 +6,7 @@ import { messengerChatsRepo } from "./messenger-chats";
 import { messengerProjectionRepo } from "./messenger-projection";
 import { messengerTriageRepo } from "./messenger-triage";
 import {
+  bugFixedNotes,
   clientIdentifiers,
   clients,
   messengerAccounts,
@@ -269,7 +270,10 @@ export function messengersRepo(db: Db) {
       return draftTransition(id, project, "draft", { status: "confirmed", confirmedBy: by, confirmedAt: at });
     },
     async markDraftSent(project: string, id: number, remoteMessageId: string, at: string = now()): Promise<MessengerDraftRow> {
-      return draftTransition(id, project, "confirmed", { status: "sent", sentAt: at, remoteMessageId });
+      const row = await draftTransition(id, project, "confirmed", { status: "sent", sentAt: at, remoteMessageId });
+      // P145 B4: a fixed bug's note in a chat: the client was told at the send (Notion's Client told follows in the sweep).
+      db.update(bugFixedNotes).set({ toldAt: at }).where(and(eq(bugFixedNotes.messengerDraftId, id), sql`${bugFixedNotes.toldAt} is null`)).run();
+      return row;
     },
     async markDraftCopied(project: string, id: number, by: string, at: string = now()): Promise<MessengerDraftRow> {
       return draftTransition(id, project, "draft", { status: "copied", confirmedBy: by, confirmedAt: at });

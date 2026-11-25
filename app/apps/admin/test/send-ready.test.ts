@@ -55,7 +55,13 @@ describe("Send all ready (3m item 5)", () => {
     expect(selectedReady(null, [{ id: 5, batchId: 7 }])).toEqual([]);
   });
 
-  it("says the proposals as one line", () => {
+  it("lists a fixed bug's note after the replies and ticks it like any ready reply (P145 B4)", () => {
+    const f = review([row(8, { kind: "fixed", pageId: "report-1" }), row(1), row(5, { kind: "mail" })]);
+    expect(groupRows(f.rows).ready.map((r) => r.draftId)).toEqual([1, 5, 8]);
+    expect([...initialTicks(f)]).toEqual([8, 1, 5]);
+  });
+
+    it("says the proposals as one line", () => {
     expect(proposalsLine(d.proposals)).toBe("Also mark 2 as spam / no reply needed");
     expect(proposalsLine([proposal(1, "spam"), proposal(2, "not_now"), proposal(3, "spam")])).toBe("Also mark 3 as spam / not now");
     expect(proposalsLine([proposal(4, "spam", "mail"), proposal(5, "no_reply", "mail")])).toBe("Also mark 2 as junk / no reply needed");

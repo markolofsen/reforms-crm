@@ -74,6 +74,8 @@ export type RecordDraftInput = {
   leadPass?: { pageId: string; passId: number | null; day: string } | null;
   /** P147 3h: a mail-pass draft joins the day's lead batch and is stamped on the inbound row it answers. */
   mailPass?: { inboundId: number; passId: number | null; day: string } | null;
+  /** P145 B4: a fixed bug's note (the sweep's claim): the draft joins the day's lead batch and is stamped on the note. */
+  bugNote?: { noteId: number; day: string } | null;
 };
 
 /** created: new row; updated: same `mailRef` as the open draft; replaced: another open draft was skipped first; unchanged: this `mailRef` is already a finished draft. */

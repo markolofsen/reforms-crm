@@ -222,3 +222,83 @@ export async function fileBugReportFor(env: BugReportEnv, slug: string, i: BugRe
     return { state: "failed", detail: `${typeof status === "number" ? `HTTP ${status} ` : ""}${typeof code === "string" ? code : e instanceof Error ? e.name : "error"}` };
   }
 }
+
+// ---- P145 B4 (P147 3m item 6): closing the loop on a fixed bug.
+
+/** One Fixed report whose clients were not told yet, as the follow-up sweep drafts its notes. */
+export interface FixedReport {
+  pageId: string;
+  symptom: string;
+  /** The client's own words as filed (`Client's words`), quoted in the note. */
+  words: string;
+  /** The report's channel (`Channel`), or null; the note goes there, else the client's last channel. */
+  channel: BugChannel | null;
+  /** The Clients pages it links. */
+  clients: string[];
+}
+
+const selectName = (page: PageObject, name: string): string | null => {
+  const s = page.properties[name]?.select as { name?: unknown } | null | undefined;
+  return typeof s?.name === "string" ? s.name : null;
+};
+const plain = (page: PageObject, name: string): string => ((page.properties[name]?.rich_text as Array<{ plain_text?: unknown }> | undefined) ?? []).map((t) => String(t.plain_text ?? "")).join("");
+
+/**
+ * The reports with Status Fixed and an empty `Client told`, of this project, of Kind Product (or no Kind: the agent's own Knowledge
+ * gap and Workflow filings never make a "fixed, please check"). `no_field`: the database has no `Client told` (date) or no Fixed.
+ */
+export async function fixedReports(reader: NotionReader, dataSourceId: string, projectKey: string): Promise<{ state: "ok"; reports: FixedReport[] } | { state: "no_field"; detail: string }> {
+  const ds = await reader.retrieveDataSource(dataSourceId);
+  if (ds.properties["Client told"]?.type !== "date") return { state: "no_field", detail: "Bug reports has no Client told (date): hub install --only notion.bug-reports adds it" };
+  if (!optionNames(ds.properties["Status"]).includes("Fixed")) return { state: "no_field", detail: "Bug reports' Status has no Fixed option" };
+  if (!reader.findPages) return { state: "ok", reports: [] };
+  const project = optionForKey(optionNames(ds.properties["Projects"]), projectKey);
+  const byKind = ds.properties["Kind"]?.type === "select" ? [{ or: [{ property: "Kind", select: { equals: "Product" } }, { property: "Kind", select: { is_empty: true } }] }] : [];
+  const byProject = project && ds.properties["Projects"]?.type === "multi_select" ? [{ property: "Projects", multi_select: { contains: project } }] : [];
+  const filter = { and: [{ property: "Status", select: { equals: "Fixed" } }, { property: "Client told", date: { is_empty: true } }, ...byKind, ...byProject] };
+  const pages = await reader.findPages(dataSourceId, filter, 50);
+  const channelOf = (n: string | null): BugChannel | null => ((BUG_CHANNELS as readonly string[]).includes(n ?? "") ? (n as BugChannel) : null);
+  return { state: "ok", reports: pages.map((p) => ({ pageId: p.id, symptom: titleOf(p).slice(0, 200), words: plain(p, "Client's words").slice(0, WORDS_MAX), channel: channelOf(selectName(p, "Channel")), clients: relationIds(p, "Clients") })) };
+}
+
+
+type Open = { state: "ok"; c: { reader: NotionReader; writer: BugReportWriter }; ds: string } | { state: "no_database" | "no_token"; detail: string };
+function openBugReports(env: BugReportEnv, slug: string): Open {
+  const p = projectStore({ projects: env.projectsDir }).config(slug);
+  const ds = p.notion.databases.find((d) => d.slug === "bug-reports")?.dataSourceId;
+  if (!ds) return { state: "no_database", detail: "project.md lists no bug-reports database" };
+  let token = "";
+  try {
+    token = readFileSync(join(env.secretsDir, p.notion.tokenFile), "utf8").trim();
+  } catch {
+    token = "";
+  }
+  if (!token) return { state: "no_token", detail: `no ${p.notion.tokenFile} in state/secrets` };
+  return { state: "ok", c: env.clients?.(token) ?? { reader: createNotionReader(token), writer: createBugReportWriter(token) }, ds };
+}
+
+/** The sweep's read for one project. Never throws: a failure is a state and one `notion` ops line. */
+export async function fixedReportsFor(env: BugReportEnv, slug: string): Promise<{ state: "ok"; reports: FixedReport[] } | { state: "no_field" | "no_database" | "no_token" | "failed"; detail: string }> {
+  try {
+    const o = openBugReports(env, slug);
+    if (o.state !== "ok") return o;
+    return await fixedReports(o.c.reader, o.ds, slug);
+  } catch (e) {
+    ops("notion").warn("reading the fixed bug reports failed", { project: slug, error: e instanceof Error ? e.name : "error" });
+    return { state: "failed", detail: e instanceof Error ? e.message.slice(0, 200) : "error" };
+  }
+}
+
+/** `Client told` on one report (the last linked client's send time). Never throws. */
+export async function clientToldFor(env: BugReportEnv, slug: string, pageId: string, at: string): Promise<{ state: "written" } | { state: "no_database" | "no_token" | "failed"; detail: string }> {
+  try {
+    const o = openBugReports(env, slug);
+    if (o.state !== "ok") return o;
+    await o.c.writer.update(pageId, { "Client told": { date: { start: at } } });
+    ops("notion").info("bug report Client told written", { project: slug });
+    return { state: "written" };
+  } catch (e) {
+    ops("notion").warn("writing a bug report's Client told failed", { project: slug, error: e instanceof Error ? e.name : "error" });
+    return { state: "failed", detail: e instanceof Error ? e.message.slice(0, 200) : "error" };
+  }
+}

@@ -10,13 +10,14 @@ export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rena
 export { dataVersion, isBusy } from "./tx";
 export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";
 export { RepoError, type RepoErrorCode } from "./errors";
-export { decisionSummary, dueClients, judgeDue, type DueChat, type DueClient, type DueFacts, type FollowUpDecisionInput, type FollowUpItem, type FollowUpRow, type FollowUpSweepRow, type NotDue } from "./repos";
+export { asNoteClient, decisionSummary, dueClients, judgeDue, type DueChat, type DueClient, type DueFacts, type FollowUpDecisionInput, type FollowUpItem, type FollowUpRow, type FollowUpSweepRow, type NotDue } from "./repos";
 export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, isDoneThrough, rulesOf, senderName, shellHashOf, startsWithWrite, teamNoticeOf, textKey, usageRefusal, versionHashOf, withoutLeadingBlankLines, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export { answeringDraft, PREVIEW_CHARS } from "./repos/inbound-mail";
 export { CONVERSATION_STATES, CONVERSATION_VIEWS, stateOf, type ConversationCounts, type ConversationItem, type ConversationState, type ConversationView } from "./repos/conversations";
 export { LEAD_PREVIEW_CHARS } from "./repos/lead-rows";
 export { dueLeads, leadDecisionApplied, samePersonAs, samePersonReason, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./repos/lead-pass";
+export { stampBugNoteDraft, type BugNoteRow } from "./repos/bug-notes";
 export { MAIL_PASS_DISPLAY, mailDecisionApplied, mailPassDisplay, type MailDecisionInput, type MailPassDisplay, type MailPassItem } from "./repos/mail-pass";
 export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {
@@ -94,6 +95,7 @@ export type {
 } from "./repos";
 export { SEND_CHANNELS, SEND_STATUSES, type SendChannel, type SendStatus } from "./schema";
 export { LEAD_DISMISS_REASONS, type LeadDismissReason } from "./schema";
+export { BUG_NOTE_CHANNELS, type BugNoteChannel } from "./schema";
 export type { IdentifierKind, MessageSource, MessengerChannel, MessengerDirection, MessengerDraftStatus } from "./schema";
 export { allAcknowledged, effectiveRules, evaluateSafety, type SafetyInput } from "./safety";
 export { seed } from "./seed";

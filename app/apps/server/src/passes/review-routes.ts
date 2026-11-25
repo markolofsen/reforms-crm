@@ -136,6 +136,31 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
           ticked: !m.newSender && held.length === 0 && a.mail !== null && (display === "drafted" || display === "for_you"),
         });
       }
+      // P145 B4: the fixed bugs' notes the follow-up sweep added to this list; they tick like any ready reply.
+      for (const n of await repos.bugNotes.ofBatch(slug, batchId)) {
+        if (n.draftId === null || !picked(n.draftId)) continue;
+        const a = await read(n.draftId);
+        const d = await repos.drafts.get(n.draftId);
+        const client = await repos.clients.get(slug, n.clientId);
+        rows.push({
+          kind: "fixed" as const,
+          pageId: n.reportPageId,
+          name: client?.name || client?.email || `client ${n.clientId}`,
+          email: client?.email ?? null,
+          replyWhy: "the client's address",
+          language: languageLine(d?.context ?? null),
+          brand: null,
+          receivedAt: n.draftedAt ?? n.createdAt,
+          request: "A bug they reported is fixed: a short note asking them to check",
+          decision: "reply" as const,
+          reason: null,
+          display: "drafted" as const,
+          draftId: n.draftId,
+          mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+          held: a.held,
+          ticked: a.held.length === 0 && a.mail !== null && n.toldAt === null,
+        });
+      }
       const decided = await repos.leadPass.decided(slug, windowFrom(slug, at));
       const mailDecided = await repos.mailPass.decided(slug, windowFrom(slug, at));
       const proposals = [
@@ -164,6 +189,8 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       const mine = new Map<number, { name: string; pageId: string | null; inbound: number | null }>([
         ...(await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.passDraftId !== null).map((r) => [r.passDraftId as number, { name: r.name, pageId: r.pageId, inbound: null }] as const),
         ...(await repos.mailPass.ofBatch(slug, batchId)).filter((r) => r.passDraftId !== null).map((r) => [r.passDraftId as number, { name: r.name || r.email, pageId: null, inbound: r.id }] as const),
+        // P145 B4: a fixed bug's note; unticked, it is only unchecked (it has no pass row to mark Excluded).
+        ...(await repos.bugNotes.ofBatch(slug, batchId)).filter((n) => n.draftId !== null).map((n) => [n.draftId as number, { name: "a fixed bug’s note", pageId: null, inbound: null }] as const),
       ]);
       const held: { draftId: number; name: string; reasons: string[] }[] = [];
       // The ticked drafts: Checked, bound to the text the review served (D10). A draft never served, or edited since, is held.

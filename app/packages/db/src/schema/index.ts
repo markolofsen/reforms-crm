@@ -13,3 +13,4 @@ export * from "./messengers";
 export * from "./llm";
 export * from "./follow-ups";
 export * from "./lead-pass";
+export * from "./bug-notes";

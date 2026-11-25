@@ -85,6 +85,15 @@ export const FOLLOW_UP_LINE_MAX = 160;
 export const FOLLOW_UP_SKILL = "follow-up-sweep";
 /** The env var that binds a `hub mcp` process to the one client of a turn (verdict 5): the `clients` row id. */
 export const FOLLOW_UP_CLIENT_ENV = "HUB_FOLLOWUP_CLIENT";
+/**
+ * P145 B4 (P147 3m item 6): the env var that binds a sweep turn to one fixed bug's note (its `bug_fixed_notes.id`), beside the
+ * client. Its draft (mail or messenger) is stamped on the note and a mail one joins the day's lead batch.
+ */
+export const FOLLOW_UP_BUG_NOTE_ENV = "HUB_FOLLOWUP_BUG_NOTE";
+export const bugNoteOf = (raw: string | undefined): number | undefined => {
+  const n = Number(raw?.trim());
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+};
 
 /**
  * Whether this process belongs to a background run the Hub started itself (an autopilot turn, a follow-up sweep turn, a lead
@@ -124,6 +133,11 @@ export interface FollowUpTurn {
   autopilotChat: number | null;
   /** Project mode for that chat: in `dry_run` the server never sends. */
   mode: "on" | "dry_run" | null;
+  /**
+   * P145 B4: this turn writes a fixed bug's note (the `bug_fixed_notes` claim), in this channel; the report's symptom and the
+   * client's words are in the context's data block. Absent: an ordinary follow-up turn.
+   */
+  bugNote?: { id: number; channel: "mail" | "telegram" | "whatsapp" } | null;
 }
 
 /** What a turn's own calls wrote (read from its stream, never from a row): the decision and the nudge draft, if any. */

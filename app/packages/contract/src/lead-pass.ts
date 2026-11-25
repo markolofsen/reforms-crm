@@ -104,9 +104,12 @@ export const runLeadPassDto = z.object({ ok: z.literal(true), joined: z.boolean(
 export const leadRedoneDto = z.object({ ok: z.literal(true), pageId: z.string() });
 
 /** One drafted lead of the review (verdict 7): the request beside the draft's full text read fresh from Mail. */
+/** A review row's kind: a pass's reply (lead, mail), or a fixed bug's note the follow-up sweep added to the day's list (P145 B4). */
+export const REVIEW_ROW_KINDS = [...PASS_KINDS, "fixed"] as const;
+
 export const leadReviewRowDto = z.object({
-  /** P147 3h: a lead's reply, or a mail pass reply (then `pageId` is the inbound row id). */
-  kind: z.enum(PASS_KINDS).default("lead"),
+  /** P147 3h: a lead's reply, or a mail pass reply (then `pageId` is the inbound row id); "fixed": `pageId` is the bug report's page. */
+  kind: z.enum(REVIEW_ROW_KINDS).default("lead"),
   /** 3h (decision 0055 point 9): the project never wrote to this address: the row opens unticked under New senders. */
   newSender: z.boolean().default(false),
   pageId: z.string(),

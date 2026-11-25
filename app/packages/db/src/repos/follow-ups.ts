@@ -5,7 +5,7 @@ import { RepoError } from "../errors";
 import { agentEvents, clients, drafts, enrollments, followUpSweeps, followUps, marks, messengerChats, messengerDrafts, sendLog } from "../schema";
 import { write } from "../tx";
 import { conversationsRepo } from "./conversations";
-import { dueClients, type DueChat, type DueClient, type DueFacts } from "./follow-up-due";
+import { asNoteClient, dueClients, type DueChat, type DueClient, type DueFacts } from "./follow-up-due";
 import { clientOfChat, followUpNudgeSent, followUpWeWrote, noteChatOutbound } from "./follow-up-hooks";
 import { insertEvent, sessionRun } from "./runs";
 
@@ -170,6 +170,11 @@ export function followUpsRepo(db: Db) {
       return { clients: dueClients(f.facts, today), unlinkedWroteLast: f.unlinkedWroteLast };
     },
     get: async (project: string, clientId: number): Promise<FollowUpRow | null> => planOf(project, clientId),
+    /** P145 B4: one client as a fixed-bug note's turn needs it, listed or not; null for do-not-contact or no such client. */
+    async noteClient(project: string, clientId: number, now: Date): Promise<DueClient | null> {
+      const f = (await facts(project, now)).facts.find((x) => x.clientId === clientId);
+      return f ? asNoteClient(f) : null;
+    },
     async one(project: string, clientId: number, now: Date = new Date()): Promise<FollowUpItem | null> {
       const r = planOf(project, clientId);
       if (!r) return null;

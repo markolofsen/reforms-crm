@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { areaOption, entryBlocks, fileBugReport, messageMark, normalArea, type BugReportInput, type BugReportWriter } from "../src/bug-reports";
+import { areaOption, entryBlocks, fileBugReport, fixedReports, messageMark, normalArea, type BugReportInput, type BugReportWriter } from "../src/bug-reports";
 import type { DataSourceInfo, NotionReader, PageObject } from "../src/types";
 
 // P145 B3 (verdicts 15 and 17, decision 0054): search the open reports of the area and project, append to one, create with
@@ -119,5 +119,29 @@ describe("Kind (P147 3g)", () => {
     const r = await fileBugReport(f, { dataSourceId: "bugs" }, input());
     expect(r).toMatchObject({ state: "appended", pageId: "old" });
     expect(JSON.stringify(f.filters[0])).toContain('"is_empty":true');
+  });
+});
+
+describe("fixedReports (P145 B4)", () => {
+  const TOLD: DataSourceInfo = { ...DS, properties: { ...DS.properties, "Client told": { type: "date" }, Kind: { type: "select", select: opts("Product", "Internal") } } };
+  const fixed = (id: string): PageObject => ({ ...report(id, ["Shop One"], ["client-2"]), properties: { ...report(id, ["Shop One"], ["client-2"]).properties, Channel: { type: "select", select: { name: "WhatsApp" } }, "Client's words": { type: "rich_text", rich_text: [{ plain_text: "the photos are of other cars" }] } } });
+  const reader = (ds: DataSourceInfo, pages: PageObject[], filters: unknown[] = []): NotionReader => ({ retrieveDataSource: async () => ds, async *listPages() {}, findPages: async (_id, filter) => (filters.push(filter), pages), retrieveMarkdown: async () => ({ markdown: "", truncated: false, unknownBlockIds: [] }) });
+
+  it("reads the project's Fixed reports nobody told yet, Product or no Kind, with the channel, the words and the linked clients", async () => {
+    const filters: unknown[] = [];
+    const r = await fixedReports(reader(TOLD, [fixed("r1")], filters), "bugs", "shop-one");
+    expect(r).toEqual({ state: "ok", reports: [{ pageId: "r1", symptom: "bug r1", words: "the photos are of other cars", channel: "WhatsApp", clients: ["client-2"] }] });
+    expect(filters[0]).toEqual({
+      and: [
+        { property: "Status", select: { equals: "Fixed" } },
+        { property: "Client told", date: { is_empty: true } },
+        { or: [{ property: "Kind", select: { equals: "Product" } }, { property: "Kind", select: { is_empty: true } }] },
+        { property: "Projects", multi_select: { contains: "Shop One" } },
+      ],
+    });
+  });
+
+  it("says what is missing when the database has no Client told", async () => {
+    expect((await fixedReports(reader(DS, []), "bugs", "shop-one")).state).toBe("no_field");
   });
 });

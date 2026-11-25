@@ -10,6 +10,7 @@ import type { ConversationMail } from "../mail/context";
 import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import type { Clock } from "../messengers/autopilot/scheduler";
 import { nudgeSender, type NudgeSender } from "./nudges";
+import type { BugReportsPort } from "./bug-notes";
 import { followUpSchedule, type FollowUpScheduleHandle } from "./schedule";
 
 // The follow-up sweep in the server (decision 0050, P142 F4 and F5): the brain chosen once, the autopilot nudges held in memory,
@@ -50,6 +51,8 @@ export function startFollowUps(o: {
   mail?: ConversationMail | undefined;
   directory?: { project: string | null; all: () => readonly DirectoryEntry[] | undefined } | undefined;
   clock?: Clock;
+  /** P145 B4: the Bug reports in Notion, for the fixed bugs' notes. */
+  bugReports?: BugReportsPort | undefined;
 }): FollowUpsRuntime {
   const log = ops("follow-ups");
   if (!o.brain) {
@@ -63,6 +66,7 @@ export function startFollowUps(o: {
     autopilot: o.autopilot,
     nudges,
     ...(o.clock ? { clock: o.clock } : {}),
+    ...(o.bugReports ? { bugReports: o.bugReports } : {}),
     prefetch: {
       project: (slug) => o.projects.find(slug) ?? undefined,
       mail: o.mail,

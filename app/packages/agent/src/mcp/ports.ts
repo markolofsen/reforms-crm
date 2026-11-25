@@ -93,6 +93,8 @@ export interface HubMcpEnv {
   chatSort?: ChatSortPort;
   /** P147 F3: starts the server's lead pass from an attended session (`lead_pass_start`); absent in every background run. */
   leadPassRun?: LeadPassPort;
+  /** P145 B4: the sweep turn's fixed-bug note (`HUB_FOLLOWUP_BUG_NOTE`), beside `followUpClient`. */
+  bugNote?: number;
   /** P147 3m item 1: `mail_junk` (attended sessions only): one inbound message to Mail's Junk through the server. */
   mailJunk?: MailJunkPort;
   /**

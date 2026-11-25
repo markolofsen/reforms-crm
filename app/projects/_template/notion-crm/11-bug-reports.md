@@ -40,9 +40,9 @@ The agent files through `bug_report` (the Hub MCP server), never by creating a p
 
 It acknowledges the report, says it was recorded and will be looked at, and asks for one missing piece of evidence when there is none. It promises **no date and no cause**. In autopilot the tool files but the reply's rules do not change.
 
-## Closing the loop (B4, after P142 releases its files)
+## Closing the loop
 
-A report set to Fixed with an empty Client told makes the follow-up sweep draft a short "fixed" message for each of its clients, quoting the symptom in their words. The owner sends it; the send sets Client told. No draft for a client marked Do not contact, or for Won't fix and Duplicate. Until B4 ships, people tell the client.
+A report set to Fixed with an empty Client told makes the next follow-up sweep draft a short "fixed, please check" message for each of its linked clients, in their language and channel, quoting the symptom in their words. A mail note is one more row of the day's Send all ready; a messenger note waits in its chat. The owner sends it; once every linked client was told, the Hub writes Client told with the last send's time. No message for a client marked Do not contact, or for Won't fix and Duplicate. Each client gets the note once per report.
 
 ## Views
 

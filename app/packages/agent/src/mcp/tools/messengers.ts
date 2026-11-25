@@ -229,9 +229,12 @@ export const messengerDraftWriteTool = defineTool({
     // Verdict 29: an autopilot turn revises only autopilot's own draft; one the owner wrote or took over is his.
     if (turn && open && open.createdBy !== AUTOPILOT_DRAFT_AUTHOR) throw new ToolError("already_drafted", `Draft ${open.id} is the owner's: this turn leaves it as it is. Nothing was written.`);
     // P129 verdict 14: the one recorder of a machine-written messenger draft (the server's Prepare uses it too).
-    const { id, action } = await withRepos((w) =>
-      recordAgentDraft(w, { project: slug, chat: row, client: client ? { id: client.id, name: client.name ?? null } : null, text: body, provider: turn || (sweep && autopilot) ? "autopilot" : sweep ? "follow_up" : "runtime_agent", ownerRequest: ownerRequest ?? null, nudge: v.nudge, revise: draft, at: now().toISOString(), ...(autopilot ? { autopilot } : {}), ...(follow_up ? { followUpN: follow_up.n } : {}) }),
-    );
+    const { id, action } = await withRepos(async (w) => {
+      const r = await recordAgentDraft(w, { project: slug, chat: row, client: client ? { id: client.id, name: client.name ?? null } : null, text: body, provider: turn || (sweep && autopilot) ? "autopilot" : sweep ? "follow_up" : "runtime_agent", ownerRequest: ownerRequest ?? null, nudge: v.nudge, revise: draft, at: now().toISOString(), ...(autopilot ? { autopilot } : {}), ...(follow_up ? { followUpN: follow_up.n } : {}) });
+      // P145 B4: a fixed bug's note in a chat is stamped on its note right after the draft's record.
+      if (sweep && ctx.env.bugNote !== undefined) await w.bugNotes.stampMessenger(ctx.env.bugNote, r.id, now().toISOString());
+      return r;
+    });
     if (turn || sweep) return { project: slug, draft: id, action, channel: row.channel, chat_id: row.chatId, nudge: v.nudge, sent: false as const, next: "Stop here: the server reads your verdict and does the rest. Write nothing else." };
     return { project: slug, draft: id, action, channel: row.channel, chat_id: row.chatId, nudge: v.nudge, sent: false as const, next: "Tell the owner in one line: the draft waits on the Messengers panel, where he reads and sends it (or he tells you to send it). Nothing was sent." };
   },

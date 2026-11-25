@@ -14,6 +14,7 @@ import { knowledgeRepo } from "./knowledge";
 import { leadRowsRepo } from "./lead-rows";
 import { leadPassRepo } from "./lead-pass";
 import { mailPassRepo } from "./mail-pass";
+import { bugNotesRepo } from "./bug-notes";
 import { llmCallsRepo } from "./llm-calls";
 import { mailVersionsRepo, mailWritesRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
@@ -42,6 +43,7 @@ export function createRepos(db: Db) {
     leadRows: leadRowsRepo(db),
     leadPass: leadPassRepo(db),
     mailPass: mailPassRepo(db),
+    bugNotes: bugNotesRepo(db),
     enrollments: enrollmentsRepo(db),
     followUps: { ...followUpsRepo(db), ...followUpSweepsRepo(db) },
     mailVersions: mailVersionsRepo(db),
@@ -84,7 +86,7 @@ export { dueLeads, leadDecisionApplied, samePersonAs, samePersonReason, type Lea
 export type { FollowUpDecisionInput, FollowUpItem, FollowUpRow, FollowUpSweepRow } from "./follow-ups";
 export { decisionSummary } from "./follow-ups";
 export type { DueChat, DueClient, DueFacts, NotDue } from "./follow-up-due";
-export { dueClients, judgeDue } from "./follow-up-due";
+export { asNoteClient, dueClients, judgeDue } from "./follow-up-due";
 export type { MessengerUsage, NewMessengerSend, NewSend, SendRow } from "./sends";
 export { usageRefusal } from "./sends";
 export type { Adoption, MailVersionRow, MailVersionSource, MailWriteRow, NewMailVersion, NewMailWrite, ThreadDraft } from "./mail-versions";

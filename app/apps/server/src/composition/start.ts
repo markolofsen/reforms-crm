@@ -1,3 +1,4 @@
+import { clientToldFor, fixedReportsFor } from "@hub/notion/bug-reports";
 import { bumpTopic, createRepos, dataVersion, type Db } from "@hub/db";
 import { instancePorts, type HubPaths } from "@hub/config/paths";
 import type { RuntimeModes } from "@hub/config/modes";
@@ -59,6 +60,8 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     door: () => (senders ? { repos, policy: doorPolicy, senders } : null),
     mail: mail.handles.conversation,
     directory: { get project() { return linker.project; }, all: () => linker.directory.current()?.all },
+    // P145 B4: the fixed bugs' notes read the Bug reports and write Client told (never Status or anything else).
+    bugReports: { read: (slug) => fixedReportsFor({ projectsDir, secretsDir: paths.secrets }, slug), told: (slug, pageId, at) => clientToldFor({ projectsDir, secretsDir: paths.secrets }, slug, pageId, at) },
   });
   // P147 (decision 0055): the daily lead pass, the second timer that starts a model; it writes drafts and proposals only.
   const leadPass = startLeadPass({

@@ -71,6 +71,21 @@ export function judgeDue(f: DueFacts, today: string): DueClient | NotDue {
 }
 
 /**
+ * P145 B4: a fixed bug's note goes to a client whatever the silence says (they may have written last, a plan may wait), so the
+ * turn gets the client as a sweep turn does; never one marked do-not-contact. `lastChannel` is where our newest message went.
+ */
+export function asNoteClient(f: DueFacts): DueClient | null {
+  if (f.doNotContact) return null;
+  const chats = f.chats.filter((c) => c.replyMode !== "off");
+  const ourMail = f.mail?.ourLastAt ?? null;
+  const ourChat = newest(...chats.map((c) => c.lastOutAt));
+  const lastChat = chats.filter((c) => c.lastOutAt === ourChat).at(0);
+  const lastChannel = ourChat && (!ourMail || ourChat > ourMail) && lastChat ? lastChat.channel : "mail";
+  const ours = newest(ourMail, ourChat) ?? "";
+  return { clientId: f.clientId, name: f.name, email: f.email, ourLastAt: ours, theirLastAt: newest(f.mail?.theirLastAt, ...chats.map((c) => c.lastInAt)), lastChannel, chats, onRequest: chats.some((c) => c.replyMode === "on_request"), plan: f.plan };
+}
+
+/**
  * The list of verdict 2: every listed client, the oldest next date first (a client with no plan yet after the dated ones), then the
  * longest silence. `today` is the project's calendar day (YYYY-MM-DD).
  */

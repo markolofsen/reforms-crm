@@ -7,6 +7,7 @@ import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import { systemClock, type Clock } from "../messengers/autopilot/scheduler";
 import type { NudgeSender } from "./nudges";
 import { prefetch, type PrefetchDeps } from "./prefetch";
+import { noteContext, noteTargets, stampToldReports, type BugReportsPort, type NoteTarget } from "./bug-notes";
 
 // One follow-up sweep of one project (decision 0050 points 2, 3 and 7; P142 F4). The server's list (verdict 2), then one headless
 // turn per client, one at a time, in one of the pool's two slots and only while no autopilot turn waits (autopilot first). Budgets:
@@ -24,6 +25,8 @@ export interface SweepDeps {
   /** The calendar day the selector compares plan dates with (YYYY-MM-DD), the Mac's own by default. */
   today?: (now: Date) => string;
   limits?: Partial<{ sweepTurns: number; instanceTurns: number; timeoutMs: number; failuresStop: number; slotPollMs: number }>;
+  /** P145 B4: the project's Bug reports in Notion (the Fixed ones to tell, and `Client told`); absent, no notes are written. */
+  bugReports?: BugReportsPort | undefined;
 }
 
 const log = ops("follow-ups");
@@ -61,17 +64,19 @@ async function autopilotChatOf(d: SweepDeps, project: string, c: DueClient): Pro
   return { chat: null, mode: null };
 }
 
-async function oneTurn(d: SweepDeps, clock: Clock, project: string, c: DueClient, timeoutMs: number): Promise<FollowUpTurnResult> {
+async function oneTurn(d: SweepDeps, clock: Clock, project: string, c: DueClient, timeoutMs: number, note: { id: number; target: NoteTarget } | null = null): Promise<FollowUpTurnResult> {
   const actionId = newActionId("t");
   return withAction(actionId, async () => {
     const t0 = clock.now();
     const ap = await autopilotChatOf(d, project, c);
-    const { context } = await prefetch({ repos: d.repos, ...d.prefetch }, project, c);
+    const pre = await prefetch({ repos: d.repos, ...d.prefetch }, project, c);
+    // P145 B4: a fixed bug's note carries the report as filed, inside the data block.
+    const context = note ? `${pre.context}\n${noteContext(note.target)}` : pre.context;
     const ctl = new AbortController();
     const timer = clock.setTimeout(() => ctl.abort(), timeoutMs);
     let r: FollowUpTurnResult;
     try {
-      r = await d.brain.turn({ project, client: c.clientId, actionId, context, autopilotChat: ap.chat, mode: ap.mode }, ctl.signal);
+      r = await d.brain.turn({ project, client: c.clientId, actionId, context, autopilotChat: ap.chat, mode: ap.mode, ...(note ? { bugNote: { id: note.id, channel: note.target.channel } } : {}) }, ctl.signal);
     } catch (e) {
       r = { kind: "failed", code: "failed", detail: e instanceof Error ? e.message : String(e) };
     } finally {
@@ -99,14 +104,43 @@ export async function runSweep(d: SweepDeps, project: string, trigger: FollowUpT
     const counts: Counts = { listed: 0, turns: 0, nudged: 0, waited: 0, stopped: 0, handedOver: 0, failed: 0, skipped: 0 };
     let error: string | null = null;
     try {
-      const due = await d.repos.followUps.due(project, now, (d.today ?? localDay)(now));
-      counts.listed = due.clients.length;
       const used = await d.repos.followUps.turnsSince(new Date(now.getTime() - DAY_MS).toISOString());
-      const room = Math.max(0, Math.min(l.sweepTurns, l.instanceTurns - used));
-      if (room < due.clients.length) counts.skipped += due.clients.length - room;
-      if (room === 0 && due.clients.length) error = `today's ${l.instanceTurns} follow-up turns on this Mac are used up`;
+      let room = Math.max(0, Math.min(l.sweepTurns, l.instanceTurns - used));
+      // P145 B4: the fixed bugs' notes first, in the same budget; a client noted today is not also nudged today.
+      const noted = new Set<number>();
+      if (d.bugReports) {
+        const targets = await noteTargets(d.repos, d.bugReports, project, now).catch((e: unknown) => (log.warn("fixed bug notes: the list failed", { project, ...errFields(e) }), [] as NoteTarget[]));
+        for (const t of targets) {
+          if (room <= 0 || noted.has(t.client.clientId)) continue;
+          const claim = await d.repos.bugNotes.claim({ project, reportPageId: t.report.pageId, clientId: t.client.clientId, channel: t.channel });
+          if (!claim) continue;
+          const release = await slot(d, clock, l.slotPollMs);
+          let r: FollowUpTurnResult;
+          try {
+            r = await oneTurn(d, clock, project, t.client, l.timeoutMs, { id: claim.id, target: t });
+          } finally {
+            release();
+          }
+          room--;
+          counts.turns++;
+          noted.add(t.client.clientId);
+          const after = await d.repos.bugNotes.get(claim.id);
+          if (!after?.draftId && !after?.messengerDraftId) {
+            await d.repos.bugNotes.release(claim.id);
+            log.warn("fixed bug note: the turn wrote no draft; tomorrow tries again", { project, client: t.client.clientId, ...(r.kind === "failed" ? { code: r.code } : {}) });
+          } else log.info("fixed bug note drafted", { project, client: t.client.clientId, channel: t.channel });
+          if (r.kind === "failed") counts.failed++;
+          else if (r.kind === "decided" && r.decision === "nudge") counts.nudged++;
+          await d.repos.followUps.finishSweep(row.id, counts);
+        }
+      }
+      const due = await d.repos.followUps.due(project, now, (d.today ?? localDay)(now));
+      const clients = due.clients.filter((c) => !noted.has(c.clientId));
+      counts.listed = clients.length + noted.size;
+      if (room < clients.length) counts.skipped += clients.length - room;
+      if (room === 0 && clients.length) error = `today's ${l.instanceTurns} follow-up turns on this Mac are used up`;
       let inARow = 0;
-      for (const c of due.clients.slice(0, room)) {
+      for (const c of clients.slice(0, room)) {
         const release = await slot(d, clock, l.slotPollMs);
         let r: FollowUpTurnResult;
         try {
@@ -137,6 +171,8 @@ export async function runSweep(d: SweepDeps, project: string, trigger: FollowUpT
       error = `the sweep failed: ${e instanceof Error ? e.message.slice(0, 200) : "error"}`;
       log.error("the follow-up sweep failed", { project, ...errFields(e) });
     }
+    // P145 B4: Client told in Notion for every report whose clients were all told (a failure waits for the next sweep).
+    if (d.bugReports) await stampToldReports(d.repos, d.bugReports, project, new Date(clock.now())).catch((e: unknown) => log.warn("fixed bug notes: Client told failed", { project, ...errFields(e) }));
     const done = await d.repos.followUps.finishSweep(row.id, { ...counts, error, finishedAt: new Date(clock.now()).toISOString() });
     const fields = { project, trigger, ...counts };
     if (error) log.warn(`sweep stopped: ${error}`, fields);

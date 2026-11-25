@@ -29,6 +29,9 @@ Decision 0050 (P142). A client got our message and has not answered. For each on
 6. **Their calendar:** weekends and public holidays of their country, their time zone (phone code, domain, language, signature); pass your guess as `tz`.
 7. A chat marked done (no reply needed, P143) is still judged: a short "yes" after our proposal may still need a nudge on the next step.
 
+## 2b. A fixed bug's note (the prompt says so)
+A bug they reported is fixed (DATA "Fixed report"). One short note in their language and channel: thanks, it is fixed, please check; quote their words once. Never a cause, a date or what else changed; nothing the report does not say. Then `follow_up_plan` as the prompt says.
+
 ## 3. Write the nudge (decision `nudge` only)
 - **One new thing** each time: a fact from the knowledge, an answer to their likely next question, or an easy next step (a slot, a short call, a one-click choice). Never "just checking in", never a copy of our last message, never pressure.
 - Short, in the language of the client's own words (`skills/triage-mail/references/profile.md` 3c: the whole reply, sign-off too), in the brand's tone (`project_show`: tone, `## Brands`). The hub signs Mail drafts: no sign-off of your own. No price, date or term the knowledge does not state: a `[Owner: …]` placeholder, or `hand_over`.

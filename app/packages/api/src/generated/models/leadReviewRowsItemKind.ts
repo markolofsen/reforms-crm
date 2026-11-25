@@ -12,4 +12,5 @@ export type LeadReviewRowsItemKind = typeof LeadReviewRowsItemKind[keyof typeof 
 export const LeadReviewRowsItemKind = {
   lead: 'lead',
   mail: 'mail',
+  fixed: 'fixed',
 } as const;

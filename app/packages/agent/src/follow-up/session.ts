@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { ACTION_ENV } from "@hub/config/action-id";
-import { FOLLOW_UP_CLIENT_ENV, FOLLOW_UP_HUB_TOOLS, FOLLOW_UP_MAX_TURNS, FOLLOW_UP_MODEL, FOLLOW_UP_SKILL, type FollowUpTurn } from "@hub/config/follow-ups";
+import { FOLLOW_UP_BUG_NOTE_ENV, FOLLOW_UP_CLIENT_ENV, FOLLOW_UP_HUB_TOOLS, FOLLOW_UP_MAX_TURNS, FOLLOW_UP_MODEL, FOLLOW_UP_SKILL, type FollowUpTurn } from "@hub/config/follow-ups";
 import type { HubPaths } from "@hub/config/paths";
 import { ADVISOR_OFF_ENV, ancestorMemoryExcludes } from "../claude";
 import { deniedTools } from "../deny";
@@ -42,6 +42,7 @@ export function followUpMcp(o: { paths: Pick<HubPaths, "home" | "hubBin">; nodeB
     HUB_PROJECT: o.turn.project,
     [PROJECT_CAPABILITY_ENV]: o.capability,
     [FOLLOW_UP_CLIENT_ENV]: String(o.turn.client),
+    ...(o.turn.bugNote ? { [FOLLOW_UP_BUG_NOTE_ENV]: String(o.turn.bugNote.id) } : {}),
     [ACTION_ENV]: o.turn.actionId,
     ...(o.db ? { HUB_DB: o.db } : {}),
   };
@@ -93,6 +94,8 @@ export function followUpPrompt(t: FollowUpTurn): string {
     "----- DATA -----",
     t.context,
     "----- END DATA -----",
-    "Follow the follow-up-sweep rules of your system prompt: at most one draft, then exactly one follow_up_plan, then stop.",
+    t.bugNote
+      ? `This turn is a fixed bug's note (section 2b of your system prompt; the DATA's "Fixed report" block): one short note ${t.bugNote.channel === "mail" ? "with draft_write" : `with messenger_draft_write in their ${t.bugNote.channel} chat`}, follow_up = {n}, then follow_up_plan nudge with next_check in 7 days and reason "bug fixed note", then stop.`
+      : "Follow the follow-up-sweep rules of your system prompt: at most one draft, then exactly one follow_up_plan, then stop.",
   ].join("\n");
 }

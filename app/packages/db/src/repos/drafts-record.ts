@@ -12,6 +12,7 @@ import { insertEvent, sessionRun } from "./runs";
 import { bareRef } from "./mail-versions";
 import { joinLeadBatch, stampLeadDraft } from "./lead-pass";
 import { stampMailDraft } from "./mail-pass";
+import { stampBugNoteDraft } from "./bug-notes";
 import type { RecordDraftInput, RecordDraftResult } from "./drafts";
 
 // P126 DB1: the one writer of a draft a session made outside a batch, and the helpers only it uses.
@@ -138,13 +139,16 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
     // P85: a campaign (`bulk-drafts`, one `batchKey`) is one batch in Drafts; joined only by a draft that is written.
     const lead = input.leadPass ?? null;
     const mailPass = input.mailPass ?? null;
-    const passDay = lead?.day ?? mailPass?.day ?? null;
+    // P145 B4 (P147 3m item 6): a fixed bug's mail note joins the day's lead batch too, and is stamped on its note.
+    const bugNote = input.bugNote ?? null;
+    const passDay = lead?.day ?? mailPass?.day ?? bugNote?.day ?? null;
     // P147 verdict 6 and 3h: a lead or mail pass draft joins the day's lead batch (one review a day), whatever run wrote it.
     const inBatch = (): { batchId?: number } =>
       passDay ? { batchId: joinLeadBatch(tx, { project: input.project, day: passDay, clientId: client.id, runId, at }) } : input.skill === BULK_SKILL && runKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.context), title: titleOf(input.context), at }) } : {};
     const stamp = (draftId: number) => {
       if (lead) stampLeadDraft(tx, { project: input.project, pageId: lead.pageId, passId: lead.passId, draftId });
       if (mailPass) stampMailDraft(tx, { project: input.project, inboundId: mailPass.inboundId, passId: mailPass.passId, draftId });
+      if (bugNote) stampBugNoteDraft(tx, { noteId: bugNote.noteId, draftId, at });
     };
     const flagged = input.injectionSuspected === true;
     const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();

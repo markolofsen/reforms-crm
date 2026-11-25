@@ -61,7 +61,7 @@ export function groupRows(rows: readonly Row[]): { needs: Row[]; ready: Row[]; n
   const needs = rows.filter((r) => markersOf(r).length > 0);
   const newSenders = rows.filter((r) => !needs.includes(r) && r.kind === "mail" && r.newSender);
   const rest = rows.filter((r) => !needs.includes(r) && !newSenders.includes(r));
-  return { needs, ready: [...rest.filter((r) => r.kind === "lead"), ...rest.filter((r) => r.kind === "mail")], newSenders };
+  return { needs, ready: [...rest.filter((r) => r.kind === "lead"), ...rest.filter((r) => r.kind === "mail"), ...rest.filter((r) => r.kind === "fixed")], newSenders };
 }
 
 /** The ticks the list opens with: the ready replies only. */

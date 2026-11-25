@@ -17,6 +17,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   agent_events: "activity",
   agent_runs: "activity",
   batches: "batches",
+  // P145 B4: a fixed bug's note was claimed, drafted or told: the follow-ups topic (the sweep's own rows).
+  bug_fixed_notes: "follow-ups",
   client_identifiers: "clients",
   // P135: a new version of a client's map (its `clients` row moves in the same write).
   client_maps: "clients",

@@ -59,15 +59,20 @@ export function start(o: MailStart): MailRuntime {
   const notion = { projectsDir, secretsDir: paths.secrets, stateDir: paths.state };
   // P89, P97 S4 (decision 0044 point 3): after a confirmed send, first the lead's Clients card, then the Last sent stamp; in the
   // background, each never throws and never touches the send. Off with the fake Mailer (nothing was really sent).
-  const onSent = fake ? undefined : (n: SentNotice) => {
+  // P145 B4: a fixed bug's mail note was told at its send (local, also with the fake Mailer: nothing of Notion is touched here).
+  const onSent = (n: SentNotice) => {
     void (async () => {
-      await convertSentLead({ repos, projectsDir }, n);
-      await stampSentMail(notion, n);
+      if (!fake) {
+        await convertSentLead({ repos, projectsDir }, n);
+        await stampSentMail(notion, n);
+      }
+      const note = await repos.bugNotes.ofDraft(n.draftId).catch(() => null);
+      if (note && !note.toldAt) await repos.bugNotes.told(note.id, n.at).catch(() => null);
     })();
   };
   // Decision 0026: Sent detection reads Apple Mail's Sent mailbox while a draft waits; P90: each pass also reads teammates' stamps.
   const teamStamp = fake ? undefined : (project: string, email: string) => teamStampOf(notion, project, email);
-  const sent = startSentReconciler({ repos, projects, ...(onSent ? { onSent } : {}), ...(teamStamp ? { teamStamp } : {}), ...(fake ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
+  const sent = startSentReconciler({ repos, projects, ...(fake ? {} : { onSent }), ...(teamStamp ? { teamStamp } : {}), ...(fake ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
   log.info(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
   // P97 S2: the Leads reader reads each active project's Notion Leads at start, every 15 minutes, and on a new lead notice.
   const leads = startLeadsReader({ repos, projectsDir, ...(fake ? { offReason: "Demo mode: Notion Leads are not read" } : {}) });
@@ -96,7 +101,7 @@ export function start(o: MailStart): MailRuntime {
     kind,
     mailer,
     writer,
-    ...(onSent ? { onSent } : {}),
+    onSent,
     handles: { sent: sent.status, sentPass: sent.tick, inbound, leads, inboundText, conversation: fake ? demoConversation : conversationMail(writer, inboundText) },
     states: () => [sent.status(), { state: inbound.status().state, reason: `${inbound.status().reason ?? ""}${inbound.status().reading ? " reading" : ""}${inbound.status().lastRunAt ?? ""}`, lastError: inbound.status().lastError }],
     stop: () => {
