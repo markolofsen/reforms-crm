@@ -31,7 +31,9 @@ export function useSelection(rows: ConversationRow[]) {
   }, [rows]);
   /** The open drafts of the picked people: what Skip and Hold act on. */
   const drafts: ReviewDraft[] = picked.flatMap((r) => (r.draft && !isClosed(r.draft) ? [r.draft] : []));
-  return { all, picked, drafts, has: (id: number) => ids.has(id), toggle, clear, selecting: mode || picked.length > 0, setMode };
+  /** P147 3n: the newest mail of the picked people with no open draft: what Spam N and Delete N move. */
+  const inbound: number[] = picked.flatMap((r) => (r.inboundId !== null && !(r.draft && !isClosed(r.draft)) ? [r.inboundId] : []));
+  return { all, picked, drafts, inbound, has: (id: number) => ids.has(id), toggle, clear, selecting: mode || picked.length > 0, setMode };
 }
 
 /**

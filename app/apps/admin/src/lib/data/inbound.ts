@@ -5,7 +5,8 @@ import { useMemo } from "react";
 import type { EnrollmentView, InboxKind } from "@hub/config";
 import type { LeadActionDto, LeadView } from "@hub/contract/inbound";
 import type { LiveTopic } from "@hub/contract/live";
-import { inboundApi, inboxApi, leadsApi, sequencesApi } from "@/lib/api/inbox";
+import { inboundApi, inboxApi, leadsApi, sequencesApi, type InboundMove } from "@/lib/api/inbox";
+import { sentence } from "@/lib/api/client";
 import type { LeadReviewTicketBody, LeadReviewTicketDto } from "@hub/contract/lead-pass";
 import type { BatchRunDto } from "@hub/contract/sending";
 import { leadPassApi, type ReviewRead } from "@/lib/api/project/lead-pass";
@@ -41,6 +42,32 @@ export function useDismissInbound(project: string, on: { onSuccess: (r: { ids: n
   const dismiss = useCommand({ project, touches: INBOX, run: (id: number) => inboundApi.dismiss(project, id), onSuccess: on.onSuccess, onError: on.onError });
   const undo = (ids: number[]) => inboundApi.undismiss(project, ids).then(() => refresh(INBOX));
   return { dismiss, undo };
+}
+
+/**
+ * P147 3n: the owner's Spam (Mail's Junk) and Delete (Mail's Trash) of one or more inbound messages, each through the server's one
+ * door; both recoverable in Mail, so the toast says where. A message Mail did not move stays in Needs you and is named.
+ */
+export function useMoveInbound(project: string, on: { onDone: (r: { to: InboundMove; moved: number; failed: string[] }) => void; onError: (e: unknown) => void }) {
+  return useCommand({
+    project,
+    touches: ["inbox", "mail"],
+    run: async (v: { ids: readonly number[]; to: InboundMove }) => {
+      const failed: string[] = [];
+      let moved = 0;
+      for (const id of v.ids) {
+        try {
+          await inboundApi.move(project, id, v.to);
+          moved++;
+        } catch (e) {
+          failed.push(sentence(e));
+        }
+      }
+      return { to: v.to, moved, failed };
+    },
+    onSuccess: on.onDone,
+    onError: on.onError,
+  });
 }
 
 /** P97: one lead's card (its Notion page read now). */

@@ -28,4 +28,6 @@ export type ConversationsRowsItem = {
   ourLastAt: string | null;
   contact: ConversationsRowsItemContact;
   agent: ConversationsRowsItemAgent;
+  /** @nullable */
+  junk: string | null;
 };

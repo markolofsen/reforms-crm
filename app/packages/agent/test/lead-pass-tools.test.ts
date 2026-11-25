@@ -143,6 +143,17 @@ describe("the attended pass", () => {
     expect((await (await connect()).call("lead_pass_start", {})).json.error).toBe("unavailable");
   });
 
+  it("P147 3n: mail_junk moves to Junk by default or to Trash, says a server refusal is refused, and is unavailable without its port", async () => {
+    const asked: string[] = [];
+    const { call } = await connect({ mailJunk: { junk: async (slug, id, to) => (asked.push(`${slug}:${id}:${to}`), id === 9 ? { ok: false, status: 403, error: "Not moved: ann@example.test has a Clients card in Notion." } : { ok: true, closed: 1 }) } });
+    expect((await call("mail_junk", { message: 7 })).json).toMatchObject({ moved: true, to: "junk", closed: 1 });
+    expect((await call("mail_junk", { message: 8, to: "trash" })).json).toMatchObject({ moved: true, to: "trash" });
+    expect((await call("mail_junk", { message: 9, to: "trash" })).json.error).toBe("refused");
+    expect((await call("mail_junk", { message: 7, to: "erase" })).isError).toBe(true);
+    expect(asked).toEqual(["acme:7:junk", "acme:8:trash", "acme:9:trash"]);
+    expect((await (await connect()).call("mail_junk", { message: 7 })).json.error).toBe("unavailable");
+  });
+
   it("leads_open lists the open leads with no decision; an attended decision is one dock pass row", async () => {
     const { call } = await connect({ projectConfig: () => ({ leads: { windowDays: 14 } }) as never });
     const open = await call("leads_open", {});

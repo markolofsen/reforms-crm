@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { moveToJunk, parseJunkOutput } from "../src/junk";
+import { moveToJunk, moveToTrash, parseJunkOutput } from "../src/junk";
+import { JUNK_SCRIPT, TRASH_SCRIPT } from "../src/scripts/junk";
 
 // P147 3m item 1: one inbound message to Junk, by its account, mailbox and bare Message-ID; nothing else is touched.
 
@@ -14,5 +15,13 @@ describe("the move to Junk", () => {
     const r = await moveToJunk(async (_s, args) => (calls.push(args), "ok"), { account: "Work", mailbox: "INBOX", messageId: "<abc@x.test>" });
     expect(r).toEqual({ moved: true });
     expect(calls).toEqual([["Work", "INBOX", "abc@x.test"]]);
+  });
+  it("P147 3n: Delete is the same lookup moved to Trash, never a permanent delete", async () => {
+    const scripts: string[] = [];
+    const r = await moveToTrash(async (s, args) => (scripts.push(s), args.join("|") === "Work|INBOX|abc@x.test" ? "ok" : "bad"), { account: "Work", mailbox: "INBOX", messageId: "<abc@x.test>" });
+    expect(r).toEqual({ moved: true });
+    expect(scripts).toEqual([TRASH_SCRIPT]);
+    expect(TRASH_SCRIPT).not.toBe(JUNK_SCRIPT);
+    expect(TRASH_SCRIPT).not.toMatch(/empty|erase/i);
   });
 });

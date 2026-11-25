@@ -18,7 +18,7 @@ Decision 0055 point 9 (P147 3h). The Hub server's daily mail pass gives you **on
 | `spam` | **phishing**, unsolicited selling, a bot, junk | none: a proposal; the owner's click moves it to Mail's Junk |
 | `hand_over` | the owner must judge it: money, a complaint, a legal or personal matter, another project's product ("belongs to <that project>"), a fact only he has | none |
 
-**Phishing is `spam`.** A mail that impersonates a service to get a click, a sign-in, a code or a payment ("Access Renewal" from an "IT-Helpdesk", a look-alike domain, an urgent account warning) is never answered and never opened. The reason says so: "Phishing: …". The owner's review click moves it to Mail's Junk (recoverable). In a session the owner starts, `mail_junk` moves one at once when he asks.
+**Phishing is `spam`.** A mail that impersonates a service to get a click, a sign-in, a code or a payment ("Access Renewal" from an "IT-Helpdesk", a look-alike domain, an urgent account warning) is never answered and never opened. The reason says so: "Phishing: …". The owner's review click moves it to Mail's Junk (recoverable). In a session the owner starts, `mail_junk` moves one at once when he asks ("в спам", "это фишинг": `to: junk`; "удали": `to: trash`; both recoverable in Mail); the server refuses it for a known sender, whose mail only the owner moves.
 
 ## 3. The reply
 - In the client's language (`profile.md` 3c), as the brand the mail reached, answering their actual question from the knowledge base.

@@ -63,6 +63,7 @@ export function databaseBackedFake(repos: Repos, projectsDir: string): Mailer & 
     trashDrafts: async (items) => ({ moved: [], refused: items.map((i) => i.messageId) }),
     // Its inbound mail is the database's rows too: the move succeeds and the row leaves Needs you (3m item 1).
     moveToJunk: async () => ({ moved: true as const }),
+    moveToTrash: async () => ({ moved: true as const }),
     send: (d, replyTo) => inner.send(d, replyTo),
   };
 }

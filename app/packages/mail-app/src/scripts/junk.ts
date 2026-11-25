@@ -38,3 +38,30 @@ export const JUNK_SCRIPT = `on run argv
     return "ok"
   end tell
 end run`;
+
+
+// P147 3n N1: one inbound message to its account's Trash (recoverable in Mail, never a permanent deletion). The same argv and
+// lookup as the junk move; Mail's own delete moves it to the account's deleted-messages mailbox. Answers "ok" or "missing<TAB>why".
+export const TRASH_SCRIPT = `on run argv
+  set accName to item 1 of argv
+  set boxName to item 2 of argv
+  set mid to item 3 of argv
+  tell application "Mail"
+    if not (exists account accName) then return "missing" & tab & "Mail has no account " & accName
+    set acc to account accName
+    set m to missing value
+    if exists mailbox boxName of acc then
+      try
+        set m to (first message of mailbox boxName of acc whose message id is mid)
+      end try
+    end if
+    if m is missing value then
+      try
+        set m to (first message of mailbox "INBOX" of acc whose message id is mid)
+      end try
+    end if
+    if m is missing value then return "missing" & tab & "the message is no longer in " & boxName
+    delete m
+    return "ok"
+  end tell
+end run`;

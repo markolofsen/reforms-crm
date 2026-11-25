@@ -22,7 +22,7 @@ import type { ConversationRow } from "@/features/mail/model";
 import type { Notice, ReviewActions } from "@/features/mail/list/use-review-actions";
 import { isNotFound, sentence } from "@/lib/api/client";
 import { useConversation, useConversationMail } from "@/lib/data/conversations";
-import { useDismissInbound } from "@/lib/data/inbound";
+import { useDismissInbound, useMoveInbound } from "@/lib/data/inbound";
 import { agentLine } from "@/lib/agent-reasons";
 import { focusAgentRow } from "@/lib/focus";
 import { notionIdentityLine, notionIndicatorState, notionPageIdOf } from "@/lib/notion";
@@ -44,6 +44,19 @@ function useDismiss(project: string) {
   return dismiss;
 }
 
+const BOX = { junk: "Junk", trash: "Trash" } as const;
+
+/** P147 3n: Spam (Mail's Junk) and Delete (Mail's Trash) of their open message; both recoverable in Mail, the toast says where. */
+export function useMoveToast(project: string) {
+  return useMoveInbound(project, {
+    onDone: (r) =>
+      r.failed.length
+        ? toastManager.add({ title: r.moved ? `${r.moved} moved, ${r.failed.length} not` : "Not moved", description: r.failed[0], type: "error" })
+        : toastManager.add({ title: r.moved > 1 ? `${r.moved} moved to ${BOX[r.to]}` : `Moved to ${BOX[r.to]}`, description: `Recoverable in Mail's ${BOX[r.to]}.`, type: "success" }),
+    onError: (e) => toastManager.add({ title: "Not moved", description: sentence(e), type: "error" }),
+  });
+}
+
 /**
  * P128 X1, X2: a person with no draft. The composer rests closed: one action row. Wrote you: Prepare reply (primary) · No reply
  * needed · Write it myself; when the agent judged them (escalated or skipped, `row.agent`), its line is said and No reply needed is
@@ -58,7 +71,15 @@ function ReplyStart({ project, row, onWrite }: { project: string; row: Conversat
     </ActionButton>
   );
   if (row.state !== "wrote") return <DraftActionRow ariaLabel="Write" start={write("Write again")} testId="reply-start" />;
+  const move = useMoveToast(project);
+  const junk = row.junk !== null && row.inboundId !== null;
   const agentSaysNo = row.agent !== null && row.inboundId !== null;
+  const moveButton = (to: "junk" | "trash", primary: boolean) =>
+    row.inboundId === null ? null : (
+      <ActionButton data-testid={to === "junk" ? "move-spam" : "move-delete"} disabled={move.isPending} key={to} onClick={() => row.inboundId !== null && move.mutate({ ids: [row.inboundId], to })} size="s" variant={primary ? "primary" : "quiet"}>
+        {to === "junk" ? "Spam" : "Delete"}
+      </ActionButton>
+    );
   const prepareButton = (primary: boolean) => (
     <ActionButton data-testid="prepare-reply" key="prepare" onClick={() => prepare([{ email: row.client.email, subject: row.subject }])} size="s" variant={primary ? "primary" : "secondary"}>
       Prepare reply
@@ -70,13 +91,18 @@ function ReplyStart({ project, row, onWrite }: { project: string; row: Conversat
         No reply needed
       </ActionButton>
     );
+  // N2: the mail pass's phishing or junk judgement makes Spam the primary, its reason the line above the buttons.
+  const note = junk ? <p className="text-sm" data-testid="agent-verdict">{row.junk ? `Agent: ${row.junk}` : "Agent: looks like phishing or junk."}</p> : row.agent ? <p className="text-sm" data-testid="agent-verdict">{agentLine(row.agent)}</p> : undefined;
   return (
     <DraftActionRow
-      note={row.agent ? <p className="text-sm" data-testid="agent-verdict">{agentLine(row.agent)}</p> : undefined}
-      primary={agentSaysNo ? noReply(true) : prepareButton(true)}
+      note={note}
+      primary={junk ? moveButton("junk", true) : agentSaysNo ? noReply(true) : prepareButton(true)}
       start={
         <>
-          {agentSaysNo ? prepareButton(false) : noReply(false)}
+          {junk ? prepareButton(false) : agentSaysNo ? prepareButton(false) : noReply(false)}
+          {junk ? noReply(false) : null}
+          {junk ? null : moveButton("junk", false)}
+          {moveButton("trash", false)}
           {write("Write it myself")}
         </>
       }

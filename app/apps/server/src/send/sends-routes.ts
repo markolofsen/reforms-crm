@@ -8,6 +8,7 @@ import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messen
 import { gateRefusal, ticketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import { batchRuns } from "./batch-door";
+import { mailMoveRoutes } from "../passes/mail-move-routes";
 import { leadReviewRoutes } from "../passes/review-routes";
 import { applyMessenger, assessMessenger } from "@hub/messengers/door";
 import { messengerPolicy } from "./messenger-policy";
@@ -120,7 +121,9 @@ export function sendRoutes(services: SendContext) {
   return new Hono()
     .route("/", agentSendRoute(services))
     // P147 L5 (decision 0055 point 2): the lead review and its one click, minting from this store; the run is the batch apply below.
-    .route("/", leadReviewRoutes({ repos, deps, tickets, limits, adminPort: sender?.adminPort, projectsDir: sender?.projectsDir, leads: services.leads, agentToken: sender?.agent?.token }))
+    .route("/", leadReviewRoutes({ repos, deps, tickets, limits, adminPort: sender?.adminPort, projectsDir: sender?.projectsDir, leads: services.leads }))
+    // P147 3n: the owner's Spam and Delete of one inbound message, and the agent's \`mail_junk\` (refused for someone we know).
+    .route("/", mailMoveRoutes({ repos, deps, adminPort: sender?.adminPort, agentToken: sender?.agent?.token }))
     // P49 S12: the admin page fetches one ticket per apply. Only the admin's exact origin, from a same-origin fetch, gets one.
     .post("/api/sends/tickets", v("json", sendTicketBody), async (c) => {
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);

@@ -45,6 +45,8 @@ export const conversationRowDto = z.strictObject({
   contact: contactLinksDto,
   /** P128 X2: the agent's judgement of a Wrote you person with no draft (it escalated or skipped their mail), in its words; else null. */
   agent: z.strictObject({ action: z.enum(["escalated", "skipped"]), reason: z.string().nullable(), at: z.string() }).nullable(),
+  /** P147 3n N6: the mail pass judged their open message phishing or junk (its reason, "" without one); Spam is then the primary. */
+  junk: z.string().nullable().default(null),
 });
 export type ConversationRowDto = z.infer<typeof conversationRowDto>;
 

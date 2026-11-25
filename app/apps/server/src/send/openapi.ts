@@ -2,7 +2,7 @@ import { z } from "zod";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger";
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
 import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
-import { leadReviewDto, leadReviewParam, leadReviewQuery, leadReviewTicketBody, leadReviewTicketDto } from "@hub/contract/lead-pass";
+import { inboundMoveBody, inboundMoveParam, inboundMovedDto, leadReviewDto, leadReviewParam, leadReviewQuery, leadReviewTicketBody, leadReviewTicketDto } from "@hub/contract/lead-pass";
 import type { Operation } from "../http/openapi";
 
 const ticket = { name: "SendTicket", schema: sendTicketDto };
@@ -25,6 +25,8 @@ export const operations: Operation[] = [
   // P147 L5 (decision 0055 point 2): the lead review (full texts, served hashes) and its one click, which returns the batch ticket.
   { method: "get", path: "/api/projects/:slug/lead-review/:batchId", operationId: "getLeadReview", summary: "Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs", tags: ["sending"], params: leadReviewParam, query: leadReviewQuery, reply: { name: "LeadReview", schema: leadReviewDto }, errors: [404, 409] },
   { method: "post", path: "/api/projects/:slug/lead-review/:batchId/ticket", operationId: "confirmLeadReview", summary: "The owner's one click: Checked on the ticked drafts, the untick and the proposals applied, the batch ticket", tags: ["sending"], params: leadReviewParam, body: { name: "LeadReviewTicketBody", schema: leadReviewTicketBody }, reply: { name: "LeadReviewTicket", schema: leadReviewTicketDto }, errors: [400, 403, 404, 409] },
+  // P147 3n: the owner's Spam (Mail's Junk) or Delete (Mail's Trash) of one inbound message, both recoverable in Mail.
+  { method: "post", path: "/api/projects/:slug/mail/inbound/:id/move", operationId: "moveInboundMail", summary: "Move one inbound message to Mail's Junk or Trash (the owner's Spam or Delete)", tags: ["sending"], params: inboundMoveParam, body: { name: "InboundMoveBody", schema: inboundMoveBody }, reply: { name: "InboundMoved", schema: inboundMovedDto }, errors: [400, 403, 404, 409] },
   { method: "post", path: "/api/projects/:slug/batches/:id/send/stop", operationId: "stopBatchSend", summary: "Stop one batch run", tags: ["sending"], params: batchSendParam, reply: run, errors: [403, 404] },
   { method: "get", path: "/api/projects/:slug/sends", operationId: "listSends", summary: "List the project's sends", tags: ["sending"], params: slugParam, reply: { name: "Sends", schema: sendsDto }, errors: [404, 503] },
   { method: "post", path: "/api/sends/:id/cancel", operationId: "cancelSend", summary: "Cancel one queued send", tags: ["sending"], params: idParam, query: projectQuery, reply: { name: "SendCancelled", schema: sendCancelledDto }, errors: [400, 403, 404, 409] },

@@ -6076,6 +6076,70 @@
         }
       }
     },
+    "/api/projects/{slug}/mail/inbound/{id}/move": {
+      "post": {
+        "operationId": "moveInboundMail",
+        "summary": "Move one inbound message to Mail's Junk or Trash (the owner's Spam or Delete)",
+        "tags": [
+          "sending"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InboundMoveBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Move one inbound message to Mail's Junk or Trash (the owner's Spam or Delete)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboundMoved"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/projects/{slug}/batches/{id}/send/stop": {
       "post": {
         "operationId": "stopBatchSend",
@@ -14852,6 +14916,13 @@
                       "type": "null"
                     }
                   ]
+                },
+                "junk": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -14867,7 +14938,8 @@
                 "theirLastAt",
                 "ourLastAt",
                 "contact",
-                "agent"
+                "agent",
+                "junk"
               ],
               "additionalProperties": false
             }
@@ -15740,6 +15812,13 @@
                     "type": "null"
                   }
                 ]
+              },
+              "junk": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -15755,7 +15834,8 @@
               "theirLastAt",
               "ourLastAt",
               "contact",
-              "agent"
+              "agent",
+              "junk"
             ],
             "additionalProperties": false
           },
@@ -23639,6 +23719,47 @@
           "items",
           "held",
           "applied"
+        ],
+        "additionalProperties": false
+      },
+      "InboundMoveBody": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "default": "junk",
+            "type": "string",
+            "enum": [
+              "junk",
+              "trash"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "InboundMoved": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "to": {
+            "type": "string",
+            "enum": [
+              "junk",
+              "trash"
+            ]
+          },
+          "closed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "ok",
+          "to",
+          "closed"
         ],
         "additionalProperties": false
       },

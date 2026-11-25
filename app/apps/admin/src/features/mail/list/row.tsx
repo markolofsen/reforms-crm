@@ -27,12 +27,14 @@ export function statusOf(r: ConversationRow): Status {
 
 type Chip = ConversationChip;
 
-/** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, checks, a sequence step, the follow-up plan (P142), two brands. */
+/** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, phishing (P147 3n), checks, a sequence step, the follow-up plan (P142), two brands. */
 export function chipsOf(r: ConversationRow, followUp: string | null = null): Chip[] {
   const out: Chip[] = [];
   const d: ReviewDraft | null = r.draft;
   if (d?.client.marks.includes("do_not_contact")) out.push({ id: "dnc", text: "Do not contact", variant: "error" });
   if (d && d.injectionSuspected && !isClosed(d)) out.push({ id: "injection", text: "Suspicious mail", variant: "error" });
+  // P147 3n N6: the mail pass judged their open message phishing or junk; Spam is the pane's primary.
+  if (r.junk !== null && !(d && !isClosed(d))) out.push({ id: "phishing", text: "Phishing?", variant: "error" });
   const pending = d && !isClosed(d) ? openResults(d) : [];
   if (pending.length > 0) out.push({ id: "checks", text: `${pending.length} check${pending.length === 1 ? "" : "s"}`, variant: pending.some((x) => x.level === "red") ? "error" : "warning" });
   if (d?.sequence) out.push({ id: "sequence-step", text: `Step ${d.sequence.step}/${d.sequence.steps}`, variant: "info" });

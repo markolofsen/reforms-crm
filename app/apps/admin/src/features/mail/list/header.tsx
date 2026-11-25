@@ -13,7 +13,7 @@ export type View = { value: string; label: string; count: number | undefined };
 export type Filters = { options: readonly FilterOption[]; value: string | null; onChange: (v: string | null) => void; brands: readonly BrandCount[]; brand: string | null; onBrand: (b: string | null) => void };
 
 /** `send`: P147 3m item 5, the picked replies of today's list that can go now; its Send N opens the same sheet with only them. */
-type Selection = { count: number; busy: boolean; onSkip: () => void; onHold: () => void; onClear: () => void; send?: { count: number; onSend: () => void } };
+type Selection = { count: number; busy: boolean; onSkip: () => void; onHold: () => void; onClear: () => void; send?: { count: number; onSend: () => void }; move?: { count: number; onMove: (to: "junk" | "trash") => void } };
 type Header = {
   views: View[];
   view: string;
@@ -29,10 +29,10 @@ type Header = {
 };
 
 /**
- * "3 selected · Send 2 · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. Its height is
+ * "3 selected · Send 2 · Spam 1 · Delete 1 · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. Its height is
  * the header line's: the search field is `control-s` inside its 1px border, 2px taller than the buttons beside it.
  */
-function SelectionLine({ count, busy, onSkip, onHold, onClear, send }: Selection) {
+function SelectionLine({ count, busy, onSkip, onHold, onClear, send, move }: Selection) {
   return (
     <div aria-label="Selected drafts" className="flex h-[calc(var(--control-s)+2px)] min-w-0 items-center gap-2" role="toolbar">
       <p className="me-auto min-w-0 truncate font-medium text-sm tabular-nums">{count} selected</p>
@@ -40,6 +40,16 @@ function SelectionLine({ count, busy, onSkip, onHold, onClear, send }: Selection
         <ActionButton data-testid="selection-send" disabled={busy} onClick={send.onSend} size="s" variant="primary">
           Send {send.count}
         </ActionButton>
+      )}
+      {move && move.count > 0 && (
+        <>
+          <ActionButton data-testid="selection-spam" disabled={busy} onClick={() => move.onMove("junk")} size="s" variant="secondary">
+            Spam {move.count}
+          </ActionButton>
+          <ActionButton data-testid="selection-delete" disabled={busy} onClick={() => move.onMove("trash")} size="s" variant="secondary">
+            Delete {move.count}
+          </ActionButton>
+        </>
       )}
       <ActionButton disabled={busy} onClick={onSkip} size="s" variant="secondary">
         Skip

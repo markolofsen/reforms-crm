@@ -13,6 +13,8 @@ import type {
   BatchTicketBody,
   CancelSendParams,
   GetLeadReviewParams,
+  InboundMoveBody,
+  InboundMoved,
   LeadReview,
   LeadReviewTicket,
   LeadReviewTicketBody,
@@ -511,6 +513,66 @@ export const confirmLeadReview = async (slug: string,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(leadReviewTicketBody)
+  }
+);}
+
+
+export type moveInboundMailResponse200 = {
+  data: InboundMoved
+  status: 200
+}
+
+export type moveInboundMailResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type moveInboundMailResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type moveInboundMailResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type moveInboundMailResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type moveInboundMailResponseSuccess = (moveInboundMailResponse200) & {
+  headers: Headers;
+};
+export type moveInboundMailResponseError = (moveInboundMailResponse400 | moveInboundMailResponse403 | moveInboundMailResponse404 | moveInboundMailResponse409) & {
+  headers: Headers;
+};
+
+export type moveInboundMailResponse = (moveInboundMailResponseSuccess | moveInboundMailResponseError)
+
+export const getMoveInboundMailUrl = (slug: string,
+    id: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/mail/inbound/${encodeURIComponent(String(id))}/move`
+}
+
+/**
+ * @summary Move one inbound message to Mail's Junk or Trash (the owner's Spam or Delete)
+ */
+export const moveInboundMail = async (slug: string,
+    id: number,
+    inboundMoveBody: InboundMoveBody, options?: Parameters<typeof hubMutator>[1]): Promise<moveInboundMailResponse> => {
+
+  return hubMutator<moveInboundMailResponse>(getMoveInboundMailUrl(slug,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(inboundMoveBody)
   }
 );}
 

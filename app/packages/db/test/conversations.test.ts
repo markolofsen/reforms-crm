@@ -91,6 +91,9 @@ describe("P99 the list of people", () => {
     const rows = (await repos.conversations.list(P, "needs_you")).rows;
     expect(rows.find((r) => r.client.email === "phish@x.example")?.agent).toMatchObject({ action: "escalated", reason: "looks like phishing, owner to confirm" });
     expect(rows.find((r) => r.client.email === "quiet@x.example")?.agent).toBeNull();
+    // P147 3n N6: an escalation that names phishing marks the row junk (the pane's Spam primary, the list's Phishing? chip).
+    expect(rows.find((r) => r.client.email === "phish@x.example")?.junk).toBe("looks like phishing, owner to confirm");
+    expect(rows.find((r) => r.client.email === "quiet@x.example")?.junk).toBeNull();
     await tick();
     await record("phish@x.example", "ph@x", "Access Renewal");
     expect((await repos.conversations.list(P, "all")).rows.find((r) => r.client.email === "phish@x.example")?.agent).toBeNull();

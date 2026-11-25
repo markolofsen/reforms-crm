@@ -14,7 +14,7 @@ import { useClock } from "@/lib/clock";
 import { runLocalAction } from "@/components/local-action";
 import { postLocalOpen } from "@/lib/data/instance";
 import { copyText, openLink, sameTab } from "@/lib/external";
-import { ConversationPane } from "@/features/mail/conversation/pane";
+import { ConversationPane, useMoveToast } from "@/features/mail/conversation/pane";
 import { useToggleChecked } from "@/features/mail/draft/mail-read/use-toggle-checked";
 import { ListHeader, type Filters, type View } from "./list/header";
 import type { BrandCount } from "./list/filter-menu";
@@ -178,7 +178,11 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
       }
     : null;
   const toggleChecked = useToggleChecked(source.project, actions, say);
-  useMailKeys({ enabled: shortcutsOn, current: current?.draft ?? null, actions, advance, replyAll: (d) => void replyAllInMail(d, say), toggleChecked, undoLast, say });
+  // P147 3n: Spam and Delete (keys, the selection bar) for people whose newest mail has no open draft, as the pane's buttons.
+  const mover = useMoveToast(source.project);
+  const loose = current && current.inboundId !== null && !(current.draft && !isClosed(current.draft)) ? current.inboundId : null;
+  const move = loose === null || mover.isPending ? null : (to: "junk" | "trash") => mover.mutate({ ids: [loose], to });
+  useMailKeys({ enabled: shortcutsOn, current: current?.draft ?? null, actions, advance, replyAll: (d) => void replyAllInMail(d, say), toggleChecked, undoLast, move, say });
 
   const bulk = (status: "skipped" | "hold", title: string) => {
     const targets = sel.drafts.filter((d) => !isClosed(d));
@@ -194,7 +198,7 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
   const ready = useSendReady();
   const readyPicked = selectedReady(ready, sel.drafts);
   const sendPicked = ready && readyPicked.length > 0 ? { count: readyPicked.length, onSend: () => (ready.open(readyPicked), sel.clear()) } : undefined;
-  const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped"), send: sendPicked };
+  const header = { count: sel.picked.length, busy: actions.pending || mover.isPending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped"), send: sendPicked, move: { count: sel.inbound.length, onMove: (to: "junk" | "trash") => (mover.mutate({ ids: sel.inbound, to }), sel.clear()) } };
   const channel: Channel = {
     noun: { list: "Mail", detail: "Conversation", back: "Mail" },
     ids: rows.map(rowId),

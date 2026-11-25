@@ -6,6 +6,9 @@ import { touchClient } from "./clients";
 import { OPEN_INBOUND } from "./inbound-mail";
 import { toReviewDrafts, type ReviewDraft } from "./review";
 
+/** An escalation reason that names the message junk: the agent's own words ("looks like phishing, owner to confirm"). */
+const JUNK_WORDS = /\b(phishing|spam|scam|junk)\b/i;
+
 // P99 S2 (verdicts 1 to 3): Mail lists people, not drafts. One row per `clients` row of the project, with one state word derived
 // from the facts the Hub already holds (no column, no migration): an open message of theirs (the Mail reader's `inbound_mail`)
 // or an owed `inbox_rows` row the agent escalated with no draft after it is Wrote you; an open draft is Draft ready (On hold for
@@ -40,6 +43,11 @@ export interface ConversationItem {
    * triage row of `inbox_rows`, its `reason` in the agent's words), and only while they wrote and nothing is open. Null otherwise.
    */
   agent: { action: "escalated" | "skipped"; reason: string | null; at: string } | null;
+  /**
+   * P147 3n N6: their open message judged phishing or junk (the reason, "" when none was given): the mail pass's spam proposal, or
+   * an inbox escalation whose reason names phishing or spam (the owner's IT-Helpdesk row, 2026-11-25); else null.
+   */
+  junk: string | null;
 }
 
 export type ConversationCounts = Record<ConversationView, number>;
@@ -127,6 +135,7 @@ export function conversationsRepo(db: Db) {
         theirLastAt,
         ourLastAt,
         agent: verdict && (verdict.action === "escalated" || verdict.action === "skipped") ? { action: verdict.action, reason: verdict.reason, at: verdict.recordedAt } : null,
+        junk: openIn === null ? null : openIn.passDecision === "spam" ? (openIn.passReason ?? "") : verdict?.action === "escalated" && JUNK_WORDS.test(verdict.reason ?? "") ? (verdict.reason ?? "") : null,
       };
     });
   };

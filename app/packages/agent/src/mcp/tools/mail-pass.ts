@@ -50,24 +50,26 @@ export const mailDecideTool = defineTool({
 });
 
 /**
- * P147 3m item 1: the owner's attended session moves one phishing or junk mail to Mail's Junk (recoverable, like Trash: not a
- * deletion). The server does it (the agent's shell has no Mail scripting): Mail first, then the sender's open rows leave Needs
- * you, with an Activity line. Only in the sessions the owner starts; the passes propose `spam` instead, applied by his review click.
+ * P147 3m item 1, 3n: the owner's attended session moves one inbound mail to Mail's Junk (phishing, junk) or Trash (anything else he
+ * does not want); both recoverable in Mail, never a deletion. The server does it (the agent's shell has no Mail scripting) and
+ * refuses a known sender (a Clients card, a mail we sent, a lead): only the owner's buttons move those. Only in the sessions the
+ * owner starts; the passes propose `spam` instead, applied by his review click.
  */
 export const mailJunkTool = defineTool({
   name: "mail_junk",
-  title: "Move one inbound mail to Mail's Junk",
+  title: "Delete one inbound mail, or move it to spam (phishing, junk)",
   description:
-    "Moves one inbound message (inbound:<id>, from message_show or mail_list) to its account's Junk mailbox in Mail and takes the sender out of Needs you; Activity records it. Only for phishing (a mail that impersonates a service to get a click, a sign-in, a code or a payment) or plain junk, and only when the owner asked or plainly agreed. Junk is recoverable in Mail. Never for a client, a lead or anything that needs an answer.",
-  input: z.object({ message: z.number().int().positive().describe("the inbound id (inbound:<id>)") }),
-  output: z.object({ project: z.string(), message: z.number(), moved: z.literal(true), closed: z.number(), next: z.string() }),
+    "Deletes (to: trash) or moves to spam (to: junk, default) one inbound message (inbound:<id>, from message_show or mail_list) in Mail, and takes the sender out of Needs you; Activity records it. Junk: phishing (impersonates a service to get a click, sign-in, code or payment) or plain junk. Trash: anything else the owner does not want. Only when he asked or plainly agreed. Both recoverable in Mail. Refused for a known sender (a Clients card, a mail we sent, a lead).",
+  input: z.object({ message: z.number().int().positive().describe("the inbound id (inbound:<id>)"), to: z.enum(["junk", "trash"]).default("junk").describe("junk: spam or phishing; trash: delete") }),
+  output: z.object({ project: z.string(), message: z.number(), moved: z.literal(true), to: z.enum(["junk", "trash"]), closed: z.number(), next: z.string() }),
   effect: "draft",
-  refusals: ["not_found", "wrong_state", "unavailable"],
+  refusals: ["not_found", "wrong_state", "unavailable", "refused"],
   handler: async ({ env, project }, i) => {
     const slug = project();
     if (!env.mailJunk) throw new ToolError("unavailable", "This session cannot move mail (only the sessions the owner starts can; a pass proposes spam instead).");
-    const a = await env.mailJunk.junk(slug, i.message);
-    if (!a.ok) throw new ToolError(a.status === 404 ? "not_found" : a.status === 409 ? "wrong_state" : "unavailable", a.error);
-    return { project: slug, message: i.message, moved: true as const, closed: a.closed, next: "Tell the owner in one line: moved to Junk in Mail (recoverable there), out of Needs you." };
+    const a = await env.mailJunk.junk(slug, i.message, i.to);
+    if (!a.ok) throw new ToolError(a.status === 404 ? "not_found" : a.status === 403 ? "refused" : a.status === 409 ? "wrong_state" : "unavailable", a.error);
+    const box = i.to === "trash" ? "Trash" : "Junk";
+    return { project: slug, message: i.message, moved: true as const, to: i.to, closed: a.closed, next: `Tell the owner in one line: moved to ${box} in Mail (recoverable there), out of Needs you.` };
   },
 });

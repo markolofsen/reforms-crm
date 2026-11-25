@@ -13,7 +13,7 @@ export {
   linkChatRecord, listAccountDialogs, listMessengerChats, markMessengerChatDone, neverLinkChat, prepareMessengerReply, previewAutolink, readWhatsAppConnect, restoreMessengerDraft, sendTelegramUserCode, sendTelegramUserPassword, setMessengerChatRules, skipMessengerDraft, startTelegramUserLogin, startWhatsAppConnect, undoChatClient, undoMessengerChatDone, unhideChat, unlinkChat,
   createAutopilotTicket, getAutopilot, getProjectAutopilot, setAutopilot, setProjectAutopilot,
 } from "./generated/messengers/messengers";
-export { cancelSend, confirmLeadReview, createBatchSendTicket, createSendTicket, getBatchSend, getLeadReview, listSends, resumeSends, runBatchSend, sendOneMailDraft, sendMessengerDraft, stopBatchSend, stopSends } from "./generated/sending/sending";
+export { cancelSend, confirmLeadReview, createBatchSendTicket, createSendTicket, getBatchSend, getLeadReview, listSends, moveInboundMail, resumeSends, runBatchSend, sendOneMailDraft, sendMessengerDraft, stopBatchSend, stopSends } from "./generated/sending/sending";
 export { getPointer, postFocus, getPostFocusUrl } from "./generated/agent/agent";
 export { closeTerminalSession, createTerminalSession, createTerminalTicket, ensureTerminalSession, getTerminal, getDropTerminalFilesUrl } from "./generated/terminal/terminal";
 export { getStreamLiveUrl } from "./generated/live/live";

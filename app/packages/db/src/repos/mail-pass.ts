@@ -3,7 +3,7 @@ import { LEAD_PASS_REASON_MAX, MAIL_PASS_DECISION_LABELS, MAIL_PASS_SKILL, type 
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { write, type WriteTx } from "../tx";
-import { clients, drafts, inboundMail, leadPasses, sendLog } from "../schema";
+import { clients, drafts, inboundMail, leadPasses, leadRows, sendLog } from "../schema";
 import { SQL_OPEN, type InboundRow } from "./inbound-mail";
 import { insertEvent, sessionRun } from "./runs";
 
@@ -135,7 +135,23 @@ export function mailPassRepo(db: Db) {
      * P147 3m item 1: the message went to Mail's Junk (the review click on a junk proposal, or the owner's attended session). The
      * sender's open rows leave Needs you, and Activity gets one line. Call it only after Mail moved the message.
      */
-    async junked(d: { project: string; inboundId: number; by: "review" | "attended"; at: string }): Promise<number[]> {
+    /**
+     * P147 3n N4: why the agent may not move this sender's mail, or null. Someone we know: a Clients card in Notion, a mail we sent
+     * them, or a lead. The owner's own buttons are never asked this; the agent's `mail_junk` is.
+     */
+    async knownSender(project: string, inboundId: number): Promise<string | null> {
+      const r = db.select().from(inboundMail).where(and(eq(inboundMail.project, project), eq(inboundMail.id, inboundId))).get();
+      if (!r) return null;
+      const email = r.email.trim().toLowerCase();
+      const c = db.select({ id: clients.id, page: clients.notionPageId }).from(clients).where(and(eq(clients.project, project), eq(clients.email, email))).get();
+      if (c?.page) return `${email} has a Clients card in Notion`;
+      if (c && db.select({ id: drafts.id }).from(drafts).where(and(eq(drafts.project, project), eq(drafts.clientId, c.id), eq(drafts.status, "sent"))).get()) return `we have written to ${email}`;
+      if (db.select({ id: sendLog.id }).from(sendLog).where(and(eq(sendLog.project, project), eq(sendLog.status, "sent"), sql`lower(${sendLog.toAddr}) like ${`%${email}%`}`)).get()) return `we have written to ${email}`;
+      if (db.select({ id: leadRows.id }).from(leadRows).where(and(eq(leadRows.project, project), sql`(${leadRows.email} = ${email} or ${leadRows.accountEmail} = ${email})`)).get()) return `${email} is a lead`;
+      return null;
+    },
+
+    async moved(d: { project: string; inboundId: number; to: "junk" | "trash"; by: "review" | "attended" | "owner"; at: string }): Promise<number[]> {
       return write(db, (tx) => {
         const r = tx.select().from(inboundMail).where(and(eq(inboundMail.project, d.project), eq(inboundMail.id, d.inboundId))).get();
         if (!r) throw new RepoError("not_found", `No inbound message ${d.inboundId} in project ${d.project}`);
@@ -149,8 +165,8 @@ export function mailPassRepo(db: Db) {
           at: d.at,
           kind: "decision",
           tool: "mail_junk",
-          summary: `Mail moved to Junk: ${r.name || r.email}`,
-          detail: JSON.stringify({ action: "mail_junk", by: d.by, subject: r.subject.slice(0, 200), inbound: { id: r.id, account: r.account, mailbox: r.mailbox }, closed: ids }),
+          summary: `Mail moved to ${d.to === "trash" ? "Trash" : "Junk"}: ${r.name || r.email}`,
+          detail: JSON.stringify({ action: "mail_junk", to: d.to, by: d.by, subject: r.subject.slice(0, 200), inbound: { id: r.id, account: r.account, mailbox: r.mailbox }, closed: ids }),
           clientId: client,
         });
         return ids;

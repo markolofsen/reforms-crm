@@ -1,9 +1,12 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
-import { checkInbound, dismissInbound, getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listLeads, listNotByEmail, listSequences, notNowLead, spamLead, stopEnrollment, undismissInbound, undoLead } from "@hub/api";
+import { checkInbound, dismissInbound, moveInboundMail, getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listLeads, listNotByEmail, listSequences, notNowLead, spamLead, stopEnrollment, undismissInbound, undoLead } from "@hub/api";
 import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, leadActionDto, leadDetailDto, leadsListDto, type LeadView } from "@hub/contract/inbound";
 import { notByEmailDto } from "@hub/contract/inbox";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
+import { inboundMovedDto, type INBOUND_MOVES } from "@hub/contract/lead-pass";
 import { readGenerated } from "./client";
+
+export type InboundMove = (typeof INBOUND_MOVES)[number];
 
 /** The clients the agent did not answer by email (a View of Mail, P48). Read-only. */
 export const inboxApi = {
@@ -33,6 +36,8 @@ export const inboundApi = {
   check: (project: string) => readGenerated(checkInbound(project), inboundCheckedDto),
   dismiss: (project: string, id: number) => readGenerated(dismissInbound(project, id), inboundDismissedDto),
   undismiss: (project: string, ids: number[]) => readGenerated(undismissInbound(project, { ids }), inboundDismissedDto),
+  /** P147 3n: Spam (Mail's Junk) or Delete (Mail's Trash) of one message; both recoverable in Mail. */
+  move: (project: string, id: number, to: InboundMove) => readGenerated(moveInboundMail(project, id, { to }), inboundMovedDto),
 };
 
 /**

@@ -58,9 +58,10 @@ export function deniedToolsOf(server: string, run: SessionRun = "background"): s
 }
 
 /** A tool name that looks like it sends, forwards or removes: the Agent tools check fails when one is not denied (P49 5B). */
-// The hub's own `mail_junk` (P147 3m item 1) moves one inbound message to Mail's Junk and is exempt by design, not by a
-// lucky name: the owner asked for it, Junk is recoverable like Trash, the server does the move (the agent's shell has no Mail
-// scripting), and only the sessions the owner starts carry it (deny-modes pins it out of every background and pass profile).
+// The hub's own `mail_junk` (P147 3m item 1, 3n) moves one inbound message to Mail's Junk or Trash and is exempt by design, not
+// by a lucky name: the owner asked for it, both are recoverable in Mail (never a deletion), the server does the move (the agent's
+// shell has no Mail scripting) and refuses a known sender (a Clients card, a mail we sent, a lead), and only the sessions the
+// owner starts carry it (deny-modes pins it out of every background and pass profile).
 export const SEND_LIKE_TOOL = /send|forward|reply|outgoing|delete|trash|move|cancel/i;
 /** Tool names that match {@link SEND_LIKE_TOOL} but only write an unsent draft or read: never denied. */
 export const DRAFT_TOOLS: readonly string[] = ["list_outgoing_messages", "notion-calendar-list-events"];

@@ -16,6 +16,8 @@ export const MAIL_ACTION_KEYS: readonly (readonly [string, string])[] = [
   ["H", "hold, or back to ready"],
   ["U", "undo the last Done, Skip or Hold (also on its toast)"],
   ["1 2 3", "short, standard, warm version"],
+  ["!", "spam: their mail to Mail's Junk (no draft open)"],
+  ["#, Backspace", "delete: their mail to Mail's Trash (no draft open)"],
 ];
 
 export type MailKeyDeps = {
@@ -28,6 +30,8 @@ export type MailKeyDeps = {
   /** `C`: switch Checked on or off, through the same guard as the switch (it refuses an unreadable draft or one with no text hash). */
   toggleChecked: (d: ReviewDraft) => void;
   undoLast: (() => void) | null;
+  /** P147 3n: Spam or Delete of the open person's mail, when they have one and no open draft (the pane shows the same buttons). */
+  move: ((to: "junk" | "trash") => void) | null;
   say: (text: string) => void;
 };
 
@@ -54,6 +58,9 @@ export function useMailKeys(k: MailKeyDeps): void {
       1: tone(0),
       2: tone(1),
       3: tone(2),
+      "!": () => k.move?.("junk"),
+      "#": () => k.move?.("trash"),
+      backspace: () => k.move?.("trash"),
     },
     k.enabled,
     MAIL_ACTION_KEYS,

@@ -1,6 +1,6 @@
 import { withoutLeadingBlankLines } from "@hub/db";
 import { mailAppDrafts, type DraftHead, type DraftQuery, type MailDraft, type TrashItem } from "@hub/mail-app/drafts";
-import { moveToJunk, type JunkAnswer, type JunkItem } from "@hub/mail-app/junk";
+import { moveToJunk, moveToTrash, type JunkAnswer, type JunkItem } from "@hub/mail-app/junk";
 import { osaFor, type OsaRun } from "@hub/mail-app/osa";
 import { bareId, LS } from "@hub/mail-app/records";
 
@@ -21,6 +21,8 @@ export interface Mailer {
   trashDrafts(items: TrashItem[]): Promise<{ moved: string[]; refused: string[]; why?: string[] }>;
   /** P147 3m item 1: moves one inbound message (its account, mailbox and Message-ID) to that account's Junk, recoverable, marked junk. Never anything else. */
   moveToJunk(item: JunkItem): Promise<JunkAnswer>;
+  /** P147 3n: moves one inbound message to that account's Trash (recoverable in Mail). Never anything else. */
+  moveToTrash(item: JunkItem): Promise<JunkAnswer>;
   /**
    * Sends exactly this draft's text to exactly its recipients. `replyTo` (the bare Message-ID of the message answered,
    * P56) makes the outgoing mail a reply to it, so it keeps `In-Reply-To` and `References`. Throws when Mail refuses.
@@ -121,6 +123,7 @@ export function mailAppMailer(osa: OsaRun = osaFor("long"), read: OsaRun = osa):
   return {
     ...mailAppDrafts(osa, read),
     moveToJunk: (item) => moveToJunk(osa, item),
+    moveToTrash: (item) => moveToTrash(osa, item),
     async send(d, replyTo) {
       // P94: never a blank line above the text (Mail's reply adds its own empty top line; `assess` already strips, this is the door's own guard).
       const out = await osa(SEND_SCRIPT, [d.sender ?? "", d.subject, withoutLeadingBlankLines(d.body), d.to.join(LS), d.cc.join(LS), d.bcc.join(LS), d.ref, bareId(replyTo), d.account ?? ""]);
@@ -151,6 +154,8 @@ export class FakeMailer implements Mailer {
   /** What was moved to Junk (3m item 1); `failJunk` makes the next move answer not moved. */
   junked: JunkItem[] = [];
   failJunk: string | null = null;
+  /** What was moved to Trash (3n); `failJunk` refuses that move too. */
+  binned: JunkItem[] = [];
   finds = 0;
   constructor(drafts: MailDraft[] = []) {
     this.drafts = drafts;
@@ -186,6 +191,15 @@ export class FakeMailer implements Mailer {
       return { moved: false, why };
     }
     this.junked.push(item);
+    return { moved: true };
+  }
+  async moveToTrash(item: JunkItem): Promise<JunkAnswer> {
+    if (this.failJunk) {
+      const why = this.failJunk;
+      this.failJunk = null;
+      return { moved: false, why };
+    }
+    this.binned.push(item);
     return { moved: true };
   }
   async send(d: MailDraft, replyTo?: string | null): Promise<{ messageId: string | null }> {

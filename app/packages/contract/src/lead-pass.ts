@@ -162,3 +162,13 @@ export const leadReviewTicketDto = z.object({
   applied: z.object({ spam: z.number(), notNow: z.number(), noReply: z.number().default(0), junk: z.number().default(0), excluded: z.number(), notion: z.array(z.string()), notMoved: z.array(z.string()).default([]) }),
 });
 export type LeadReviewTicketDto = z.infer<typeof leadReviewTicketDto>;
+
+// ---- P147 3n: one inbound message to Mail's Junk or Trash (both recoverable in Mail; never a deletion)
+
+export const INBOUND_MOVES = ["junk", "trash"] as const;
+export const inboundMoveParam = z.object({ slug: z.string().min(1), id: z.coerce.number().int().positive() });
+/** `junk`: phishing or junk (Mail learns it); `trash`: anything else the owner does not want. */
+export const inboundMoveBody = z.strictObject({ to: z.enum(INBOUND_MOVES).default("junk") });
+export type InboundMoveBody = z.infer<typeof inboundMoveBody>;
+export const inboundMovedDto = z.object({ ok: z.literal(true), to: z.enum(INBOUND_MOVES), closed: z.number().int() });
+export type InboundMovedDto = z.infer<typeof inboundMovedDto>;
