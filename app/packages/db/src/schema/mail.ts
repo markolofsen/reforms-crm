@@ -124,6 +124,8 @@ export const leadRows = sqliteTable(
     country: text("country"),
     segment: text("segment"),
     volume: text("volume"),
+    // P147 E4 (migration 0048): the phone or messenger number, digits only; rows sharing it (or an email) are one person.
+    phone: text("phone"),
     notionStatus: text("notion_status"), // as last read; null: the Status cell is empty (handled as New)
     hasClient: integer("has_client", { mode: "boolean" }).notNull().default(false),
     dismissedAt: text("dismissed_at"),

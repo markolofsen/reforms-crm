@@ -37,3 +37,37 @@ export function addressTypo(address: string | null | undefined): { address: stri
 
 /** Free mail providers: a company match by domain never uses them (two gmail users are not one company). */
 export const FREE_MAIL = new Set(["gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "live.com", "yahoo.com", "icloud.com", "me.com", "mail.ru", "yandex.ru", "proton.me", "protonmail.com", "aol.com", "gmx.de", "gmx.net", "web.de", "qq.com", "163.com", "naver.com"]);
+
+const ADDRESS = /^[^\s@<>(),;:"']+@[^\s@<>(),;:"']+\.[^\s@<>(),;:"'.]{2,}$/;
+
+/** P147 E3: where a lead's reply goes, and why in one line the review row shows. */
+export type ReplyAddress = { address: string; source: "form" | "account"; why: string } | { address: null; source: null; why: string };
+
+/**
+ * P147 E3 (decision 0055 point 8): the address a first reply to a lead goes to. The email typed on the form when it is an
+ * address and has no known typo; else the lead's account email (the Leads `Email`, the signed-in account) on the same terms;
+ * else none, and the lead is the owner's (`hand_over`, "no usable address"). A typo is never repaired by a guess. `email` is the
+ * stored reply address (the typed email, else the account email); `accountEmail` the account email as read. Pure.
+ */
+export function replyAddressOf(row: { email: string | null; accountEmail: string | null }): ReplyAddress {
+  const clean = (v: string | null) => (v ?? "").trim().toLowerCase();
+  const account = clean(row.accountEmail);
+  const typed = clean(row.email) && clean(row.email) !== account ? clean(row.email) : "";
+  const problem = (a: string, what: string): string | null => {
+    if (!ADDRESS.test(a)) return `${what} "${a.slice(0, 60)}" is not an email address`;
+    const t = addressTypo(a);
+    return t ? `${what} ${a} has a mistyped domain (${t.domain}; ${t.meant} is not assumed)` : null;
+  };
+  const notes: string[] = [];
+  if (typed) {
+    const p = problem(typed, "the form's email");
+    if (!p) return { address: typed, source: "form", why: "the email typed on the form" };
+    notes.push(p);
+  }
+  if (account) {
+    const p = problem(account, "the account email");
+    if (!p) return { address: account, source: "account", why: notes.length ? `${notes.join("; ")}: the account email instead` : "the account email (no email typed on the form)" };
+    notes.push(p);
+  }
+  return { address: null, source: null, why: `no usable address${notes.length ? `: ${notes.join("; ")}` : " (a phone or messenger contact only)"}` };
+}

@@ -96,7 +96,7 @@ export function windowOf(pages: ReadonlyArray<{ created_time?: unknown } & Param
     }
     // P98 item 4: the preview is what the person wrote (Message); the form's metadata (Details: locale, host, consent) never is.
     const text = l.message.replace(/\s+/g, " ").trim();
-    rows.push({ project: o.project, pageId: pageKey(l.id), name: l.name, email: l.replyTo, accountEmail: l.email ? l.email.trim().toLowerCase() : null, brand: brandOf(l, o.config), receivedAt: at, preview: text.slice(0, LEAD_PREVIEW_CHARS), notionStatus: l.status, hasClient: l.hasClient, facts: leadFactsOf(l.sheet) });
+    rows.push({ project: o.project, pageId: pageKey(l.id), name: l.name, email: l.replyTo, accountEmail: l.email ? l.email.trim().toLowerCase() : null, brand: brandOf(l, o.config), receivedAt: at, preview: text.slice(0, LEAD_PREVIEW_CHARS), notionStatus: l.status, hasClient: l.hasClient, facts: leadFactsOf(l.sheet), phone: l.phone ?? l.otherContact });
   }
   return { rows, older };
 }

@@ -16,7 +16,7 @@ export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export { answeringDraft, PREVIEW_CHARS } from "./repos/inbound-mail";
 export { CONVERSATION_STATES, CONVERSATION_VIEWS, stateOf, type ConversationCounts, type ConversationItem, type ConversationState, type ConversationView } from "./repos/conversations";
 export { LEAD_PREVIEW_CHARS } from "./repos/lead-rows";
-export { dueLeads, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./repos/lead-pass";
+export { dueLeads, samePersonAs, samePersonReason, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./repos/lead-pass";
 export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {
   Activity,

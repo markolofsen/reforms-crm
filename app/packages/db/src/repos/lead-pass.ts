@@ -38,6 +38,20 @@ export function dueLeads<R extends Pick<LeadRow, "receivedAt" | "passDecision" |
 }
 
 /**
+ * P147 E4 (decision 0055 point 8): one person, one reply. Of the rows of one person (`others`: the rows sharing an email,
+ * the account email or the phone), the newest gets the decision and the draft; this row is `not_now` "same person as" the
+ * sibling returned here when that sibling is newer (a later `receivedAt`, or the same with a higher id) and not Spam (answered
+ * or not: an older request of someone already answered needs no reply of its own). Pure.
+ */
+export function samePersonAs<R extends Pick<LeadRow, "id" | "receivedAt" | "dismissedReason">>(row: R, others: readonly R[]): R | null {
+  const newer = others.filter((o) => o.id !== row.id && o.dismissedReason !== "spam" && (o.receivedAt > row.receivedAt || (o.receivedAt === row.receivedAt && o.id > row.id)));
+  return newer.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || b.id - a.id)[0] ?? null;
+}
+
+/** The reason a sibling row is given (E4), within `LEAD_PASS_REASON_MAX`. */
+export const samePersonReason = (r: Pick<LeadRow, "name" | "receivedAt">): string => `same person as ${r.name.slice(0, 120)} (${r.receivedAt.slice(0, 10)}): one reply`;
+
+/**
  * Verdict 6: the day's open lead batch of a project, made by the first pass draft of the day and joined by the rest (a second
  * pass that day, a dock pass). The second writer of `batches` beside `joinBatch` of `drafts-record.ts`, called only from there.
  */
@@ -109,16 +123,21 @@ export function leadPassRepo(db: Db) {
       return items(rows);
     },
 
-    /** The earlier requests of the same person with their decisions (verdict 3's prefetch), newest first, this page excluded. */
+    /**
+     * The other requests of the same person with their decisions (verdict 3's prefetch, E4): the rows that share an email, the
+     * account email or the phone digits with this one, newest first, this page excluded.
+     */
     async earlier(project: string, pageId: string, limit: number): Promise<LeadRow[]> {
       const r = rowOf(project, pageId);
       if (!r) return [];
       const keys = [r.email, r.accountEmail].filter((v): v is string => !!v);
-      if (!keys.length) return [];
+      if (!keys.length && !r.phone) return [];
+      const byMail = keys.length ? sql`${leadRows.email} in ${keys} or ${leadRows.accountEmail} in ${keys}` : sql`0`;
+      const byPhone = r.phone ? sql`${leadRows.phone} = ${r.phone}` : sql`0`;
       return db
         .select()
         .from(leadRows)
-        .where(and(eq(leadRows.project, project), sql`${leadRows.pageId} <> ${r.pageId}`, sql`(${leadRows.email} in ${keys} or ${leadRows.accountEmail} in ${keys})`))
+        .where(and(eq(leadRows.project, project), sql`${leadRows.pageId} <> ${r.pageId}`, sql`(${byMail} or ${byPhone})`))
         .orderBy(sql`${leadRows.receivedAt} desc`)
         .limit(limit)
         .all();

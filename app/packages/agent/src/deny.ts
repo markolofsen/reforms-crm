@@ -7,6 +7,9 @@ import { NOTION_DENIED, NOTION_PREFIX } from "@hub/projects/notion-tools";
 // they are a belt, not the boundary: a decimal IP or a script defeats a text rule. The OS sandbox is the boundary
 // (`session.ts`); these stay on beside it.
 
+/** P147 E1: the CLI's built-in multi-agent Workflow tool, denied in every Hub agent session. */
+export const WORKFLOW_TOOL = "Workflow";
+
 /**
  * Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. mail-mcp's
  * `create_reply` too (P52, decision 0030): it pastes through a compose window that needs Mail in front and leaves an empty
@@ -21,6 +24,9 @@ export const DENIED_TOOLS: readonly string[] = [
   "mcp__mail-mcp__delete_outgoing_message",
   "mcp__mail-mcp__delete_draft",
   ...NOTION_DENIED.map((d) => `${NOTION_PREFIX}${d.tool}`),
+  // P147 E1 (decision 0055 point 8): no self-made fan-out in a Hub session, dock or background. On 2026-11-25 a dock session
+  // ran 68 agents of its own for "process the leads"; bulk lead work is the server's pass, one lead per turn.
+  WORKFLOW_TOOL,
 ];
 
 /** mail-mcp's read tools, the only ones a skill may name (decision 0030: mail-mcp is read only for the agent). */

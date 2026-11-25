@@ -30,10 +30,17 @@ export interface NewLead {
   hasClient: boolean;
   /** P138 E1: the list row's facts from the form (the website or first site, country, segment, volume); absent: none. */
   facts?: { site: string | null; country: string | null; segment: string | null; volume: string | null };
+  /** P147 E4: the phone or messenger number as typed; stored as digits only (7 or more), else null. */
+  phone?: string | null;
 }
 
 /** How long one stored fact may be (P138: a chip, not a field). */
 export const LEAD_FACT_CHARS = 60;
+/** P147 E4: a phone number as a match key: its digits, when there are 7 to 15 of them. */
+export const phoneKey = (v: string | null | undefined): string | null => {
+  const d = (v ?? "").replace(/\D/g, "");
+  return d.length >= 7 && d.length <= 15 ? d : null;
+};
 const fact = (v: string | null | undefined): string | null => (v?.trim() ? v.trim().slice(0, LEAD_FACT_CHARS) : null);
 
 export const LEAD_PREVIEW_CHARS = 120;
@@ -139,6 +146,7 @@ export function leadRowsRepo(db: Db) {
             country: fact(r.facts?.country),
             segment: fact(r.facts?.segment),
             volume: fact(r.facts?.volume),
+            phone: phoneKey(r.phone),
             notionStatus: r.notionStatus,
             hasClient: r.hasClient,
             readAt: at,

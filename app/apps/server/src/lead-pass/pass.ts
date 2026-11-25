@@ -1,7 +1,8 @@
 import { AUTOPILOT_POOL } from "@hub/config/autopilot";
 import { newActionId } from "@hub/config/action-id";
 import { LEAD_PASS_FAILURES_STOP, LEAD_PASS_INSTANCE_TURNS_PER_DAY, LEAD_PASS_TURNS, LEAD_PASS_TURN_TIMEOUT_MS, type LeadPassBrain, type LeadPassTrigger, type LeadPassTurnResult } from "@hub/config/lead-pass";
-import type { LeadPassRow, LeadRow, Repos } from "@hub/db";
+import { samePersonAs, samePersonReason, type LeadPassRow, type LeadRow, type Repos } from "@hub/db";
+import { replyAddressOf } from "@hub/notion";
 import { errFields, ops, withAction } from "@hub/log/ops";
 import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import { systemClock, type Clock } from "../messengers/autopilot/scheduler";
@@ -12,6 +13,8 @@ import { leadPrefetch, type LeadPrefetchDeps } from "./prefetch";
 // turn (a second request of the same person was closed by the first one's draft). Budgets (verdict 13): 30 turns a pass, newest
 // first (the rest roll to the next pass), 60 a day on this Mac (`lead_passes`, a ledger apart from P142's). A failed turn leaves
 // the lead undecided (listed again next pass); three in a row stop the pass with its reason. The day's lead batch is the pass's.
+// E4 and E3 (decision 0055 point 8): an older request of a person with a newer one, and a lead with no usable address, are
+// decided without a turn.
 
 export interface PassDeps {
   repos: Repos;
@@ -73,6 +76,15 @@ async function oneTurn(d: PassDeps, clock: Clock, project: string, passId: numbe
   });
 }
 
+/** E4 then E3: the decision a lead gets without a model turn, or null. */
+export async function mechanical(repos: Repos, project: string, lead: LeadRow): Promise<{ decision: "not_now" | "hand_over"; reason: string } | null> {
+  const newer = samePersonAs(lead, await repos.leadPass.earlier(project, lead.pageId, 20));
+  if (newer) return { decision: "not_now", reason: samePersonReason(newer) };
+  const to = replyAddressOf(lead);
+  if (!to.address) return { decision: "hand_over", reason: to.why.slice(0, 200) };
+  return null;
+}
+
 /** Runs one pass to its end and returns its row. Never throws: an error is the row's `error`. */
 export async function runPass(d: PassDeps, project: string, trigger: LeadPassTrigger): Promise<LeadPassRow | null> {
   const clock = d.clock ?? systemClock;
@@ -96,6 +108,15 @@ export async function runPass(d: PassDeps, project: string, trigger: LeadPassTri
         // Re-checked now: the person's other request may have been drafted, or the owner dismissed it, since the list was read.
         if (!(await d.repos.leadPass.isDue(project, lead.pageId, from))) {
           counts.skipped++;
+          continue;
+        }
+        // E4 and E3 (decision 0055 point 8), mechanical, no turn: an older request of a person with a newer one is not_now
+        // "same person as"; a lead with no usable address is the owner's. The rest is the model's.
+        const fixed = await mechanical(d.repos, project, lead);
+        if (fixed) {
+          const r = await d.repos.leadPass.decide({ project, pageId: lead.pageId, decision: fixed.decision, reason: fixed.reason, passId: row.id, at: new Date(clock.now()).toISOString() });
+          if (!r.already) counts[COUNT[fixed.decision]]++;
+          log.info(`lead decided without a turn: ${fixed.decision}`, { project, lead: lead.pageId, decision: fixed.decision });
           continue;
         }
         const release = await slot(d, clock, l.slotPollMs);
