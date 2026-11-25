@@ -45,9 +45,17 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
     await expect(page.getByRole("article", { name: `Draft for ${await whoIsOpen()}` })).toBeVisible();
   };
   await next();
-  // A draft on hold offers Resume, not Done: move on until the open one is a draft to finish.
-  for (let i = 0; i < 10 && (await page.getByRole("button", { name: "Resume", exact: true }).count()) > 0; i++) await next();
-  await expect(page.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
+  // Move on until the open one is a draft to check and finish. The list is newest first (P99) and earlier z-* flows touch rows,
+  // so the second row may be one C does not open the Check on: a draft on hold (it offers Resume, not Done), one already checked
+  // (C unchecks it), or a do-not-contact client's (Send is removed, there is nothing to check before sending).
+  const resume = page.getByRole("button", { name: "Resume", exact: true });
+  const checked = current.getByRole("img", { name: "Draft ready, checked" });
+  const doNotContact = page.getByRole("note").filter({ hasText: /^Do not contact\./ });
+  const notToFinish = async () => (await resume.count()) + (await checked.count()) + (await doNotContact.count()) > 0;
+  for (let i = 0; i < 10 && (await notToFinish()); i++) await next();
+  await expect(resume).toHaveCount(0);
+  await expect(checked).toHaveCount(0);
+  await expect(doNotContact).toHaveCount(0);
   const id = await current.getAttribute("id");
   expect(id).toBeTruthy();
   const row = page.locator(`#${id}`);
