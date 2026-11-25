@@ -7,6 +7,7 @@ export const REFUSAL_CODES = [
   // every tool
   "unbound",
   "invalid",
+  "db_behind",
   "unavailable",
   "not_found",
   "not_this_project",
@@ -94,6 +95,7 @@ const ONE_LINE = "Tell the owner in one line";
 
 export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   unbound: { retry: "no", next: "Ask the owner to start this session with hub agent <project>." },
+  db_behind: { retry: "after_owner", next: "Tell the owner in one line: restart the Hub server (it applies the database migration), then this works again. Do not retry before." },
   invalid: { retry: "now", next: "Fix the arguments as the message says." },
   unavailable: { retry: "no", next: `${ONE_LINE} that this session cannot do it (the message says why).`, fix: { line: "Restart the agent session with hub agent <project>.", place: "the dock" } },
   not_found: { retry: "now", next: "Use an id that focus or a read tool of this project gives." },

@@ -9,7 +9,8 @@ import * as schema from "./schema";
 import { errFields, ops } from "@hub/log/ops";
 
 export type Db = BetterSQLite3Database<typeof schema> & { $client: Database.Database };
-export type DbHandle = { db: Db; close: () => void };
+/** `behind`: on a read-only handle, how many migrations this core ships that the file has not applied (0 when current). */
+export type DbHandle = { db: Db; close: () => void; behind?: () => number };
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = resolve(here, "../drizzle");
@@ -101,5 +102,7 @@ export function openDbReadOnly(path: string = defaultDbPath(), o: { busyMs?: num
   const sqlite = new Database(path, { readonly: true, fileMustExist: true });
   sqlite.pragma(`busy_timeout = ${Math.max(0, Math.round(o.busyMs ?? 2000))}`);
   const db = drizzle(sqlite, { schema });
-  return { db, close: () => sqlite.close() };
+  // P141 guard, the read side: a long-lived reader (`hub mcp`) asks per call, so a server restart that migrates clears it.
+  const shipped = shippedMigrations();
+  return { db, close: () => sqlite.close(), behind: () => Math.max(0, shipped - appliedMigrations(sqlite)) };
 }

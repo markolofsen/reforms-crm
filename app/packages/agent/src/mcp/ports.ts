@@ -33,6 +33,8 @@ export interface HubMcpEnv {
   hubProject: string | undefined;
   /** Why `HUB_PROJECT` bound nothing (no capability, or another project's); absent: no project was named. */
   bindingRefusal?: string;
+  /** P141 guard: how many migrations the database is behind this core (asked per call); above 0 every tool refuses with db_behind. */
+  dbBehind?: () => number;
   /** `state/focus.json` of the instance. */
   focusFile: string;
   /** `state/pointer.json` of the instance (P72); absent, `highlight` refuses `unavailable`. */

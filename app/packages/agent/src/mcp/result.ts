@@ -37,12 +37,22 @@ async function settle(fn: () => Promise<Record<string, unknown>>) {
     return { result: ok(await fn()), refused: null };
   } catch (e) {
     if (e instanceof ToolError) return { result: refusal(e.code, e.message, e.detail), refused: e.code };
+    // P141 guard: the database is behind this core (the server has not migrated yet), never a raw SQL error.
+    if (behindError(e)) return { result: refusal("db_behind", DB_BEHIND), refused: "db_behind" };
     if (e instanceof HubError) {
       const code = isRefusalCode(e.code) ? e.code : e.kind;
       return { result: refusal(code, e.message, e.detail), refused: code };
     }
     throw e;
   }
+}
+
+export const DB_BEHIND = "The Hub's database is behind this core: restart the Hub server (it applies the migration), then call again.";
+
+/** A DbBehindError (a write connection's open), or SQLite naming a column or table this core has and the file does not. */
+function behindError(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  return e.name === "DbBehindError" || (e.name === "SqliteError" && /no such (column|table)/i.test(e.message));
 }
 
 /** One line of client text, whitespace collapsed, cut to `n` characters with "…". */

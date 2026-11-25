@@ -61,6 +61,8 @@ const syncFollowUpOf = (paths: { projects: string; secrets: string }) => async (
 export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const paths = hubPaths({ env });
   const handle = openDbReadOnly(paths.db);
+  const behind = handle.behind?.() ?? 0;
+  if (behind > 0) ops("agent").warn("hub mcp opened a database behind this core: every tool refuses with db_behind until the Hub server restarts and migrates", { pending: behind });
   const projectMail = (slug: string) => {
     const c = projectStore({ projects: paths.projects }).config(slug);
     return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers };
@@ -148,7 +150,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // P112 S3: the slug binds only with its capability, once, for this process's life.
   const binding = bindProject(paths, env);
   if (binding.refusal) ops("agent").warn("hub mcp started unbound: HUB_PROJECT came without a valid project capability", { reason: binding.refusal });
-  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : { chatSort }), syncFollowUp: syncFollowUpOf(paths), records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : { chatSort }), syncFollowUp: syncFollowUpOf(paths), records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, dbBehind: () => handle.behind?.() ?? 0, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }
