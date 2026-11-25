@@ -9,6 +9,8 @@ export interface PublicPeer {
   /** Telegram's id of the group or channel, as text. */
   peerId: string;
   title: string | null;
+  /** The channel's access hash for this account (P153 D4), so a read after a restart needs no resolve; null when unknown. */
+  accessHash?: string | null;
 }
 
 export interface PublicMessage {

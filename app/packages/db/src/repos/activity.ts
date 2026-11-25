@@ -11,11 +11,11 @@ import { agentEvents, clients, drafts, inboxRows, messengerChats, messengerDraft
 // P87 (finding 5, decision 0037 as amended): what went out is part of the one timeline too: every `send_log` row that was sent
 // (both doors, Mail and the messengers) is a row of All, outcome `sent`, its why the way it went. Read only.
 
-export type ActivityOutcome = "drafted" | "updated" | "skipped" | "escalated" | "flagged" | "linked" | "sent";
+export type ActivityOutcome = "drafted" | "updated" | "skipped" | "escalated" | "flagged" | "linked" | "sent" | "changed";
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export type ActivityView = "all" | "needs_you" | "drafts" | "skipped";
 // A chat the Hub linked by itself (P84, outcome `linked`) and a send (P87, `sent`; its own list is Activity ▸ Sends) are in All only.
-const VIEW_OF: Record<ActivityOutcome, Exclude<ActivityView, "all"> | null> = { drafted: "drafts", updated: "drafts", skipped: "skipped", escalated: "needs_you", flagged: "needs_you", linked: null, sent: null };
+const VIEW_OF: Record<ActivityOutcome, Exclude<ActivityView, "all"> | null> = { drafted: "drafts", updated: "drafts", skipped: "skipped", escalated: "needs_you", flagged: "needs_you", linked: null, sent: null, changed: null };
 
 export interface ActivityRow {
   /** The source row's id: an `agent_events` id, or a `send_log` id for a send. */
@@ -60,7 +60,7 @@ const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : 
 
 /** The client decisions a session records, in the owner's words. */
 // P142: a follow-up decision is a line of its own kind; a nudge counts with the drafts, a wait or a stop with the skips (a hand-over is `needs_human`).
-const OUTCOME: Record<string, ActivityOutcome> = { drafted: "drafted", create: "drafted", update: "updated", skipped: "skipped", escalated: "escalated", injection_suspected: "flagged", linked: "linked", follow_up_nudge: "drafted", follow_up_wait: "skipped", follow_up_stop: "skipped", follow_up_owner: "updated" };
+const OUTCOME: Record<string, ActivityOutcome> = { drafted: "drafted", create: "drafted", update: "updated", skipped: "skipped", escalated: "escalated", injection_suspected: "flagged", linked: "linked", watch_changed: "changed", follow_up_nudge: "drafted", follow_up_wait: "skipped", follow_up_stop: "skipped", follow_up_owner: "updated" };
 
 /** The outcome of an event, or null for one that is not a client decision. A draft line with no action is a draft made. */
 export function outcomeOf(kind: string, d: Detail): ActivityOutcome | null {

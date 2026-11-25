@@ -21,6 +21,8 @@ export interface Watch {
   slug: string;
   lens: WatchLens;
   standing: WatchStanding;
+  /** @nullable */
+  notice: string | null;
   labels: WatchLabels;
   /**
      * @minimum -9007199254740991

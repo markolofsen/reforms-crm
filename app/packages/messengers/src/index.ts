@@ -48,6 +48,7 @@ export {
   type MtClient,
   type MtPublic,
   type MtPublicChat,
+  type MtPublicTarget,
   type MtPublicMessage,
   type MtMe,
   type MtMessage,

@@ -59,6 +59,11 @@ export const watchDto = z.strictObject({
   slug: z.string(),
   lens: z.strictObject({ id: z.string(), title: z.string() }).nullable(),
   standing: watchStandingDto,
+  /**
+   * P153: what the server could not take from a changed watch.md or lens.json (the running list or lens is kept), or that the
+   * lens's code changed and needs a restart; null when what runs is what the files say.
+   */
+  notice: z.string().nullable(),
   /** A readable name for each trigger value. */
   labels: z.record(z.string(), z.string()),
   days: z.number().int(),

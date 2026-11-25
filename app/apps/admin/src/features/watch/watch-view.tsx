@@ -12,7 +12,9 @@ import { formatDay, formatTime, plural } from "@/lib/format";
 import { useGo } from "@/hooks/use-go";
 import { dest, type Dest } from "@/routes/paths";
 import { WATCH_DAYS } from "@/routes/search";
-import { microUsd, spendLine, STATE_WORD, triggerLabel, VIEW_LABEL, VIEW_ORDER } from "./labels";
+import { microUsd, triggerLabel, VIEW_LABEL, VIEW_ORDER } from "./labels";
+import { Notice, Standing } from "./standing";
+import { DayBars, Trend } from "./trend";
 
 type Q = { view: View; days: number; trigger: string | null; group: string | null };
 type WatchDays = (typeof WATCH_DAYS)[number];
@@ -39,18 +41,6 @@ function WatchHeader({ q }: { q: Q }) {
         <FilterChips chips={days} label="Period" onChange={(d) => go(to(q, { days: Number(d) }), { replace: true })} value={daysKey(q.days)} />
       </div>
     </div>
-  );
-}
-
-/** One trigger's days as a strip of bars (the height is the day's share of the strip's busiest day). */
-function DayBars({ counts, label }: { counts: readonly number[]; label: string }) {
-  const top = Math.max(1, ...counts);
-  return (
-    <span aria-label={`${label}: ${counts.reduce((a, b) => a + b, 0)} over ${counts.length} days`} className="flex h-6 items-end gap-px" role="img">
-      {counts.map((c, i) => (
-        <span className="w-1 rounded-sm bg-foreground/60" key={i} style={{ height: `${Math.max(c > 0 ? 12 : 4, Math.round((c / top) * 100))}%`, opacity: c > 0 ? 1 : 0.25 }} />
-      ))}
-    </span>
   );
 }
 
@@ -243,43 +233,6 @@ function Groups({ d, q, project }: { d: WatchDto; q: Q; project: string }) {
   );
 }
 
-function Trend({ d }: { d: WatchDto }) {
-  if (d.trend.series.length === 0) return <EmptyState title="No moment in this period" />;
-  const first = d.trend.days[0];
-  const last = d.trend.days.at(-1);
-  return (
-    <div className="flex flex-col gap-3">
-      {first && last && (
-        <p className="text-muted-foreground text-sm">
-          Moments per day, {formatDay(first)} to {formatDay(last)}.
-        </p>
-      )}
-      <ul className="flex flex-col gap-3">
-        {d.trend.series.map((s) => (
-          <li className="grid grid-cols-[minmax(8rem,14rem)_1fr] items-end gap-3" key={s.trigger}>
-            <span className="text-sm">{triggerLabel(d, s.trigger)}</span>
-            <DayBars counts={s.counts} label={triggerLabel(d, s.trigger)} />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** The standing, the spend and the next analysis: one line under the header. */
-function Standing({ d }: { d: WatchDto }) {
-  return (
-    <p className="text-muted-foreground text-sm" data-testid="watch-standing">
-      <span className="font-medium text-foreground">{STATE_WORD[d.standing.state]}</span>
-      {d.standing.reason && <> · {d.standing.reason}</>}
-      {d.standing.until && <> · until {formatTime(d.standing.until)}</>}
-      {d.lens && <> · lens {d.lens.title}</>}
-      <> · {spendLine(d.spend)}</>
-      {d.nextAnalysis && <> · next analysis {formatTime(d.nextAnalysis)}</>}
-    </p>
-  );
-}
-
 /**
  * Watch (P144, `/watch`): what the public groups of one project talk about. The header holds the six views and the period;
  * the body one view of the project's watch store: Triggers (counts and days), Topics (with each group's last mood), Moments
@@ -300,6 +253,7 @@ export function WatchView({ project, view, days, trigger, group }: { project: st
             {(d) => (
               <>
                 <Standing d={d} />
+                <Notice d={d} />
                 {view === "triggers" && <Triggers d={d} q={q} />}
                 {view === "topics" && <Topics d={d} />}
                 {view === "moments" && <Moments d={d} q={q} />}

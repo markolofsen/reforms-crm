@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "title": "Acme garden tools",
+  "prompt": "You read public gardening chats to find people whose tools fail them.",
+  "triggers": [
+    { "value": "broken_tool", "label": "Broken tool" },
+    { "value": "which_tool", "label": "Which tool to buy" },
+    { "value": "other", "label": "Other" }
+  ],
+  "keep": [
+    { "field": "speaker_role", "equals": "own_problem" },
+    { "field": "is_advert", "equals": false }
+  ],
+  "window": { "size": 100, "overlap": 20 }
+}

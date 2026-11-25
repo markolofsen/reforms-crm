@@ -1,5 +1,5 @@
 import type { MtPublic } from "@hub/messengers";
-import { FloodWaitError, PeerUnknownError, type PublicReader } from "@hub/watch/reader";
+import { FloodWaitError, PeerUnknownError, type PublicPeer, type PublicReader } from "@hub/watch/reader";
 
 /**
  * The watcher's `PublicReader` over the user-account supervisor's connection (P144 W4, verdict 10): the account's own session,
@@ -27,19 +27,22 @@ const PEER_UNKNOWN = /not found in local cache|PEER_ID_INVALID|CHANNEL_INVALID/;
 const MEMBERS_ONLY = /CHANNEL_PRIVATE|CHAT_FORBIDDEN|CHANNEL_PUBLIC_GROUP_NA/;
 const ADMIN_ONLY = /CHAT_ADMIN_REQUIRED/;
 
+/** The stored peer as the client reads it: the id, with the access hash when the watch file has one (no resolve after a restart). */
+const targetOf = (peer: PublicPeer) => ({ id: Number(peer.peerId), accessHash: peer.accessHash ?? null });
+
 export function publicReaderOf(mt: MtPublic): PublicReader {
   return {
     async resolve(username) {
       try {
         const chat = await mt.resolve(username);
-        return chat ? { peerId: String(chat.id), title: chat.title } : null;
+        return chat ? { peerId: String(chat.id), title: chat.title, accessHash: chat.accessHash } : null;
       } catch (e) {
         throw floodOr(e);
       }
     },
     async history(peer, o) {
       try {
-        const rows = await mt.history(Number(peer.peerId), o);
+        const rows = await mt.history(targetOf(peer), o);
         return { ok: true, messages: rows.map((m) => ({ id: m.id, senderId: m.senderId === null ? null : String(m.senderId), senderHandle: m.senderUsername ? `@${m.senderUsername}` : null, text: m.text, sentAt: m.date.toISOString() })) };
       } catch (e) {
         const r = rpcOf(e);
@@ -51,7 +54,7 @@ export function publicReaderOf(mt: MtPublic): PublicReader {
     },
     async join(peer) {
       try {
-        return await mt.join(Number(peer.peerId));
+        return await mt.join(targetOf(peer));
       } catch (e) {
         if (/INVITE_REQUEST_SENT/.test(rpcOf(e).text)) return "pending";
         if (PEER_UNKNOWN.test(rpcOf(e).text)) throw new PeerUnknownError(peer.peerId);

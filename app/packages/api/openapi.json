@@ -10208,7 +10208,8 @@
                     "escalated",
                     "flagged",
                     "linked",
-                    "sent"
+                    "sent",
+                    "changed"
                   ]
                 },
                 "why": {
@@ -25175,6 +25176,12 @@
             ],
             "additionalProperties": false
           },
+          "notice": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "labels": {
             "type": "object",
             "propertyNames": {
@@ -25526,6 +25533,7 @@
           "slug",
           "lens",
           "standing",
+          "notice",
           "labels",
           "days",
           "spend",

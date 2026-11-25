@@ -17,4 +17,5 @@ export const ActivityRowsItemOutcome = {
   flagged: 'flagged',
   linked: 'linked',
   sent: 'sent',
+  changed: 'changed',
 } as const;

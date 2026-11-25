@@ -68,6 +68,14 @@ export interface MtClient {
 export interface MtPublicChat {
   id: number;
   title: string;
+  /** The channel's access hash for this account, as decimal text (P153 D4); null for a basic group. */
+  accessHash: string | null;
+}
+
+/** A public group to read: its marked id and, when known, its access hash (no resolve needed after a restart). */
+export interface MtPublicTarget {
+  id: number;
+  accessHash: string | null;
 }
 
 /** One message of a public group: the sender's id and public username only, never a name or a phone. */
@@ -83,8 +91,8 @@ export interface MtPublic {
   /** A public group or channel by username; null when the username is not one (or not found). */
   resolve(username: string): Promise<MtPublicChat | null>;
   /** Messages newer than `minId`, oldest first, at most `limit`; never marks anything read. Throws Telegram's error as is. */
-  history(chatId: number, o: { minId: number; limit: number }): Promise<MtPublicMessage[]>;
-  join(chatId: number): Promise<"joined" | "pending">;
+  history(chat: MtPublicTarget, o: { minId: number; limit: number }): Promise<MtPublicMessage[]>;
+  join(chat: MtPublicTarget): Promise<"joined" | "pending">;
 }
 
 /** The bounded queue: past it the queue is cleared and the next poll reads the linked chats' history from the cursor instead. */

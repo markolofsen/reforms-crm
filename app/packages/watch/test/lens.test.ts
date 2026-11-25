@@ -4,11 +4,15 @@ import { join, resolve } from "node:path";
 import type { LensKit } from "@hub/contract/lens";
 import { describe, expect, it } from "vitest";
 import { parseWatch } from "../src/config";
-import { checkLens, lensFile, loadLens } from "../src/lens/load";
+import { checkLens, lensFile, loadLens, loadLensFull, readLensData, redeclareLens } from "../src/lens/load";
+import { WATCH_GROUP_CAP } from "../src/config";
 import acme from "./fixtures/packages/watch-acme/src/index";
 
 // P144 W2: the seam. A lens is found only under <home>/packages, imported by file URL, and checked before the watcher uses it.
 const fixtures = resolve(import.meta.dirname, "fixtures", "packages");
+const read = readLensData(fixtures, "watch-acme");
+if (!read.ok) throw new Error(read.reason);
+const data = read.data;
 
 describe("a lens", () => {
   it("the acme fixture loads by file URL and is checked: its task, facets, labels and triggers", async () => {
@@ -30,13 +34,13 @@ describe("a lens", () => {
 
   it("names what is wrong: no module, no default export, a facet that is not a field or of the wrong kind, a foreign task", async () => {
     expect(await loadLens(fixtures, "missing")).toMatchObject({ ok: false, reason: expect.stringMatching(/^no lens at packages\/missing/) });
-    expect(checkLens(undefined)).toMatchObject({ ok: false, reason: expect.stringMatching(/default export/) });
+    expect(checkLens(undefined, data)).toMatchObject({ ok: false, reason: expect.stringMatching(/default export/) });
     const tweak = (f: (d: ReturnType<typeof acme>) => unknown) => (kit: LensKit) => f(acme(kit));
-    expect(checkLens(tweak((d) => ({ ...d, facets: { ...d.facets, quote: "nope" } })))).toMatchObject({ ok: false, reason: 'facet field "nope" is not a field of a moment' });
-    expect(checkLens(tweak((d) => ({ ...d, facets: { ...d.facets, intensity: "quote" } })))).toMatchObject({ ok: false, reason: 'facet field "quote" must be a number' });
-    expect(checkLens(tweak((d) => ({ ...d, facets: { ...d.facets, keep: [{ field: "nope", equals: true }] } })))).toMatchObject({ ok: false, reason: 'keep field "nope" is not a field of a moment' });
-    expect(checkLens(tweak((d) => ({ ...d, task: { name: "watch.acme", version: 1 } })))).toMatchObject({ ok: false, reason: "the task was not made by kit.defineTask" });
-    expect(checkLens(tweak((d) => ({ ...d, id: "Not An Id" })))).toMatchObject({ ok: false, reason: expect.stringMatching(/^the declaration is not a lens: id/) });
+    expect(checkLens(tweak((d) => ({ ...d, facets: { ...d.facets, quote: "nope" } })), data)).toMatchObject({ ok: false, reason: 'facet field "nope" is not a field of a moment' });
+    expect(checkLens(tweak((d) => ({ ...d, facets: { ...d.facets, intensity: "quote" } })), data)).toMatchObject({ ok: false, reason: 'facet field "quote" must be a number' });
+    expect(checkLens(tweak((d) => ({ ...d, facets: { ...d.facets, keep: [{ field: "nope", equals: true }] } })), data)).toMatchObject({ ok: false, reason: 'keep field "nope" is not a field of a moment' });
+    expect(checkLens(tweak((d) => ({ ...d, task: { name: "watch.acme", version: 1 } })), data)).toMatchObject({ ok: false, reason: "the task was not made by kit.defineTask" });
+    expect(checkLens(tweak((d) => ({ ...d, id: "Not An Id" })), data)).toMatchObject({ ok: false, reason: expect.stringMatching(/^the declaration is not a lens: id/) });
   });
 
   it("a schema with no strict form fails at load (the dry run), not at the first request", () => {
@@ -45,15 +49,51 @@ describe("a lens", () => {
       const Open = kit.z.object({ moments: kit.z.array(kit.z.object({ message_index: kit.z.number().int(), trigger: kit.z.enum(["a"]), quote: kit.z.string(), intensity: kit.z.number(), meta: kit.z.record(kit.z.string(), kit.z.string()) })) });
       return { ...d, task: kit.defineTask({ name: "watch.bad", version: 1, schema: Open, system: "s", window: { size: 10, overlap: 2, list: "moments" } }), facets: { trigger: "trigger", intensity: "intensity", quote: "quote", speaker: "message_index" }, window: {} };
     };
-    expect(checkLens(bad)).toMatchObject({ ok: false, reason: expect.stringMatching(/^the task cannot be sent: .*open record/) });
+    expect(checkLens(bad, data)).toMatchObject({ ok: false, reason: expect.stringMatching(/^the task cannot be sent: .*open record/) });
   });
 
   it("a lens that throws or fails to import parks with the reason", async () => {
-    expect(checkLens(() => { throw new Error("boom"); })).toEqual({ ok: false, reason: "the lens threw while declaring: boom" });
+    expect(checkLens(() => { throw new Error("boom"); }, data)).toEqual({ ok: false, reason: "the lens threw while declaring: boom" });
     const root = join(tmpdir(), "lenses");
     mkdirSync(join(root, "broken", "src"), { recursive: true });
     writeFileSync(join(root, "broken", "src", "index.ts"), "export default (\n");
+    writeFileSync(join(root, "broken", "lens.json"), JSON.stringify(data));
     expect(await loadLens(root, "broken")).toMatchObject({ ok: false, reason: expect.stringMatching(/^the lens did not load/) });
+  });
+});
+
+describe("lens.json (P153 D2)", () => {
+  const copy = (json: unknown) => {
+    const root = join(tmpdir(), `lenses-data-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(join(root, "watch-acme", "src"), { recursive: true });
+    writeFileSync(join(root, "watch-acme", "src", "index.ts"), "export default () => null;\n");
+    writeFileSync(join(root, "watch-acme", "lens.json"), typeof json === "string" ? json : JSON.stringify(json));
+    return root;
+  };
+
+  it("is the editable half: the version, the title, the prompt, the triggers and their labels come from it", async () => {
+    const r = await loadLensFull(fixtures, "watch-acme");
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.lens.title).toBe(data.title);
+    expect(r.lens.task.system).toBe(data.prompt);
+    expect(r.lens.labels).toEqual({ broken_tool: "Broken tool", which_tool: "Which tool to buy", other: "Other" });
+    // A changed file declared again with the module already imported: a new trigger, a new version.
+    const root = copy({ ...data, version: 2, triggers: [...data.triggers.slice(0, 2), { value: "rusty_tool", label: "Rusty tool" }, data.triggers[2]] });
+    const again = redeclareLens(r.module, root, "watch-acme");
+    if (!again.ok) throw new Error(again.reason);
+    expect(again.lens.task.version).toBe(2);
+    expect(again.lens.triggers).toEqual(["broken_tool", "which_tool", "rusty_tool", "other"]);
+  });
+
+  it("names what is wrong in it, and a lens without one does not load", async () => {
+    expect(readLensData(copy("{ nope"), "watch-acme")).toMatchObject({ ok: false, reason: expect.stringMatching(/^lens.json is not JSON/) });
+    expect(readLensData(copy({ ...data, version: 0 }), "watch-acme")).toMatchObject({ ok: false, reason: expect.stringMatching(/^lens.json: version/) });
+    expect(readLensData(copy({ ...data, triggers: [data.triggers[0], data.triggers[0]] }), "watch-acme")).toMatchObject({ ok: false, reason: expect.stringMatching(/unique/) });
+    expect(readLensData(copy({ ...data, extra: 1 }), "watch-acme")).toMatchObject({ ok: false });
+    const root = join(tmpdir(), `lenses-nodata-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(join(root, "watch-acme", "src"), { recursive: true });
+    writeFileSync(join(root, "watch-acme", "src", "index.ts"), "export default () => null;\n");
+    expect(await loadLens(root, "watch-acme")).toMatchObject({ ok: false, reason: expect.stringMatching(/^no lens data at packages\/watch-acme\/lens.json/) });
   });
 });
 
@@ -69,5 +109,9 @@ describe("watch.md", () => {
     expect(parseWatch(file("| lens | ../x |"))).toMatchObject({ state: "invalid", reason: expect.stringMatching(/^lens/) });
     expect(parseWatch(file("| lens | watch-acme |\n| poll_minutes | 1 |"))).toMatchObject({ state: "invalid", reason: expect.stringMatching(/at least 5 minutes/) });
     expect(parseWatch(file("| lens | watch-acme |", "- https://t.me/joinchat/xyz"))).toMatchObject({ state: "invalid", reason: expect.stringMatching(/not a public group username/) });
+    // P153 D4: at most 15 groups, what one account's resolve budget carries.
+    const many = (n: number) => Array.from({ length: n }, (_, k) => `- @garden_group_${k}`).join("\n");
+    expect(parseWatch(file("| lens | watch-acme |", many(WATCH_GROUP_CAP)))).toMatchObject({ state: "ok" });
+    expect(parseWatch(file("| lens | watch-acme |", many(WATCH_GROUP_CAP + 1)))).toMatchObject({ state: "invalid", reason: expect.stringMatching(/at most 15/) });
   });
 });

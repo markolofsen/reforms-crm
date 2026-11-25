@@ -1,6 +1,6 @@
-import { MemoryStorage } from "@mtcute/core";
+import { Long, MemoryStorage, toggleChannelIdMark, type tl } from "@mtcute/core";
 import { TelegramClient, type Message, type Peer } from "@mtcute/node";
-import type { MtClient, MtMessage, MtPeer, MtPublic } from "./telegram-user";
+import type { MtClient, MtMessage, MtPeer, MtPublic, MtPublicTarget } from "./telegram-user";
 import type { LoginCredentials, MtLoginClient } from "./telegram-user-login";
 import type { UserSession } from "./sessions";
 
@@ -62,23 +62,31 @@ const NOT_PUBLIC = /USERNAME_NOT_OCCUPIED|USERNAME_INVALID|CHANNEL_INVALID|PEER_
  * reads from `minId` oldest first and marks nothing read, `joinChat` joins or asks to join. A username that is not a group or a
  * channel (a person, a bot, nothing) is "not public" here.
  */
+/**
+ * P153 D4: a stored access hash reads a channel with no resolve (MemoryStorage keeps no peers across a restart). A marked id
+ * `-100…` is a channel; anything else, or no hash, is the bare id, which mtcute resolves from its own cache.
+ */
+const inputOf = (t: MtPublicTarget): tl.TypeInputPeer | number =>
+  t.accessHash !== null && t.id < -1_000_000_000_000 ? { _: "inputPeerChannel", channelId: toggleChannelIdMark(t.id), accessHash: Long.fromString(t.accessHash) } : t.id;
+
 function publicOf(tg: TelegramClient): MtPublic {
   return {
     async resolve(username) {
       try {
         const chat = await tg.getChat(username);
-        return { id: chat.id, title: chat.title };
+        const peer = chat.inputPeer;
+        return { id: chat.id, title: chat.title, accessHash: peer._ === "inputPeerChannel" ? peer.accessHash.toString() : null };
       } catch (e) {
         if (e instanceof Error && NOT_PUBLIC.test(e.message)) return null;
         throw e;
       }
     },
-    async history(chatId, o) {
-      const rows = await tg.getHistory(chatId, { limit: o.limit, ...(o.minId > 0 ? { minId: o.minId } : {}), reverse: true });
+    async history(chat, o) {
+      const rows = await tg.getHistory(inputOf(chat), { limit: o.limit, ...(o.minId > 0 ? { minId: o.minId } : {}), reverse: true });
       return rows.map((m) => ({ id: m.id, date: m.date, text: m.text, senderId: m.sender.type === "user" ? m.sender.id : null, senderUsername: m.sender.type === "user" ? m.sender.username : null }));
     },
-    async join(chatId) {
-      const r = await tg.joinChat(chatId);
+    async join(chat) {
+      const r = await tg.joinChat(inputOf(chat));
       return r.status === "ok" ? "joined" : "pending";
     },
   };

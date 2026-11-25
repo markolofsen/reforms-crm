@@ -10,11 +10,12 @@ import { z } from "zod";
  * What happened to the client, in the owner's words. `updated`: a saved revision of an open draft (`action: "update"`). `linked`
  * (P84): the Hub linked the client's chat by itself on an exact identifier; the row's `why` says which ("phone matches the client").
  * `sent` (P87, decision 0037 as amended): a mail or a message went out through the send door; the row's `why` is the way it
- * went (Batch, By hand, Autosend, "By hand on Telegram"). In All only; Activity ▸ Sends lists every send.
+ * went (Batch, By hand, Autosend, "By hand on Telegram"). In All only; Activity ▸ Sends lists every send. `changed` (P153): a
+ * watch list or lens changed and the server took it without a restart ("Watch list changed: +2 groups"); no client, All only.
  */
-export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked", "sent"] as const;
+export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked", "sent", "changed"] as const;
 export type ActivityOutcome = (typeof ACTIVITY_OUTCOMES)[number];
-export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat", sent: "Sent" };
+export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat", sent: "Sent", changed: "Changed the watch" };
 
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export const ACTIVITY_VIEWS = ["all", "needs_you", "drafts", "skipped"] as const;

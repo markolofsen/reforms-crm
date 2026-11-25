@@ -60,11 +60,12 @@ export interface NewMoment {
   at: string;
 }
 
-export type GroupPatch = Partial<Pick<WatchGroup, "title" | "peerId" | "access" | "lastMessageId" | "lastPolledAt" | "parkedUntil" | "parkReason" | "newSinceAnalysis" | "lastAnalysisAt">>;
+export type GroupPatch = Partial<Pick<WatchGroup, "title" | "peerId" | "accessHash" | "access" | "lastMessageId" | "lastPolledAt" | "parkedUntil" | "parkReason" | "newSinceAnalysis" | "lastAnalysisAt">>;
 
 const COLUMN: Record<keyof GroupPatch, string> = {
   title: "title",
   peerId: "peer_id",
+  accessHash: "access_hash",
   access: "access",
   lastMessageId: "last_message_id",
   lastPolledAt: "last_polled_at",
@@ -81,6 +82,9 @@ export interface WatchStore extends WatchReads {
   groups(): WatchGroup[];
   group(username: string): WatchGroup | null;
   setGroup(username: string, patch: GroupPatch): void;
+  /** The username resolves this project's watcher made on a UTC day (P153 D4: the count outlives a restart). */
+  resolvesOn(day: string): number;
+  addResolve(day: string): void;
   /** Stores new messages (a known id is skipped), counts them per day and towards the next analysis; returns how many were new. */
   addMessages(username: string, messages: readonly NewMessage[], now: Date): number;
   /** The group's messages in time order, from `sinceIso` (the analysis reads what it has not read, with the overlap). */
@@ -124,6 +128,13 @@ export function storeOn(c: SqliteClient, project: string, close: () => void = ()
       if (keys.length === 0) return;
       const values = keys.map((k) => patch[k] ?? null);
       c.prepare(`UPDATE groups SET ${keys.map((k) => `${COLUMN[k]} = ?`).join(", ")} WHERE project = ? AND username = ?`).run(...values, p, username);
+    },
+    resolvesOn(d) {
+      const r: unknown = c.prepare("SELECT resolves FROM resolve_days WHERE project = ? AND day = ?").get(p, d);
+      return typeof r === "object" && r !== null && typeof Reflect.get(r, "resolves") === "number" ? Number(Reflect.get(r, "resolves")) : 0;
+    },
+    addResolve(d) {
+      c.prepare("INSERT INTO resolve_days (project, day, resolves) VALUES (?, ?, 1) ON CONFLICT (project, day) DO UPDATE SET resolves = resolves + 1").run(p, d);
     },
     addMessages(username, messages, now) {
       const ins = c.prepare("INSERT INTO messages (project, group_username, message_id, sender_id, sender_handle, text, sent_at, stored_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");

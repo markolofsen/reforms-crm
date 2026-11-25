@@ -255,5 +255,40 @@ describe("the watcher", () => {
     await w.tick();
     expect(store.group("garden_talk")).toMatchObject({ access: "open", parkedUntil: null, parkReason: null });
   });
+
+  it("keeps the access hash and the day's resolve count in the watch file, so a restart costs no resolve (P153 D4)", async () => {
+    const c = clock();
+    const store = tempStore();
+    const { llm } = fakeLlm(() => ({ content: answer([{ message_index: 1 }]) }));
+    const lens = await acmeLens();
+    const calls: string[] = [];
+    const reader: PublicReader = {
+      async resolve(username) {
+        calls.push(`resolve ${username}`);
+        return { peerId: "-1001234567890", title: "G", accessHash: "987654321" };
+      },
+      async history(peer, q) {
+        calls.push(`history ${peer.accessHash ?? "none"} ${q.minId}`);
+        return { ok: true, messages: [] };
+      },
+      async join() {
+        return "joined";
+      },
+    };
+    const start = () => {
+      const queue = createWatchQueue({ owner: idle, clock: c, resolvedOn: (day) => store.resolvesOn(day) });
+      return { queue, w: createWatcher({ project: "acme", config: config(["garden_talk"]), lens, store, llm, reader: () => reader, queue, now: () => new Date(c.now()) }) };
+    };
+    const first = start();
+    await first.w.tick();
+    expect(store.group("garden_talk")).toMatchObject({ peerId: "-1001234567890", accessHash: "987654321" });
+    expect(first.queue.resolvesLeft()).toBe(RESOLVES_PER_DAY - 1);
+    // The restart: a new queue that counts from the file, and a read with the stored hash, no resolve.
+    c.advance(5 * 60_000);
+    const second = start();
+    expect(second.queue.resolvesLeft()).toBe(RESOLVES_PER_DAY - 1);
+    await second.w.tick();
+    expect(calls).toEqual(["resolve garden_talk", "history 987654321 0", "history 987654321 0"]);
+  });
 });
 

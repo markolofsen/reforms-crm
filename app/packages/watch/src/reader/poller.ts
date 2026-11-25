@@ -34,6 +34,11 @@ export interface Watcher {
   state(): WatcherState;
   start(): void;
   stop(): void;
+  /**
+   * P153: a changed watch.md or lens.json, already checked, taken while running: the list's groups are added, the switch starts
+   * or stops the timer (`timers` false in tests), and the next analysis uses the new lens. Old windows stay as they were.
+   */
+  update(next: { config?: WatchConfig; lens?: LoadedLens }, o?: { timers?: boolean }): void;
 }
 
 export interface WatcherDeps {
@@ -51,12 +56,35 @@ export interface WatcherDeps {
   onAnalysed?: (username: string, a: GroupAnalysis) => void;
 }
 
-const peerOf = (g: { peerId: string | null; title: string | null }): PublicPeer | null => (g.peerId ? { peerId: g.peerId, title: g.title } : null);
+const peerOf = (g: { peerId: string | null; title: string | null; accessHash: string | null }): PublicPeer | null => (g.peerId ? { peerId: g.peerId, title: g.title, accessHash: g.accessHash } : null);
 
 /** A group whose read fails (not a FLOOD_WAIT) waits 5 min, then twice as long each time, at most 6 h; a good read clears it. */
 export const BACKOFF_BASE_MS = 5 * 60_000;
 export const BACKOFF_MAX_MS = 6 * 3_600_000;
 export const backoffMs = (failures: number): number => Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1));
+
+/** The username's peer from Telegram (one of the day's resolves), stored on the row; null when no public group has it. */
+async function resolveInto(d: WatcherDeps, at: Date, reader: PublicReader, username: string): Promise<PublicPeer | null> {
+  const found = await d.queue.run("resolve", () => reader.resolve(username));
+  d.store.addResolve(at.toISOString().slice(0, 10));
+  if (!found) {
+    d.store.setGroup(username, { access: "refused", parkReason: "no public group or channel has this username", lastPolledAt: at.toISOString() });
+    return null;
+  }
+  d.store.setGroup(username, { peerId: found.peerId, title: found.title, accessHash: found.accessHash ?? null });
+  return found;
+}
+
+/** Any failure but a FLOOD_WAIT (a local client error included) backs the group off, said on its Groups row. */
+function backOff(d: WatcherDeps, failures: Map<string, number>, username: string, e: unknown, at: Date): void {
+  const n = (failures.get(username) ?? 0) + 1;
+  failures.set(username, n);
+  const until = new Date(at.getTime() + backoffMs(n)).toISOString();
+  const why = (e instanceof Error ? e.message : String(e)).replace(/-?\d{6,}/g, "…").slice(0, 120);
+  d.store.setGroup(username, { parkedUntil: until, parkReason: `could not be read (${why})` });
+  d.onWritten?.();
+  ops("watch").warn("a public group could not be read: it waits before the next try", { project: d.project, failures: n, until, ...errFields(e) });
+}
 
 export function createWatcher(d: WatcherDeps): Watcher {
   const now = d.now ?? (() => new Date());
@@ -72,16 +100,7 @@ export function createWatcher(d: WatcherDeps): Watcher {
   // Failures in a row per group (memory only; the wait itself is the row's `parkedUntil`, so a restart keeps it).
   const failures = new Map<string, number>();
 
-  /** The username's peer from Telegram (one of the day's resolves), stored on the row; null when no public group has it. */
-  const resolvePeer = async (reader: PublicReader, username: string): Promise<PublicPeer | null> => {
-    const found = await d.queue.run("resolve", () => reader.resolve(username));
-    if (!found) {
-      d.store.setGroup(username, { access: "refused", parkReason: "no public group or channel has this username", lastPolledAt: now().toISOString() });
-      return null;
-    }
-    d.store.setGroup(username, { peerId: found.peerId, title: found.title });
-    return found;
-  };
+  const resolvePeer = (reader: PublicReader, username: string) => resolveInto(d, now(), reader, username);
 
   const pollOne = async (reader: PublicReader, username: string): Promise<void> => {
     const g = d.store.group(username);
@@ -156,14 +175,7 @@ export function createWatcher(d: WatcherDeps): Watcher {
               break;
             }
             if (e instanceof WatchBudgetSpent) continue;
-            // Any other failure (a local client error included) backs this group off, said on its Groups row.
-            const n = (failures.get(g.username) ?? 0) + 1;
-            failures.set(g.username, n);
-            const until = new Date(now().getTime() + backoffMs(n)).toISOString();
-            const why = (e instanceof Error ? e.message : String(e)).replace(/-?\d{6,}/g, "…").slice(0, 120);
-            d.store.setGroup(g.username, { parkedUntil: until, parkReason: `could not be read (${why})` });
-            d.onWritten?.();
-            log.warn("a public group could not be read: it waits before the next try", { project: d.project, failures: n, until, ...errFields(e) });
+            backOff(d, failures, g.username, e, now());
           }
         }
       }
@@ -216,6 +228,15 @@ export function createWatcher(d: WatcherDeps): Watcher {
     stop() {
       if (timer) clearInterval(timer);
       timer = null;
+    },
+    update(next, o = {}) {
+      if (next.lens) d.lens = next.lens;
+      if (next.config) {
+        d.config = next.config;
+        d.store.ensureGroups(next.config.groups, now());
+        if (!next.config.on) this.stop();
+        else if (o.timers !== false) this.start();
+      }
     },
   };
 }

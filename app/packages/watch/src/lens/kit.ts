@@ -1,4 +1,4 @@
-import type { LensDeclaration, LensFacets, LensKit, LensTask, LensTaskSpec } from "@hub/contract/lens";
+import type { LensData, LensDeclaration, LensFacets, LensKit, LensTask, LensTaskSpec } from "@hub/contract/lens";
 import { defineTask, type Task, type WindowShape } from "@hub/llm";
 import { z } from "zod";
 
@@ -18,10 +18,11 @@ export interface Kit extends LensKit {
   specOf(handle: LensTask): LensTaskSpec<z.ZodType> | undefined;
 }
 
-export function createKit(): Kit {
+export function createKit(data: LensData): Kit {
   const made = new WeakMap<LensTask, LensTaskSpec<z.ZodType>>();
   return {
     z,
+    data,
     defineTask<S extends z.ZodType>(spec: LensTaskSpec<S>): LensTask {
       const handle: LensTask = Object.freeze({ name: spec.name, version: spec.version });
       made.set(handle, spec);

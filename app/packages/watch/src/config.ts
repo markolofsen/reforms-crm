@@ -72,10 +72,14 @@ export function parseWatch(text: string): WatchConfigRead {
       if (!groups.includes(name)) groups.push(name);
     }
   }
+  if (groups.length > WATCH_GROUP_CAP) return { state: "invalid", reason: `${groups.length} groups listed; a watch list holds at most ${WATCH_GROUP_CAP} (the account's 20 username resolves a day carry that many)` };
   const r = Settings.safeParse(settings);
   if (!r.success) return { state: "invalid", reason: r.error.issues.map((i) => `${i.path.join(".") || "settings"}: ${i.message}`).join("; ") };
   return { state: "ok", config: { lens: r.data.lens, on: r.data.on === "yes", account: r.data.account, pollMinutes: r.data.poll_minutes, groups } };
 }
+
+/** The most groups one watch list may name (P153 D4): what one account's resolve budget carries with room for a re-resolve. */
+export const WATCH_GROUP_CAP = 15;
 
 /** The project's watch list, or `none` when it has no `watch.md`. */
 export function readWatch(projectDir: string): WatchConfigRead {

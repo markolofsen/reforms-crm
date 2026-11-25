@@ -61,7 +61,13 @@ export interface WatchQueue {
 
 const utcDay = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
-export function createWatchQueue(o: { owner: OwnerActivity; clock?: Partial<QueueClock>; onPark?: (until: string, note: FloodNote) => void }): WatchQueue {
+export function createWatchQueue(o: {
+  owner: OwnerActivity;
+  clock?: Partial<QueueClock>;
+  onPark?: (until: string, note: FloodNote) => void;
+  /** P153 D4: the resolves already made on a UTC day by the watch files that share this account, so a restart keeps the count. */
+  resolvedOn?: (day: string) => number;
+}): WatchQueue {
   const clock: QueueClock = { now: Date.now, sleep: (ms) => new Promise((r) => setTimeout(r, ms)), random: Math.random, ...o.clock };
   let tail: Promise<unknown> = Promise.resolve();
   let lastHistory = -Infinity;
@@ -76,7 +82,7 @@ export function createWatchQueue(o: { owner: OwnerActivity; clock?: Partial<Queu
     parked = null;
     if (kind === "resolve") {
       const today = utcDay(clock.now());
-      if (resolves.day !== today) resolves = { day: today, n: 0 };
+      if (resolves.day !== today) resolves = { day: today, n: o.resolvedOn?.(today) ?? 0 };
       if (resolves.n >= RESOLVES_PER_DAY) throw new WatchBudgetSpent("resolve");
     }
     if (kind === "join" && joins >= JOINS_PER_RUN) throw new WatchBudgetSpent("join");
@@ -112,7 +118,10 @@ export function createWatchQueue(o: { owner: OwnerActivity; clock?: Partial<Queu
     run,
     parkedUntil: () => (parked !== null && clock.now() < parked ? new Date(parked).toISOString() : null),
     lastFlood: () => flood,
-    resolvesLeft: () => (resolves.day === utcDay(clock.now()) ? Math.max(0, RESOLVES_PER_DAY - resolves.n) : RESOLVES_PER_DAY),
+    resolvesLeft: () => {
+      const today = utcDay(clock.now());
+      return Math.max(0, RESOLVES_PER_DAY - (resolves.day === today ? resolves.n : (o.resolvedOn?.(today) ?? 0)));
+    },
     resetRun: () => {
       joins = 0;
     },

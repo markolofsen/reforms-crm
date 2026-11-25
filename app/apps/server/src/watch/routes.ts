@@ -40,6 +40,7 @@ export async function watchBody(ctx: WatchContext, p: Extract<WatchProject, { st
     slug: p.slug,
     lens: { id: p.lens.id, title: p.lens.title },
     standing: ctx.domain?.standing(p) ?? { state: "off", reason: null, until: null },
+    notice: p.notice,
     labels: Object.fromEntries(p.lens.triggers.map((t) => [t, p.lens.labels[t] ?? t])),
     days,
     spend: { monthMicroUsd: await ctx.monthCost(p.lens.task.name), budgetMicroUsd: Math.round((p.lens.task.budget?.monthlyUsd ?? 0) * 1e6) },

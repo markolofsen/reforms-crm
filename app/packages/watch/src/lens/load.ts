@@ -1,7 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { LensFacets, LensTask, LensWindowFacets } from "@hub/contract/lens";
+import { lensDataSchema, type LensData, type LensFacets, type LensTask, type LensWindowFacets } from "@hub/contract/lens";
 import { z } from "zod";
 import { createKit, watchTask, type WatchTask } from "./kit";
 
@@ -25,6 +25,44 @@ export interface LoadedLens {
 }
 
 export type LensLoad = { ok: true; lens: LoadedLens } | { ok: false; reason: string };
+
+/** A lens module's default export, kept so a changed `lens.json` is declared again without a new import (P153, D2). */
+export type LensModuleFn = (kit: unknown) => unknown;
+
+/** A loaded lens with what a live reload needs: the module, and the stamps of its data file and its code. */
+export type LensLoadFull = { ok: true; lens: LoadedLens; module: LensModuleFn; dataStamp: number; codeStamp: number } | { ok: false; reason: string };
+
+/** `<packages>/<name>/lens.json` beside `src/`, or null for a name that is not a plain package folder. */
+export function lensDataFile(instancePackages: string, name: string): string | null {
+  const code = lensFile(instancePackages, name);
+  return code ? resolve(code, "..", "..", "lens.json") : null;
+}
+
+/** A file's modification time in ms, or 0 when it is missing. */
+export const stampOf = (file: string | null): number => {
+  if (!file) return 0;
+  try {
+    return statSync(file).mtimeMs;
+  } catch {
+    return 0;
+  }
+};
+
+/** The lens's `lens.json`, checked; the reason names the field when it is not one. */
+export function readLensData(instancePackages: string, name: string): { ok: true; data: LensData } | { ok: false; reason: string } {
+  const file = lensDataFile(instancePackages, name);
+  if (!file) return { ok: false, reason: `"${name}" is not a lens package name (lower case, digits and "-")` };
+  if (!existsSync(file)) return { ok: false, reason: `no lens data at ${join("packages", name, "lens.json")}` };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(file, "utf8"));
+  } catch (e) {
+    return { ok: false, reason: `lens.json is not JSON: ${e instanceof Error ? e.message.slice(0, 160) : "unknown error"}` };
+  }
+  const d = lensDataSchema.safeParse(raw);
+  if (!d.success) return { ok: false, reason: `lens.json: ${d.error.issues.slice(0, 3).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}` };
+  return { ok: true, data: d.data };
+}
 
 /** A lens package's folder name: a plain name, so no `..` or path ever leaves `<home>/packages`. */
 export const LENS_NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -86,9 +124,9 @@ function facetProblem(entry: Node, root: Node, f: LensFacets, w: LensWindowFacet
 }
 
 /** The lens a module's default export declares, checked. Pure: tests call it with a module function directly. */
-export function checkLens(mod: unknown): LensLoad {
+export function checkLens(mod: unknown, data: LensData): LensLoad {
   if (typeof mod !== "function") return { ok: false, reason: "the lens module has no default export function (export default (kit) => kit.lens({ … }))" };
-  const kit = createKit();
+  const kit = createKit(data);
   let declared: unknown;
   try {
     declared = mod(kit);
@@ -117,16 +155,42 @@ export function checkLens(mod: unknown): LensLoad {
   return { ok: true, lens: { id: d.data.id, title: d.data.title, task, facets: d.data.facets, window: d.data.window ?? {}, labels: d.data.labels, triggers } };
 }
 
-/** Loads `<packages>/<name>/src/index.ts` by file URL and checks it. Never throws: a failure is the reason the watcher parks. */
-export async function loadLens(instancePackages: string, name: string): Promise<LensLoad> {
+/** The module's default export; a CommonJS-scoped lens arrives as `{ default: { default } }`. */
+const defaultOf = (mod: unknown): unknown => {
+  const d = isNode(mod) ? mod.default : undefined;
+  return isNode(d) && typeof d.default === "function" ? d.default : d;
+};
+
+/**
+ * Loads `<packages>/<name>/src/index.ts` by file URL with its `lens.json`, and checks both. Never throws: a failure is the
+ * reason the watcher parks.
+ */
+export async function loadLensFull(instancePackages: string, name: string): Promise<LensLoadFull> {
   const file = lensFile(instancePackages, name);
   if (!file) return { ok: false, reason: `"${name}" is not a lens package name (lower case, digits and "-")` };
   if (!existsSync(file)) return { ok: false, reason: `no lens at ${join("packages", name, "src", "index.ts")}` };
+  const data = readLensData(instancePackages, name);
+  if (!data.ok) return data;
   let mod: unknown;
   try {
     mod = await import(pathToFileURL(file).href);
   } catch (e) {
     return { ok: false, reason: `the lens did not load: ${e instanceof Error ? e.message.slice(0, 200) : "unknown error"}` };
   }
-  return checkLens(isNode(mod) ? mod.default : undefined);
+  const fn = defaultOf(mod);
+  const r = checkLens(fn, data.data);
+  if (!r.ok || typeof fn !== "function") return r.ok ? { ok: false, reason: "the lens module has no default export function" } : r;
+  return { ok: true, lens: r.lens, module: (kit) => fn(kit), dataStamp: stampOf(lensDataFile(instancePackages, name)), codeStamp: stampOf(file) };
+}
+
+/** `loadLensFull` without the reload parts (the doctor, the import). */
+export async function loadLens(instancePackages: string, name: string): Promise<LensLoad> {
+  const r = await loadLensFull(instancePackages, name);
+  return r.ok ? { ok: true, lens: r.lens } : r;
+}
+
+/** A changed `lens.json` declared again with the module already imported (its code is not read again). */
+export function redeclareLens(module: LensModuleFn, instancePackages: string, name: string): LensLoad {
+  const data = readLensData(instancePackages, name);
+  return data.ok ? checkLens(module, data.data) : data;
 }

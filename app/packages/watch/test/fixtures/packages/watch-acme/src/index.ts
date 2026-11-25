@@ -2,13 +2,15 @@ import type { LensKit } from "@hub/contract/lens";
 
 // The core's fixture lens (P144 W2): an invented product, acme's garden tools, watched in invented public groups. It is shaped
 // like an instance lens (only `import type`, the kit's zod and defineTask) and is type-checked with the core, so the contract a
-// real lens is written against is checked even while an instance is linked to the dev core.
+// real lens is written against is checked even while an instance is linked to the dev core. Its editable half (the version, the
+// title, the prompt, the triggers, the keep rule, the window) is `../lens.json`, handed in as `kit.data` (P153).
 export default (kit: LensKit) => {
-  const { z } = kit;
+  const { z, data } = kit;
+  const triggers = data.triggers.map((t) => t.value);
   const Moment = z.object({
     speaker_role: z.enum(["own_problem", "advising_others", "commenting"]).describe("own_problem only if the person speaks about their OWN garden."),
     is_advert: z.boolean().describe("True if the author sells anything."),
-    trigger: z.enum(["broken_tool", "which_tool", "other"]).describe("The closest trigger."),
+    trigger: z.enum(triggers).describe("The closest trigger."),
     trigger_other: z.string().describe("For trigger=other: the trigger in a few words. Empty otherwise."),
     message_index: z.number().int().min(1).describe("The [n] of the message where the trigger is voiced."),
     reactor_indexes: z.array(z.number().int()).describe("The [n] of messages that react to it."),
@@ -25,8 +27,8 @@ export default (kit: LensKit) => {
   });
   return kit.lens({
     id: "acme",
-    title: "Acme garden tools",
-    task: kit.defineTask({ name: "watch.acme", version: 1, schema: Window, system: "You read public gardening chats to find people whose tools fail them.", window: { size: 100, overlap: 20, list: "moments" } }),
+    title: data.title,
+    task: kit.defineTask({ name: "watch.acme", version: data.version, schema: Window, system: data.prompt, window: { size: data.window?.size ?? 100, overlap: data.window?.overlap ?? 20, list: "moments" }, ...(data.budgetUsd ? { budgetUsd: data.budgetUsd } : {}) }),
     facets: {
       trigger: "trigger",
       triggerOther: "trigger_other",
@@ -36,12 +38,9 @@ export default (kit: LensKit) => {
       reactors: "reactor_indexes",
       context: "thread_context",
       why: "fit_reason",
-      keep: [
-        { field: "speaker_role", equals: "own_problem" },
-        { field: "is_advert", equals: false },
-      ],
+      ...(data.keep ? { keep: data.keep } : {}),
     },
     window: { topics: "dominant_topics", mood: "mood" },
-    labels: { broken_tool: "Broken tool", which_tool: "Which tool to buy", other: "Other" },
+    labels: Object.fromEntries(data.triggers.map((t) => [t.value, t.label])),
   });
 };
