@@ -63,6 +63,8 @@ export type RecordDraftInput = {
   runId?: number | null;
   /** The draft is step `step` of this enrollment (P47, skill `sequence-drafts`): only the open step of an active enrollment is accepted. */
   sequence?: { enrollmentId: number; step: number } | null;
+  /** P142: a follow-up nudge of the sweep (or one the owner asked for), its number; autosend never sends it. */
+  followUpN?: number | null;
   /** P58/P60: the address the client wrote to and its brand, as the hub's writer resolved them (never the agent's claim). Left out: kept as stored. */
   wroteTo?: string | null;
   brand?: string | null;

@@ -6,7 +6,7 @@ import { recordAgentDraft } from "../../messenger/record";
 import { draftVerdict } from "../../messenger/rules";
 import { MESSENGER_SEND_TOOL, sentLine } from "../../messenger/send-tool";
 import { defineTool } from "../define";
-import type { ToolCtx } from "../ports";
+import { ownFollowUpClient, type ToolCtx } from "../ports";
 import { isRefusalCode } from "../refusals";
 import { cut, ToolError } from "../result";
 
@@ -45,6 +45,8 @@ export function chatAccess(repos: Repos, env: ToolCtx["env"]) {
     if (!row) throw refusal(what, slug);
     // Decision 0048 (verdict 20): an autopilot turn reads and writes its one chat, nothing else.
     if (env.autopilotChat !== undefined && row.id !== env.autopilotChat) throw otherChat(env.autopilotChat);
+    // Decision 0050 (P142 verdict 5): a sweep turn reads and writes the chats of its one client only.
+    if (env.followUpClient !== undefined) ownFollowUpClient(env, await repos.messengers.clientByIdentifier(slug, KIND[row.channel], row.chatId));
     // P143 L1 (decision 0049 as amended): an unlinked known chat of this project passes in an attended session, no naming asked.
     if (attended(env) || (await repos.messengers.isLinked(slug, row.channel, row.chatId))) return row;
     throw refusal(what, slug);
@@ -103,7 +105,7 @@ export const messengerHistoryTool = defineTool({
     ),
   }),
   effect: "read",
-  refusals: ["not_linked", "not_found"],
+  refusals: ["not_linked", "not_found", "followup_other_client"],
   handler: async (ctx, { client, chat, channel, chat_id, limit, include_hidden }) => {
     const { repos, project } = ctx;
     const { target, clientOf } = chatAccess(repos, ctx.env);
@@ -195,20 +197,24 @@ export const messengerDraftWriteTool = defineTool({
     autopilot: z
       .object({ verdict: z.enum(AUTOPILOT_VERDICTS), reason: z.string().trim().min(3).max(300) })
       .optional()
-      .describe("Only in an autopilot turn (required there): send (the reply may go out as it is) or hand_back (the owner answers), and why in one line."),
+      .describe("Only in an autopilot turn (required there), or a follow-up turn in an autopilot chat: send (it may go out as it is) or hand_back (the owner answers), and why in one line."),
+    follow_up: z.object({ n: z.number().int().min(1).max(20) }).optional().describe("A follow-up nudge (the sweep, or one the owner asked for): which one it is, 1st, 2nd..."),
+    send_after: z.string().datetime({ offset: true }).optional().describe("Follow-up turn in an autopilot chat only: the ISO time inside the client's working hours the nudge may go out."),
   }),
   output: z.object({ project: z.string(), draft: z.number(), action: z.enum(["created", "revised"]), channel: z.enum(CHANNELS), chat_id: z.string(), nudge: z.boolean(), sent: z.literal(false), next: z.string() }),
   effect: "draft",
-  refusals: ["empty_text", "not_linked", "unavailable", "reply_off", "no_inbound", "not_requested", "not_found", "already_drafted", "autopilot_other_chat", "autopilot_verdict"],
-  handler: async (ctx, { chat, channel, chat_id, text, owner_request, draft, autopilot }) => {
+  refusals: ["empty_text", "not_linked", "unavailable", "reply_off", "no_inbound", "not_requested", "not_found", "already_drafted", "autopilot_other_chat", "autopilot_verdict", "followup_other_client"],
+  handler: async (ctx, { chat, channel, chat_id, text, owner_request, draft, autopilot, follow_up }) => {
     const { repos, project, now } = ctx;
     const { target, clientOf } = chatAccess(repos, ctx.env);
     const slug = project();
     const body = text.trim();
     if (!body) throw new ToolError("empty_text", "The reply is empty. Nothing was written.");
     const turn = ctx.env.autopilotChat !== undefined;
+    // Decision 0050 (P142 verdict 8): a sweep turn may carry autopilot's verdict; the server alone decides whether the chat lets it send.
+    const sweep = ctx.env.followUpClient !== undefined;
     if (turn && !autopilot) throw new ToolError("autopilot_verdict", "An autopilot turn's draft carries its verdict: pass autopilot = {verdict: send or hand_back, reason}. Nothing was written.");
-    if (!turn && autopilot) throw new ToolError("invalid", "autopilot is set only by an autopilot turn of the server; leave it out. Nothing was written.");
+    if (!turn && !sweep && autopilot) throw new ToolError("invalid", "autopilot is set only by an autopilot or follow-up turn of the server; leave it out. Nothing was written.");
     const row = await target(slug, { chat, channel, chat_id });
     const withRepos = ctx.env.withRepos;
     if (!withRepos) throw new ToolError("unavailable", "This hub MCP server cannot write messenger drafts (no write connection).");
@@ -224,9 +230,9 @@ export const messengerDraftWriteTool = defineTool({
     if (turn && open && open.createdBy !== AUTOPILOT_DRAFT_AUTHOR) throw new ToolError("already_drafted", `Draft ${open.id} is the owner's: this turn leaves it as it is. Nothing was written.`);
     // P129 verdict 14: the one recorder of a machine-written messenger draft (the server's Prepare uses it too).
     const { id, action } = await withRepos((w) =>
-      recordAgentDraft(w, { project: slug, chat: row, client: client ? { id: client.id, name: client.name ?? null } : null, text: body, provider: turn ? "autopilot" : "runtime_agent", ownerRequest: ownerRequest ?? null, nudge: v.nudge, revise: draft, at: now().toISOString(), ...(autopilot ? { autopilot } : {}) }),
+      recordAgentDraft(w, { project: slug, chat: row, client: client ? { id: client.id, name: client.name ?? null } : null, text: body, provider: turn || (sweep && autopilot) ? "autopilot" : sweep ? "follow_up" : "runtime_agent", ownerRequest: ownerRequest ?? null, nudge: v.nudge, revise: draft, at: now().toISOString(), ...(autopilot ? { autopilot } : {}), ...(follow_up ? { followUpN: follow_up.n } : {}) }),
     );
-    if (turn) return { project: slug, draft: id, action, channel: row.channel, chat_id: row.chatId, nudge: v.nudge, sent: false as const, next: "Stop here: the server reads your verdict and does the rest. Write nothing else." };
+    if (turn || sweep) return { project: slug, draft: id, action, channel: row.channel, chat_id: row.chatId, nudge: v.nudge, sent: false as const, next: "Stop here: the server reads your verdict and does the rest. Write nothing else." };
     return { project: slug, draft: id, action, channel: row.channel, chat_id: row.chatId, nudge: v.nudge, sent: false as const, next: "Tell the owner in one line: the draft waits on the Messengers panel, where he reads and sends it (or he tells you to send it). Nothing was sent." };
   },
 });

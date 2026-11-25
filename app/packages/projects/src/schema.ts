@@ -3,6 +3,7 @@
 // `Kind` is the data a kind of project declares. A `Kind` is validated here, its instances live in kinds.ts.
 import { z } from "zod";
 import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
+import { FOLLOW_UP_DEFAULT_AT, FOLLOW_UP_SCHEDULES } from "@hub/config/follow-ups";
 import { BCP47, isIsoDate, isTimezone, SLUG } from "./values";
 
 export const STATUSES = ["draft", "active", "paused", "archived"] as const;
@@ -139,6 +140,10 @@ export const ProjectBase = z.object({
       instruction: z.string().max(CHAT_INSTRUCTION_MAX).nullable().default(null),
     })
     .default({ autolink: "on", language: null, instruction: null }),
+  /** P142 (decision 0050 point 8): the daily follow-up sweep, on by default; not protected (it sends nothing 0048's switches do not allow). */
+  followUps: z
+    .object({ schedule: z.enum(FOLLOW_UP_SCHEDULES).default("daily"), at: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default(FOLLOW_UP_DEFAULT_AT) })
+    .default({ schedule: "daily", at: FOLLOW_UP_DEFAULT_AT }),
   /**
    * What the hub may send (decision 0011). The agent has no send tool in any mode; `hub send` is the only sender.
    * `draft`: nothing is sent unless a person runs `hub send` (or presses Send in the admin). `auto`: `hub send --due`

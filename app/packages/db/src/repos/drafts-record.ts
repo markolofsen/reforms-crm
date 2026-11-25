@@ -127,6 +127,7 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
       mailRef,
       mailClass: input.mailClass ?? null,
       ...(input.wroteTo !== undefined ? { wroteTo: input.wroteTo } : {}),
+      ...(input.followUpN != null ? { followUpN: input.followUpN } : {}),
       ...(input.brand !== undefined ? { brand: input.brand } : {}),
       ...(input.context !== undefined || ownerRequest || newThread ? { context: contextJson(input.context ?? undefined, ownerRequest, newThread) } : {}),
       ...(input.findings ? { findings: JSON.stringify(input.findings) } : {}),

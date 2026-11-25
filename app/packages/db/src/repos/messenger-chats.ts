@@ -155,11 +155,11 @@ export function messengerChatsRepo(db: Db) {
     },
 
     /** A new text for a draft that still waits (status `draft`); `wrong_state` once the owner acted on it. */
-    async reviseDraft(project: string, id: number, text: string, extra: { ownerRequest?: string | null; nudge?: boolean; createdBy?: string } = {}, at: string = now()) {
+    async reviseDraft(project: string, id: number, text: string, extra: { ownerRequest?: string | null; nudge?: boolean; createdBy?: string; followUpN?: number | null } = {}, at: string = now()) {
       const row = db
         .update(messengerDrafts)
         // `createdBy` follows the last writer (decision 0048, verdict 29): the owner's edit of autopilot's draft makes it his.
-        .set({ text, updatedAt: at, ...(extra.ownerRequest !== undefined ? { ownerRequest: extra.ownerRequest } : {}), ...(extra.nudge !== undefined ? { nudge: extra.nudge } : {}), ...(extra.createdBy !== undefined ? { createdBy: extra.createdBy } : {}) })
+        .set({ text, updatedAt: at, ...(extra.ownerRequest !== undefined ? { ownerRequest: extra.ownerRequest } : {}), ...(extra.nudge !== undefined ? { nudge: extra.nudge } : {}), ...(extra.createdBy !== undefined ? { createdBy: extra.createdBy } : {}), ...(extra.followUpN !== undefined ? { followUpN: extra.followUpN } : {}) })
         .where(and(eq(messengerDrafts.id, id), eq(messengerDrafts.project, project), eq(messengerDrafts.status, "draft")))
         .returning()
         .get();

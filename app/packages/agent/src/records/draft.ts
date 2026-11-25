@@ -23,6 +23,8 @@ export interface DraftRecordCall {
   /** P140 R3: the brand and the address the client wrote to that the signer resolved for the version this record is for (never another write's). */
   brand: string | null;
   wroteTo: string | null;
+  /** P142: the nudge's number when the draft is a follow-up (`draft_write`'s `follow_up`). */
+  followUpN?: number | null;
 }
 
 export interface DraftRecordEnv {
@@ -86,6 +88,7 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
     // P58/P60, P140 R3: the brand and the address the client wrote to come from the version's signer, never from the record.
     brand: c.brand,
     wroteTo: c.wroteTo,
+    ...(c.followUpN != null ? { followUpN: c.followUpN } : {}),
   };
 
   let brandScope = false;

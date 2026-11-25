@@ -2,7 +2,7 @@ import type { Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { registerTools } from "./define";
 import { toolCtx, type HubMcpEnv } from "./ports";
-import { ATTENDED_TOOLS, AUTOPILOT_TOOLS, TOOLS } from "./tools";
+import { ATTENDED_TOOLS, AUTOPILOT_TOOLS, FOLLOW_UP_TOOLS, TOOLS } from "./tools";
 
 // `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. The database is opened read-only
 // by the caller (`openDbReadOnly`), so a write of a row is impossible, not just absent; the exceptions are short write
@@ -20,6 +20,11 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
   // Decision 0048 (P139 A3): an autopilot turn's server has its five bound tools and nothing else, attended instance or not.
   if (env.autopilotChat !== undefined) {
     registerTools(server, AUTOPILOT_TOOLS, ctx);
+    return server;
+  }
+  // Decision 0050 (P142): a sweep turn's server has its eight client-bound tools and nothing else.
+  if (env.followUpClient !== undefined) {
+    registerTools(server, FOLLOW_UP_TOOLS, ctx);
     return server;
   }
   registerTools(server, TOOLS, ctx);

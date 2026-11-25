@@ -99,6 +99,31 @@ export interface HubMcpEnv {
    * (`autopilot_other_chat`), no owner words admit anything, and `messenger_draft_write` records the turn's verdict.
    */
   autopilotChat?: number;
+  /**
+   * Decision 0050 (P142 verdict 5): the one client (its `clients` row id, `HUB_FOLLOWUP_CLIENT`) a sweep turn's `hub mcp` serves.
+   * Set, the server registers only `FOLLOW_UP_HUB_TOOLS`, every tool refuses another client (`followup_other_client`), and
+   * `messenger_draft_write` may carry autopilot's verdict for a chat the server reads as an autopilot chat.
+   */
+  followUpClient?: number;
+  /**
+   * P142 F7: copies a plan to the client's Notion page (the four Hub properties, one dated line under "Follow-ups"). Never throws;
+   * its state is what `follow_up_plan` answers. Absent: the plan stays in the Hub.
+   */
+  syncFollowUp?: (slug: string, f: FollowUpSync) => Promise<{ state: string }>;
+}
+
+/** What the Notion copy of a plan needs (F7). */
+export interface FollowUpSync {
+  clientId: number;
+  email: string | null;
+  pageId: string | null;
+  nextAt: string | null;
+  state: "waiting" | "stopped" | "handed_over" | "answered";
+  nudgeReady: boolean;
+  nudgesSent: number;
+  waitingOn: "them" | "us" | null;
+  /** The dated line to append, or null (a same-day replace appends none: the page is append-only). */
+  line: string | null;
 }
 
 export type NotionClientCheck = { state: "client" | "not_client" | "do_not_contact" } | { state: "lead"; pageId: string } | { state: "unavailable"; reason: string };
@@ -128,6 +153,15 @@ export interface ToolCtx {
   /** A draft of the bound project, or the refusal `not_found`. */
   ownDraft: (id: number) => Promise<{ slug: string; d: NonNullable<Awaited<ReturnType<Repos["drafts"]["get"]>>> }>;
   now: () => Date;
+}
+
+/**
+ * Decision 0050 (verdict 5): in a follow-up turn every client a tool touches must be the turn's own; elsewhere it passes. `cid`
+ * null (a thread or chat with no client) is another client too.
+ */
+export function ownFollowUpClient(env: HubMcpEnv, cid: number | null | undefined): void {
+  if (env.followUpClient === undefined) return;
+  if (cid !== env.followUpClient) throw new ToolError("followup_other_client", `This follow-up turn serves client ${env.followUpClient} only: nothing else is read or written here.`);
 }
 
 export function toolCtx(repos: Repos, env: HubMcpEnv): ToolCtx {

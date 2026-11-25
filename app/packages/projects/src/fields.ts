@@ -5,6 +5,7 @@ import { z } from "zod";
 import { KIND_IDS } from "./kinds";
 import { AUTOLINK_MODES, KNOWLEDGE_SCOPES, SEND_MODES, STAMP_MODES, STATUSES } from "./schema";
 import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
+import { FOLLOW_UP_AT, FOLLOW_UP_SCHEDULES } from "@hub/config/follow-ups";
 import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
@@ -78,6 +79,8 @@ export const FIELDS: Record<string, FieldDef> = {
   "messengers.autolink": { path: "messengers.autolink", schema: check((v) => (AUTOLINK_MODES as readonly string[]).includes(v), (v) => `expected on or off, got "${v}"`), doc: "P84: on (default): the Hub links a private Telegram or WhatsApp chat by itself when its phone or username equals the identifier of exactly one client record, imports 30 days and says so in Activity; off: it only suggests." },
   "messengers.language": { path: "messengers.language", schema: check((v) => BCP47.test(v), (v) => `"${v}" is not a BCP-47 language tag`), doc: "Project reply-language override, BCP-47; empty: use the client's language." },
   "messengers.instruction": { path: "messengers.instruction", schema: check((v) => v.length <= CHAT_INSTRUCTION_MAX, (v) => `instruction is ${v.length} characters, the limit is ${CHAT_INSTRUCTION_MAX}`), doc: "One project-wide Messenger instruction; a chat's instruction overrides it. Empty: none." },
+  "follow_ups.schedule": { path: "followUps.schedule", schema: check((v) => (FOLLOW_UP_SCHEDULES as readonly string[]).includes(v), (v) => `expected daily or off, got "${v}"`), doc: "P142 (decision 0050): daily (default): the Hub sweeps the project's silent clients once a day and the agent nudges, waits, stops or hands each to you; off: no sweep runs (the dock phrase still works)." },
+  "follow_ups.at": { path: "followUps.at", schema: check((v) => FOLLOW_UP_AT.test(v), (v) => `expected HH:MM, got "${v}"`), doc: "P142: the sweep's time of day on this Mac's clock, HH:MM (default 09:00); a Mac asleep then sweeps once when it is next up." },
   "run.quiet_hours": {
     path: "run.quietHours",
     schema: check((v) => v === "off" || /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/.test(v), (v) => `expected HH:MM-HH:MM or off, got "${v}"`),

@@ -74,6 +74,8 @@ export const REFUSAL_CODES = [
   "nothing_to_close",
   "already_linked",
   "not_in_notion",
+  // P142: a follow-up turn's hub mcp serves one client (verdict 5)
+  "followup_other_client",
 ] as const;
 
 export type RefusalCode = (typeof REFUSAL_CODES)[number];
@@ -149,6 +151,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   autopilot_verdict: { retry: "now", next: "Call messenger_draft_write once more with autopilot = {verdict, reason} as the skill says." },
   nothing_to_close: { retry: "no", next: "Nothing of theirs waits for an answer here: leave it and say so in one line." },
   already_linked: { retry: "no", next: "The chat is linked already: say to whom in one line (messenger_history names the client)." },
+  followup_other_client: { retry: "now", next: "This follow-up turn serves one client: use its id, its threads and its chats only (the prompt names them)." },
   not_in_notion: { retry: "now", next: "Find the client with client_create's lookup (by email or phone), or create one from this chat with client_create." },
 };
 

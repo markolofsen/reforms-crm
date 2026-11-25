@@ -2,6 +2,7 @@ import { checkClientMap, diffMaps, MAP_CLASSES, MAP_LIMITS, whyNeeded } from "@h
 import { createRepos, openDb } from "@hub/db";
 import { z } from "zod";
 import { defineTool } from "../define";
+import { ownFollowUpClient } from "../ports";
 import { ToolError } from "../result";
 
 // P135 K3 (verdicts 3 to 6): the agent redraws a client's map after it wrote a draft (Mail or a messenger). The hub checks the
@@ -45,7 +46,7 @@ export const clientMapTool = defineTool({
     .strict(),
   output: z.object({ ok: z.literal(true), project: z.string(), clientId: z.number(), updatedAt: z.string(), versions: z.number(), unchanged: z.boolean(), nodes: z.number(), diff: diffOut, notion: z.string() }),
   effect: "draft",
-  refusals: ["not_found", "map_invalid", "map_why_missing", "unavailable", "busy", "record_failed"],
+  refusals: ["not_found", "map_invalid", "map_why_missing", "unavailable", "busy", "record_failed", "followup_other_client"],
   handler: async (ctx, input) => {
     const slug = ctx.project();
     const env = ctx.env.records;
@@ -53,6 +54,7 @@ export const clientMapTool = defineTool({
     const cid = input.client ?? (input.email ? await ctx.repos.clients.findByIdentity(slug, "email", input.email) : undefined);
     if (input.client === undefined && input.email === undefined) throw new ToolError("invalid", "Give the client's id or email.");
     if (cid === undefined) throw new ToolError("not_found", `No client ${input.email ?? ""} in project ${slug}: a map is drawn for a client the hub recorded (after a draft).`);
+    ownFollowUpClient(ctx.env, cid);
     const check = checkClientMap(input.map);
     if (!check.ok) throw new ToolError("map_invalid", `${check.line === null ? "The map" : `Line ${check.line}`}: ${check.error}. The old map stays.`);
     const current = await ctx.repos.clientMaps.get(slug, cid);

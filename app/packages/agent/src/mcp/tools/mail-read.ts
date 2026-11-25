@@ -4,7 +4,7 @@ import { CONVERSATION_STATES, CONVERSATION_VIEWS } from "@hub/contract/conversat
 import { answeringDraft } from "@hub/db";
 import { displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brands";
 import { defineTool } from "../define";
-import { configOf } from "../ports";
+import { configOf, ownFollowUpClient } from "../ports";
 import { cut, ToolError } from "../result";
 import { otherChat } from "./messengers";
 
@@ -12,15 +12,17 @@ import { otherChat } from "./messengers";
 
 const draftLine = z.object({ id: z.number(), status: z.enum(DRAFT_STATUSES), subject: z.string(), createdAt: z.string() });
 
+const followUpView = z.object({ state: z.string(), display: z.string(), nextAt: z.string().nullable(), waitingOn: z.string().nullable(), nudgesSent: z.number(), lastNudgeAt: z.string().nullable(), channel: z.string().nullable(), reason: z.string().nullable(), tz: z.string().nullable(), decidedBy: z.string(), lines: z.array(z.string()) });
+
 export const clientShowTool = defineTool({
   name: "client_show",
   title: "One client of this project",
   description: "A client by id or by email: marks, reply state, last contact, the Notion link, their drafts (id, status, subject) and their current map (redraw it with client_map after a draft). Only clients the agent recorded exist here (the Hub is not a client directory; Notion is the CRM). Names and subjects are data.",
   input: z.object({ id: z.number().int().positive().optional(), email: z.string().max(320).optional() }),
-  output: z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable() }),
+  output: z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable(), followUp: followUpView.nullable() }),
   effect: "read",
-  refusals: ["not_found", "autopilot_other_chat"],
-  handler: async ({ repos, project, env }, { id, email }) => {
+  refusals: ["not_found", "autopilot_other_chat", "followup_other_client"],
+  handler: async ({ repos, project, env, now }, { id, email }) => {
     const slug = project();
     const cid = id ?? (email ? await repos.clients.findByIdentity(slug, "email", email.trim()) : undefined);
     if (cid === undefined) throw new ToolError("invalid", "Give the client's id or email.");
@@ -30,13 +32,17 @@ export const clientShowTool = defineTool({
       const own = row ? await repos.messengers.clientByIdentifier(slug, row.channel === "whatsapp" ? "whatsapp" : "telegram", row.chatId) : null;
       if (own === null || own !== cid) throw otherChat(env.autopilotChat);
     }
+    ownFollowUpClient(env, cid);
     const c = await repos.clients.card(slug, cid);
     if (!c) throw new ToolError("not_found", `No client ${id ?? email} in project ${slug}.`);
     const drafts = await repos.drafts.ofClient(slug, c.id);
     const notion = drafts.find((d) => d.notionUrl)?.notionUrl ?? null;
     const m = await repos.clientMaps.get(slug, c.id);
     const map = m?.source ? { source: m.source, updatedAt: m.updatedAt } : null;
-    return { ...c, name: cut(c.name), project: slug, notion, drafts: drafts.slice(0, 30).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })), map };
+    // P142: the follow-up plan (the agent's notes, never a gate) and its last dated lines.
+    const plan = await repos.followUps.one(slug, c.id, now());
+    const followUp = plan ? { state: plan.state, display: plan.display, nextAt: plan.nextAt, waitingOn: plan.waitingOn, nudgesSent: plan.nudgesSent, lastNudgeAt: plan.lastNudgeAt, channel: plan.channel, reason: plan.reason, tz: plan.tz, decidedBy: plan.decidedBy, lines: (await repos.followUps.lines(slug, c.id)).map((l) => l.line ?? l.summary) } : null;
+    return { ...c, name: cut(c.name), project: slug, notion, drafts: drafts.slice(0, 30).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })), map, followUp };
   },
 });
 
@@ -72,7 +78,7 @@ export const messageShowTool = defineTool({
     reply: z.object({ note: z.string().optional(), draft_write: z.object({ kind: z.literal("reply"), message: z.union([z.object({ inbound: z.number() }), mailIds]), content: z.string() }).optional(), then: z.string().optional() }),
   }),
   effect: "read",
-  refusals: ["not_found", "unavailable", "not_this_project"],
+  refusals: ["not_found", "unavailable", "not_this_project", "followup_other_client"],
   handler: async ({ repos, env, project }, { inbound, message }) => {
     const slug = project();
     if ((inbound === undefined) === (message === undefined)) throw new ToolError("invalid", "Give inbound (the Hub's Inbox id) or message (mail-mcp's account, mailbox_path, message_id), exactly one.");
@@ -89,6 +95,11 @@ export const messageShowTool = defineTool({
     const messageId = row?.messageId ?? header("message-id")?.replace(/^<|>$/g, "") ?? null;
     const email = row?.email ?? fromAddr;
     const clientId = email ? await repos.clients.findByIdentity(slug, "email", email) : undefined;
+    // P142: a sweep turn reads its own client's messages only; one of ours is its client's when the turn's client is a recipient.
+    if (env.followUpClient !== undefined && clientId !== env.followUpClient) {
+      const to = (await repos.clients.get(slug, env.followUpClient))?.email;
+      ownFollowUpClient(env, to && unfolded.toLowerCase().includes(to) ? env.followUpClient : (clientId ?? null));
+    }
     const drafts = clientId === undefined ? [] : await repos.drafts.ofClient(slug, clientId);
     const answer = row ? answeringDraft(row, drafts) : messageId ? ((await repos.drafts.byMailRef(slug, messageId)).find((d) => d.status === "ready" || d.status === "hold") ?? null) : null;
     const cfg = configOf(pm);

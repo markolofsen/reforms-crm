@@ -1,4 +1,5 @@
 import { AUTOPILOT_DRAFT_AUTHOR, type AutopilotVerdict } from "@hub/config/autopilot";
+import { FOLLOW_UP_DRAFT_AUTHOR } from "@hub/config/follow-ups";
 import type { MessengerChannel, Repos } from "@hub/db";
 
 // P129 verdict 14 (P133): the ONE recorder of an unsent messenger draft written by a machine: the CLI agent's
@@ -7,7 +8,7 @@ import type { MessengerChannel, Repos } from "@hub/db";
 // (rule 17): no adapter, no send capability, no human actor. It sends nothing.
 
 /** Who produced the text. The stored vocabulary of Activity's `provider` (`@hub/contract/activity`). */
-export type MessengerDraftProvider = "runtime_agent" | "hub_llm" | "autopilot";
+export type MessengerDraftProvider = "runtime_agent" | "hub_llm" | "autopilot" | "follow_up";
 
 const PRODUCERS: Record<MessengerDraftProvider, { createdBy: string; reason: string; tool: string; trigger: "agent" | "owner" }> = {
   // The agent writes in a session; `createdBy: "agent"` is the stored value the Messengers card reads.
@@ -16,6 +17,8 @@ const PRODUCERS: Record<MessengerDraftProvider, { createdBy: string; reason: str
   hub_llm: { createdBy: "hub_llm", reason: "Hub LLM prepared an unsent draft.", tool: "messenger_prepare", trigger: "owner" },
   // Decision 0048: an autopilot turn of the server (one headless Claude turn bound to one chat); the server may send it.
   autopilot: { createdBy: AUTOPILOT_DRAFT_AUTHOR, reason: "Autopilot prepared a reply.", tool: "messenger_draft_write", trigger: "agent" },
+  // Decision 0050: a follow-up sweep turn's nudge in a chat without autopilot; it waits for the owner.
+  follow_up: { createdBy: FOLLOW_UP_DRAFT_AUTHOR, reason: "The follow-up sweep prepared a nudge.", tool: "messenger_draft_write", trigger: "agent" },
 };
 
 export interface AgentDraftInput {
@@ -33,12 +36,14 @@ export interface AgentDraftInput {
   at: string;
   /** An autopilot turn's verdict on its draft (decision 0048), kept on the Activity line. */
   autopilot?: { verdict: AutopilotVerdict; reason: string };
+  /** P142: a follow-up nudge and its number (`messenger_drafts.follow_up_n`); the door counts it on the plan when it is sent. */
+  followUpN?: number | null;
 }
 
 /** Writes the draft and its Activity row on `repos` (the caller's write connection); returns the draft's id and what happened. */
 export async function recordAgentDraft(repos: Repos, i: AgentDraftInput): Promise<{ id: number; action: "created" | "revised" }> {
   const p = PRODUCERS[i.provider];
-  const extra = { ownerRequest: i.ownerRequest, nudge: i.nudge };
+  const extra = { ownerRequest: i.ownerRequest, nudge: i.nudge, ...(i.followUpN !== undefined ? { followUpN: i.followUpN } : {}) };
   const id =
     i.revise === undefined
       ? (await repos.messengers.createDraft({ project: i.project, channel: i.chat.channel, chatId: i.chat.chatId, text: i.text, createdBy: p.createdBy, clientId: i.client?.id ?? null, ...extra })).id
@@ -52,7 +57,7 @@ export async function recordAgentDraft(repos: Repos, i: AgentDraftInput): Promis
     kind: action === "drafted" ? "draft_created" : "decision",
     tool: p.tool,
     summary: `Drafted reply for ${i.client?.name ?? i.chat.title ?? i.chat.chatId}`,
-    detail: JSON.stringify({ action, draftId: id, reason: p.reason, skill: "messenger-reply", provider: i.provider, ...(i.model ? { model: i.model } : {}), ...(i.autopilot ? { autopilot: i.autopilot } : {}) }),
+    detail: JSON.stringify({ action, draftId: id, reason: p.reason, skill: "messenger-reply", provider: i.provider, ...(i.model ? { model: i.model } : {}), ...(i.autopilot ? { autopilot: i.autopilot } : {}), ...(i.followUpN != null ? { followUpN: i.followUpN } : {}) }),
     clientId: i.client?.id ?? null,
   });
   return { id, action: i.revise === undefined ? "created" : "revised" };

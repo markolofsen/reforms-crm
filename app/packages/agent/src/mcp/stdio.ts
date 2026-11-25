@@ -6,11 +6,12 @@ import { join } from "node:path";
 import { checkClientMap, notionMapSource } from "@hub/diagram/map";
 import { nextStepOf } from "@hub/diagram/map-status";
 import { syncClientMap } from "@hub/notion/client-map";
+import { syncFollowUp } from "@hub/notion/follow-ups";
 import { projectStore } from "@hub/projects/store";
 import { readAllowList, testRecipientsOf } from "@hub/projects/guard";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { mailAppDraftWriter } from "@hub/mail-app/writer";
-import type { NotionClientCheck, RevisionRecord, VersionRecord } from "./ports";
+import type { FollowUpSync, NotionClientCheck, RevisionRecord, VersionRecord } from "./ports";
 import { createHubMcpServer } from "./server";
 import type { WithRepos } from "../mail/write-log";
 import { httpAgentSend } from "../messenger/send-tool";
@@ -21,6 +22,7 @@ import { logStoreOf, readEvents } from "@hub/log/store";
 import { ops } from "@hub/log/ops";
 import { bindProject } from "./binding";
 import { AUTOPILOT_CHAT_ENV } from "@hub/config/autopilot";
+import { FOLLOW_UP_CLIENT_ENV } from "@hub/config/follow-ups";
 
 /** Decision 0048 (verdict 20): the chat an autopilot turn's server is bound to (`HUB_AUTOPILOT_CHAT`, a row id), or none. */
 export function autopilotChatOf(env: NodeJS.ProcessEnv): number | undefined {
@@ -30,6 +32,18 @@ export function autopilotChatOf(env: NodeJS.ProcessEnv): number | undefined {
   // A value that is not a row id binds to no chat at all (0 matches no row), never to "every chat".
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
+
+/** Decision 0050 (P142 verdict 5): the client a sweep turn's server is bound to (`HUB_FOLLOWUP_CLIENT`, a row id), or none. */
+export function followUpClientOf(env: NodeJS.ProcessEnv): number | undefined {
+  const raw = env[FOLLOW_UP_CLIENT_ENV]?.trim();
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+/** P142 F7: a plan to the client's Notion page (the four Hub properties and the dated line); its state is the tool's answer. */
+const syncFollowUpOf = (paths: { projects: string; secrets: string }) => async (slug: string, f: FollowUpSync) =>
+  syncFollowUp({ projectsDir: paths.projects, secretsDir: paths.secrets }, { project: slug, email: f.email, pageId: f.pageId, plan: { nextAt: f.nextAt, state: f.state, nudgeReady: f.nudgeReady, nudgesSent: f.nudgesSent, waitingOn: f.waitingOn, line: f.line } });
 
 /**
  * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` with `HUB_PROJECT_CAPABILITY` (P112 S3: the
@@ -103,8 +117,10 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const testRecipients = (slug: string) => testRecipientsOf(projectStore({ projects: paths.projects, stateProjects: paths.stateProjects }).config(slug), readAllowList(paths.configFile));
   // Decision 0048: an autopilot turn's server serves one chat, has no send port and no chat sort, attended instance or not.
   const autopilotChat = autopilotChatOf(env);
+  // Decision 0050: a sweep turn's server serves one client, with no send port and no chat sort either.
+  const followUpClient = followUpClientOf(env);
   // Decision 0046: `messenger_send` exists only in an attended instance (read at start; the server refuses an unattended one anyway).
-  const attended = autopilotChat === undefined && !instanceFeatures(paths).agent.unattended;
+  const attended = autopilotChat === undefined && followUpClient === undefined && !instanceFeatures(paths).agent.unattended;
   const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};
   // P128 X5: sorting the chats proposes hides only, so it is not gated on attendance.
   const chatSort = httpChatSort({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) });
@@ -125,7 +141,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // P112 S3: the slug binds only with its capability, once, for this process's life.
   const binding = bindProject(paths, env);
   if (binding.refusal) ops("agent").warn("hub mcp started unbound: HUB_PROJECT came without a valid project capability", { reason: binding.refusal });
-  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat === undefined ? { chatSort } : { autopilotChat }), records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : { chatSort }), syncFollowUp: syncFollowUpOf(paths), records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

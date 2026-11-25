@@ -31,6 +31,8 @@ export type NewMessengerDraft = {
   ownerRequest?: string | null;
   /** A follow-up after our own last message (P71 M2b). */
   nudge?: boolean;
+  /** P142: a follow-up sweep's nudge and its number. */
+  followUpN?: number | null;
 };
 export type ClientIdentifierRow = typeof clientIdentifiers.$inferSelect;
 export type MessengerAccountRow = typeof messengerAccounts.$inferSelect;
@@ -241,7 +243,7 @@ export function messengersRepo(db: Db) {
       if (input.clientId != null) requireClient(input.project, input.clientId);
       return db
         .insert(messengerDrafts)
-        .values({ project: input.project, channel: input.channel, chatId: input.chatId, text: input.text, createdBy: input.createdBy, clientId: input.clientId ?? null, ownerRequest: input.ownerRequest ?? null, nudge: input.nudge ?? false })
+        .values({ project: input.project, channel: input.channel, chatId: input.chatId, text: input.text, createdBy: input.createdBy, clientId: input.clientId ?? null, ownerRequest: input.ownerRequest ?? null, nudge: input.nudge ?? false, followUpN: input.followUpN ?? null })
         .returning()
         .get();
     },

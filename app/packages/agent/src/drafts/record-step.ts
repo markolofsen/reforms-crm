@@ -60,10 +60,10 @@ const REFUSAL_OF: Record<Exclude<DraftRecordOutcome, { ok: true }>["code"], "rec
  * Records the first draft of a thread (or adopts a pending one). A refusal says the draft is in Mail and how to finish. The brand
  * and the address the client wrote to are the version's (P140 R3): what the signer resolved for the text this record is for.
  */
-export async function recordFirst(s: DraftScope, w: { email: string; subject: string; mailRef: string | null }, q: { owner_request: string | undefined; record: DraftRecord }, v: VersionBrand): Promise<Extract<DraftRecordOutcome, { ok: true }>> {
+export async function recordFirst(s: DraftScope, w: { email: string; subject: string; mailRef: string | null }, q: { owner_request: string | undefined; record: DraftRecord; followUpN?: number | null }, v: VersionBrand): Promise<Extract<DraftRecordOutcome, { ok: true }>> {
   const env = s.ctx.env.records;
   if (!env) throw new ToolError("unavailable", "This hub MCP server cannot record drafts (no database to write).");
-  const out = await recordDraftCall({ project: s.slug, email: w.email, subject: w.subject, mailRef: w.mailRef, ownerRequest: q.owner_request ?? null, record: q.record, brand: v.brand, wroteTo: v.wroteTo }, env);
+  const out = await recordDraftCall({ project: s.slug, email: w.email, subject: w.subject, mailRef: w.mailRef, ownerRequest: q.owner_request ?? null, record: q.record, brand: v.brand, wroteTo: v.wroteTo, ...(q.followUpN != null ? { followUpN: q.followUpN } : {}) }, env);
   if (out.ok) return out;
   throw new ToolError(REFUSAL_OF[out.code], `The draft is saved in Mail but not recorded: ${out.error}. Call draft_write once more with the record fixed: the hub records the saved draft, it does not write a second one.`, { ...(out.blocked ? { blocked: out.blocked } : {}), ...(out.warnings ? { warnings: out.warnings } : {}) });
 }

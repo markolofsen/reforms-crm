@@ -11,6 +11,7 @@ import { draftRecord, type DraftRecord } from "../../records/schema";
 import { defineTool } from "../define";
 import { isRefusalCode } from "../refusals";
 import { ToolError } from "../result";
+import { ownFollowUpClient } from "../ports";
 import { displayNameFor } from "@hub/projects/brands";
 
 // P52 (decision 0030): the one Mail write of `hub mcp`, an unsent draft in Mail's Drafts with Mail in the background
@@ -25,12 +26,14 @@ const mailIds = z.object({ account: z.string().min(1).max(320), mailbox_path: z.
 const message = z.union([z.object({ inbound: z.number().int().positive().describe("the Hub's Inbox id (focus ref inbound:<id>)") }).strict(), mailIds]);
 
 /** The record as the SDK hands it over: already parsed by `input`'s `draftRecord` (its notion page normalized). */
+/** P142: a follow-up nudge and its number (the sweep, or one the owner asked for). */
+const followUp = z.object({ n: z.number().int().min(1).max(20) }).strict();
 const parsedRecord = z.custom<DraftRecord>((v) => typeof v === "object" && v !== null, "record: the draft's record object");
 /** The three uses, exclusive: what the handler accepts. */
 export const draftWriteCall = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("revise"), draft: z.number().int().positive(), content, reason: z.string().trim().min(1).max(500).optional(), owner_request: ownerRequest.optional() }).strict(),
-  z.object({ kind: z.literal("reply"), message, content, owner_request: ownerRequest.optional(), record: parsedRecord }).strict(),
-  z.object({ kind: z.literal("new"), to: z.string().trim().email().max(320), subject: z.string().trim().min(1).max(300), content, owner_request: ownerRequest, account: z.string().min(1).max(320).optional(), from: z.string().trim().email().max(320).optional(), brand: z.string().trim().min(1).max(100).optional(), record: parsedRecord }).strict(),
+  z.object({ kind: z.literal("reply"), message, content, owner_request: ownerRequest.optional(), record: parsedRecord, follow_up: followUp.optional() }).strict(),
+  z.object({ kind: z.literal("new"), to: z.string().trim().email().max(320), subject: z.string().trim().min(1).max(300), content, owner_request: ownerRequest, account: z.string().min(1).max(320).optional(), from: z.string().trim().email().max(320).optional(), brand: z.string().trim().min(1).max(100).optional(), record: parsedRecord, follow_up: followUp.optional() }).strict(),
 ]);
 export type DraftWriteCall = z.output<typeof draftWriteCall>;
 
@@ -52,10 +55,11 @@ export const draftWriteTool = defineTool({
     reason: z.string().optional().describe("revise: a new \"Why this email\" line, one English sentence"),
     owner_request: ownerRequest.optional(),
     record: draftRecord.optional().describe("reply and new: the record of the draft (who, why, what you read)"),
+    follow_up: followUp.optional().describe("reply and new: a follow-up nudge, {n}: which one (a reply to our own last message is the usual nudge)"),
   }),
   output: draftWriteOutput,
   effect: "draft",
-  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed"],
+  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client"],
   handler: async (ctx, raw) => {
     const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)));
     if (!parsed.success) throw new ToolError("invalid", `${parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}. Nothing was written.`);
@@ -66,18 +70,21 @@ export const draftWriteTool = defineTool({
     refuseOwnSignoff(s, call.content);
     ownerWordsOf(s, call.owner_request);
     try {
+      if (call.kind === "revise" && s.ctx.env.followUpClient !== undefined) ownFollowUpClient(s.ctx.env, (await s.ctx.repos.drafts.get(call.draft))?.clientId);
       if (call.kind === "revise") return await afterWrite(s, await reviseHubDraft(s, call.draft, call.content), { draft: call.draft, content: call.content, to: undefined, owner_request: call.owner_request, reason: call.reason });
       if (call.kind === "new") {
+        await ownClientEmail(s, call.to);
         await precheckRecord(s, call.to, call.record);
         const w = await writeNewThread(s, { to: call.to, subject: call.subject, content: call.content, owner_request: call.owner_request, account: call.account, from: call.from, brand: call.brand });
-        const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record }, v);
+        const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null }, v);
         return "pending" in w ? await adopted(s, w, first) : await afterWrite(s, w, { draft: undefined, content: call.content, to: call.to, owner_request: call.owner_request, reason: undefined }, first);
       }
       const inbound = await inboundOf(s, call.message);
       const email = await clientOfReply(s, inbound);
+      await ownClientEmail(s, email);
       await precheckRecord(s, email, call.record);
       const w = await writeNewReply(s, { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId, content: call.content, owner_request: call.owner_request });
-      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record }, v);
+      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null }, v);
       return "pending" in w ? await adopted(s, w, first(await replySubjectOf(s, inbound), w.mailRef)) : await afterWrite(s, w, { draft: undefined, content: call.content, to: undefined, owner_request: call.owner_request, reason: undefined }, first(w.r.subject, w.mailRef));
     } catch (e) {
       // A Mail script's own code is a registered refusal; one from outside the registry is Mail's error.
@@ -86,6 +93,12 @@ export const draftWriteTool = defineTool({
     }
   },
 });
+
+/** Decision 0050 (P142 verdict 5): a sweep turn writes to its own client only. */
+async function ownClientEmail(s: DraftScope, email: string): Promise<void> {
+  if (s.ctx.env.followUpClient === undefined) return;
+  ownFollowUpClient(s.ctx.env, await s.ctx.repos.clients.findByIdentity(s.slug, "email", email.trim().toLowerCase()));
+}
 
 /** The answered message in Mail: a Hub Inbox row resolved through Mail (bound project's accounts only), or mail-mcp's three ids. */
 async function inboundOf(s: DraftScope, m: z.output<typeof message>): Promise<InboundMessage> {
