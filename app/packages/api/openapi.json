@@ -11535,6 +11535,14 @@
                       "id": {
                         "type": "number"
                       },
+                      "kind": {
+                        "default": "lead",
+                        "type": "string",
+                        "enum": [
+                          "lead",
+                          "mail"
+                        ]
+                      },
                       "trigger": {
                         "type": "string",
                         "enum": [
@@ -11574,6 +11582,10 @@
                       "handedOver": {
                         "type": "number"
                       },
+                      "noReply": {
+                        "default": 0,
+                        "type": "number"
+                      },
                       "failed": {
                         "type": "number"
                       },
@@ -11595,6 +11607,7 @@
                     },
                     "required": [
                       "id",
+                      "kind",
                       "trigger",
                       "startedAt",
                       "finishedAt",
@@ -11605,6 +11618,7 @@
                       "spam",
                       "notNow",
                       "handedOver",
+                      "noReply",
                       "failed",
                       "skipped",
                       "batchId",
@@ -11672,18 +11686,198 @@
               "proposals"
             ],
             "additionalProperties": false
+          },
+          "mail": {
+            "type": "object",
+            "properties": {
+              "schedule": {
+                "type": "string",
+                "enum": [
+                  "daily",
+                  "off"
+                ]
+              },
+              "at": {
+                "type": "string"
+              },
+              "last": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "kind": {
+                        "default": "lead",
+                        "type": "string",
+                        "enum": [
+                          "lead",
+                          "mail"
+                        ]
+                      },
+                      "trigger": {
+                        "type": "string",
+                        "enum": [
+                          "schedule",
+                          "button",
+                          "catch_up",
+                          "dock"
+                        ]
+                      },
+                      "startedAt": {
+                        "type": "string"
+                      },
+                      "finishedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "listed": {
+                        "type": "number"
+                      },
+                      "turns": {
+                        "type": "number"
+                      },
+                      "replied": {
+                        "type": "number"
+                      },
+                      "clients": {
+                        "type": "number"
+                      },
+                      "spam": {
+                        "type": "number"
+                      },
+                      "notNow": {
+                        "type": "number"
+                      },
+                      "handedOver": {
+                        "type": "number"
+                      },
+                      "noReply": {
+                        "default": 0,
+                        "type": "number"
+                      },
+                      "failed": {
+                        "type": "number"
+                      },
+                      "skipped": {
+                        "type": "number"
+                      },
+                      "batchId": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "error": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "trigger",
+                      "startedAt",
+                      "finishedAt",
+                      "listed",
+                      "turns",
+                      "replied",
+                      "clients",
+                      "spam",
+                      "notNow",
+                      "handedOver",
+                      "noReply",
+                      "failed",
+                      "skipped",
+                      "batchId",
+                      "error"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "next": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "runNowOff": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stopped": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "today": {
+                "type": "object",
+                "properties": {
+                  "drafted": {
+                    "type": "number"
+                  },
+                  "proposed": {
+                    "type": "number"
+                  },
+                  "forYou": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "drafted",
+                  "proposed",
+                  "forYou"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "schedule",
+              "at",
+              "last",
+              "next",
+              "running",
+              "runNowOff",
+              "stopped",
+              "today"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "today",
           "pass",
-          "review"
+          "review",
+          "mail"
         ],
         "additionalProperties": false
       },
       "RunLeadPassBody": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "pass": {
+            "type": "string",
+            "enum": [
+              "lead",
+              "mail"
+            ]
+          }
+        },
         "additionalProperties": false
       },
       "RunLeadPass": {
@@ -22868,6 +23062,18 @@
             "items": {
               "type": "object",
               "properties": {
+                "kind": {
+                  "default": "lead",
+                  "type": "string",
+                  "enum": [
+                    "lead",
+                    "mail"
+                  ]
+                },
+                "newSender": {
+                  "default": false,
+                  "type": "boolean"
+                },
                 "pageId": {
                   "type": "string"
                 },
@@ -22908,7 +23114,8 @@
                     "client",
                     "spam",
                     "not_now",
-                    "hand_over"
+                    "hand_over",
+                    "no_reply"
                   ]
                 },
                 "reason": {
@@ -22986,6 +23193,8 @@
                 }
               },
               "required": [
+                "kind",
+                "newSender",
                 "pageId",
                 "name",
                 "email",
@@ -23010,8 +23219,23 @@
             "items": {
               "type": "object",
               "properties": {
+                "kind": {
+                  "default": "lead",
+                  "type": "string",
+                  "enum": [
+                    "lead",
+                    "mail"
+                  ]
+                },
                 "pageId": {
                   "type": "string"
+                },
+                "inbound": {
+                  "default": null,
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -23035,7 +23259,8 @@
                   "type": "string",
                   "enum": [
                     "spam",
-                    "not_now"
+                    "not_now",
+                    "no_reply"
                   ]
                 },
                 "reason": {
@@ -23046,7 +23271,9 @@
                 }
               },
               "required": [
+                "kind",
                 "pageId",
+                "inbound",
                 "name",
                 "email",
                 "site",
@@ -23062,8 +23289,23 @@
             "items": {
               "type": "object",
               "properties": {
+                "kind": {
+                  "default": "lead",
+                  "type": "string",
+                  "enum": [
+                    "lead",
+                    "mail"
+                  ]
+                },
                 "pageId": {
                   "type": "string"
+                },
+                "inbound": {
+                  "default": null,
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -23085,7 +23327,9 @@
                 }
               },
               "required": [
+                "kind",
                 "pageId",
+                "inbound",
                 "name",
                 "email",
                 "request",
@@ -23162,16 +23406,21 @@
                   "type": "string",
                   "pattern": "^[0-9a-fA-F-]{32,36}$"
                 },
+                "inbound": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
                 "decision": {
                   "type": "string",
                   "enum": [
                     "spam",
-                    "not_now"
+                    "not_now",
+                    "no_reply"
                   ]
                 }
               },
               "required": [
-                "pageId",
                 "decision"
               ],
               "additionalProperties": false
@@ -23261,6 +23510,10 @@
               "notNow": {
                 "type": "number"
               },
+              "noReply": {
+                "default": 0,
+                "type": "number"
+              },
               "excluded": {
                 "type": "number"
               },
@@ -23274,6 +23527,7 @@
             "required": [
               "spam",
               "notNow",
+              "noReply",
               "excluded",
               "notion"
             ],

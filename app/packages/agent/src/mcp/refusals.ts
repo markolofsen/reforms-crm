@@ -9,6 +9,8 @@ export const REFUSAL_CODES = [
   "invalid",
   "db_behind",
   "core_changed",
+  // a mail turn (P147 3h)
+  "mail_other",
   // link_fetch (owner 2026-11-25)
   "link_refused",
   "link_failed",
@@ -111,6 +113,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   link_refused: { retry: "no", next: "Only a public http(s) link is opened (never localhost, a private address or file:): tell the owner in one line which link and why." },
   link_failed: { retry: "no", next: "Say in one line that the link did not open (the message says why) and go on without it; never guess what it showed." },
   db_behind: { retry: "after_owner", next: "Tell the owner in one line: restart the Hub server (it applies the database migration), then this works again. Do not retry before." },
+  mail_other: { retry: "no", next: "This mail turn serves its one message only: decide it (mail_decide) and stop." },
   core_changed: { retry: "no", next: "Tell the owner in one line: the Hub was updated, start a new dock session (this one runs the old tools). Do not retry in this session." },
   invalid: { retry: "now", next: "Fix the arguments as the message says." },
   unavailable: { retry: "no", next: `${ONE_LINE} that this session cannot do it (the message says why).`, fix: { line: "Restart the agent session with hub agent <project>.", place: "the dock" } },

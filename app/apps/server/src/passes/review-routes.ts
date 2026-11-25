@@ -90,9 +90,43 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
           ticked: held.length === 0 && !excluded && a.mail !== null && (r.display === "drafted" || r.display === "for_you"),
         });
       }
+      // P147 3h: the mail pass's replies, grouped after the leads; a first reply to a new sender opens unticked.
+      for (const m of await repos.mailPass.ofBatch(slug, batchId)) {
+        if (m.passDraftId === null) continue;
+        const a = await assess(deps, m.passDraftId, { mode: "manual" });
+        const held = a.reasons.filter((x) => x !== NOT_CHECKED);
+        await repos.leadPass.setServedHash(slug, m.passDraftId, a.mail ? mailHash(a.mail) : null);
+        const display = m.display === "dismissed" ? ("excluded" as const) : m.display === "new" ? ("drafted" as const) : m.display;
+        rows.push({
+          kind: "mail" as const,
+          newSender: m.newSender,
+          pageId: String(m.id),
+          name: m.name || m.email,
+          email: m.email,
+          replyWhy: "the sender's address",
+          language: languageLine((await repos.drafts.get(m.passDraftId))?.context ?? null),
+          brand: null,
+          receivedAt: m.receivedAt,
+          request: m.preview,
+          decision: m.passDecision ?? "reply",
+          reason: m.passReason,
+          display,
+          draftId: m.passDraftId,
+          mail: a.mail ? { from: a.mail.sender, to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+          held,
+          ticked: !m.newSender && held.length === 0 && a.mail !== null && (display === "drafted" || display === "for_you"),
+        });
+      }
       const decided = await repos.leadPass.decided(slug, windowFrom(slug, at));
-      const proposals = decided.filter((r) => r.display === "proposed").map((r) => ({ pageId: r.pageId, name: r.name, email: r.email, site: r.site, request: r.preview, decision: r.passDecision === "spam" ? ("spam" as const) : ("not_now" as const), reason: r.passReason }));
-      const handOvers = decided.filter((r) => r.display === "for_you").map((r) => ({ pageId: r.pageId, name: r.name, email: r.email, request: r.preview, reason: r.passReason }));
+      const mailDecided = await repos.mailPass.decided(slug, windowFrom(slug, at));
+      const proposals = [
+        ...decided.filter((r) => r.display === "proposed").map((r) => ({ kind: "lead" as const, pageId: r.pageId, inbound: null, name: r.name, email: r.email, site: r.site, request: r.preview, decision: r.passDecision === "spam" ? ("spam" as const) : ("not_now" as const), reason: r.passReason })),
+        ...mailDecided.filter((r) => r.display === "proposed").map((r) => ({ kind: "mail" as const, pageId: String(r.id), inbound: r.id, name: r.name || r.email, email: r.email, site: null, request: `${r.subject} · ${r.preview}`.slice(0, 200), decision: r.passDecision === "spam" ? ("spam" as const) : ("no_reply" as const), reason: r.passReason })),
+      ];
+      const handOvers = [
+        ...decided.filter((r) => r.display === "for_you").map((r) => ({ kind: "lead" as const, pageId: r.pageId, inbound: null, name: r.name, email: r.email, request: r.preview, reason: r.passReason })),
+        ...mailDecided.filter((r) => r.passDecision === "hand_over" && r.display === "for_you").map((r) => ({ kind: "mail" as const, pageId: String(r.id), inbound: r.id, name: r.name || r.email, email: r.email, request: `${r.subject} · ${r.preview}`.slice(0, 200), reason: r.passReason })),
+      ];
       const plan = await planBatch(deps, slug, batchId, o.limits);
       return c.json(leadReviewDto.parse({ batchId, name: batch.name, rows, proposals, handOvers, cap: plan?.cap ?? { limit: o.limits.dailyCap, used: 0, room: o.limits.dailyCap }, spacingSeconds: o.limits.spacingSeconds }));
     })
@@ -105,7 +139,11 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       if (!deps) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
       if (!(await leadBatch(slug, batchId))) return notFound(c, "batch");
       const at = (deps.now?.() ?? new Date()).toISOString();
-      const mine = new Map((await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.passDraftId !== null).map((r) => [r.passDraftId as number, r]));
+      // Both passes' drafts of this batch (P147 3h): a lead row by its page, a mail row by its inbound id.
+      const mine = new Map<number, { name: string; pageId: string | null; inbound: number | null }>([
+        ...(await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.passDraftId !== null).map((r) => [r.passDraftId as number, { name: r.name, pageId: r.pageId, inbound: null }] as const),
+        ...(await repos.mailPass.ofBatch(slug, batchId)).filter((r) => r.passDraftId !== null).map((r) => [r.passDraftId as number, { name: r.name || r.email, pageId: null, inbound: r.id }] as const),
+      ]);
       const held: { draftId: number; name: string; reasons: string[] }[] = [];
       // The ticked drafts: Checked, bound to the text the review served (D10). A draft never served, or edited since, is held.
       const ticked: number[] = [];
@@ -127,17 +165,29 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       }
       // The unticked ones (D7): excluded from this batch, unchecked, Excluded on the card; the next pass leaves them alone.
       const excludePages: string[] = [];
+      const excludeInbound: number[] = [];
       for (const id of body.exclude) {
         const r = mine.get(id);
         if (!r || body.send.includes(id)) continue;
         const d = await repos.drafts.get(id);
         if (d?.checked) await repos.drafts.setChecked(id, false);
-        excludePages.push(r.pageId);
+        if (r.pageId !== null) excludePages.push(r.pageId);
+        if (r.inbound !== null) excludeInbound.push(r.inbound);
       }
-      const excluded = excludePages.length ? await repos.leadPass.exclude(slug, excludePages, at) : 0;
-      // The ticked proposals: Spam (here and in Notion) and Not now (here), each only on a proposal of that kind.
-      const applied = { spam: 0, notNow: 0, excluded, notion: [] as string[] };
+      const excluded = (excludePages.length ? await repos.leadPass.exclude(slug, excludePages, at) : 0) + (await repos.mailPass.exclude(slug, excludeInbound, at));
+      // The ticked proposals: Spam (here and in Notion) and Not now (here), each only on a proposal of that kind; a mail pass
+      // proposal (Spam or No reply, P147 3h) is the owner's No reply needed on that thread (Mail itself is never changed).
+      const applied = { spam: 0, notNow: 0, noReply: 0, excluded, notion: [] as string[] };
       for (const p of body.proposals) {
+        if (p.inbound !== undefined) {
+          const m = await repos.mailPass.item(slug, p.inbound);
+          if (!m || m.display !== "proposed" || m.passDecision !== p.decision) continue;
+          await repos.inboundMail.dismiss(slug, m.id);
+          if (p.decision === "spam") applied.spam++;
+          else applied.noReply++;
+          continue;
+        }
+        if (p.pageId === undefined || p.decision === "no_reply") continue;
         const id = p.pageId.replace(/-/g, "").toLowerCase();
         const r = await repos.leadPass.item(slug, id);
         if (!r || r.display !== "proposed" || r.passDecision !== p.decision) continue;

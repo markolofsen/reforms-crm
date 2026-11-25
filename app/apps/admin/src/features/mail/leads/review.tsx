@@ -4,7 +4,7 @@ import { ArrowLeftIcon, SendIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { unresolvedMarkers } from "@hub/config";
 import { clientKey } from "@hub/contract/client-key";
-import type { LeadReviewDto, LeadReviewTicketDto } from "@hub/contract/lead-pass";
+import type { LeadReviewDto, LeadReviewTicketBody, LeadReviewTicketDto } from "@hub/contract/lead-pass";
 import { Checkbox } from "@hub/ui/checkbox";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -29,17 +29,25 @@ import { dest } from "@/routes/paths";
 // highlighted and a field per marker; filling one replaces it in Mail (the one writer), the review reads the text again, and the row
 // is ticked. A draft with a placeholder never goes out: the door's own check holds it whatever the tick.
 
-/** The button's words: "Send 3 · Spam 1 · Not now 2" (the empty parts left out). */
-export function clickLabel(send: number, spam: number, notNow: number): string {
+/** The button's words: "Send 3 · Spam 1 · Not now 2 · No reply 1" (the empty parts left out). */
+export function clickLabel(send: number, spam: number, notNow: number, noReply = 0): string {
   const parts = [`Send ${send}`];
   if (spam) parts.push(`Spam ${spam}`);
   if (notNow) parts.push(`Not now ${notNow}`);
+  if (noReply) parts.push(`No reply ${noReply}`);
   return parts.join(" · ");
 }
 
-/** The ticks the review opens with: every draft the door would send, every proposal. */
+type Proposal = LeadReviewDto["proposals"][number];
+/** A proposal's key in the ticks: a lead's page or (P147 3h) a mail pass's inbound row. */
+export const proposalKey = (p: Pick<Proposal, "kind" | "pageId">): string => `${p.kind}:${p.pageId}`;
+/** What the ticket posts for a ticked proposal: the lead's page, or the inbound row of a mail one. */
+export const proposalBody = (p: Proposal): LeadReviewTicketBody["proposals"][number] => (p.kind === "mail" && p.inbound !== null ? { inbound: p.inbound, decision: p.decision } : { pageId: p.pageId, decision: p.decision });
+const PROPOSAL_LABEL = { spam: "Spam", not_now: "Not now", no_reply: "No reply needed" } as const;
+
+/** The ticks the review opens with: every draft the door would send (a new sender's reply is unticked by the server), every proposal. */
 export function initialTicks(d: LeadReviewDto): { drafts: Set<number>; proposals: Set<string> } {
-  return { drafts: new Set(d.rows.filter((r) => r.ticked).map((r) => r.draftId)), proposals: new Set(d.proposals.map((p) => p.pageId)) };
+  return { drafts: new Set(d.rows.filter((r) => r.ticked).map((r) => r.draftId)), proposals: new Set(d.proposals.map(proposalKey)) };
 }
 
 type Row = LeadReviewDto["rows"][number];
@@ -49,10 +57,13 @@ export function markersOf(row: Row): string[] {
   return row.mail ? [...new Set(unresolvedMarkers(row.mail.body))] : [];
 }
 
-/** The rows that wait on the owner (a placeholder left in the text), and the rest. */
-export function splitNeedsInput(rows: readonly Row[]): { needs: Row[]; rest: Row[] } {
+/** The rows that wait on the owner (a placeholder left in the text), the mail pass's replies to new senders (P147 3h, unticked),
+ * and the rest: leads first, then mail. */
+export function splitNeedsInput(rows: readonly Row[]): { needs: Row[]; newSenders: Row[]; rest: Row[] } {
   const needs = rows.filter((r) => markersOf(r).length > 0);
-  return { needs, rest: rows.filter((r) => !needs.includes(r)) };
+  const newSenders = rows.filter((r) => !needs.includes(r) && r.kind === "mail" && r.newSender);
+  const rest = rows.filter((r) => !needs.includes(r) && !newSenders.includes(r));
+  return { needs, newSenders, rest: [...rest.filter((r) => r.kind === "lead"), ...rest.filter((r) => r.kind === "mail")] };
 }
 
 /** A row the review can send: one Mail holds with nothing held, drafted or (once filled) waiting For you. */
@@ -101,12 +112,13 @@ function Review({ project, d }: { project: string; d: LeadReviewDto }) {
     return next;
   };
   const fill = useFillMarker(project, d.batchId, { onDone: (id) => (setTicks((t) => ({ ...t, drafts: toggle(t.drafts, id, true) })), setError(null)), onError: (e) => setError(sentence(e)) });
-  const { needs, rest } = splitNeedsInput(d.rows);
+  const { needs, newSenders, rest } = splitNeedsInput(d.rows);
   const sendable = d.rows.filter(canSend);
   const send = sendable.filter((r) => ticks.drafts.has(r.draftId)).map((r) => r.draftId);
   const exclude = sendable.filter((r) => !ticks.drafts.has(r.draftId)).map((r) => r.draftId);
-  const proposals = d.proposals.filter((p) => ticks.proposals.has(p.pageId));
+  const proposals = d.proposals.filter((p) => ticks.proposals.has(proposalKey(p)));
   const spam = proposals.filter((p) => p.decision === "spam").length;
+  const noReply = proposals.filter((p) => p.decision === "no_reply").length;
   const r = run.data?.run ?? null;
   const rowView = (row: Row) => (
     <article aria-label={`Reply to ${row.name}`} className="flex flex-col gap-2 rounded-lg border p-3" data-testid="review-row" key={row.draftId}>
@@ -168,6 +180,15 @@ function Review({ project, d }: { project: string; d: LeadReviewDto }) {
           {needs.map(rowView)}
         </section>
       )}
+      {newSenders.length > 0 && (
+        <section aria-labelledby="review-new-senders" className="flex flex-col gap-3" data-testid="review-new-senders">
+          <h2 className="font-semibold text-base" id="review-new-senders">
+            New senders ({newSenders.length})
+          </h2>
+          <p className="text-muted-foreground text-sm">You never wrote to these addresses: read each reply, then tick it.</p>
+          {newSenders.map(rowView)}
+        </section>
+      )}
       <section aria-labelledby="review-replies" className="flex flex-col gap-3">
         <h2 className="font-semibold text-base" id="review-replies">
           Replies ({rest.length})
@@ -182,10 +203,10 @@ function Review({ project, d }: { project: string; d: LeadReviewDto }) {
           </h2>
           <ul className="flex flex-col divide-y rounded-lg border">
             {d.proposals.map((p) => (
-              <li className="flex flex-wrap items-start gap-3 p-3 text-sm" key={p.pageId}>
-                <Checkbox aria-label={`${p.decision === "spam" ? "Spam" : "Not now"}: ${p.name}`} checked={ticks.proposals.has(p.pageId)} disabled={done !== null} onCheckedChange={(on) => setTicks((t) => ({ ...t, proposals: toggle(t.proposals, p.pageId, on === true) }))} />
+              <li className="flex flex-wrap items-start gap-3 p-3 text-sm" key={proposalKey(p)}>
+                <Checkbox aria-label={`${PROPOSAL_LABEL[p.decision]}: ${p.name}`} checked={ticks.proposals.has(proposalKey(p))} disabled={done !== null} onCheckedChange={(on) => setTicks((t) => ({ ...t, proposals: toggle(t.proposals, proposalKey(p), on === true) }))} />
                 <span className="min-w-0 flex-1">
-                  <span className="font-medium">{p.decision === "spam" ? "Spam" : "Not now"}</span> · {p.name} · {p.site ?? p.email ?? ""}
+                  <span className="font-medium">{PROPOSAL_LABEL[p.decision]}</span> · {p.name} · {p.site ?? p.email ?? ""}
                   {p.reason && <span className="block text-muted-foreground text-xs">{p.reason}</span>}
                 </span>
               </li>
@@ -200,8 +221,12 @@ function Review({ project, d }: { project: string; d: LeadReviewDto }) {
           </h2>
           <ul className="flex flex-col gap-1 text-sm">
             {d.handOvers.map((h) => (
-              <li key={h.pageId}>
-                <AppLink to={dest("mail.lead", { page: h.pageId }, { view: "for_you", brand: null })}>{h.name}</AppLink>
+              <li key={`${h.kind}:${h.pageId}`}>
+                {h.kind === "mail" ? (
+                  <AppLink to={dest("mail.conversation", { key: clientKey({ id: 1, email: h.email ?? "" }) }, { filter: "all" })}>{h.name}</AppLink>
+                ) : (
+                  <AppLink to={dest("mail.lead", { page: h.pageId }, { view: "for_you", brand: null })}>{h.name}</AppLink>
+                )}
                 {h.reason && <span className="text-muted-foreground"> · {h.reason}</span>}
               </li>
             ))}
@@ -212,17 +237,18 @@ function Review({ project, d }: { project: string; d: LeadReviewDto }) {
         <ActionButton
           data-testid="review-send"
           disabled={confirm.isPending || done !== null || send.length + proposals.length + exclude.length === 0}
-          onClick={() => confirm.mutate({ send, exclude, proposals: proposals.map((p) => ({ pageId: p.pageId, decision: p.decision })) })}
+          onClick={() => confirm.mutate({ send, exclude, proposals: proposals.map(proposalBody) })}
           size="m"
           variant="primary"
         >
           <SendIcon aria-hidden="true" />
-          {confirm.isPending ? "Confirming" : clickLabel(send.length, spam, proposals.length - spam)}
+          {confirm.isPending ? "Confirming" : clickLabel(send.length, spam, proposals.length - spam - noReply, noReply)}
         </ActionButton>
         <p className="text-muted-foreground text-sm">{exclude.length ? `${exclude.length} unticked: excluded from today, not sent.` : "Nothing is sent before this click."}</p>
         {done && (
           <p className="text-sm" role="status">
             {done.items.length} sending · {done.held.length} held · spam {done.applied.spam} · not now {done.applied.notNow}
+            {done.applied.noReply ? ` · no reply ${done.applied.noReply}` : ""}
             {done.held.length > 0 && <span className="block text-muted-foreground">{done.held.map((h) => `${h.name}: ${h.reasons.join("; ")}`).join(" · ")}</span>}
             {done.applied.notion.length > 0 && <span className="block text-muted-foreground">{done.applied.notion.join(" · ")}</span>}
           </p>
@@ -253,7 +279,7 @@ export function LeadReviewScreen() {
       title="Review today’s replies"
     >
       <QueryView loading={<ListSkeleton label="Reading the drafts from Mail" />} query={q} what="the lead review">
-        {(d) => (d.rows.length + d.proposals.length + d.handOvers.length === 0 ? <EmptyState title="Nothing to review">The day’s lead pass wrote no draft and proposed nothing.</EmptyState> : <Review d={d} project={project} />)}
+        {(d) => (d.rows.length + d.proposals.length + d.handOvers.length === 0 ? <EmptyState title="Nothing to review">The day’s passes wrote no draft and proposed nothing.</EmptyState> : <Review d={d} project={project} />)}
       </QueryView>
     </Page>
   );

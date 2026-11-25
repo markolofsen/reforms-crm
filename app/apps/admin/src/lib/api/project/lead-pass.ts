@@ -10,7 +10,7 @@ import { readGenerated } from "../client";
 export const leadPassApi = {
   get: (project: string) => readGenerated(getLeadPass(project), leadPassDto),
   /** The server answers 202: the pass runs in the background (or the click joins the one running). */
-  run: (project: string) => readGenerated(runLeadPass(project, {}), runLeadPassDto, [202]),
+  run: (project: string, pass?: "lead" | "mail") => readGenerated(runLeadPass(project, pass ? { pass } : {}), runLeadPassDto, [202]),
   redo: (project: string, pageId: string) => readGenerated(redoLead(project, pageId), leadRedoneDto),
   review: (project: string, batchId: number) => readGenerated(getLeadReview(project, batchId), leadReviewDto),
 };

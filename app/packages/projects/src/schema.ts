@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
 import { FOLLOW_UP_DEFAULT_AT, FOLLOW_UP_SCHEDULES } from "@hub/config/follow-ups";
-import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE, LEAD_PASS_SCHEDULES } from "@hub/config/lead-pass";
+import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE, LEAD_PASS_SCHEDULES, MAIL_PASS_DEFAULT_AT, MAIL_PASS_DEFAULT_WINDOW_DAYS } from "@hub/config/lead-pass";
 import { BCP47, isIsoDate, isTimezone, SLUG } from "./values";
 
 export const STATUSES = ["draft", "active", "paused", "archived"] as const;
@@ -91,8 +91,12 @@ export const ProjectBase = z.object({
       mailboxes: z.array(z.string()).default(["INBOX"]),
       sentMailbox: z.string().default("Sent Mail"),
       sender: z.string().nullable().default(null),
+      // P147 3h (decision 0055 point 9): the daily mail pass, off in the core; not protected, the pass sends nothing.
+      pass: z.enum(LEAD_PASS_SCHEDULES).default(LEAD_PASS_DEFAULT_SCHEDULE),
+      passAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default(MAIL_PASS_DEFAULT_AT),
+      passWindowDays: z.number().int().positive().max(60).default(MAIL_PASS_DEFAULT_WINDOW_DAYS),
     })
-    .default({ accounts: [], addresses: [], aliases: [], domains: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null }),
+    .default({ accounts: [], addresses: [], aliases: [], domains: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null, pass: LEAD_PASS_DEFAULT_SCHEDULE, passAt: MAIL_PASS_DEFAULT_AT, passWindowDays: MAIL_PASS_DEFAULT_WINDOW_DAYS }),
   /** `test`: the global allow_list; `any`: anyone; a list: exactly these. */
   draft: z.object({ recipients: z.union([z.literal("test"), z.literal("any"), z.array(z.string()).min(1)]).default("test") }).default({ recipients: "test" }),
   tone: z.string().nullable().default(null),

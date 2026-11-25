@@ -9,7 +9,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { AppLink } from "@/components/app-link";
 import { sentence } from "@/lib/api/client";
-import { useLeadPass, useRedoLead, useRunLeadPass } from "@/lib/data/inbound";
+import { useLeadPass, useRedoLead, useRunLeadPass, useRunMailPass } from "@/lib/data/inbound";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 
@@ -35,10 +35,22 @@ export function passLine(d: LeadPassDto): string {
   return parts.join(" · ");
 }
 
+/** The mail pass line (P147 3h): "Mail pass 10:04 · 3 drafted · 1 proposed · next 26 Nov 10:00", or why it is off. */
+export function mailPassLine(d: LeadPassDto): string {
+  const m = d.mail;
+  const parts = [m.running ? "Mail pass running" : m.last ? `Mail pass ${formatTime(m.last.finishedAt ?? m.last.startedAt)}` : "No mail pass yet"];
+  if (m.today.drafted) parts.push(`${m.today.drafted} drafted`);
+  if (m.today.proposed) parts.push(`${m.today.proposed} proposed`);
+  if (m.today.forYou) parts.push(`${m.today.forYou} for you`);
+  parts.push(m.next ? `next ${formatTime(m.next)}` : m.schedule === "off" ? "daily pass off (mail.pass)" : "no next pass");
+  return parts.join(" · ");
+}
+
 /** The banner over the Leads list: Review today's replies (N) when the day's batch waits, Run lead pass now, the pass line. */
 export function LeadPassBar({ project }: { project: string }) {
   const q = useLeadPass(project);
   const run = useRunLeadPass(project);
+  const runMail = useRunMailPass(project);
   const d = q.data;
   if (!d) return null;
   const waiting = d.review.drafts + d.review.proposals;
@@ -55,17 +67,29 @@ export function LeadPassBar({ project }: { project: string }) {
           <BotIcon aria-hidden="true" />
           {run.isPending ? "Starting" : d.pass.running ? "Lead pass running" : "Run lead pass now"}
         </ActionButton>
+        <ActionButton data-testid="mail-pass-run" disabled={d.mail.runNowOff !== null || runMail.isPending || d.mail.running} onClick={() => runMail.mutate()} size="s" tooltip={d.mail.runNowOff ?? undefined} variant="secondary">
+          <BotIcon aria-hidden="true" />
+          {runMail.isPending ? "Starting" : d.mail.running ? "Mail pass running" : "Run mail pass now"}
+        </ActionButton>
       </div>
       <p className="text-muted-foreground text-xs tabular-nums" data-testid="lead-pass-line">
         {passLine(d)}
+      </p>
+      <p className="text-muted-foreground text-xs tabular-nums" data-testid="mail-pass-line">
+        {mailPassLine(d)}
       </p>
       {d.pass.stopped && (
         <p className="text-sm" role="status">
           Needs you: the last pass stopped: {d.pass.stopped}
         </p>
       )}
+      {d.mail.stopped && (
+        <p className="text-sm" role="status">
+          Needs you: the last mail pass stopped: {d.mail.stopped}
+        </p>
+      )}
       <span className="text-destructive-foreground text-xs" role="alert">
-        {run.isError ? sentence(run.error) : ""}
+        {run.isError ? sentence(run.error) : runMail.isError ? sentence(runMail.error) : ""}
       </span>
     </div>
   );

@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { LEAD_BATCH_BRIEF, LEAD_PASS_DECISION_LABELS, LEAD_PASS_REASON_MAX, LEAD_PASS_SKILL, LEAD_REPLY_INTENT, leadBatchName, leadPassDisplay, type LeadPassDecision, type LeadPassDisplay, type LeadPassTrigger } from "@hub/config/lead-pass";
+import { LEAD_BATCH_BRIEF, LEAD_PASS_DECISION_LABELS, LEAD_PASS_REASON_MAX, LEAD_PASS_SKILL, LEAD_REPLY_INTENT, leadBatchName, leadPassDisplay, type LeadPassDecision, type LeadPassDisplay, type LeadPassTrigger, type PassKind } from "@hub/config/lead-pass";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { write, type WriteTx } from "../tx";
@@ -224,24 +224,24 @@ export function leadPassRepo(db: Db) {
     },
 
     // ---- The passes (verdict 4): one row each, so "last pass" and the day's turn budget survive a restart.
-    async startPass(project: string, trigger: LeadPassTrigger, at: string): Promise<LeadPassRow> {
-      const row = db.insert(leadPasses).values({ project, trigger, startedAt: at }).returning().get();
+    async startPass(project: string, trigger: LeadPassTrigger, at: string, kind: PassKind = "lead"): Promise<LeadPassRow> {
+      const row = db.insert(leadPasses).values({ project, trigger, startedAt: at, kind }).returning().get();
       if (!row) throw new RepoError("not_found", "The pass could not be recorded");
       return row;
     },
-    async finishPass(id: number, s: Partial<Pick<LeadPassRow, "listed" | "turns" | "replied" | "clients" | "spam" | "notNow" | "handedOver" | "failed" | "skipped" | "batchId" | "error">> & { finishedAt?: string | null }): Promise<LeadPassRow | null> {
+    async finishPass(id: number, s: Partial<Pick<LeadPassRow, "listed" | "turns" | "replied" | "clients" | "spam" | "notNow" | "handedOver" | "failed" | "skipped" | "noReply" | "batchId" | "error">> & { finishedAt?: string | null }): Promise<LeadPassRow | null> {
       return db.update(leadPasses).set(s).where(eq(leadPasses.id, id)).returning().get() ?? null;
     },
     async pass(project: string, id: number): Promise<LeadPassRow | null> {
       return db.select().from(leadPasses).where(and(eq(leadPasses.project, project), eq(leadPasses.id, id))).get() ?? null;
     },
     async passesSince(project: string, since: string): Promise<LeadPassRow[]> {
-      return db.select().from(leadPasses).where(and(eq(leadPasses.project, project), gte(leadPasses.startedAt, since))).orderBy(desc(leadPasses.startedAt), desc(leadPasses.id)).all();
+      return db.select().from(leadPasses).where(and(eq(leadPasses.project, project), eq(leadPasses.kind, "lead"), gte(leadPasses.startedAt, since))).orderBy(desc(leadPasses.startedAt), desc(leadPasses.id)).all();
     },
-    async lastPass(project: string): Promise<LeadPassRow | null> {
-      return db.select().from(leadPasses).where(eq(leadPasses.project, project)).orderBy(desc(leadPasses.startedAt), desc(leadPasses.id)).get() ?? null;
+    async lastPass(project: string, kind: PassKind = "lead"): Promise<LeadPassRow | null> {
+      return db.select().from(leadPasses).where(and(eq(leadPasses.project, project), eq(leadPasses.kind, kind))).orderBy(desc(leadPasses.startedAt), desc(leadPasses.id)).get() ?? null;
     },
-    /** Lead turns on this Mac since `since`, every project (verdict 13's 60 a day, a ledger separate from P142's). */
+    /** Pass turns on this Mac since `since`, every project and both kinds (verdict 13's 60 a day, M4; a ledger separate from P142's). */
     async passTurnsSince(since: string): Promise<number> {
       return Number(db.select({ n: sql<number>`coalesce(sum(${leadPasses.turns}), 0)` }).from(leadPasses).where(gte(leadPasses.startedAt, since)).get()?.n ?? 0);
     },

@@ -4,7 +4,7 @@ import type { EnrollmentState, FinishReason, InboxAction, InboxKind, NotionKind 
 import { clients } from "./clients";
 import { drafts } from "./drafts";
 import { leadPasses } from "./lead-pass";
-import type { LeadPassDecision } from "@hub/config/lead-pass";
+import type { LeadPassDecision, MailPassDecision } from "@hub/config/lead-pass";
 
 // Follow-up sequences (P47, `@docs/core/23-sequences.md`). One row per time the owner enrolled a client in a project's sequence.
 // `step` is the NEXT step to draft; `schedule` is the copy of the file's waits taken at enrolment (JSON {delays, businessDays}),
@@ -96,6 +96,14 @@ export const inboundMail = sqliteTable(
     // P97: why the row left Inbox without work: null is the owner's No reply needed; `lead_notice` is the reader's re-judge (a site's notification of a lead).
     dismissedReason: text("dismissed_reason").$type<"lead_notice" | "answered">(), // P97: answered = the owner replied by hand in Mail
     storedAt: text("stored_at").notNull(),
+    // P147 3h (decision 0055 point 9, migration 0049): the daily mail pass's decision on this thread (its newest open message),
+    // the agent's notes; its draft (stamped by the record of that draft) and the owner's untick in the review.
+    passDecision: text("pass_decision").$type<MailPassDecision>(),
+    passReason: text("pass_reason"),
+    passAt: text("pass_at"),
+    passId: integer("pass_id").references((): AnySQLiteColumn => leadPasses.id, { onDelete: "set null" }),
+    passDraftId: integer("pass_draft_id").references((): AnySQLiteColumn => drafts.id, { onDelete: "set null" }),
+    passExcludedAt: text("pass_excluded_at"),
   },
   (t) => [uniqueIndex("inbound_mail_project_message").on(t.project, t.messageId), index("inbound_mail_project_email").on(t.project, t.email, t.receivedAt)],
 );

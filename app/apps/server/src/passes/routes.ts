@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { leadPageParam, leadPassDto, leadRedoneDto, runLeadPassBody } from "@hub/contract/lead-pass";
 import { slugParam } from "@hub/contract/requests";
-import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE } from "@hub/config/lead-pass";
+import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE, MAIL_PASS_DEFAULT_AT } from "@hub/config/lead-pass";
 import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
 import { gateRefusal } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
@@ -41,7 +41,14 @@ export function leadPassRoutes(ctx: ProjectsContext) {
       const sch = ctx.leadPass?.schedule;
       const last = await repos.leadPass.lastPass(slug);
       const batchId = await repos.leadPass.openBatch(slug);
-      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.display === "drafted" || r.display === "for_you").length;
+      const waits = (d: string) => d === "drafted" || d === "for_you";
+      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => waits(r.display)).length + (await repos.mailPass.ofBatch(slug, batchId)).filter((r) => waits(r.display)).length;
+      // P147 3h: the mail pass's line, on the same runner.
+      const mcfg = ctx.projects.find(slug)?.mail;
+      const mset = { schedule: mcfg?.pass ?? LEAD_PASS_DEFAULT_SCHEDULE, at: mcfg?.passAt ?? MAIL_PASS_DEFAULT_AT };
+      const mrows = await repos.mailPass.decided(slug, new Date(at.getTime() - (mcfg?.passWindowDays ?? 3) * DAY_MS).toISOString());
+      const mtoday = { drafted: mrows.filter((r) => r.display === "drafted").length, proposed: mrows.filter((r) => r.display === "proposed").length, forYou: mrows.filter((r) => r.display === "for_you").length };
+      const mlast = await repos.leadPass.lastPass(slug, "mail");
       return c.json(
         leadPassDto.parse({
           today,
@@ -53,7 +60,8 @@ export function leadPassRoutes(ctx: ProjectsContext) {
             runNowOff: sch ? await sch.runNowOff(slug) : "this server has no lead pass model",
             stopped: last?.error ?? null,
           },
-          review: { batchId: drafts > 0 || today.spam + today.notNow > 0 ? batchId : null, drafts, proposals: today.spam + today.notNow },
+          review: { batchId: drafts > 0 || today.spam + today.notNow + mtoday.proposed > 0 ? batchId : null, drafts, proposals: today.spam + today.notNow + mtoday.proposed },
+          mail: { ...mset, last: mlast, next: sch ? await sch.next(slug, mset, "mail") : null, running: sch?.isRunning(slug, "mail") ?? false, runNowOff: sch ? await sch.runNowOff(slug, "mail") : "this server has no pass model", stopped: mlast?.error ?? null, today: mtoday },
         }),
       );
     })
@@ -61,22 +69,23 @@ export function leadPassRoutes(ctx: ProjectsContext) {
       const refused = door(c);
       if (refused) return refused;
       const { slug } = c.req.valid("param");
+      const { pass } = c.req.valid("json");
       if (!(await known(slug))) return notFound(c, "project");
       const sch = ctx.leadPass?.schedule;
       if (!sch) return c.json({ error: "This server has no lead pass model: nothing runs here.", code: "wrong_state" as const }, 409);
-      const r = await sch.runNow(slug);
+      const r = await sch.runNow(slug, "button", pass ?? "lead");
       if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
       return c.json({ ok: true as const, joined: r.joined }, 202);
     })
     // F3 of 3d: `hub mcp`'s `lead_pass_start` (the dock's "process the leads"), a loopback call with the agent send token (decision
     // 0046), never the admin's Origin. It starts the same pass as the button (trigger dock, the same 3 a day) and answers at once.
-    .post("/api/projects/:slug/lead-pass/agent-run", v("param", slugParam), async (c) => {
+    .post("/api/projects/:slug/lead-pass/agent-run", v("param", slugParam), v("json", runLeadPassBody), async (c) => {
       if (!ctx.agentToken || !tokenMatches(c.req.header(AGENT_SEND_HEADER), ctx.agentToken)) return c.json({ error: "Refused: only the hub's own MCP server may ask this.", code: "forbidden" as const }, 403);
       const { slug } = c.req.valid("param");
       if (!(await known(slug))) return notFound(c, "project");
       const sch = ctx.leadPass?.schedule;
       if (!sch) return c.json({ error: "This server has no lead pass model: nothing runs here.", code: "wrong_state" as const }, 409);
-      const r = await sch.runNow(slug, "dock");
+      const r = await sch.runNow(slug, "dock", c.req.valid("json").pass ?? "lead");
       if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
       return c.json({ ok: true as const, joined: r.joined }, 202);
     })

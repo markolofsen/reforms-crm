@@ -12,8 +12,8 @@ import { createHubMcpServer, HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../sr
 import { httpAgentSend, MESSENGER_SEND_TOOL, sentLine, type AgentSendPort } from "../src/messenger/send-tool";
 import { AUTOPILOT_HUB_TOOLS } from "@hub/config/autopilot";
 import { AUTOPILOT_ALLOWED, autopilotDisallowed } from "../src/autopilot";
-import { LEAD_PASS_HUB_TOOLS } from "@hub/config/lead-pass";
-import { LEAD_PASS_ALLOWED, leadPassDisallowed } from "../src/lead-pass";
+import { LEAD_PASS_HUB_TOOLS, MAIL_PASS_HUB_TOOLS } from "@hub/config/lead-pass";
+import { LEAD_PASS_ALLOWED, MAIL_PASS_ALLOWED, leadPassDisallowed } from "../src/lead-pass";
 
 // Decision 0046 (P132 B1-3): `messenger_send` exists only in a session the owner started (attended), whatever the permission
 // mode (owner 2026-11-25: one mode, no prompts with the OS sandbox). In a background run it is absent from `hub mcp` and on the
@@ -175,5 +175,34 @@ describe("decision 0055: a lead pass turn has no send tool (P147 verdict 16)", (
     expect(denied).toContain("mcp__hub__leads_open");
     for (const t of deniedTools("background")) expect(denied).toContain(t);
     for (const t of LEAD_PASS_ALLOWED) expect(denied).not.toContain(t);
+  });
+});
+
+describe("decision 0055 point 9: a mail pass turn has no send tool (P147 3h)", () => {
+  it("its hub mcp registers exactly the eight message-bound tools, none send-like, attended port or not", async () => {
+    const server = createHubMcpServer(createRepos(h.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), mailInbound: 7, leadPass: 1, agentSend: async () => ({ ok: false, status: 409, reason: "no_owner_word", error: "Not sent.", next: "Ask." }) });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await server.connect(a);
+    const client = new Client({ name: "t", version: "0" });
+    await client.connect(b);
+    const names = (await client.listTools()).tools.map((t) => t.name).sort();
+    expect(names).toEqual(["bug_report", "client_show", "draft_write", "knowledge_get", "knowledge_search", "link_fetch", "mail_decide", "message_show"]);
+    expect(names).toEqual([...MAIL_PASS_HUB_TOOLS].sort());
+    expect(names.filter((n) => SEND_LIKE_TOOL.test(n))).toEqual([]);
+  });
+
+  it("its CLI allows the eight and denies messenger_send, lead_decide and every other hub tool, and the background deny list", () => {
+    expect(MAIL_PASS_ALLOWED).toHaveLength(8);
+    const denied = leadPassDisallowed("mail");
+    expect(denied).toContain(SEND);
+    expect(denied).toContain("mcp__hub__lead_decide");
+    expect(denied).toContain("mcp__hub__client_create");
+    for (const t of deniedTools("background")) expect(denied).toContain(t);
+    for (const t of MAIL_PASS_ALLOWED) expect(denied).not.toContain(t);
+  });
+
+  it("a HUB_MAIL_INBOUND turn is never attended (no send port)", async () => {
+    const { attendedSession } = await import("../src/mcp/stdio");
+    expect(attendedSession({ HUB_HOME: dir, HUB_PROJECT: "acme", HUB_MAIL_INBOUND: "7" })).toBe(false);
   });
 });

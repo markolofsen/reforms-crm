@@ -7,9 +7,12 @@
  */
 import type { LeadReviewRowsItemDecision } from './leadReviewRowsItemDecision';
 import type { LeadReviewRowsItemDisplay } from './leadReviewRowsItemDisplay';
+import type { LeadReviewRowsItemKind } from './leadReviewRowsItemKind';
 import type { LeadReviewRowsItemMail } from './leadReviewRowsItemMail';
 
 export type LeadReviewRowsItem = {
+  kind: LeadReviewRowsItemKind;
+  newSender: boolean;
   pageId: string;
   name: string;
   /** @nullable */

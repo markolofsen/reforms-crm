@@ -1,5 +1,5 @@
 import { unresolvedMarkers } from "@hub/config";
-import { LEAD_FIRST_REPLY_REASON, LEAD_REPLY_INTENT } from "@hub/config/lead-pass";
+import { LEAD_FIRST_REPLY_REASON, LEAD_REPLY_INTENT, MAIL_PASS_FIRST_REPLY_REASON } from "@hub/config/lead-pass";
 import { withoutLeadingBlankLines, type DraftRow, type Repos, type SendRow } from "@hub/db";
 import { isOwnAddress } from "@hub/projects/addresses";
 import { checkDraftRecipients } from "@hub/projects/guard";
@@ -86,7 +86,12 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   // P142 verdict 7 (decision 0050 point 5): a follow-up nudge of the sweep is never sent by autosend; the owner's own Send sends it.
   if (auto && draft.followUpN != null) reasons.push("follow-up-nudge: a follow-up nudge is sent by your click, never by autosend");
   // P147 verdict 11 (decision 0055 point 4): the first reply to a lead (a draft of the day's lead batch) is never sent by autosend.
-  if (auto && draft.batchId != null && (await deps.repos.batches.get(draft.project, draft.batchId))?.intent === LEAD_REPLY_INTENT) reasons.push(LEAD_FIRST_REPLY_REASON);
+  // P147 3h (decision 0055 point 9): a mail pass draft in that batch is held by autosend only when its sender is new to us.
+  if (auto && draft.batchId != null && (await deps.repos.batches.get(draft.project, draft.batchId))?.intent === LEAD_REPLY_INTENT) {
+    const mail = await deps.repos.mailPass.ofDraft(draftId);
+    if (!mail) reasons.push(LEAD_FIRST_REPLY_REASON);
+    else if (mail.newSender) reasons.push(MAIL_PASS_FIRST_REPLY_REASON);
+  }
     if (draft.injectionSuspected) reasons.push("the mail it answers was flagged injection_suspected: never sent by the hub");
   if (client.marks.includes("do_not_contact")) reasons.push("the client is marked do_not_contact");
 

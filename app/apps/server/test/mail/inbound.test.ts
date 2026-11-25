@@ -272,7 +272,7 @@ describe("a lead notice is never a client row (P97 S1, verdict 1)", () => {
 
   it("a listed notice sender is ignored as lead_notice; a machine the filters do not whitelist stays machine", () => {
     const base = { known: { ours: new Map(), clients: new Set<string>(), doNotContact: new Set<string>() }, testAddresses: new Set<string>(), knownClient: () => false };
-    const config = { mail: { accounts: ["me@example.test"], addresses: ["me@example.test"], aliases: [], domains: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null }, leads: { noticeSenders: ["leads@forms.test"] } };
+    const config = { mail: { accounts: ["me@example.test"], addresses: ["me@example.test"], aliases: [], domains: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null, pass: "off" as const, passAt: "10:00", passWindowDays: 3 }, leads: { noticeSenders: ["leads@forms.test"] } };
     const m = (email: string) => ({ email, subject: "CarAPIS: lead — KodaCar", inReplyTo: null, references: [], bulk: false });
     const ctx = { ...base, config, rules: null };
     expect(judge(m("leads@forms.test"), ctx)).toEqual({ kind: "ignored", reason: "lead_notice" });

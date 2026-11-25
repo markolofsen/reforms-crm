@@ -5,10 +5,12 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { LeadPassPassLastKind } from './leadPassPassLastKind';
 import type { LeadPassPassLastTrigger } from './leadPassPassLastTrigger';
 
 export type LeadPassPassLast = {
   id: number;
+  kind: LeadPassPassLastKind;
   trigger: LeadPassPassLastTrigger;
   startedAt: string;
   /** @nullable */
@@ -20,6 +22,7 @@ export type LeadPassPassLast = {
   spam: number;
   notNow: number;
   handedOver: number;
+  noReply: number;
   failed: number;
   skipped: number;
   /** @nullable */

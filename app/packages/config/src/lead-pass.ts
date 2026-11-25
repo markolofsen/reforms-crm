@@ -127,8 +127,43 @@ export const LEAD_FIRST_REPLY_REASON = "lead-first-reply: the first reply to a l
 export const LEAD_PASS_NOTION = { decision: "Hub decision", reason: "Hub reason" } as const;
 export const LEAD_PASS_NOTION_DECISION: Record<LeadPassDecision, string> = { reply: "Reply", client: "Client", spam: "Spam proposed", not_now: "Not now proposed", hand_over: "For you" };
 
+// ---- The mail pass (decision 0055 point 9, P147 3h): the same runner over the Mail reader's open rows.
+
+/** The two kinds of pass of one runner (`lead_passes.kind`). */
+export const PASS_KINDS = ["lead", "mail"] as const;
+export type PassKind = (typeof PASS_KINDS)[number];
+/** What one mail turn decides for one inbound thread (M2). `no_reply` covers notifications, receipts and phishing. */
+export const MAIL_PASS_DECISIONS = ["reply", "client", "no_reply", "spam", "hand_over"] as const;
+export type MailPassDecision = (typeof MAIL_PASS_DECISIONS)[number];
+/** Any decision of either kind. */
+export type PassDecision = LeadPassDecision | MailPassDecision;
+/** The mail pass's proposals the owner's review click applies: Spam, and No reply needed. */
+export const MAIL_PASS_PROPOSED: readonly MailPassDecision[] = ["spam", "no_reply"];
+export const MAIL_PASS_DECISION_LABELS: Record<MailPassDecision, string> = { reply: "Reply", client: "Client", no_reply: "No reply proposed", spam: "Spam proposed", hand_over: "For you" };
+/** The env var that binds a `hub mcp` process to the one inbound row of a mail turn (its `inbound_mail.id`). */
+export const MAIL_INBOUND_ENV = "HUB_MAIL_INBOUND";
+export const mailInboundOf = (raw: string | undefined): number | undefined => {
+  const v = raw?.trim();
+  if (!v) return undefined;
+  return /^[1-9]\d{0,12}$/.test(v) ? Number(v) : 0;
+};
+/** The hub tools of a mail turn, each bound to the turn's inbound row; nothing else. */
+export const MAIL_PASS_HUB_TOOLS = ["knowledge_search", "knowledge_get", "client_show", "message_show", "link_fetch", "draft_write", "mail_decide", "bug_report"] as const;
+/** The turn's rules: the triage-mail skill's pass reference (M5: a section of triage-mail, not a new skill). */
+export const MAIL_PASS_SKILL = "triage-mail";
+export const MAIL_PASS_SKILL_FILE = "references/mail-pass.md";
+/** `project.md` Settings (M4): `mail.pass` (off in the core), `mail.pass_at` (after the lead pass), `mail.pass_window_days`. */
+export const MAIL_PASS_DEFAULT_AT = "10:00";
+export const MAIL_PASS_DEFAULT_WINDOW_DAYS = 3;
+/** M3: the reason autosend refuses a mail-pass draft to someone who is not a client yet. */
+export const MAIL_PASS_FIRST_REPLY_REASON = "mail-pass-first-reply: a first reply from the mail pass is sent by your click";
+/** The `owner_request` of a mail turn's draft, from the server. */
+export const mailPassRequest = (day: string, inboundId: number): string => `daily mail pass ${day}, inbound ${inboundId}`;
+
 /** One lead turn: the project, the lead it is bound to, its pass, the action id, and the facts the server prefetched as data. */
 export interface LeadPassTurn {
+  /** Absent: a lead turn. `mail`: `pageId` is the inbound row id, as a string. */
+  kind?: PassKind;
   project: string;
   pageId: string;
   passId: number;
@@ -139,7 +174,7 @@ export interface LeadPassTurn {
 
 /** What a turn's own calls wrote (read from its stream, never from a row): the decision, if any. */
 export type LeadPassTurnResult =
-  | { kind: "decided"; decision: LeadPassDecision; costUsd: number | null }
+  | { kind: "decided"; decision: PassDecision; costUsd: number | null }
   | { kind: "undecided"; reason: string; costUsd: number | null }
   | { kind: "failed"; code: "mcp_not_ready" | "failed" | "timeout"; detail: string; costUsd?: number | null };
 

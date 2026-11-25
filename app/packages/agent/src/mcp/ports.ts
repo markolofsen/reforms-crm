@@ -130,6 +130,8 @@ export interface HubMcpEnv {
    */
   leadPage?: string;
   leadPass?: number;
+  /** P147 3h: a mail turn's one inbound row (`HUB_MAIL_INBOUND`); its pass rides `leadPass`. */
+  mailInbound?: number;
   /** P147: the Hub-owned decision and reason copied to the Leads page after `lead_decide`. Never throws; its state is the tool's answer. */
   syncLeadDecision?: (slug: string, d: { pageId: string; decision: string; reason: string }) => Promise<{ state: string }>;
   /**
@@ -191,6 +193,22 @@ export interface ToolCtx {
 export function ownFollowUpClient(env: HubMcpEnv, cid: number | null | undefined): void {
   if (env.followUpClient === undefined) return;
   if (cid !== env.followUpClient) throw new ToolError("followup_other_client", `This follow-up turn serves client ${env.followUpClient} only: nothing else is read or written here.`);
+}
+
+/** P147 3h: the inbound row a mail turn serves, or the refusal `mail_other` when the binding names no stored row. */
+export async function boundInbound(ctx: Pick<ToolCtx, "repos" | "env">, slug: string) {
+  const id = ctx.env.mailInbound;
+  const row = id ? await ctx.repos.inboundMail.get(slug, id) : null;
+  if (!row) throw new ToolError("mail_other", `This mail turn is bound to message ${id ?? "(none)"}, which project ${slug} does not hold: nothing is read or written here.`);
+  return row;
+}
+
+/** P147 3h: in a mail turn the one client a tool may read is the sender of the bound message. Elsewhere it passes. */
+export async function ownMailClient(ctx: Pick<ToolCtx, "repos" | "env">, slug: string, cid: number | null | undefined): Promise<void> {
+  if (ctx.env.mailInbound === undefined) return;
+  const row = await boundInbound(ctx, slug);
+  const own = await ctx.repos.clients.findByIdentity(slug, "email", row.email);
+  if (own === undefined || cid !== own) throw new ToolError("mail_other", `This mail turn reads only the client whose email is ${row.email}: anyone else is the owner's (hand_over).`);
 }
 
 /** P147 (D2): the lead a lead turn serves, or the refusal `lead_other` when the binding names no stored lead. */

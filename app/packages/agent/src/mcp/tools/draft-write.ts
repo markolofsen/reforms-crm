@@ -11,7 +11,7 @@ import { draftRecord, type DraftRecord } from "../../records/schema";
 import { defineTool } from "../define";
 import { isRefusalCode } from "../refusals";
 import { ToolError } from "../result";
-import { boundLead, ownFollowUpClient, type ToolCtx } from "../ports";
+import { boundInbound, boundLead, ownFollowUpClient, type ToolCtx } from "../ports";
 import { LEAD_PASS_SKILL, leadPassRequest } from "@hub/config/lead-pass";
 import { replyAddressOf } from "@hub/notion";
 import { displayNameFor, replyLanguage } from "@hub/projects/brands";
@@ -64,17 +64,19 @@ export const draftWriteTool = defineTool({
   }),
   output: draftWriteOutput,
   effect: "draft",
-  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other", "address_not_on_lead"],
+  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other", "address_not_on_lead", "mail_other"],
   handler: async (ctx, raw) => {
     // P147 verdict 5: a lead turn writes one new thread to its lead's reply address, with the server's owner_request (never the model's).
     // E2: in any session, `lead` names the lead and the server fills `to` from its row; a `to` that is not that address is refused.
     const leadTurn = ctx.env.leadPage !== undefined ? await leadTurnOf(ctx, raw) : null;
+    // P147 3h: a mail turn writes one reply in its message's thread; the message and the record's pass come from the server.
+    const mailTurn = ctx.env.mailInbound !== undefined ? await mailTurnOf(ctx, raw) : null;
     const dockTo = !leadTurn && raw.lead ? await leadAddressOf(ctx, raw) : null;
     const { lead: _lead, language: clientLanguage, signoff, ...rest } = raw;
     if (signoff?.some((l) => /https?:\/\/|www\./i.test(l))) throw new ToolError("invalid", "signoff is the sign-off and the team line only: the hub adds the site line. Nothing was written.");
     // 3j J2: `lead` names the request itself, so the owner need not be quoted (as in a lead turn).
     const leadRequest = dockTo && !rest.owner_request ? leadPassRequest(ctx.now().toISOString().slice(0, 10), dockTo.pageId) : null;
-    const given = leadTurn ? { ...rest, to: leadTurn.to, owner_request: leadTurn.ownerRequest } : dockTo ? { ...rest, to: dockTo.to, ...(leadRequest ? { owner_request: leadRequest } : {}) } : rest;
+    const given = mailTurn ? { ...rest, message: { inbound: mailTurn.inboundId } } : leadTurn ? { ...rest, to: leadTurn.to, owner_request: leadTurn.ownerRequest } : dockTo ? { ...rest, to: dockTo.to, ...(leadRequest ? { owner_request: leadRequest } : {}) } : rest;
     const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined)));
     if (!parsed.success) throw new ToolError("invalid", `${parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}. Nothing was written.`);
     const call = withLanguage(parsed.data, clientLanguage);
@@ -83,7 +85,7 @@ export const draftWriteTool = defineTool({
     const own = clientLanguage ? { language: clientLanguage, lines: signoff ?? [] } : null;
     const s = draftScope(ctx, slug, ctx.env.drafts, ctx.env.projectMail(slug), own);
     refuseOwnSignoff(s, call.content);
-    if (!leadTurn && !leadRequest) ownerWordsOf(s, call.owner_request);
+    if (!leadTurn && !leadRequest && !mailTurn) ownerWordsOf(s, call.owner_request);
     try {
       if (call.kind === "revise" && s.ctx.env.followUpClient !== undefined) ownFollowUpClient(s.ctx.env, (await s.ctx.repos.drafts.get(call.draft))?.clientId);
       if (call.kind === "revise") return await afterWrite(s, await reviseHubDraft(s, call.draft, call.content), { draft: call.draft, content: call.content, to: undefined, owner_request: call.owner_request, reason: call.reason });
@@ -100,7 +102,7 @@ export const draftWriteTool = defineTool({
       await ownClientEmail(s, email);
       await precheckRecord(s, email, call.record);
       const w = await writeNewReply(s, { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId, content: call.content, owner_request: call.owner_request });
-      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null }, v);
+      const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, ...(mailTurn ? { mailPass: mailTurn.mailPass } : {}) }, v);
       return "pending" in w ? await adopted(s, w, first(await replySubjectOf(s, inbound), w.mailRef)) : await afterWrite(s, w, { draft: undefined, content: call.content, to: undefined, owner_request: call.owner_request, reason: undefined }, first(w.r.subject, w.mailRef));
     } catch (e) {
       // A Mail script's own code is a registered refusal; one from outside the registry is Mail's error.
@@ -123,6 +125,14 @@ function leadAddress(lead: { pageId: string; name: string; email: string | null;
   const to = (raw.to ?? "").trim().toLowerCase();
   if (to && to !== a.address) throw new ToolError("address_not_on_lead", `A draft to lead ${lead.name} goes to ${a.address} (${a.why}), never ${to.slice(0, 120)}: leave \`to\` out. Nothing was written.`);
   return a.address;
+}
+
+/** P147 3h: a mail turn's call is one reply to its own message (kind reply); the record joins the turn's pass and the day's batch. */
+async function mailTurnOf(ctx: ToolCtx, raw: { kind: string; message?: unknown; lead?: string | undefined }): Promise<{ inboundId: number; mailPass: { inboundId: number; passId: number | null; day: string } }> {
+  const row = await boundInbound(ctx, ctx.project());
+  if (raw.kind !== "reply" || raw.lead) throw new ToolError("mail_other", "A mail turn writes one reply to its own message: kind reply, no message, no lead (the Hub fills them). Nothing was written.");
+  const day = ctx.now().toISOString().slice(0, 10);
+  return { inboundId: row.id, mailPass: { inboundId: row.id, passId: ctx.env.leadPass ?? null, day } };
 }
 
 /** P147 verdict 5: a lead turn's call is a new thread to the lead's reply address; the record joins the turn's pass and batch. */

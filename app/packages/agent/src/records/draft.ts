@@ -27,6 +27,7 @@ export interface DraftRecordCall {
   followUpN?: number | null;
   /** P147: a lead pass draft (a lead turn's, or an attended pass's): it joins the day's lead batch and is stamped on its lead. */
   leadPass?: { pageId: string; passId: number | null; day: string } | null;
+  mailPass?: { inboundId: number; passId: number | null; day: string } | null;
 }
 
 export interface DraftRecordEnv {
@@ -92,6 +93,7 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
     wroteTo: c.wroteTo,
     ...(c.followUpN != null ? { followUpN: c.followUpN } : {}),
     ...(c.leadPass ? { leadPass: c.leadPass } : {}),
+    ...(c.mailPass ? { mailPass: c.mailPass } : {}),
   };
 
   let brandScope = false;

@@ -13,6 +13,7 @@ import { inboundMailRepo } from "./inbound-mail";
 import { knowledgeRepo } from "./knowledge";
 import { leadRowsRepo } from "./lead-rows";
 import { leadPassRepo } from "./lead-pass";
+import { mailPassRepo } from "./mail-pass";
 import { llmCallsRepo } from "./llm-calls";
 import { mailVersionsRepo, mailWritesRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
@@ -40,6 +41,7 @@ export function createRepos(db: Db) {
     inboundMail: inboundMailRepo(db),
     leadRows: leadRowsRepo(db),
     leadPass: leadPassRepo(db),
+    mailPass: mailPassRepo(db),
     enrollments: enrollmentsRepo(db),
     followUps: { ...followUpsRepo(db), ...followUpSweepsRepo(db) },
     mailVersions: mailVersionsRepo(db),

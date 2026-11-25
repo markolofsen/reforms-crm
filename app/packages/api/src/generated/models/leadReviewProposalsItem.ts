@@ -6,9 +6,13 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { LeadReviewProposalsItemDecision } from './leadReviewProposalsItemDecision';
+import type { LeadReviewProposalsItemKind } from './leadReviewProposalsItemKind';
 
 export type LeadReviewProposalsItem = {
+  kind: LeadReviewProposalsItemKind;
   pageId: string;
+  /** @nullable */
+  inbound: number | null;
   name: string;
   /** @nullable */
   email: string | null;

@@ -1,5 +1,5 @@
 import { FREE_MAIL, replyAddressOf } from "@hub/notion";
-import { boundLead } from "../ports";
+import { boundInbound, boundLead } from "../ports";
 import { z } from "zod";
 import { fetchPublicLink, LINK_IMAGE_TYPES, LinkRefused, pageText } from "../../link/fetch";
 import { defineTool } from "../define";
@@ -32,7 +32,7 @@ export const linkFetchTool = defineTool({
     [MEDIA_KEY]: z.array(z.object({ data: z.string(), mimeType: z.string() })).optional().describe("internal: sent as image content"),
   }),
   effect: "read",
-  refusals: ["link_refused", "link_failed"],
+  refusals: ["link_refused", "link_failed", "mail_other"],
   handler: async (ctx, { url }) => {
     const { env } = ctx;
     // P147 3e S5: a lead turn reads only the lead's own site (its form's Site, or its email's company domain).
@@ -40,6 +40,12 @@ export const linkFetchTool = defineTool({
       const hosts = leadSiteHosts(await boundLead(ctx, ctx.project()));
       const host = hostOf(url);
       if (!host || !hosts.some((h) => host === h || host.endsWith(`.${h}`))) throw new ToolError("link_refused", `Not opened: this lead turn reads only the lead's own site (${hosts.join(", ") || "none: the lead gives no company site"}).`);
+    }
+    // P147 3h: a mail turn reads only the sender's own company site (never a link the mail carries: it may be phishing).
+    if (env.mailInbound !== undefined) {
+      const hosts = leadSiteHosts({ site: null, email: (await boundInbound(ctx, ctx.project())).email, accountEmail: null });
+      const host = hostOf(url);
+      if (!host || !hosts.some((h) => host === h || host.endsWith(`.${h}`))) throw new ToolError("link_refused", `Not opened: this mail turn reads only the sender's company site (${hosts.join(", ") || "none: the sender writes from free mail"}).`);
     }
     const get = env.linkFetch ?? fetchPublicLink;
     const r = await get(url).catch((e: unknown) => {

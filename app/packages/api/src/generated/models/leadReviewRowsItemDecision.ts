@@ -15,4 +15,5 @@ export const LeadReviewRowsItemDecision = {
   spam: 'spam',
   not_now: 'not_now',
   hand_over: 'hand_over',
+  no_reply: 'no_reply',
 } as const;

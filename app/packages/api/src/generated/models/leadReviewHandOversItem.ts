@@ -5,9 +5,13 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { LeadReviewHandOversItemKind } from './leadReviewHandOversItemKind';
 
 export type LeadReviewHandOversItem = {
+  kind: LeadReviewHandOversItemKind;
   pageId: string;
+  /** @nullable */
+  inbound: number | null;
   name: string;
   /** @nullable */
   email: string | null;

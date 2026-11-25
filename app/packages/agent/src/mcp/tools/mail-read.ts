@@ -4,7 +4,7 @@ import { CONVERSATION_STATES, CONVERSATION_VIEWS } from "@hub/contract/conversat
 import { answeringDraft } from "@hub/db";
 import { displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brands";
 import { defineTool } from "../define";
-import { configOf, ownFollowUpClient, ownLeadClient } from "../ports";
+import { configOf, ownFollowUpClient, ownLeadClient, ownMailClient } from "../ports";
 import { cut, ToolError } from "../result";
 import { otherChat } from "./messengers";
 
@@ -21,7 +21,7 @@ export const clientShowTool = defineTool({
   input: z.object({ id: z.number().int().positive().optional(), email: z.string().max(320).optional() }),
   output: z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable(), followUp: followUpView.nullable() }),
   effect: "read",
-  refusals: ["not_found", "autopilot_other_chat", "followup_other_client", "lead_other"],
+  refusals: ["not_found", "autopilot_other_chat", "followup_other_client", "lead_other", "mail_other"],
   handler: async ({ repos, project, env, now }, { id, email }) => {
     const slug = project();
     const cid = id ?? (email ? await repos.clients.findByIdentity(slug, "email", email.trim()) : undefined);
@@ -34,6 +34,7 @@ export const clientShowTool = defineTool({
     }
     ownFollowUpClient(env, cid);
     await ownLeadClient({ repos, env }, slug, cid);
+    await ownMailClient({ repos, env }, slug, cid);
     const c = await repos.clients.card(slug, cid);
     if (!c) throw new ToolError("not_found", `No client ${id ?? email} in project ${slug}.`);
     const drafts = await repos.drafts.ofClient(slug, c.id);
@@ -79,7 +80,7 @@ export const messageShowTool = defineTool({
     reply: z.object({ note: z.string().optional(), draft_write: z.object({ kind: z.literal("reply"), message: z.union([z.object({ inbound: z.number() }), mailIds]), content: z.string() }).optional(), then: z.string().optional() }),
   }),
   effect: "read",
-  refusals: ["not_found", "unavailable", "not_this_project", "followup_other_client", "lead_other"],
+  refusals: ["not_found", "unavailable", "not_this_project", "followup_other_client", "lead_other", "mail_other"],
   handler: async ({ repos, env, project }, { inbound, message }) => {
     const slug = project();
     if ((inbound === undefined) === (message === undefined)) throw new ToolError("invalid", "Give inbound (the Hub's Inbox id) or message (mail-mcp's account, mailbox_path, message_id), exactly one.");
@@ -103,6 +104,7 @@ export const messageShowTool = defineTool({
     }
     // P147 D2: a lead turn reads the messages of the one client its reply address matched exactly.
     await ownLeadClient({ repos, env }, slug, clientId);
+    await ownMailClient({ repos, env }, slug, clientId);
     const drafts = clientId === undefined ? [] : await repos.drafts.ofClient(slug, clientId);
     const answer = row ? answeringDraft(row, drafts) : messageId ? ((await repos.drafts.byMailRef(slug, messageId)).find((d) => d.status === "ready" || d.status === "hold") ?? null) : null;
     const cfg = configOf(pm);

@@ -1,5 +1,5 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import type { LeadPassTrigger } from "@hub/config/lead-pass";
+import type { LeadPassTrigger, PassKind } from "@hub/config/lead-pass";
 import { batches } from "./drafts";
 
 // The daily lead pass (decision 0055, P147, migration 0047). One row per pass (verdict 4): its trigger, its counts per decision,
@@ -11,6 +11,8 @@ export const leadPasses = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     project: text("project").notNull(),
     trigger: text("trigger").$type<LeadPassTrigger>().notNull(),
+    /** P147 3h (migration 0049): which pass of the one runner; the day's turn budget counts both. */
+    kind: text("kind").$type<PassKind>().notNull().default("lead"),
     startedAt: text("started_at").notNull(),
     finishedAt: text("finished_at"),
     listed: integer("listed").notNull().default(0),
@@ -22,6 +24,7 @@ export const leadPasses = sqliteTable(
     handedOver: integer("handed_over").notNull().default(0),
     failed: integer("failed").notNull().default(0),
     skipped: integer("skipped").notNull().default(0),
+    noReply: integer("no_reply").notNull().default(0),
     batchId: integer("batch_id").references(() => batches.id, { onDelete: "set null" }),
     error: text("error"),
   },

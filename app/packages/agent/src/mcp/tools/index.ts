@@ -1,6 +1,6 @@
 import { AUTOPILOT_HUB_TOOLS } from "@hub/config/autopilot";
 import { FOLLOW_UP_HUB_TOOLS } from "@hub/config/follow-ups";
-import { LEAD_PASS_HUB_TOOLS } from "@hub/config/lead-pass";
+import { LEAD_PASS_HUB_TOOLS, MAIL_PASS_HUB_TOOLS } from "@hub/config/lead-pass";
 import type { ToolDef } from "../define";
 import { chatsProposeHideTool, chatsUnlinkedTool } from "./chat-sort";
 import { clientMapTool, mapsDueTool } from "./client-map";
@@ -16,6 +16,7 @@ import { messengerDraftWriteTool, messengerHistoryTool, messengerSendTool } from
 import { linkFetchTool } from "./link";
 import { bugReportTool } from "./bug-report";
 import { leadDecideTool, leadPassStartTool, leadsOpenTool } from "./lead-pass";
+import { mailDecideTool } from "./mail-pass";
 import { projectShowTool } from "./project";
 
 // P129 A2: the one list of `hub mcp`'s tools. `HUB_MCP_TOOLS`, the README table, the capability matrix and the registry
@@ -26,8 +27,9 @@ import { projectShowTool } from "./project";
 // Owner 2026-11-25: `link_fetch` opens a public link a client sent (the session's commands have no network).
 // P143: `conversation_done` (also an autopilot turn's, its own chat), `client_create` and `chat_link` (attended only, at run time).
 // P147 (decision 0055): `leads_open` and `lead_decide`, the lead pass (a lead turn gets `lead_decide` and five reads, bound to its lead).
+// P147 3h: `mail_decide`, the mail pass (a mail turn gets it and the reads, bound to its message).
 // P145 B3: `bug_report` files a client's bug report in the project's Bug reports (every turn kind; bound like the rest).
-export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool, followUpsDueTool, followUpPlanTool, linkFetchTool, bugReportTool, leadsOpenTool, leadDecideTool, leadPassStartTool] as const satisfies readonly ToolDef[];
+export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool, followUpsDueTool, followUpPlanTool, linkFetchTool, bugReportTool, leadsOpenTool, leadDecideTool, leadPassStartTool, mailDecideTool] as const satisfies readonly ToolDef[];
 
 /** Decision 0048 (verdict 28 as built): an autopilot turn's `hub mcp` registers exactly these, each bound to the turn's chat. */
 export const AUTOPILOT_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (AUTOPILOT_HUB_TOOLS as readonly string[]).includes(t.name));
@@ -40,3 +42,6 @@ export const LEAD_PASS_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (LEAD_PAS
 
 /** Decision 0046: registered only in a session the owner started (the server's send port is passed); never in a background run. */
 export const ATTENDED_TOOLS = [messengerSendTool] as const satisfies readonly ToolDef[];
+
+/** Decision 0055 point 9 (P147 3h): a mail pass turn's `hub mcp` registers exactly these, each bound to the turn's message. */
+export const MAIL_PASS_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (MAIL_PASS_HUB_TOOLS as readonly string[]).includes(t.name));

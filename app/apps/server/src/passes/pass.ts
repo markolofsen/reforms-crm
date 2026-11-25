@@ -32,11 +32,11 @@ export interface PassDeps {
 const log = ops("lead-pass");
 const DAY_MS = 24 * 3_600_000;
 
-type Counts = Pick<LeadPassRow, "listed" | "turns" | "replied" | "clients" | "spam" | "notNow" | "handedOver" | "failed" | "skipped">;
-const COUNT = { reply: "replied", client: "clients", spam: "spam", not_now: "notNow", hand_over: "handedOver" } as const;
+type Counts = Pick<LeadPassRow, "listed" | "turns" | "replied" | "clients" | "spam" | "notNow" | "noReply" | "handedOver" | "failed" | "skipped">;
+const COUNT = { reply: "replied", client: "clients", spam: "spam", not_now: "notNow", no_reply: "noReply", hand_over: "handedOver" } as const;
 
 /** Waits for one pool slot: none of autopilot's turns queued, and the pool not full. Returns the release. */
-async function slot(d: PassDeps, clock: Clock, pollMs: number): Promise<() => void> {
+export async function slot(d: Pick<PassDeps, "autopilot">, clock: Clock, pollMs: number): Promise<() => void> {
   const s = d.autopilot?.scheduler;
   if (!s) return () => {};
   for (;;) {
@@ -99,7 +99,7 @@ export async function runPass(d: PassDeps, project: string, trigger: LeadPassTri
   return withAction(actionId, async () => {
     const now = new Date(clock.now());
     const row = await d.repos.leadPass.startPass(project, trigger, now.toISOString());
-    const counts: Counts = { listed: 0, turns: 0, replied: 0, clients: 0, spam: 0, notNow: 0, handedOver: 0, failed: 0, skipped: 0 };
+    const counts: Counts = { listed: 0, turns: 0, replied: 0, clients: 0, spam: 0, notNow: 0, noReply: 0, handedOver: 0, failed: 0, skipped: 0 };
     let error: string | null = null;
     const from = new Date(now.getTime() - d.windowDays(project) * DAY_MS).toISOString();
     try {

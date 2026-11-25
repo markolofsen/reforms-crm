@@ -3,7 +3,7 @@ import { brandForKey } from "@hub/projects/brands";
 import { BUG_KINDS, type BugChannel, type BugReportInput } from "@hub/notion/bug-reports";
 import { z } from "zod";
 import { defineTool } from "../define";
-import { ownFollowUpClient, type ToolCtx } from "../ports";
+import { boundInbound, ownFollowUpClient, type ToolCtx } from "../ports";
 import { ToolError } from "../result";
 import { chatAccess } from "./messengers";
 
@@ -33,6 +33,14 @@ async function conversationOf(ctx: ToolCtx, slug: string, input: { chat?: number
     const lead = await ctx.repos.leadRows.get(slug, page);
     if (!lead) throw new ToolError("not_found", `No lead ${input.lead} in project ${slug}.`);
     return { clientId: null, pageId: null, email: lead.email, channel: "Other", path: `/${slug}/mail/leads/${page}` };
+  }
+  // P147 3h: a mail turn files against its own message (the sender may have no client card yet); another client is refused.
+  if (ctx.env.mailInbound !== undefined) {
+    const row = await boundInbound(ctx, slug);
+    if (input.chat !== undefined || input.lead !== undefined) throw new ToolError("mail_other", "This mail turn files its report against its own message only: give no chat or lead.");
+    const cid = (await ctx.repos.clients.findByIdentity(slug, "email", row.email)) ?? null;
+    if (input.client !== undefined && input.client !== cid) throw new ToolError("mail_other", `This mail turn serves ${row.email} only.`);
+    return { clientId: cid, pageId: cid === null ? null : await ctx.repos.clients.notionPageOf(slug, cid), email: row.email, channel: "Mail", path: `/${slug}/mail/c/${encodeURIComponent(clientKey({ id: cid ?? 0, email: row.email }))}` };
   }
   if ((input.chat === undefined) === (input.client === undefined)) throw new ToolError("invalid", "Give chat, client or lead, one of them: the conversation the report is in.");
   if (input.chat !== undefined) {
@@ -72,7 +80,7 @@ export const bugReportTool = defineTool({
     .strict(),
   output: z.object({ project: z.string(), state: z.enum(["created", "appended", "already"]), report: z.string(), client: z.number().nullable(), note: z.string().nullable(), next: z.string() }),
   effect: "draft",
-  refusals: ["not_found", "lead_other", "not_linked", "autopilot_other_chat", "followup_other_client", "unavailable", "bug_report_several", "no_bug_database", "notion_unavailable"],
+  refusals: ["not_found", "lead_other", "mail_other", "not_linked", "autopilot_other_chat", "followup_other_client", "unavailable", "bug_report_several", "no_bug_database", "notion_unavailable"],
   handler: async (ctx, input) => {
     const slug = ctx.project();
     const file = ctx.env.fileBugReport;

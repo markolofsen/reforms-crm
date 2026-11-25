@@ -1,13 +1,14 @@
-import { LEAD_PASS_DECISIONS, type LeadPassDecision } from "@hub/config/lead-pass";
+import { LEAD_PASS_DECISIONS, MAIL_PASS_DECISIONS, type PassDecision, type PassKind } from "@hub/config/lead-pass";
 
 // The `stream-json --verbose` output of one lead turn (P147 L4), read line by line, pure: the init event (the hub server connected
 // with exactly the six tools), the turn's own `lead_decide` call that the hub answered without a refusal, and the result event.
 
 export const DECIDE_TOOL = "mcp__hub__lead_decide";
+export const MAIL_DECIDE_TOOL = "mcp__hub__mail_decide";
 
 export interface LeadStream {
   init: { hub: string | null; tools: string[] } | null;
-  decision: LeadPassDecision | null;
+  decision: PassDecision | null;
   final: { isError: boolean; costUsd: number | null; denials: number; result: string; subtype: string | null } | null;
 }
 
@@ -23,9 +24,11 @@ const answerOf = (b: Record<string, unknown>): Record<string, unknown> | null =>
   }
 };
 
-export function leadStream(): { push(line: string): LeadStream["init"]; done(): LeadStream } {
+export function leadStream(kind: PassKind = "lead"): { push(line: string): LeadStream["init"]; done(): LeadStream } {
   const s: LeadStream = { init: null, decision: null, final: null };
-  const calls = new Map<string, LeadPassDecision>();
+  const calls = new Map<string, PassDecision>();
+  const tool = kind === "mail" ? MAIL_DECIDE_TOOL : DECIDE_TOOL;
+  const allowed: readonly string[] = kind === "mail" ? MAIL_PASS_DECISIONS : LEAD_PASS_DECISIONS;
   return {
     push(line) {
       let ev: Record<string, unknown> | null;
@@ -44,10 +47,10 @@ export function leadStream(): { push(line: string): LeadStream["init"]; done(): 
       const content = arr(obj(ev.message)?.content).map(obj);
       if (type === "assistant") {
         for (const b of content) {
-          if (!b || str(b.type) !== "tool_use" || str(b.name) !== DECIDE_TOOL) continue;
+          if (!b || str(b.type) !== "tool_use" || str(b.name) !== tool) continue;
           const id = str(b.id);
           const d = str(obj(b.input)?.decision);
-          if (id && d && (LEAD_PASS_DECISIONS as readonly string[]).includes(d)) calls.set(id, d as LeadPassDecision);
+          if (id && d && allowed.includes(d)) calls.set(id, d as PassDecision);
         }
       } else if (type === "user") {
         for (const b of content) {

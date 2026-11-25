@@ -58,7 +58,7 @@ export function answeringDraft<D extends { mailRef: string | null; createdAt: st
 export const OPEN_INBOUND = `inbound_mail.dismissed_at is null
   and not exists (select 1 from drafts d join clients c on c.id = d.client_id where c.project = inbound_mail.project and c.email = inbound_mail.email and d.created_at > inbound_mail.received_at)
   and not exists (select 1 from inbox_rows r where r.project = inbound_mail.project and r.email = inbound_mail.email and r.recorded_at > inbound_mail.received_at)`;
-const SQL_OPEN = sql.raw(OPEN_INBOUND);
+export const SQL_OPEN = sql.raw(OPEN_INBOUND);
 
 export function inboundMailRepo(db: Db) {
   return {

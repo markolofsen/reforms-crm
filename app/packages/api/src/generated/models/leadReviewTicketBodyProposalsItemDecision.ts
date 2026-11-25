@@ -12,4 +12,5 @@ export type LeadReviewTicketBodyProposalsItemDecision = typeof LeadReviewTicketB
 export const LeadReviewTicketBodyProposalsItemDecision = {
   spam: 'spam',
   not_now: 'not_now',
+  no_reply: 'no_reply',
 } as const;

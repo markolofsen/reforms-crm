@@ -9,6 +9,11 @@ import type { LeadReviewTicketBodyProposalsItemDecision } from './leadReviewTick
 
 export type LeadReviewTicketBodyProposalsItem = {
   /** @pattern ^[0-9a-fA-F-]{32,36}$ */
-  pageId: string;
+  pageId?: string;
+  /**
+     * @maximum 9007199254740991
+     * @exclusiveMinimum 0
+     */
+  inbound?: number;
   decision: LeadReviewTicketBodyProposalsItemDecision;
 };

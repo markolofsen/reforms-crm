@@ -9,6 +9,7 @@
 export type LeadReviewTicketApplied = {
   spam: number;
   notNow: number;
+  noReply: number;
   excluded: number;
   notion: string[];
 };

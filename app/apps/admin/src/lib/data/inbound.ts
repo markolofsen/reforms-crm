@@ -111,6 +111,8 @@ export const useLeadPassOf = (projects: readonly string[]) => useQueries({ queri
 
 /** Run lead pass now (202: the pass runs in the background; the live `inbox` topic brings its decisions). */
 export const useRunLeadPass = (project: string) => useCommand({ project, touches: INBOX, run: (_: void) => leadPassApi.run(project) });
+/** Run mail pass now (P147 3h): the same runner over Mail ▸ Needs you; its drafts join today's review. */
+export const useRunMailPass = (project: string) => useCommand({ project, touches: INBOX, run: (_: void) => leadPassApi.run(project, "mail") });
 
 /** Redo (verdict 3): one lead's decision cleared, so the next pass decides it again; its draft stays in Mail. */
 export function useRedoLead(project: string, pageId: string, on: { onError: (e: unknown) => void } = { onError: () => undefined }) {

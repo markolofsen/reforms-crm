@@ -23,6 +23,7 @@ export function fakeLeadPassBrain(d: FakeLeadPassDeps): LeadPassBrain {
     async turn(t: LeadPassTurn, signal): Promise<LeadPassTurnResult> {
       if (signal.aborted) return { kind: "failed", code: "failed", detail: "aborted" };
       const at = now().toISOString();
+      if (t.kind === "mail") return mailTurn(d, t, at);
       const lead = await d.repos.leadRows.get(t.project, t.pageId);
       if (!lead) return { kind: "failed", code: "failed", detail: `no lead ${t.pageId}` };
       const decide = async (decision: "reply" | "spam" | "hand_over", reason: string): Promise<LeadPassTurnResult> => {
@@ -36,4 +37,23 @@ export function fakeLeadPassBrain(d: FakeLeadPassDeps): LeadPassBrain {
       return decide("reply", "a prospect: the fake brain answers every lead with a mail address");
     },
   };
+}
+
+// P147 3h: the fake mail turn. A sender that looks automated or a subject that asks to renew access, verify or reset is
+// `no_reply` (phishing or a notification); every other thread gets a recorded reply draft in its thread and the decision reply.
+const AUTOMATED = /(^|[._-])(no-?reply|notifications?|mailer-daemon|alerts?)@/i;
+const PHISHING = /\b(access renewal|verify your|password reset|account suspended)\b/i;
+
+async function mailTurn(d: FakeLeadPassDeps, t: LeadPassTurn, at: string): Promise<LeadPassTurnResult> {
+  const id = Number(t.pageId);
+  const row = await d.repos.inboundMail.get(t.project, id);
+  if (!row) return { kind: "failed", code: "failed", detail: `no inbound ${t.pageId}` };
+  const decide = async (decision: "reply" | "no_reply", reason: string): Promise<LeadPassTurnResult> => {
+    await d.repos.mailPass.decide({ project: t.project, inboundId: id, decision, reason, passId: t.passId, at });
+    return { kind: "decided", decision, costUsd: 0 };
+  };
+  if (AUTOMATED.test(row.email)) return decide("no_reply", "an automated notification: nothing to answer");
+  if (PHISHING.test(row.subject)) return decide("no_reply", "phishing: it asks to renew access from a look-alike sender");
+  await d.repos.drafts.record({ project: t.project, email: row.email, name: row.name, subject: /^re:/i.test(row.subject) ? row.subject : `Re: ${row.subject}`, mailRef: row.messageId, skill: "triage-mail", excerpt: "Thank you for your message.", mailPass: { inboundId: id, passId: t.passId, day: at.slice(0, 10) } });
+  return decide("reply", "a client's question: the fake brain answers every human thread");
 }

@@ -17,6 +17,7 @@ export { answeringDraft, PREVIEW_CHARS } from "./repos/inbound-mail";
 export { CONVERSATION_STATES, CONVERSATION_VIEWS, stateOf, type ConversationCounts, type ConversationItem, type ConversationState, type ConversationView } from "./repos/conversations";
 export { LEAD_PREVIEW_CHARS } from "./repos/lead-rows";
 export { dueLeads, leadDecisionApplied, samePersonAs, samePersonReason, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./repos/lead-pass";
+export { MAIL_PASS_DISPLAY, mailDecisionApplied, mailPassDisplay, type MailDecisionInput, type MailPassDisplay, type MailPassItem } from "./repos/mail-pass";
 export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {
   Activity,

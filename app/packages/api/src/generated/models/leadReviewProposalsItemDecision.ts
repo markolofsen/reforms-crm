@@ -12,4 +12,5 @@ export type LeadReviewProposalsItemDecision = typeof LeadReviewProposalsItemDeci
 export const LeadReviewProposalsItemDecision = {
   spam: 'spam',
   not_now: 'not_now',
+  no_reply: 'no_reply',
 } as const;

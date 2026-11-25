@@ -65,7 +65,7 @@ export function startLeadPass(o: {
         .filter((p) => !p.archived)
         .flatMap((p) => {
           const cfg = o.projects.find(p.slug);
-          return cfg && cfg.status === "active" ? [{ slug: p.slug, settings: { schedule: cfg.leads.pass, at: cfg.leads.passAt || LEAD_PASS_DEFAULT_AT, sweepDaily: cfg.followUps.schedule === "daily" } }] : [];
+          return cfg && cfg.status === "active" ? [{ slug: p.slug, settings: { schedule: cfg.leads.pass, at: cfg.leads.passAt || LEAD_PASS_DEFAULT_AT, sweepDaily: cfg.followUps.schedule === "daily", mail: { schedule: cfg.mail.pass, at: cfg.mail.passAt } } }] : [];
         }),
   });
   schedule.begin();

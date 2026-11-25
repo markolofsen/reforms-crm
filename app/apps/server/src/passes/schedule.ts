@@ -1,9 +1,10 @@
-import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_RUN_NOW_PER_DAY, LEAD_PASS_SWEEP_WAIT_MS, type LeadPassSchedule, type LeadPassTrigger } from "@hub/config/lead-pass";
+import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_RUN_NOW_PER_DAY, LEAD_PASS_SWEEP_WAIT_MS, MAIL_PASS_DEFAULT_AT, type LeadPassSchedule, type LeadPassTrigger, type PassKind } from "@hub/config/lead-pass";
 import type { LeadPassRow } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";
 import { systemClock, type Clock } from "../messengers/autopilot/scheduler";
 import { nextRun } from "../follow-ups/schedule";
 import { runPass, type PassDeps } from "./pass";
+import { runMailPass } from "./mail-pass";
 
 // The lead pass's timer (decision 0055 point 1, P147 L4), beside P142's sweep timer and built on its helpers (`nextRun`). Once a
 // minute it looks at each active project's `leads.pass` and `leads.pass_at`: a project whose time of day has passed and that has
@@ -17,6 +18,8 @@ export interface LeadPassSettings {
   at: string;
   /** Whether the project's follow-up sweep runs daily (D8 waits for it only then). */
   sweepDaily: boolean;
+  /** P147 3h: `mail.pass` and `mail.pass_at`; the mail pass starts after that day's lead pass. */
+  mail?: { schedule: LeadPassSchedule; at: string };
 }
 
 export interface LeadScheduleDeps extends PassDeps {
@@ -43,22 +46,24 @@ export function leadPassSchedule(d: LeadScheduleDeps) {
   let timer: unknown = null;
   let stopped = false;
   const since = () => startOfDay(new Date(clock.now())).toISOString();
-  const passesToday = async (slug: string) => d.repos.leadPass.passesSince(slug, since());
+  const passesToday = async (slug: string, kind: PassKind = "lead") => (kind === "mail" ? d.repos.mailPass.passesSince(slug, since()) : d.repos.leadPass.passesSince(slug, since()));
+  const key = (slug: string, kind: PassKind) => (kind === "mail" ? `${slug}#mail` : slug);
 
-  const start = (slug: string, trigger: LeadPassTrigger): Promise<LeadPassRow | null> => {
-    const cur = running.get(slug);
+  const start = (slug: string, trigger: LeadPassTrigger, kind: PassKind = "lead"): Promise<LeadPassRow | null> => {
+    const k = key(slug, kind);
+    const cur = running.get(k);
     if (cur) return cur;
-    const p = runPass(d, slug, trigger)
+    const p = (kind === "mail" ? runMailPass({ ...d, project: d.prefetch.project }, slug, trigger) : runPass(d, slug, trigger))
       .catch((e: unknown) => {
-        log.error("the lead pass did not run", { project: slug, ...errFields(e) });
+        log.error(`the ${kind} pass did not run`, { project: slug, ...errFields(e) });
         return null;
       })
-      .finally(() => running.delete(slug));
-    running.set(slug, p);
+      .finally(() => running.delete(k));
+    running.set(k, p);
     return p;
   };
-  const nowRuns = async (slug: string) => (await passesToday(slug)).filter((s) => s.trigger === "button" || (s.trigger === "dock" && s.turns + s.listed > 0)).length;
-  const ranToday = async (slug: string) => (await passesToday(slug)).some((s) => s.trigger === "schedule" || s.trigger === "catch_up");
+  const nowRuns = async (slug: string, kind: PassKind = "lead") => (await passesToday(slug, kind)).filter((s) => s.trigger === "button" || (s.trigger === "dock" && s.turns + s.listed > 0)).length;
+  const ranToday = async (slug: string, kind: PassKind = "lead") => (await passesToday(slug, kind)).some((s) => s.trigger === "schedule" || s.trigger === "catch_up");
 
   const tick = async (): Promise<void> => {
     const now = new Date(clock.now());
@@ -69,6 +74,15 @@ export function leadPassSchedule(d: LeadScheduleDeps) {
       const sweeps = await d.repos.followUps.sweepsSince(slug, since());
       if (!afterSweep({ now: now.getTime(), due, sweepDaily: settings.sweepDaily, sweeps })) continue;
       void start(slug, now.getTime() - due <= ON_TIME_MS + LEAD_PASS_SWEEP_WAIT_MS ? "schedule" : "catch_up");
+    }
+    // P147 3h: the mail pass, at its own time, only once that day's lead pass is not running (and ran, when it is daily).
+    for (const { slug, settings } of await d.projects()) {
+      const m = settings.mail;
+      if (!m || m.schedule !== "daily" || running.has(key(slug, "mail")) || running.has(slug)) continue;
+      const due = startOfDay(now).getTime() + minutesOf(m.at || MAIL_PASS_DEFAULT_AT) * 60_000;
+      if (now.getTime() < due || (await ranToday(slug, "mail"))) continue;
+      if (settings.schedule === "daily" && !(await ranToday(slug)) && now.getTime() < due + LEAD_PASS_SWEEP_WAIT_MS) continue;
+      void start(slug, now.getTime() - due <= ON_TIME_MS + LEAD_PASS_SWEEP_WAIT_MS ? "schedule" : "catch_up", "mail");
     }
   };
 
@@ -91,19 +105,19 @@ export function leadPassSchedule(d: LeadScheduleDeps) {
      * Run lead pass now (the owner's button, or `lead_pass_start` from the dock, trigger `dock`, F3 of 3d): joins a running pass;
      * the two share 3 a day. The dock's own attended decisions are `dock` rows too, but with no turns: they do not count here.
      */
-    async runNow(slug: string, trigger: "button" | "dock" = "button"): Promise<{ joined: boolean; pass: Promise<LeadPassRow | null> } | { refused: string }> {
-      const cur = running.get(slug);
+    async runNow(slug: string, trigger: "button" | "dock" = "button", kind: PassKind = "lead"): Promise<{ joined: boolean; pass: Promise<LeadPassRow | null> } | { refused: string }> {
+      const cur = running.get(key(slug, kind));
       if (cur) return { joined: true, pass: cur };
-      if ((await nowRuns(slug)) >= LEAD_PASS_RUN_NOW_PER_DAY) return { refused: `Run lead pass now runs at most ${LEAD_PASS_RUN_NOW_PER_DAY} times a day` };
-      return { joined: false, pass: start(slug, trigger) };
+      if ((await nowRuns(slug, kind)) >= LEAD_PASS_RUN_NOW_PER_DAY) return { refused: `Run ${kind} pass now runs at most ${LEAD_PASS_RUN_NOW_PER_DAY} times a day` };
+      return { joined: false, pass: start(slug, trigger, kind) };
     },
-    isRunning: (slug: string) => running.has(slug),
-    async runNowOff(slug: string): Promise<string | null> {
-      return (await nowRuns(slug)) >= LEAD_PASS_RUN_NOW_PER_DAY ? `used ${LEAD_PASS_RUN_NOW_PER_DAY} of ${LEAD_PASS_RUN_NOW_PER_DAY} today` : null;
+    isRunning: (slug: string, kind: PassKind = "lead") => running.has(key(slug, kind)),
+    async runNowOff(slug: string, kind: PassKind = "lead"): Promise<string | null> {
+      return (await nowRuns(slug, kind)) >= LEAD_PASS_RUN_NOW_PER_DAY ? `used ${LEAD_PASS_RUN_NOW_PER_DAY} of ${LEAD_PASS_RUN_NOW_PER_DAY} today` : null;
     },
     /** The next scheduled pass after now (the sweep's wait not counted), or null when the project's pass is off. */
-    async next(slug: string, s: Pick<LeadPassSettings, "schedule" | "at">): Promise<string | null> {
-      return s.schedule === "daily" ? nextRun(new Date(clock.now()), s.at, await ranToday(slug)).toISOString() : null;
+    async next(slug: string, s: Pick<LeadPassSettings, "schedule" | "at">, kind: PassKind = "lead"): Promise<string | null> {
+      return s.schedule === "daily" ? nextRun(new Date(clock.now()), s.at, await ranToday(slug, kind)).toISOString() : null;
     },
     async stop(): Promise<void> {
       stopped = true;

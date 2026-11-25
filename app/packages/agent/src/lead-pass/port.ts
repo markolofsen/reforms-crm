@@ -8,18 +8,18 @@ import { HTTP_TOOL_LIMIT_MS, slowServerText, timedOut } from "../mcp/define";
 export type LeadPassRunAnswer = { ok: true; joined: boolean } | { ok: false; status: number; error: string };
 
 export interface LeadPassPort {
-  run(slug: string): Promise<LeadPassRunAnswer>;
+  run(slug: string, pass?: "lead" | "mail"): Promise<LeadPassRunAnswer>;
 }
 
 export function httpLeadPass(o: { port: () => number; token: () => string | null; fetch?: typeof fetch }): LeadPassPort {
   const f = o.fetch ?? fetch;
   return {
-    async run(slug) {
+    async run(slug, pass = "lead") {
       const token = o.token();
       if (!token) return { ok: false, status: 0, error: "The Hub server has not started (no agent token)." };
       const ms = HTTP_TOOL_LIMIT_MS.read;
       try {
-        const r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/lead-pass/agent-run`, { method: "POST", headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token }, body: "{}", signal: AbortSignal.timeout(ms) });
+        const r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/lead-pass/agent-run`, { method: "POST", headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token }, body: JSON.stringify({ pass }), signal: AbortSignal.timeout(ms) });
         const json = (await r.json().catch(() => null)) as { joined?: unknown; error?: unknown } | null;
         if (!r.ok) return { ok: false, status: r.status, error: typeof json?.error === "string" ? json.error : `The server answered ${r.status}.` };
         return { ok: true, joined: json?.joined === true };

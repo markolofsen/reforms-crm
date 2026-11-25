@@ -149,15 +149,15 @@ export const leadPassStartTool = defineTool({
   name: "lead_pass_start",
   title: "Start the project's lead pass on the server",
   description:
-    "Starts the Hub server's lead pass for this project now (the same as the owner's Run lead pass now; at most 3 a day): one headless turn per open lead, each a draft and a decision, nothing sent. Use it for \"process the leads\"; answer with the Review link. Decide one lead yourself only for \"this lead\" or when fewer than 3 are open.",
-  input: z.object({}),
+    "Starts the Hub server's lead pass (or, with pass mail, its mail pass) for this project now (the same as the owner's Run now; at most 3 a day each): one headless turn per open lead or inbound thread, each a draft and a decision, nothing sent. Use it for \"process the leads\" (or \"go through the mail\"); answer with the Review link. Decide one yourself only for \"this lead\" or when fewer than 3 are open.",
+  input: z.object({ pass: z.enum(["lead", "mail"]).optional().describe("mail: the mail pass over Needs you (default lead)") }),
   output: z.object({ project: z.string(), started: z.boolean(), joined: z.boolean(), review: z.string(), next: z.string() }),
   effect: "draft",
   refusals: ["unavailable", "wrong_state"],
-  handler: async ({ env, project }) => {
+  handler: async ({ env, project }, i) => {
     const slug = project();
     if (!env.leadPassRun) throw new ToolError("unavailable", "This session cannot start the lead pass (the Hub server is not reachable here).");
-    const a = await env.leadPassRun.run(slug);
+    const a = await env.leadPassRun.run(slug, i.pass ?? "lead");
     if (!a.ok) throw a.status === 0 ? unavailableAnswer(a.error) : new ToolError(a.status === 409 ? "wrong_state" : "unavailable", a.error);
     return {
       project: slug,
