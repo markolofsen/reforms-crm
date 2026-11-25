@@ -47,8 +47,9 @@ export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Writte
   // P65 S5: the Hub's last write for this message may still be landing (Mail slow): a second one would be a duplicate.
   const landing = await landingWrite(s, mailRef);
   if (landing) throw new ToolError("mail_slow", `The hub's write for this message at ${landing.startedAt} has not shown in Mail yet (Mail is slow); it is adopted when it lands. Do not write it again now: tell the owner in one line; a later draft_write with the same record records it once it landed. Nothing was written.`);
-  // P87 (B6): the message answered is our own sent mail when a hub draft of this project went out as it.
-  const ours = a.owner_request ? await ctx.repos.drafts.bySentMessageId(slug, mailRef) : null;
+  // P87 (B6): the message answered is our own sent mail when a hub draft of this project went out as it. P147 3m C: with or
+  // without the owner's words (a dock follow-up to our Carapis send took Reforms from the shared account's From).
+  const ours = await ctx.repos.drafts.bySentMessageId(slug, mailRef);
   const ourThread = ours?.brand ? { brand: ours.brand, wroteTo: ours.wroteTo ?? null, draftId: ours.id } : undefined;
   const signed = s.sign ? await s.sign(inbound, a.content, ourThread) : null;
   const how = signed ? (({ body: _body, ...rest }) => rest)(signed) : null;
