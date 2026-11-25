@@ -53,7 +53,9 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   // P129 A3 client_record; A4 project_show (was project_notion, project_links), message_show (was inbound_show, mail_brand),
   // mail_list (was drafts_list) and the knowledge tools (were knowledge-mcp's).
   // P128 X5: chats_unlinked and chats_propose_hide (the agent's proposed hides). P136: maps_due (the weekly map review).
-  expect(agent.tools).toEqual(["chat_link", "chats_propose_hide", "chats_unlinked", "client_create", "client_map", "client_record", "client_show", "conversation_done", "draft_show", "draft_write", "focus", "highlight", "knowledge_get", "knowledge_search", "mail_list", "maps_due", "message_show", "messenger_draft_write", "messenger_history", "project_show"]);
+  // P142: follow_ups_due and follow_up_plan. link_fetch (ea0d7a1). 05b7d48: a session the owner started is attended, so it
+  // also has decision 0046's one send, messenger_send (HUB_MCP_ATTENDED_TOOLS); only a background run lacks it.
+  expect(agent.tools).toEqual(["chat_link", "chats_propose_hide", "chats_unlinked", "client_create", "client_map", "client_record", "client_show", "conversation_done", "draft_show", "draft_write", "focus", "follow_up_plan", "follow_ups_due", "highlight", "knowledge_get", "knowledge_search", "link_fetch", "mail_list", "maps_due", "message_show", "messenger_draft_write", "messenger_history", "messenger_send", "project_show"]);
   expect(agent.focused).toBe(fiona.draftId);
   expect(agent.recorded).toMatchObject({ ok: true, action: "updated", draftId: fiona.draftId });
   // The open card says so by itself (P50), and the list still has one Fiona.
@@ -69,7 +71,13 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   await expect(cardOf(second, "Gus Second")).toBeVisible();
   await expect.poll(() => clientOf(onDisk()), { timeout: 1500 }).toBe(gus.clientId);
 
-  // 5. A focus older than 10 minutes is stale: the hook adds nothing.
+  // 5. A focus older than 10 minutes is stale: the hook adds nothing. The tab posts again once its rows settle (the window,
+  // the pointed row), so the file is backdated only after a second without a post; the heartbeat is 60 s away.
+  await expect.poll(async () => {
+    const before = onDisk()?.at;
+    await new Promise((r) => setTimeout(r, 1000));
+    return onDisk()?.at === before;
+  }, { timeout: 10_000 }).toBe(true);
   const rec = onDisk();
   expect(rec).not.toBeNull();
   writeFileSync(focusFile, JSON.stringify({ ...rec, at: new Date(Date.parse(rec?.at ?? "") - 11 * 60_000).toISOString() }));

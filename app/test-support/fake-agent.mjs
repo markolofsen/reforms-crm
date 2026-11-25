@@ -8,6 +8,8 @@
 //   the focus names (`read`: the hub's own `knowledge_get` with its path, P129 A4), never asking for a file name.
 // - `fake-agent.mjs --highlight '<refs as JSON>' [note]` ("покажи, где это"): calls `highlight` and prints its answer.
 // It never sends: there is no send tool to call and it calls none. Env: HUB_HOME, HUB_PROJECT, HUB_DB, HUB_PROJECTS. Prints one JSON line.
+// P112 S3: `hub mcp` binds to HUB_PROJECT only with the launcher's capability for it. A dock session gets it from `hub agent`
+// (the session's MCP config); this script is that launcher too, so it mints the capability the same way and passes it on.
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -57,6 +59,9 @@ function server(command, args) {
   };
   return { rpc, tool, start, close: () => child.kill() };
 }
+
+const { launcherCapability } = await import("../apps/installer/test/support/launcher-capability.mjs");
+Object.assign(process.env, launcherCapability(process.env));
 
 const hubMcp = server(process.execPath, [hub, "mcp"]);
 const open = [hubMcp];
