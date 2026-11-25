@@ -89,12 +89,11 @@
       "writer": "people",
       "note": "optional, one-way, no reverse on Clients; a business contact is never a client"
     },
-    "Brand": {
+    "Projects": {
       "type": "multi_select",
-      "optional": true,
+      "writer": "agent and people",
       "options": [],
-      "writer": "people",
-      "note": "which site or product a contact belongs to; options are the project's own (live SaaS CRM, 2026-11-17)"
+      "note": "The project keys of the row (decision 0053): the same options as Clients Projects. `hub install --only notion.projects` adds a brand's option where none has its key."
     }
   },
   "noteVsPack": "Other socials is text live (the pack said url). Category options changed by owner decision 2026-11-14: Client dropped (a business contact is never a client), Lawyer and Bank added; older CRMs may still list Client until the owner approves a rename. Owner decision 2026-11-14: Business contacts is standalone and kept separate from Clients; the live data source description 'To be merged into People' is superseded. Optional module."

@@ -16,7 +16,7 @@ Purpose: intake of website requests and, under the mailbox policy (`Save to Noti
 | Phone | phone_number | sender |
 | Company | text | form field |
 | Message | text | free-text body; never filled for a lead from mail |
-| Details | text | every form field without a column, one `Label: value` per line |
+| Details | text | every form field without a column, one `Label: value` per line; a django_notion backend writes `Project key: <key>` first |
 | Form | text | form identifier, e.g. contact, pricing |
 | Source page | text | path of the page the form was on |
 | Page URL | url | page the form was submitted on |
@@ -32,7 +32,7 @@ Purpose: intake of website requests and, under the mailbox policy (`Save to Noti
 | GCLID, MSCLKID, LinkedIn click ID, UTM source, UTM medium, UTM campaign | text | parsed from Ad click; mapping by Hub pending |
 | Ad click time | date | first visit from the ad |
 | Ad consent | checkbox | advertising cookies allowed |
-| Brand | multi_select, options = the project's sites/products | which site or product the lead came from; written by the backend, filtered on by people. Present in the live SaaS CRM since 2026-11-17 |
+| Brand | multi_select, options named like the project's `## Brands` rows | the project key of the lead's origin (decision 0053): which site or product it came from. Written by the backend (django_notion takes the option whose key equals the backend's project key; none: Brand stays empty and the lead is still written); filtered on by people, the silence check and Clients' `Project signals`. Leads keeps `Brand`; the other databases use `Projects`. `notion.projects` adds a brand's missing option. Present in the live SaaS CRM since 2026-11-17 |
 
 Hub looks Leads up by name: Name, Form, Email, Phone, Message, Page URL, Source, Status, Received at, Mailbox, Hub run id. Do not rename them.
 

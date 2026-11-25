@@ -155,7 +155,8 @@
       "type": "multi_select",
       "writer": "integration (the owner's backend, e.g. django_notion)",
       "options": [],
-      "note": "Which site or product the lead came from. The options are the names of the project's `## Brands` rows in project.md (doc 16 section 3C), exactly; a project without that table has one option, its own name. The deploy creates the property with those names, and the writer must use exactly those names. Filter on it; one lead can carry several brands."
+      "note": "The project key of the lead's origin (decision 0053): which site or product the lead came from. Leads keeps `Brand` (the other databases use `Projects`): the integration writes it (django_notion matches the backend's project key to the option with the same key: lower case, letters and digits only), the silence check filters on it, and Clients' `Project signals` reads it. The options are named like the project's `## Brands` rows; `hub install --only notion.projects` adds a missing one. A missing option leaves Brand empty, never stops the form. One lead can carry several brands; `Other` is no project.",
+      "description": "The project key of the lead's origin: the site or product it came from. Written by the integration; options named like the Hub's ## Brands rows."
     }
   },
   "noteVsPack": "Read live 2026-11-17 (CRM: SaaS, Leads moved to the top level of the teamspace). Brand exists now (multi_select, project-specific options). Source and Status are type select (not status). Ad-tracking columns (flag ads) are written by the owner's backend once mapped; deploy them only when the project runs ads. The writer column says 'Hub' for what the integration writes: in the pack 'Hub' means any writer that follows @docs/core/21-leads.md."

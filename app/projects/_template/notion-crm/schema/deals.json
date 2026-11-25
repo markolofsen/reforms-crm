@@ -17,7 +17,7 @@
       "type": "relation",
       "target": "clients",
       "writer": "CRM",
-      "note": "do not use, use Participants"
+      "note": "do not use: the other people on a deal are Tasks or Notes (the Participants module left the pack, P145)"
     },
     "Pipeline": {
       "type": "select",
@@ -301,12 +301,6 @@
     "Hub id": {
       "type": "text",
       "writer": "integration (writer not verified)"
-    },
-    "Participants": {
-      "type": "relation",
-      "target": "participants",
-      "writer": "people",
-      "reverse": "Opportunity"
     },
     "Tasks": {
       "type": "relation",

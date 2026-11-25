@@ -72,7 +72,9 @@ How to adapt a project (from Help):
 - Draft messages; never send without a person's OK.
 - Never edit the machine fields (dates, ids, sync state, `Written by Hub`): their writer owns them.
 - Keep the client profile current: after every conversation or new fact, refresh the fields described `Kept current by the agent` from what the client said, never from a guess (`skills/triage-mail/references/profile.md`). A real name is never replaced by a phone number or an address, and an Email is never cleared.
-- Create a Clients row only through the Hub (Create client from a chat, a lead's first send); never create Deals or Organizations rows: they come from the CRM.
+- Create a Clients row only through the Hub (Create client from a chat, a lead's first send); never create Deals rows: they come from the CRM. Organizations and Open loops (the optional module `sales-legacy`) are never written by the Hub or an agent.
+- Tag a record with its project in `Projects` (decision 0053) on evidence only: the client wrote to a brand's address, a linked lead carries that Brand, or they name the product. A weak guess is a `Project hint:` line in Conversation summary. An option is added, never removed; `Project signals` is a formula, never written.
+- File a client's bug report through the Hub's `bug_report` tool, never by hand in Bug reports (`11-bug-reports.md`).
 - Propose changes first, write after confirmation, unless the workflow says otherwise.
 - End with a short report of what changed.
 - Integrations write idempotently: every row they create carries its own key (`CRM id`, `Hub run id`, `External id`).

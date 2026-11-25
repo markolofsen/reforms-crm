@@ -109,6 +109,20 @@
    "note": "generic: Referral, Past client, Event, Outbound, Other",
    "description": "Kept current by the agent from what the client says (never invented); the owner may edit."
   },
+  "Projects": {
+   "type": "multi_select",
+   "writer": "agent and people",
+   "options": [],
+   "description": "The projects this client is confirmed for (one option per project key; decision 0053). Added by the agent and people on evidence, never removed by the Hub.",
+   "note": "Confirmed membership (decision 0053). Options are the project's `## Brands` rows (and a project with no brand row, such as a development), matched by project key: lower case, letters and digits only. Strong evidence adds an option: the client wrote to a brand's address, a linked lead carries that Brand, or the client names the product. A weak guess (a mention, a signature, a visited page) is a `Project hint:` line in Conversation summary, never an option. The Hub writes it on a new card and adds the lead's project to a known card it links; it never removes one. `hub install --only notion.projects` keeps the options in step with `## Brands`."
+  },
+  "Project signals": {
+   "type": "formula",
+   "writer": "formula",
+   "installable": false,
+   "formula": "the union of Projects, the Brand of every linked Lead except Other, and the project a client's import key or Lead source names (per instance: an External ID prefix such as `<project>:client:`, or a Lead source value that is a site)",
+   "note": "Read-only, never written by anyone (decision 0053 point 4). The API cannot create a cross-database formula: create it by hand in Notion (`hub doctor --only notion.project-keys` warns while it is missing). Project views filter on it and exclude Synthetic rows; Project unknown is Projects empty AND Project signals empty. A lead counts only once it is linked to the client (P97)."
+  },
   "Islands": {
    "type": "multi_select",
    "options": [
@@ -248,7 +262,10 @@
    "type": "relation",
    "target": "organizations",
    "writer": "CRM",
-   "reverse": "Clients"
+   "reverse": "Clients",
+   "module": "sales-legacy",
+   "note": "Optional module `sales-legacy` (Organizations, Open loops): deployed only where a project keeps them; the Hub never reads or writes it (P145 verdict 9).",
+   "optional": true
   },
   "Deals": {
    "type": "relation",
@@ -260,7 +277,10 @@
    "type": "relation",
    "target": "open-loops",
    "writer": "CRM",
-   "reverse": "Person"
+   "reverse": "Person",
+   "module": "sales-legacy",
+   "note": "Optional module `sales-legacy` (Organizations, Open loops): deployed only where a project keeps them; the Hub never reads or writes it (P145 verdict 9).",
+   "optional": true
   },
   "Leads": {
    "type": "relation",
@@ -274,17 +294,14 @@
    "writer": "people",
    "reverse": "Client"
   },
-  "Participations": {
-   "type": "relation",
-   "target": "participants",
-   "writer": "people",
-   "reverse": "Person"
-  },
   "Open loops": {
    "type": "rollup",
    "via": "Open loop items",
    "target": "Done",
-   "aggregation": "unchecked"
+   "aggregation": "unchecked",
+   "module": "sales-legacy",
+   "note": "Optional module `sales-legacy` (Organizations, Open loops): deployed only where a project keeps them; the Hub never reads or writes it (P145 verdict 9).",
+   "optional": true
   },
   "Open tasks": {
    "type": "rollup",

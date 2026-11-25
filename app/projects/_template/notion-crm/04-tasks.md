@@ -9,6 +9,7 @@ Purpose: the one task database of the company: client work, finance, team, admin
 | Property | Type | Options / target | Writer |
 |---|---|---|---|
 | Task | title | | people |
+| Projects | multi_select | the project keys (decision 0053), the same options as Clients Projects | people, agents. Not a relation: a CRM's relation named `Project` (work projects) is another thing and holds no key |
 | Area | select | Clients, Finance, Team, Admin, Tech, Marketing | people, agents, backend. Clients = work for a client or deal; only these go to the CRM |
 | Status | select (not the Status type; see `10-api-traps.md`) | Inbox, Not started, In progress, Waiting, In review, Done, Cancelled | people. Inbox = not triaged; Waiting = ball is with someone else (fill Waiting on) |
 | Due | date | | people or backend |
@@ -42,7 +43,7 @@ Live extras not needed in a fresh project (migration, skip): Source report and C
 
 ## Views
 
-My tasks, Today, Week, Waiting (grouped by Waiting on), Inbox, Board (by Status), By client, By area, By project (skip without Projects), Needs area, Done (Done and Cancelled), All. Live order starts with Board; a new project may start with My tasks. Live JSON: `views/tasks.json`. See `08-views.md`.
+My tasks, Today, Week, Waiting (grouped by Waiting on), Inbox, Board (by Status), By client, By area, By project (group `Projects`), Needs area, Done (Done and Cancelled), All. Live order starts with Board; a new project may start with My tasks. Live JSON: `views/tasks.json`. See `08-views.md`.
 
 ## Rules
 

@@ -7,6 +7,12 @@
       "type": "title",
       "writer": "people"
     },
+    "Projects": {
+      "type": "multi_select",
+      "writer": "agent and people",
+      "options": [],
+      "note": "The project keys of the row (decision 0053): the same options as Clients Projects. `hub install --only notion.projects` adds a brand's option where none has its key."
+    },
     "Status": {
       "type": "status",
       "createAs": "select",

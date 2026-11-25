@@ -7,6 +7,8 @@ export const NOTION_PACK = "app/projects/_template/notion-crm";
 interface Prop {
   type: string; writer?: string; options?: string[]; target?: string; reverse?: string; limit?: number; via?: string; formula?: string;
   trap?: number; skip?: string; note?: string; description?: string; flag?: string; optional?: boolean; vertical?: boolean; ads?: boolean; createAs?: string;
+  /** P145: an optional module the property belongs to (`sales-legacy`), and `false` for a property the API cannot create (a cross-database formula). */
+  module?: string; installable?: boolean;
 }
 interface Schema { database: string; title: string; properties: Record<string, Prop> }
 
@@ -17,6 +19,8 @@ function flags(p: Prop): string {
   if (p.vertical) f.push("vertical");
   if (p.ads) f.push("ads");
   if (p.optional) f.push("optional");
+  if (p.module) f.push(`module ${p.module}`);
+  if (p.installable === false) f.push("created by hand (the API cannot)");
   if (p.trap) f.push(`skipped (trap ${p.trap})`);
   if (p.skip) f.push(`skip: ${p.skip}`);
   if (p.flag) f.push(p.flag);

@@ -11,6 +11,7 @@ Machine-readable: `schema/{expenses,payments}.json`, `views/{expenses,payments}.
 | Property | Type | Writer |
 |---|---|---|
 | Expense | title | people, integration |
+| Projects | multi_select | people, agents: the project keys of the cost (decision 0053), the same options as Clients Projects |
 | Vendor, Category | select | people |
 | Status | select: Active, Trial, Paused, Cancelled, Done, Needs review | people |
 | Billing | select: Monthly, Quarterly, Yearly, Usage-based, One-time | people, integration |

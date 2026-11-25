@@ -34,7 +34,7 @@ The Notion MCP shows a view as JSON; `notion-create-view` and `notion-update-vie
 
 ## Views per database (name: filter / sort / grouping)
 
-Verified live JSON exists in `views/<db>.json` for all 13 databases (read 2026-11-14 through `notion-fetch` of each database). `displayProperties` are cut to acting columns for Deals, Organizations, Open loops, Participants, Workflows, Tasks and Clients, and are the full live column lists for Leads, Knowledge, Documents, Business contacts, Expenses and Payments. The JSON wins over the words below; the words stay as a reading aid.
+Verified live JSON exists in `views/<db>.json` for all 13 databases (read 2026-11-14 through `notion-fetch` of each database). `displayProperties` are cut to acting columns for Deals, Organizations, Open loops, Workflows, Tasks and Clients, and are the full live column lists for Leads, Knowledge, Documents, Business contacts, Expenses and Payments. The JSON wins over the words below; the words stay as a reading aid.
 
 **Leads** (JSON in `views/leads.json`): Inbox (Status = New or empty; Received at desc; default), Needs reply (as above), In progress (Status = In progress; group by Owner; sort Next step asc), Board (board, group by Status; Received at desc), All (no filter; Received at desc), Won no client (Status = Won and Client empty; Received at asc).
 
@@ -44,7 +44,11 @@ Verified live JSON exists in `views/<db>.json` for all 13 databases (read 2026-1
 
 **Open loops** (live, 3): Owner owes (Who owes = owner, Done unchecked; Due asc), Waiting on others (Who owes Client or Other, Done unchecked), Overdue (formula). The earlier "Open promises" name does not exist live.
 
-**Organizations**: All. **Participants**: Default view (table, no filter).
+**Organizations**: All (optional module `sales-legacy`, as Open loops).
+
+**Clients per project** (P145, decision 0053): one view per project key, named after the project (`Projects` option), filter `Project signals` contains the option AND not Synthetic; and **Project unknown**: `Projects` is empty AND `Project signals` is empty, not Synthetic (the formula may lag a reload: recheck after one). The same per-project views fit Documents, Tasks and Expenses on `Projects`.
+
+**Bug reports** (P145, decision 0054; made by hand after `notion.bug-reports`): Open (Status New, Triaged or In progress; Last reported desc; default), Fixed, client not told (Status Fixed and Client told empty), By area (group Area), All.
 
 **Tasks** (live, 12): Board (open, grouped by Status, Due asc), Today (open, Due today or earlier), Week (open, Due within the next week), Waiting (Status = Waiting; group Waiting on), Inbox (Status = Inbox; Created desc), Done (Done or Cancelled; Last edited desc), All, By client (open; group Client), My tasks (Assignee = me, open), By area (open; group Area), Needs area (Area empty, open), By project (open; group Project; only with Projects). "Open" = Status not Done and not Cancelled. Live first view is Board; the pack's earlier default "My tasks" is a choice, not the live order.
 

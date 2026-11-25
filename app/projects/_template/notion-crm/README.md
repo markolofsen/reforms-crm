@@ -15,7 +15,7 @@ A distilled, local description of the CRM in Notion: what each module is for, it
 |---|---|
 | `00-principles.md` | principles, conventions for fields, relations, views, the ownership vocabulary, core vs vertical |
 | `01-modules.md` | module map, dependencies, creation order, which are core |
-| `02-sales.md` | Clients, Deals, Organizations, Open loops, Participants |
+| `02-sales.md` | Clients (with the project keys: `Projects`, `Project signals`), Deals; Organizations and Open loops as the optional module `sales-legacy` |
 | `03-leads.md` | Leads |
 | `04-tasks.md` | Tasks |
 | `05-documents-business-contacts.md` | Documents (conversation reports included), Business contacts |
@@ -24,12 +24,17 @@ A distilled, local description of the CRM in Notion: what each module is for, it
 | `08-views.md` | how a view is written, the views per database |
 | `09-help-pack.md` | the Help page tree to recreate, with placeholders |
 | `10-api-traps.md` | what the Notion API and MCP refuse or do silently |
-| `schema/<db>.json` | machine-readable properties, types, options, relation targets and reverse names, writer, vertical/ads/sync/migration flags, for all 12 databases: clients, leads, deals, organizations, open-loops, participants, tasks, knowledge, documents, business-contacts, expenses, payments (read live 2026-11-14; `documents` 2026-11-17, with the retired Reports merged in, decision 0022). The JSON wins over the tables in `02` to `07`; the tables carry the meaning and rules |
-| `views/<db>.json` | the live views as JSON for the same 12 databases (filters, sorts, groups; Tasks, Clients and the Sales databases have `displayProperties` cut to acting columns, the rest list the live columns). `dataSourceUrl` is a placeholder |
+| `11-bug-reports.md` | Bug reports: when a message is one, who writes what, the status flow |
+| `schema/<db>.json` | machine-readable properties, types, options, relation targets and reverse names, writer, vertical/ads/sync/migration flags, for all 12 databases: clients, leads, deals, organizations, open-loops, tasks, knowledge, documents, business-contacts, expenses, payments (read live 2026-11-14; `documents` 2026-11-17, with the retired Reports merged in, decision 0022) and bug-reports (P145, decision 0054). Participants left the pack on 2026-11-25 (P145): no project used it. The JSON wins over the tables in `02` to `07`; the tables carry the meaning and rules |
+| `views/<db>.json` | the live views as JSON for the same databases but bug-reports (its views are in `11-bug-reports.md`) (filters, sorts, groups; Tasks, Clients and the Sales databases have `displayProperties` cut to acting columns, the rest list the live columns). `dataSourceUrl` is a placeholder |
 
 ## Decision (owner, 2026-11-14)
 
 Contacts stays separate from Clients. Clients = the people we sell to (formerly People). The Contacts database is renamed **Business contacts**: a standalone address book of contractors, lawyers, banks, vendors and partners, never a client, no merge into Clients. A link to Clients (`Related clients`) or Organizations is optional. The leftover relation properties named `People` (Documents, Organizations; reverse on Clients.Organization) are named `Clients` in this pack. Older CRMs may still use the old names.
+
+## Decision (P145, 2026-11-25, decision 0053): one project key
+
+A project is named by one key everywhere: lower case, letters and digits only (`Caribbean MLS`, `caribbean-mls` and `CaribbeanMLS` are all `caribbeanmls`). Every `## Brands` row of project.md is a project; a project need not be a brand (a development with no mailbox of its own). Clients, Documents, Business contacts, Tasks, Expenses and Bug reports carry it as the multi_select `Projects`; Leads keeps `Brand`, the integration-written "which site" fact. Clients also has `Project signals`, a formula nobody writes. The installer step `notion.projects` adds a brand's option where none has its key and never removes one.
 
 ## Rules for using it
 

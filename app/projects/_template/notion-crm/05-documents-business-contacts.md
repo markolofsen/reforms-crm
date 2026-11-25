@@ -9,6 +9,7 @@ Purpose: the register of company documents (references, procedures, specificatio
 | Property | Type | Meaning |
 |---|---|---|
 | Document | title | clear name |
+| Projects | multi_select | the project keys of the document (decision 0053), the same options as Clients Projects |
 | Date | date | date of the document, or when the conversation happened |
 | Type | select: Reference, Spec, Procedure, Brief, Contract / legal, SEO, Other, Report | kind of document; `Report` = conversation report (options per company, SEO is the owner's) |
 | Status | select (realty: a `status` type; the API-created one is select): Draft, Review, Current, Superseded | document lifecycle; not used for reports' preparation |
@@ -38,6 +39,7 @@ Purpose: a standalone address book of general business contacts: contractors, la
 | Property | Type |
 |---|---|
 | Name | title |
+| Projects | multi_select: the project keys (decision 0053), the same options as Clients Projects (an older CRM named it `Brand`: rename it in Notion) |
 | Record type | select: Person, Company |
 | Category | multi_select (Partner, Supplier, Service provider, Contractor, Lawyer, Bank, Other; options per company) |
 | Company, Role | text |
