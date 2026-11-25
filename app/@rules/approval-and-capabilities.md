@@ -19,6 +19,7 @@ Scope: safety: dispatch, agent sessions and every door that writes Hub state or 
 13. MUST: the admin's other Mail writes are a person's Save and Restore of one draft and Tidy; the Hub removes only Mail drafts its own record says it wrote (`mail_versions`, by account and Message-ID; decision 0031), to Trash, never permanently.
 14. MUST: tests and e2e use the fake Mailer only (`HUB_MAILER=fake`, refused without `HUB_DB`).
 15. MUST (P112 S2): a send door is its stages, each a function on fresh reads, in this order: assessment, authorization, final checks, audit (`send_log` first), delivery. The messenger door's authorization takes the caller's stated `MessengerAuthority` (no default) and mints the one `SendAuthorization`, bound to the draft, chat, account, text hash and send-policy generation; the confirm and the send re-check it on the stored row. The final checks read the project's lifecycle and policy generation again before the row. A `HumanActor` takes no part in a send. A new sender is a new member of `MessengerAuthority` through the same stages, never a second door. Each outcome is one `ops("send")` line, which carries the action id.
+16. MUST (decision 0050, P142): the daily follow-up sweep is the one scheduled run that starts a model, and it adds no send path. Its turn holds the eight tools bound to one client (`HUB_FOLLOWUP_CLIENT`; another client is `followup_other_client`) and no send tool; a Mail nudge is always a draft (`@hub/send` refuses `follow-up-nudge` in `send.mode: auto`); a messenger nudge is sent only in an autopilot chat, through the door with the `autopilot` authority under decision 0048's switches, checked again right before the send, at most one a day per chat and three in a row. The plan (`follow_ups`) is the agent's notes: no tool, door or draft check refuses because of it.
 
 ## Enforcement
 
@@ -26,6 +27,7 @@ Scope: safety: dispatch, agent sessions and every door that writes Hub state or 
 |---|---|
 | 1-6 | dispatcher policy tests (unattended, attended, unknown tool, cross-project); `apps/server/test/draft-only.test.ts` |
 | 2, 6 (decision 0048's switches) | `packages/projects/test/autopilot.test.ts`, `apps/server/test/messengers/autopilot/routes.test.ts`, `apps/installer/test/autopilot-policy.test.ts`, `apps/server/test/messengers/autopilot/scheduler.test.ts`, `apps/server/test/messengers/autopilot/deliver.test.ts`, `packages/agent/test/autopilot.test.ts` |
+| 16 | `packages/agent/test/deny-modes.test.ts` (the turn's eight tools), the server's follow-up tests (`apps/server/test/`), `apps/admin/e2e/z-follow-ups.spec.ts` |
 | 2 | `packages/agent/test/deny-modes.test.ts`; `apps/installer/test/safety.test.ts` |
 | 4-5 | installer safety tests (`apps/installer/test/safety.test.ts`: the project capability and the Notion default-deny; `send-safety.test.ts`); `packages/projects/test/notion-tools.test.ts`; review of the dispatcher |
 | 7 | `packages/agent/test/owner-word.test.ts`; `apps/server/test/agent-send.test.ts` |

@@ -1,7 +1,7 @@
 # Hub Workflow (core)
 
 Agent-first, started by the owner: he starts a session (`hub agent <slug>`, or a tab of the admin's terminal dock) and hands it ONE
-instruction; you do the work, the admin shows it live, he decides and sends. Nothing is scheduled (a cheap LLM call through `@hub/llm` runs only inside an already running poller or a run he
+instruction; you do the work, the admin shows it live, he decides and sends. Nothing is scheduled but one run, the daily follow-up sweep of the silent clients (decision 0050, `@docs/core/30-follow-ups.md`: drafts and plans, never a Mail send); otherwise (a cheap LLM call through `@hub/llm` runs only inside an already running poller or a run he
 started, never on a timer of its own: decision 0039 point 3, `@docs/core/27-llm.md`). This is the **core** layer (any owner,
 any project); one owner's facts live in `projects/<slug>/` (`@docs/LAYERS.md`).
 

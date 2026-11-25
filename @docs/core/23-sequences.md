@@ -1,4 +1,4 @@
-# Follow-up sequences (admin label "Follow-ups")
+# Follow-up sequences (admin label "Sequence steps")
 
 Layer: **core** (the engine). The sequences themselves are a project's own files (custom). Rule: `@docs/LAYERS.md`.
 
@@ -60,7 +60,9 @@ What the admin shows (waiting, due, draft ready) is derived from those, never st
 
 ## The admin
 
-Mail has a **Follow-ups** view in its View menu (`?filter=sequences`: the open step drafts; the one control is **Stop follow-ups**; its empty state gives the phrase to say to the agent). The admin has no Enrol control: enrolling is a phrase in a session (decision 0025). A step draft's card is state 17, `follow_up`: Open the draft in Mail is its one primary, the badge says "Follow-up N of M", and **Stop follow-ups** is in its header. The admin reads all of it through `/api/projects/:slug/sequences` and `/enrollments`; it never imports `@hub/sequences` (eslint).
+Mail has a **Sequence steps** view in its View menu (`?filter=sequences`: the open step drafts; the one control is **Stop follow-ups**; its empty state gives the phrase to say to the agent). The admin has no Enrol control: enrolling is a phrase in a session (decision 0025). A step draft's card is state 17, `follow_up`: Open the draft in Mail is its one primary, the badge says "Follow-up N of M", and **Stop follow-ups** is in its header. The admin reads all of it through `/api/projects/:slug/sequences` and `/enrollments`; it never imports `@hub/sequences` (eslint).
+
+The daily follow-up sweep (decision 0050, [30-follow-ups.md](30-follow-ups.md)) is a different thing: the agent's own cadence per silent client, not fixed steps. The two coexist: a client with an open enrolment belongs to the sequence and the sweep leaves them out. Live topic `sequences` (the enrolments); the topic `follow-ups` is the sweep's plans.
 
 ## In a session
 

@@ -64,6 +64,10 @@ never go out through it. Through it an agent can also act on the admin's own tab
 **The agent log.** Every prompt, answer, tool call, wait on the owner and guard event of a session is written per project under `state/log/`,
 from the CLIs' own hooks. It records and never decides. `hub log` reads it; the terminal strip's dot and the tones read its tail: [core/25-agent-log.md](core/25-agent-log.md). What failed underneath (a messenger's disconnect, Mail, Notion, the send door, the server) is the ops log, one redacted line each, read by `hub logs` and Overview's Recent errors: [core/28-ops-log.md](core/28-ops-log.md).
 
+**The daily follow-up sweep.** The one run nobody starts by hand: once a day per project the server lists the clients we wrote to last
+and gives each one agent turn, which nudges with a draft, waits until a date, stops or hands the client to the owner, and notes it on
+Activity ▸ Follow-ups and the client's Notion page. Mail nudges stay drafts; only an autopilot chat may send one: [core/30-follow-ups.md](core/30-follow-ups.md).
+
 **After a restart of the Mac.** One LaunchAgent per instance runs `./run.sh up --service` at login, set up by `./run.sh setup` and switched
 on Settings ▸ This Mac. It starts the server and the admin only: no agent session starts and no browser opens until the owner opens them:
 [core/08-local-app-stack.md](core/08-local-app-stack.md).

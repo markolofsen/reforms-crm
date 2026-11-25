@@ -39,7 +39,8 @@ keeps it with its evidence, shows it, and copies it to the client's Notion page.
   database has it as text) from the map: the open leaf whose label holds the nearest date (ISO `YYYY-MM-DD`), else the first
   open leaf, else the first waiting one; so the map and the profile never disagree. The agent keeps it right through the map; it writes `Next step` itself only in a
   run that does not redraw the map, or when the map has no open leaf, and the next map version replaces it
-  (`skills/triage-mail/references/profile.md`).
+  (`skills/triage-mail/references/profile.md`). The follow-up sweep never writes `Next step`: when its decision changes what is
+  awaited, the agent redraws the map's `waiting` leaf; its own four properties and dated lines are [30-follow-ups.md](30-follow-ups.md).
 
 ## The shape (what `client_map` accepts)
 
