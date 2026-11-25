@@ -8,6 +8,7 @@ import { AppLink } from "@/components/app-link";
 import { ago, plural } from "@/lib/format";
 import type { Dest } from "@/routes/paths";
 import { factChips, isNewSince, leadDays } from "./groups";
+import { PassChip } from "./pass";
 
 /** The Leads line: when Notion Leads were last read, or why not (no token, a failed read, demo mode). */
 export function leadsReadText(r: LeadsReadDto, now: number): string {
@@ -40,8 +41,9 @@ function LeadRow({ r, open, now, to, fresh }: { r: LeadRowDto; open: boolean; no
         <span className="w-full min-w-0 truncate" data-testid="lead-site">
           {r.facts.site ?? r.email ?? "No email: reply on the channel they gave"}
         </span>
-        {(chips.length > 0 || r.requests > 1) && (
+        {(chips.length > 0 || r.requests > 1 || r.pass) && (
           <span className="flex w-full min-w-0 flex-wrap gap-1" data-testid="lead-chips">
+            <PassChip pass={r.pass} />
             {chips.map((c) => (
               <Badge key={c} variant="secondary">
                 {c}

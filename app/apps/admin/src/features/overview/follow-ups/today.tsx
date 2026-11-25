@@ -10,7 +10,7 @@ import { ListSkeleton, QueryView } from "@/components/state-views";
 import { runNowOff, stoppedLine, sweepLine, todayLine } from "@/components/follow-up/words";
 import { sentence } from "@/lib/api/client";
 import { useFollowUpsOf, useRunFollowUps } from "@/lib/data/project";
-import { dest } from "@/routes/paths";
+import { dest, type Dest } from "@/routes/paths";
 
 /** Run follow-ups now: off with the server's reason (three a day, no model here); a click while a sweep runs joins it. */
 function RunNow({ project, d }: { project: string; d: FollowUpsDto }) {
@@ -71,7 +71,7 @@ export function FollowUpsToday({ projects, multi, now }: { projects: readonly st
 }
 
 /** One Needs you item of the sweep: a client handed over to the owner, or a sweep that stopped early. */
-export type FollowUpNeed = { id: string; project: string; kind: "for_you" | "stopped"; title: string; detail: string | null; clientId: number | null };
+export type FollowUpNeed = { id: string; project: string; kind: "for_you" | "stopped"; title: string; detail: string | null; clientId: number | null; /** P147: where the item leads when not a client or the sweep (the lead pass). */ to?: Dest };
 
 /** The Needs you items of every project's sweep (verdict 15): each handed-over client, then a stopped sweep's reason. */
 export function useFollowUpNeeds(projects: readonly string[]): FollowUpNeed[] {
@@ -89,7 +89,7 @@ export function useFollowUpNeeds(projects: readonly string[]): FollowUpNeed[] {
 /** A Needs you item of the sweep: the client's name leads into the conversation; a stopped sweep into Activity ▸ Follow-ups. */
 export function FollowUpNeedItem({ n, multi }: { n: FollowUpNeed; multi: boolean }) {
   const Icon = n.kind === "for_you" ? HandIcon : CircleAlertIcon;
-  const to = n.clientId !== null ? dest("mail.conversation", { key: clientKey({ id: n.clientId }) }, { filter: "all" }) : dest("log.list", { kind: "follow-ups", client: null });
+  const to = n.to ?? (n.clientId !== null ? dest("mail.conversation", { key: clientKey({ id: n.clientId }) }, { filter: "all" }) : dest("log.list", { kind: "follow-ups", client: null }));
   return (
     <li className="flex min-w-0 gap-3 py-3" data-part={n.kind === "for_you" ? "follow-up-for-you" : "follow-ups-stopped"}>
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning-foreground" />

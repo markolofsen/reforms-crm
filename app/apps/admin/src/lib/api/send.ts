@@ -1,6 +1,7 @@
-import { cancelSend, createBatchSendTicket, createSendTicket, getBatchSend, getDraftMail, getProjectDoctor, listSends, restoreDraftMail, resumeSends, runBatchSend, saveDraftMail, sendOneMailDraft, stopBatchSend, stopSends, tidyDraftMail } from "@hub/api";
+import { cancelSend, confirmLeadReview, createBatchSendTicket, createSendTicket, getBatchSend, getDraftMail, getProjectDoctor, listSends, restoreDraftMail, resumeSends, runBatchSend, saveDraftMail, sendOneMailDraft, stopBatchSend, stopSends, tidyDraftMail } from "@hub/api";
 import { draftMailDto, mailTidyDto } from "@hub/contract/mail";
 import { draftChangedDto } from "@hub/contract/review";
+import { leadReviewTicketDto, type LeadReviewTicketBody } from "@hub/contract/lead-pass";
 import { batchRunStateDto, batchSendPlanDto, doctorDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/sending";
 import { readGenerated } from "./client";
 
@@ -48,4 +49,15 @@ export const batchSendApi = {
   },
   run: (project: string, batchId: number) => readGenerated(getBatchSend(project, batchId), batchRunStateDto),
   stop: (project: string, batchId: number) => readGenerated(stopBatchSend(project, batchId), batchRunStateDto),
+};
+
+/**
+ * The lead review's one click (P147 L5/L6, decision 0055 point 2). `confirm` Checks the ticked drafts on the text the review
+ * showed (the server's hash), excludes the unticked ones, applies the ticked proposals and returns the batch ticket for exactly
+ * the drafts that can go out; `start` runs them through Send all Checked's run (one at a time, spaced, Stop).
+ */
+export const leadReviewApi = {
+  confirm: (project: string, batchId: number, body: LeadReviewTicketBody) => readGenerated(confirmLeadReview(project, batchId, body), leadReviewTicketDto),
+  start: (project: string, batchId: number, ticket: string, items: readonly { draftId: number; hash: string }[]) =>
+    readGenerated(runBatchSend(project, batchId, { apply: true, items: items.map((i) => ({ draftId: i.draftId, hash: i.hash })), ticket }), batchRunStateDto, [202]),
 };

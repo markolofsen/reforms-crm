@@ -19,6 +19,7 @@ import { LEAD_VIEWS, type LeadView } from "@/routes/search";
 import { newestOf } from "./groups";
 import { useLeadListKeys } from "./keys";
 import { LeadCard } from "./lead-card";
+import { LeadPassBar } from "./pass";
 import { LeadRows, LeadsReadLine } from "./rows";
 import { useLeadsSeen } from "./use-seen";
 
@@ -66,6 +67,7 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
   const listColumn = (
     <ListScrollArea ariaBusy={query.isFetching && !query.isPending}>
       {toolbar}
+      <LeadPassBar project={project} />
       <QueryView frame={(note) => <ListState>{note}</ListState>} loading={<ListSkeleton label="Loading the leads" />} query={query} what="the leads">
         {() => (
           <>

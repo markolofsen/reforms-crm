@@ -138,7 +138,8 @@ function BatchReview({ step, pending, onSend, onClose }: { step: Step; pending: 
   );
 }
 
-function RunView({ run, stopping, onStop }: { run: BatchRunDto; stopping: boolean; onStop: () => void }) {
+/** A batch run's progress and its Stop (shared with Mail ▸ Leads ▸ Review, P147). */
+export function RunView({ run, stopping, onStop }: { run: BatchRunDto; stopping: boolean; onStop: () => void }) {
   const sent = run.items.filter((i) => i.status === "sent").length;
   const title = run.state === "running" ? `Sending: ${sent} of ${run.items.length} sent` : `${run.state === "stopped" ? "Stopped" : "Finished"}: ${sent} of ${run.items.length} sent`;
   return (

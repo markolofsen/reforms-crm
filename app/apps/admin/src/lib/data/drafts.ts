@@ -138,6 +138,12 @@ export const useBatchRun = (project: string, batchId: number) =>
  * and Stop. The run's answer replaces the polled one at once. `moved()` reads the drafts, the history and Mail again when the run
  * moves on (P87 B4: with the Mail reads, so a sent card reads Mail again instead of showing its draft as deleted).
  */
+/** Stop of one batch run (P147: the lead review's run); the run's answer replaces the polled one. */
+export function useBatchStop(project: string, batchId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: () => batchSendApi.stop(project, batchId), onSuccess: (r) => qc.setQueryData(keys.batchRun(project, batchId), r) });
+}
+
 export function useBatchSend(project: string, batchId: number, on: { onMutate: () => void; onPlan: (p: BatchSendPlanDto) => void; onStarted: () => void; onError: (e: unknown) => void }) {
   const qc = useQueryClient();
   const refresh = useRefreshTopics(project);

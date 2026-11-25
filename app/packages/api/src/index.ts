@@ -6,13 +6,14 @@ export { getAgentTools, getAutostart, listConnections, refreshAgentTools, remove
 export {
   ackDraftCheck, acknowledgeBatchWarnings, checkInbound, createManualMailDraft, dismissInbound, getBatch, getClientByKey, getClientHistory, getClientMap, getClientTimeline, getConversation, getConversationMail, getConversationText, getDraftMail, getInboundDetail, getInboundText, getLeadDetail,
   listBatches, listConversations, listDrafts, listEnrollments, listFollowUps, listInbound, listInbox, listLeads, listNotByEmail, listSequences, listStuckClients, notNowLead, refreshConversation, restoreDraftMail, runFollowUps, saveDraftMail, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, setFollowUp, spamLead, stopEnrollment, tidyDraftMail, undismissInbound, undoBatch, undoDraftStatus, undoLead,
+  getLeadPass, redoLead, runLeadPass,
 } from "./generated/mail/mail";
 export {
   addChatClientEmail, cancelTelegramUserLogin, cancelWhatsAppConnect, changeChatClient, createChatRecord, createMessengerDraft, disconnectTelegramUser, disconnectWhatsApp, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, getTelegramUserStatus, getWhatsAppStatus, hideChat,
   linkChatRecord, listAccountDialogs, listMessengerChats, markMessengerChatDone, neverLinkChat, prepareMessengerReply, previewAutolink, readWhatsAppConnect, restoreMessengerDraft, sendTelegramUserCode, sendTelegramUserPassword, setMessengerChatRules, skipMessengerDraft, startTelegramUserLogin, startWhatsAppConnect, undoChatClient, undoMessengerChatDone, unhideChat, unlinkChat,
   createAutopilotTicket, getAutopilot, getProjectAutopilot, setAutopilot, setProjectAutopilot,
 } from "./generated/messengers/messengers";
-export { cancelSend, createBatchSendTicket, createSendTicket, getBatchSend, listSends, resumeSends, runBatchSend, sendOneMailDraft, sendMessengerDraft, stopBatchSend, stopSends } from "./generated/sending/sending";
+export { cancelSend, confirmLeadReview, createBatchSendTicket, createSendTicket, getBatchSend, getLeadReview, listSends, resumeSends, runBatchSend, sendOneMailDraft, sendMessengerDraft, stopBatchSend, stopSends } from "./generated/sending/sending";
 export { getPointer, postFocus, getPostFocusUrl } from "./generated/agent/agent";
 export { closeTerminalSession, createTerminalSession, createTerminalTicket, ensureTerminalSession, getTerminal, getDropTerminalFilesUrl } from "./generated/terminal/terminal";
 export { getStreamLiveUrl } from "./generated/live/live";

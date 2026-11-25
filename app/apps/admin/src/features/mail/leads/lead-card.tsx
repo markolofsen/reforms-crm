@@ -20,6 +20,7 @@ import { ago, formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 import { useLeadActionKeys } from "./keys";
 import { LeadNotes } from "./lead-notes";
+import { LeadDecision } from "./pass";
 import { channelDestination, LeadTechnical, LeadWant } from "./lead-sheet";
 
 const DONE: Record<Action, string> = { notNow: "Not now", spam: "Marked as spam" };
@@ -54,7 +55,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
   const act = useLeadAction(project, pageId, onClosed);
   return (
     <QueryView frame={(note) => <div className="p-3 lg:p-4">{note}</div>} loading={<EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>} query={q} what="the lead">
-      {(d) => <LeadArticle act={act} d={d} now={now} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} />}
+      {(d) => <LeadArticle act={act} d={d} now={now} project={project} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} />}
     </QueryView>
   );
 }
@@ -123,7 +124,7 @@ function LeadState({ d }: { d: LeadDetailDto }) {
 }
 
 /** The read lead (verdicts 1-5, 8): the card above owns the read and its states. */
-function LeadArticle({ d, now, act, onPrepare }: { d: LeadDetailDto; now: number; act: Act; onPrepare: (email: string) => void }) {
+function LeadArticle({ d, now, act, project, onPrepare }: { d: LeadDetailDto; now: number; act: Act; project: string; onPrepare: (email: string) => void }) {
   const { row, lead, note, drafts } = d;
   const email = row.email;
   return (
@@ -145,6 +146,7 @@ function LeadArticle({ d, now, act, onPrepare }: { d: LeadDetailDto; now: number
         </p>
       )}
       <LeadNotes notes={d.notes} />
+      <LeadDecision pageId={row.pageId} pass={row.pass} project={project} />
       <LeadActions act={act} d={d} onPrepare={onPrepare} />
       <LeadState d={d} />
       {lead ? (

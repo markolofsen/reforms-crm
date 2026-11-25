@@ -9,6 +9,7 @@ import { RecentErrors } from "./recent-errors";
 import { WhereStuck } from "./stuck/where-stuck";
 import { SchemeBlock } from "./scheme";
 import { FollowUpsToday } from "./follow-ups/today";
+import { LeadPassToday } from "./lead-pass/today";
 
 /**
  * What needs you, on every instance (P63, P70). With two or more projects first one sentence that counts the projects that need
@@ -46,6 +47,7 @@ export function OverviewView() {
       )}
       <SchemeBlock multi={multi} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
       <FollowUpsToday multi={multi} now={now} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
+      <LeadPassToday multi={multi} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
       <WhereStuck multi={multi} now={now} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
       <RecentErrors now={now} />
     </>

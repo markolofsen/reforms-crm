@@ -6,6 +6,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { ListSkeleton, QueryView } from "@/components/state-views";
 import { NeedsYou, useQuestions } from "./needs-you";
 import { useFollowUpNeeds, type FollowUpNeed } from "./follow-ups/today";
+import { useLeadPassNeeds } from "./lead-pass/today";
 import { SchemeTable } from "./scheme-table";
 
 /**
@@ -16,7 +17,7 @@ import { SchemeTable } from "./scheme-table";
 export function SchemeBlock({ multi, projects }: { multi: boolean; projects: readonly string[] }) {
   const q = useScheme();
   const questions = useQuestions(projects);
-  const followUps = useFollowUpNeeds(projects);
+  const followUps = [...useFollowUpNeeds(projects), ...useLeadPassNeeds(projects)];
   return (
     <QueryView loading={<ListSkeleton label="Loading the parts" rows={4} />} query={q} what="the parts">
       {(d) => <SchemeParts followUps={followUps} multi={multi} nodes={worstFirst(d.nodes)} questions={questions} />}

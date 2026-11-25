@@ -1,11 +1,15 @@
 "use client";
 
-import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { EnrollmentView, InboxKind } from "@hub/config";
 import type { LeadActionDto, LeadView } from "@hub/contract/inbound";
 import type { LiveTopic } from "@hub/contract/live";
 import { inboundApi, inboxApi, leadsApi, sequencesApi } from "@/lib/api/inbox";
+import type { LeadReviewTicketBody, LeadReviewTicketDto } from "@hub/contract/lead-pass";
+import type { BatchRunDto } from "@hub/contract/sending";
+import { leadPassApi } from "@/lib/api/project/lead-pass";
+import { leadReviewApi } from "@/lib/api/send";
 import { keys } from "@/lib/cache/keys";
 import { useCommand, useRefreshTopics } from "@/lib/cache/topics";
 
@@ -98,3 +102,43 @@ export const useEnrollments = (project: string, view: EnrollmentView) => useQuer
 
 /** Stop one client's sequence (the server skips the open step in the same write). Resume is the owner's, in his terminal. */
 export const useStopFollowUps = (project: string, enrollmentId: number) => useCommand({ project, touches: ["sequences"], run: (_: void) => sequencesApi.stop(project, enrollmentId) });
+
+/** P147: the lead pass line of one project (today's decisions, the last and next pass, the review's batch). */
+export const useLeadPass = (project: string) => useQuery({ queryKey: keys.leadPass(project), queryFn: () => leadPassApi.get(project) });
+
+/** The lead pass lines of several projects, one read each (Overview and Needs you). */
+export const useLeadPassOf = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.leadPass(p), queryFn: () => leadPassApi.get(p) })) });
+
+/** Run lead pass now (202: the pass runs in the background; the live `inbox` topic brings its decisions). */
+export const useRunLeadPass = (project: string) => useCommand({ project, touches: INBOX, run: (_: void) => leadPassApi.run(project) });
+
+/** Redo (verdict 3): one lead's decision cleared, so the next pass decides it again; its draft stays in Mail. */
+export function useRedoLead(project: string, pageId: string, on: { onError: (e: unknown) => void } = { onError: () => undefined }) {
+  const qc = useQueryClient();
+  return useCommand({ project, touches: INBOX, run: (_: void) => leadPassApi.redo(project, pageId), onSuccess: () => void qc.invalidateQueries({ queryKey: keys.lead(project, pageId) }), onError: on.onError });
+}
+
+/** The review of the day's lead batch: each draft's full text read from Mail now (the server keeps the hash it showed). */
+export const useLeadReview = (project: string, batchId: number) => useQuery({ queryKey: keys.leadReview(project, batchId), queryFn: () => leadPassApi.review(project, batchId), staleTime: 0 });
+
+/**
+ * The review's one click: confirm (Checked on the shown text, the untick, the proposals), then the run of exactly the drafts that
+ * can go out, with the ticket the confirm returned. The run's state replaces the polled one at once (Send all Checked's run).
+ */
+export function useConfirmLeadReview(project: string, batchId: number, on: { onDone: (t: LeadReviewTicketDto) => void; onError: (e: unknown) => void }) {
+  const qc = useQueryClient();
+  const refresh = useRefreshTopics(project);
+  return useMutation({
+    mutationFn: async (body: LeadReviewTicketBody) => {
+      const t = await leadReviewApi.confirm(project, batchId, body);
+      const run: { run: BatchRunDto | null } | null = t.ticket ? await leadReviewApi.start(project, batchId, t.ticket, t.items) : null;
+      return { t, run };
+    },
+    onSuccess: ({ t, run }) => {
+      if (run) qc.setQueryData(keys.batchRun(project, batchId), run);
+      void refresh(["inbox", "drafts", "sends"]);
+      on.onDone(t);
+    },
+    onError: on.onError,
+  });
+}

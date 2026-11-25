@@ -80,6 +80,8 @@ export const ROUTE_TABLE = {
   // and one lead by its Notion page id (32 hex), read from Notion Leads. `/mail/lead/<page>` is gone, with no redirect (no legacy
   // aliases, owner 2026-11-08; its only door was the Leads group, which left Mail's list in the same change).
   "mail.leads": defineRoute("/mail/leads", { section: "mail", scoped: true, title: "Leads", search: LEADS_SEARCH }),
+  // P147 (decision 0055 point 2): the day's lead batch reviewed on one screen, its one click.
+  "mail.lead-review": defineRoute("/mail/leads/review/[batch]", { section: "mail", scoped: true, title: "Lead review", crumb: "Review", params: { batch: positiveId } }),
   "mail.lead": defineRoute("/mail/leads/[page]", { section: "mail", scoped: true, title: "Leads", crumb: "Lead", params: { page: notionPage }, search: LEADS_SEARCH }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
   // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
