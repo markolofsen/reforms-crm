@@ -4,7 +4,6 @@ import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { clientKey } from "@hub/contract/client-key";
 import type { SendRowDto } from "@hub/contract/sending";
-import { Badge } from "@hub/ui/badge";
 import { Page } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
@@ -16,45 +15,42 @@ import { SendReadyProvider, useSendReady } from "@/features/mail/ready/send-read
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 
-// Mail ▸ Sent (P147 3m item 3): what went out, newest first, read from the send log, which keeps the full text of each send. One
-// row per send with its channel (Mail, Telegram, WhatsApp); a click opens the text. Queued, failed and cancelled sends stay in
+// Mail ▸ Sent (P147 3m item 3): the mail that went out, newest first, read from the send log, which keeps the full text of each
+// send; a click opens the text. Mail only (owner 2026-11-25: «нет смысла сообщения из мессенджеров выводить»): a messenger send
+// stays in its chat and in Activity. Queued, failed and cancelled sends stay in
 // Activity ▸ Sends, where Cancel lives. Stock UI Core only.
 
 /** The server returns the newest 100 rows of the send log. */
 const SENDS_READ = 100;
 
-export const CHANNEL_LABEL: Record<SendRowDto["channel"], string> = { mail: "Mail", telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
-
-/** The sends that went out (and the one going now, on top), newest first. */
+/** The mail sends that went out (and the one going now, on top), newest first. */
 export function sentRows(sends: readonly SendRowDto[]): SendRowDto[] {
   // The one going now has no done time yet: it is the newest.
   const at = (r: SendRowDto) => (r.status === "sending" ? "~" : (r.doneAt ?? r.createdAt));
-  return sends.filter((r) => r.status === "sent" || r.status === "sending").sort((a, b) => (at(a) < at(b) ? 1 : at(a) > at(b) ? -1 : b.id - a.id));
+  return sends.filter((r) => r.channel === "mail" && (r.status === "sent" || r.status === "sending")).sort((a, b) => (at(a) < at(b) ? 1 : at(a) > at(b) ? -1 : b.id - a.id));
 }
 
-/** Who it went to: a mail's addresses, or the chat's name for a message (its row keeps the name as the subject). */
-const recipient = (r: SendRowDto): string => (r.channel === "mail" ? [r.toAddr, r.ccAddr && `Cc ${r.ccAddr}`].filter(Boolean).join(", ") : r.subject);
+/** Who it went to: the mail's addresses. */
+const recipient = (r: SendRowDto): string => [r.toAddr, r.ccAddr && `Cc ${r.ccAddr}`].filter(Boolean).join(", ");
 
 function SentRow({ r }: { r: SendRowDto }) {
   const [open, setOpen] = useState(false);
-  const title = r.channel === "mail" ? r.subject : r.body.split("\n")[0];
   return (
     <li className="flex flex-col gap-2 py-3" data-testid="sent-row">
       <button aria-expanded={open} className="flex min-w-0 items-start gap-2 text-start" onClick={() => setOpen((v) => !v)} type="button">
         {open ? <ChevronDownIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> : <ChevronRightIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-            <Badge variant="outline">{CHANNEL_LABEL[r.channel]}</Badge>
             <span className="min-w-0 truncate font-medium">{recipient(r)}</span>
             <span className="ms-auto shrink-0 text-muted-foreground text-xs tabular-nums">{r.status === "sending" ? "Sending" : formatTime(r.doneAt ?? r.createdAt)}</span>
           </span>
-          <span className="truncate text-sm">{title}</span>
+          <span className="truncate text-sm">{r.subject}</span>
         </span>
       </button>
       {open && (
         <div className="ms-6 flex flex-col gap-2">
           <p className="measure whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-sm">{r.body}</p>
-          {r.clientId !== null && r.channel === "mail" && (
+          {r.clientId !== null && (
             <AppLink className="self-start text-sm" to={dest("mail.conversation", { key: clientKey({ id: r.clientId }) }, { filter: "all" })}>
               Open the conversation
             </AppLink>
@@ -93,7 +89,7 @@ function SentBody() {
         {(d) => {
           const rows = sentRows(d.sends);
           return rows.length === 0 ? (
-            <EmptyState title="Nothing sent yet">A mail or message the Hub sends appears here with its full text.</EmptyState>
+            <EmptyState title="Nothing sent yet">A mail the Hub sends appears here with its full text.</EmptyState>
           ) : (
             <>
               <ul aria-label="Sent" className="flex flex-col divide-y">
