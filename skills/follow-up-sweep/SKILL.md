@@ -32,6 +32,7 @@ Decision 0050 (P142). A client got our message and has not answered. For each on
 ## 3. Write the nudge (decision `nudge` only)
 - **One new thing** each time: a fact from the knowledge, an answer to their likely next question, or an easy next step (a slot, a short call, a one-click choice). Never "just checking in", never a copy of our last message, never pressure.
 - Short, in the client's language, in the brand's tone (`project_show`: tone, `## Brands`). The hub signs Mail drafts: no sign-off of your own. No price, date or term the knowledge does not state: a `[Owner: …]` placeholder, or `hand_over`.
+- Email or what their company does unknown: the nudge may carry one short question at its end (`skills/triage-mail/references/profile.md`, "Ask for what is missing"); never in an autopilot first contact.
 - The project's sequence file for this kind of silence (`projects/<slug>/sequences/`), if any, is copy guidance for the angles only.
 - **Mail:** `draft_write` kind `reply` to **our own last message** (the prompt gives its `account`, `mailbox_path`, `message_id`; in a dock session find it with mail-mcp), with `follow_up: {n}` and its record. Mail is never sent automatically: the owner sends it with his click. Mail closed (`mail_not_running`): still record `nudge` with today as `next_check`; the next run drafts it.
 - **Messenger** (a linked chat, the channel where the silence is): `messenger_draft_write` with `chat`, `text` and `follow_up: {n}`.

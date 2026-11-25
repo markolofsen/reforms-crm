@@ -3,7 +3,7 @@
 Owner decision, 2026-11-24: the agent keeps the client's Notion page complete. After every conversation you read, every draft
 you write, every owner-sent reply you see and every new fact about the client (a name, a company, an address, a decision),
 you update everything you learned on the client's page in the project's `clients` source, in the same run. Not for spam, a
-notice, "thanks" or "ok": nothing new, nothing written. Used by `triage-mail` (section 2 step 6), `triage-messages`,
+notice, "thanks" or "ok": nothing new, nothing written. Used by `triage-mail` (section 2 step 6), `triage-messages`, `lead-pass`, `follow-up-sweep`,
 `bulk-drafts`, `sequence-drafts`, `review-maps`, `calendar`.
 
 ## 1. Find and read the page
@@ -49,6 +49,20 @@ notice, "thanks" or "ok": nothing new, nothing written. Used by `triage-mail` (s
   changes nothing on the profile.
 - Report the change: the `## Log` line's `profile:` part (`Name +966…->Ahmed, Qimma Auctions; Email +info@qemah.com`) and the
   report row's `основа` ("профиль обновлён: имя, email, сводка").
+
+## 3a. Ask for what is missing (owner, 2026-11-25; P147 section 3b)
+Before any reply (a lead's first reply, a Mail reply, a messenger reply, a follow-up), look at the profile for two gaps:
+- **Email** is empty (typical for a WhatsApp or Telegram client);
+- **what the company does** is unknown: no Company, or a free-mail domain with no site, or a site that says nothing.
+
+How to ask:
+- **One short question at the end of a real reply**, in the client's language: "What's the best email to send the details
+  to?", "What does your company do, so we can suggest the right plan?". At most one such question per reply.
+- **Never** a message of its own, **never** in an autopilot first contact, never a reason to write when nothing else is due.
+- **Not to nag.** Record the ask as a dated `## Log` line (`2026-11-25 · asked for email`). Read the log first: no second ask
+  for the same item within 14 days, and at most twice in all. This is skill text, not a gate.
+- **When they answer:** fill `Email` (the Hub merges the identity, P141 C2) and the company into `Name` and the summary with one
+  line on what it does, plus a `## Log` line (`client gave email`). Never invented.
 
 ## 4. Who else writes these fields (core code, read 2026-11-24)
 - The Hub never rewrites `Name`, `Email`, `Phone`, `Relationship` or the summary of an existing page. It writes a page only

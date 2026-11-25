@@ -15,7 +15,7 @@ const MAIL_CLASSES = [
   { id: "cold-outreach", color: "Light gray", triage: "count-only" },
   { id: "spam", color: "Dark gray", triage: "count-only" },
 ];
-const SKILLS = ["triage-mail", "triage-messages", "review-maps", "bulk-drafts", "calendar", "knowledge-import", "kb-review", "mail-filters", "notion-project-deploy", "project-setup", "status", "owner-inbox", "review-sent", "sequence-drafts", "follow-up-sweep"];
+const SKILLS = ["triage-mail", "triage-messages", "review-maps", "bulk-drafts", "calendar", "knowledge-import", "kb-review", "mail-filters", "notion-project-deploy", "project-setup", "status", "owner-inbox", "review-sent", "sequence-drafts", "follow-up-sweep", "lead-pass"];
 // Client-facing classes only: a reply to security, calendar, marketing, spam or cold outreach is never autosent.
 const SEND = (...extra: string[]) => ({ classes: ["client", "partner", ...extra], dailyCap: 5, delayMinutes: 10 });
 const REQUIRED = ["mail.accounts", "mail.sender", "tone"];
