@@ -29,3 +29,31 @@ export function httpLeadPass(o: { port: () => number; token: () => string | null
     },
   };
 }
+
+// P147 3m item 1: `mail_junk`'s loopback call, with the same agent send token. The server moves one inbound message to Mail's
+// Junk (recoverable) and takes it out of Needs you, with an Activity line. Nothing is sent.
+
+export type MailJunkAnswer = { ok: true; closed: number } | { ok: false; status: number; error: string };
+
+export interface MailJunkPort {
+  junk(slug: string, inboundId: number): Promise<MailJunkAnswer>;
+}
+
+export function httpMailJunk(o: { port: () => number; token: () => string | null; fetch?: typeof fetch }): MailJunkPort {
+  const f = o.fetch ?? fetch;
+  return {
+    async junk(slug, inboundId) {
+      const token = o.token();
+      if (!token) return { ok: false, status: 0, error: "The Hub server has not started (no agent token)." };
+      const ms = HTTP_TOOL_LIMIT_MS.read;
+      try {
+        const r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/mail/inbound/${inboundId}/agent-junk`, { method: "POST", headers: { [AGENT_SEND_HEADER]: token }, signal: AbortSignal.timeout(ms) });
+        const json = (await r.json().catch(() => null)) as { closed?: unknown; error?: unknown } | null;
+        if (!r.ok) return { ok: false, status: r.status, error: typeof json?.error === "string" ? json.error : `The server answered ${r.status}.` };
+        return { ok: true, closed: typeof json?.closed === "number" ? json.closed : 0 };
+      } catch (e) {
+        return { ok: false, status: 0, error: timedOut(e) ? slowServerText(ms) : `The Hub server did not answer (${e instanceof Error ? e.message : String(e)}).` };
+      }
+    },
+  };
+}

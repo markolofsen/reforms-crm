@@ -23514,10 +23514,21 @@
                 "default": 0,
                 "type": "number"
               },
+              "junk": {
+                "default": 0,
+                "type": "number"
+              },
               "excluded": {
                 "type": "number"
               },
               "notion": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "notMoved": {
+                "default": [],
                 "type": "array",
                 "items": {
                   "type": "string"
@@ -23528,8 +23539,10 @@
               "spam",
               "notNow",
               "noReply",
+              "junk",
               "excluded",
-              "notion"
+              "notion",
+              "notMoved"
             ],
             "additionalProperties": false
           }

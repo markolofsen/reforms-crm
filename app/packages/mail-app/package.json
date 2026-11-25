@@ -10,6 +10,8 @@
     "./read": "./src/read.ts",
     "./history": "./src/history.ts",
     "./drafts": "./src/drafts.ts",
+    "./junk": "./src/junk.ts",
+    "./scripts/junk": "./src/scripts/junk.ts",
     "./scripts/read": "./src/scripts/read.ts",
     "./scripts/history": "./src/scripts/history.ts",
     "./scripts/drafts": "./src/scripts/drafts.ts",

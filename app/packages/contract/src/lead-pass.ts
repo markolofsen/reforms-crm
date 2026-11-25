@@ -140,6 +140,7 @@ export const leadReviewTicketDto = z.object({
   /** Exactly what P85b's apply takes with the ticket: each draft and the hash of the text the review served. */
   items: z.array(z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), hash: z.string() })),
   held: z.array(z.object({ draftId: z.number(), name: z.string(), reasons: z.array(z.string()) })),
-  applied: z.object({ spam: z.number(), notNow: z.number(), noReply: z.number().default(0), excluded: z.number(), notion: z.array(z.string()) }),
+  /** `junk` (3m item 1): mail moved to Junk; `notMoved`: the ones Mail did not move, which stay in Needs you, each with why. */
+  applied: z.object({ spam: z.number(), notNow: z.number(), noReply: z.number().default(0), junk: z.number().default(0), excluded: z.number(), notion: z.array(z.string()), notMoved: z.array(z.string()).default([]) }),
 });
 export type LeadReviewTicketDto = z.infer<typeof leadReviewTicketDto>;

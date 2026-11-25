@@ -10,6 +10,8 @@ export type LeadReviewTicketApplied = {
   spam: number;
   notNow: number;
   noReply: number;
+  junk: number;
   excluded: number;
   notion: string[];
+  notMoved: string[];
 };

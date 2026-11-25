@@ -55,7 +55,7 @@ export function SendReadyProvider({ project, children }: { project: string; chil
                 only={sheet.only}
                 onSent={(t) => {
                   setSheet(null);
-                  if (t.held.length || !t.items.length) toastManager.add({ title: t.items.length ? `${t.items.length} sending` : "Nothing sent", description: sentLine(t), type: t.items.length ? "success" : "warning" });
+                  if (t.held.length || t.applied.notMoved.length || !t.items.length) toastManager.add({ title: t.items.length ? `${t.items.length} sending` : "Nothing sent", description: sentLine(t), type: t.items.length ? "success" : "warning" });
                 }}
                 project={project}
               />

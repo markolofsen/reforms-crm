@@ -16,7 +16,7 @@ import { messengerDraftWriteTool, messengerHistoryTool, messengerSendTool } from
 import { linkFetchTool } from "./link";
 import { bugReportTool } from "./bug-report";
 import { leadDecideTool, leadPassStartTool, leadsOpenTool } from "./lead-pass";
-import { mailDecideTool } from "./mail-pass";
+import { mailDecideTool, mailJunkTool } from "./mail-pass";
 import { projectShowTool } from "./project";
 
 // P129 A2: the one list of `hub mcp`'s tools. `HUB_MCP_TOOLS`, the README table, the capability matrix and the registry
@@ -29,7 +29,7 @@ import { projectShowTool } from "./project";
 // P147 (decision 0055): `leads_open` and `lead_decide`, the lead pass (a lead turn gets `lead_decide` and five reads, bound to its lead).
 // P147 3h: `mail_decide`, the mail pass (a mail turn gets it and the reads, bound to its message).
 // P145 B3: `bug_report` files a client's bug report in the project's Bug reports (every turn kind; bound like the rest).
-export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool, followUpsDueTool, followUpPlanTool, linkFetchTool, bugReportTool, leadsOpenTool, leadDecideTool, leadPassStartTool, mailDecideTool] as const satisfies readonly ToolDef[];
+export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool, followUpsDueTool, followUpPlanTool, linkFetchTool, bugReportTool, leadsOpenTool, leadDecideTool, leadPassStartTool, mailDecideTool, mailJunkTool] as const satisfies readonly ToolDef[];
 
 /** Decision 0048 (verdict 28 as built): an autopilot turn's `hub mcp` registers exactly these, each bound to the turn's chat. */
 export const AUTOPILOT_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (AUTOPILOT_HUB_TOOLS as readonly string[]).includes(t.name));

@@ -191,6 +191,12 @@ describe("decision 0055 point 9: a mail pass turn has no send tool (P147 3h)", (
     expect(names.filter((n) => SEND_LIKE_TOOL.test(n))).toEqual([]);
   });
 
+  it("3m item 1: mail_junk is the owner's attended sessions' only: no background, lead or mail pass profile carries it", () => {
+    expect(HUB_MCP_TOOLS).toContain("mail_junk");
+    for (const list of [AUTOPILOT_HUB_TOOLS, LEAD_PASS_HUB_TOOLS, MAIL_PASS_HUB_TOOLS] as readonly (readonly string[])[]) expect(list).not.toContain("mail_junk");
+    expect(MAIL_PASS_ALLOWED.some((r) => r.includes("mail_junk"))).toBe(false);
+  });
+
   it("its CLI allows the eight and denies messenger_send, lead_decide and every other hub tool, and the background deny list", () => {
     expect(MAIL_PASS_ALLOWED).toHaveLength(8);
     const denied = leadPassDisallowed("mail");

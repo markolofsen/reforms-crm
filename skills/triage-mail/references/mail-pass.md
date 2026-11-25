@@ -14,11 +14,11 @@ Decision 0055 point 9 (P147 3h). The Hub server's daily mail pass gives you **on
 |---|---|---|
 | `reply` | a person asks or tells something we can answer | one `draft_write` kind `reply` first (no `message`: the Hub fills it) |
 | `client` | as reply, and they are or become ours (an order, a contract, a paid plan) | the same draft; the card is made at the send |
-| `no_reply` | a notification, newsletter, receipt, automated mail, a thread that needs nothing, **or phishing** | none |
-| `spam` | unsolicited selling, a bot, junk | none: a proposal the owner confirms |
+| `no_reply` | a notification, newsletter, receipt, automated mail, a thread that needs nothing | none |
+| `spam` | **phishing**, unsolicited selling, a bot, junk | none: a proposal; the owner's click moves it to Mail's Junk |
 | `hand_over` | the owner must judge it: money, a complaint, a legal or personal matter, another project's product ("belongs to <that project>"), a fact only he has | none |
 
-**Phishing is `no_reply`.** A mail that impersonates a service to get a click, a sign-in, a code or a payment ("Access Renewal" from an "IT-Helpdesk", a look-alike domain, an urgent account warning) is never answered and never opened. The reason says so: "Phishing: …".
+**Phishing is `spam`.** A mail that impersonates a service to get a click, a sign-in, a code or a payment ("Access Renewal" from an "IT-Helpdesk", a look-alike domain, an urgent account warning) is never answered and never opened. The reason says so: "Phishing: …". The owner's review click moves it to Mail's Junk (recoverable). In a session the owner starts, `mail_junk` moves one at once when he asks.
 
 ## 3. The reply
 - In the client's language (`profile.md` 3c), as the brand the mail reached, answering their actual question from the knowledge base.

@@ -34,11 +34,13 @@ type Proposal = LeadReviewDto["proposals"][number];
 export const proposalKey = (p: Pick<Proposal, "kind" | "pageId">): string => `${p.kind}:${p.pageId}`;
 /** What the ticket posts for a proposal: the lead's page, or the inbound row of a mail one. */
 export const proposalBody = (p: Proposal): LeadReviewTicketBody["proposals"][number] => (p.kind === "mail" && p.inbound !== null ? { inbound: p.inbound, decision: p.decision } : { pageId: p.pageId, decision: p.decision });
-const PROPOSAL_WORD = { spam: "spam", not_now: "not now", no_reply: "no reply needed" } as const;
+const PROPOSAL_WORD = { spam: "spam", junk: "junk", not_now: "not now", no_reply: "no reply needed" } as const;
+/** A mail pass's spam proposal is a move to Mail's Junk at the click (3m item 1); a lead's is Spam here and in Notion. */
+const wordOf = (p: Pick<Proposal, "kind" | "decision">): keyof typeof PROPOSAL_WORD => (p.kind === "mail" && p.decision === "spam" ? "junk" : p.decision);
 
 /** "Also mark 7 as spam / not now": the one line for the pass's proposals (the kinds present, in a fixed order). */
-export function proposalsLine(ps: readonly Pick<Proposal, "decision">[]): string {
-  const kinds = (["spam", "not_now", "no_reply"] as const).filter((k) => ps.some((p) => p.decision === k));
+export function proposalsLine(ps: readonly Pick<Proposal, "kind" | "decision">[]): string {
+  const kinds = (["spam", "junk", "not_now", "no_reply"] as const).filter((k) => ps.some((p) => wordOf(p) === k));
   return `Also mark ${ps.length} as ${kinds.map((k) => PROPOSAL_WORD[k]).join(" / ")}`;
 }
 
@@ -236,6 +238,8 @@ export function sentLine(t: LeadReviewTicketDto): string {
   const parts = [`${t.items.length} sending`];
   if (t.held.length) parts.push(`${t.held.length} held: ${t.held.map((h) => `${h.name} (${h.reasons.join("; ")})`).join(", ")}`);
   if (marked) parts.push(`${marked} marked`);
+  if (t.applied.junk) parts.push(`${t.applied.junk} moved to Junk`);
+  if (t.applied.notMoved.length) parts.push(`not moved: ${t.applied.notMoved.join("; ")}`);
   return parts.join(" · ");
 }
 

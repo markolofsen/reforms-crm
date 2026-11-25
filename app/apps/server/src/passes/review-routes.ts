@@ -11,6 +11,10 @@ import type { Repos } from "@hub/db";
 import type { LeadsHandle } from "../clients/leads-reader";
 import { gateRefusal, type TicketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
+import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
+import { z } from "zod";
+import { slugParam } from "@hub/contract/requests";
+import { junkInbound } from "./mail-junk";
 
 // The lead review (decision 0055 point 2, P147 L5, D3 D4 D10). The read shows every pass draft of the day's lead batch with its
 // full text read fresh from Mail, whether or not it is Checked, beside the request, and the day's proposals and hand-overs. At
@@ -32,6 +36,8 @@ export interface LeadReviewDeps {
   adminPort: number | undefined;
   projectsDir: string | undefined;
   leads?: LeadsHandle | undefined;
+  /** The agent send token (decision 0046): `mail_junk` of the owner's attended session calls in with it (3m item 1). */
+  agentToken?: string | undefined;
 }
 
 export function leadReviewRoutes(o: LeadReviewDeps) {
@@ -175,16 +181,22 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
         if (r.inbound !== null) excludeInbound.push(r.inbound);
       }
       const excluded = (excludePages.length ? await repos.leadPass.exclude(slug, excludePages, at) : 0) + (await repos.mailPass.exclude(slug, excludeInbound, at));
-      // The ticked proposals: Spam (here and in Notion) and Not now (here), each only on a proposal of that kind; a mail pass
-      // proposal (Spam or No reply, P147 3h) is the owner's No reply needed on that thread (Mail itself is never changed).
-      const applied = { spam: 0, notNow: 0, noReply: 0, excluded, notion: [] as string[] };
+      // The ticked proposals: Spam (here and in Notion) and Not now (here), each only on a proposal of that kind. A mail pass
+      // proposal (P147 3h): No reply is the owner's No reply needed on that thread; Spam (junk or phishing, 3m item 1) moves the
+      // message to Mail's Junk first (recoverable), and one Mail did not move stays in Needs you with a note.
+      const applied = { spam: 0, notNow: 0, noReply: 0, junk: 0, excluded, notion: [] as string[], notMoved: [] as string[] };
       for (const p of body.proposals) {
         if (p.inbound !== undefined) {
           const m = await repos.mailPass.item(slug, p.inbound);
           if (!m || m.display !== "proposed" || m.passDecision !== p.decision) continue;
-          await repos.inboundMail.dismiss(slug, m.id);
-          if (p.decision === "spam") applied.spam++;
-          else applied.noReply++;
+          if (p.decision === "spam") {
+            const j = await junkInbound({ repos, mailer: deps.mailer }, slug, m.id, "review", deps.now?.() ?? new Date());
+            if (j.ok) applied.junk++;
+            else applied.notMoved.push(`${m.name || m.email}: ${j.error}`);
+          } else {
+            await repos.inboundMail.dismiss(slug, m.id);
+            applied.noReply++;
+          }
           continue;
         }
         if (p.pageId === undefined || p.decision === "no_reply") continue;
@@ -208,6 +220,16 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       const ticket = items.length ? tickets.mint(batchTicketKey(batchId, items)).ticket : null;
       log.info("lead review confirmed", { project: slug, batch: batchId, send: items.length, held: held.length, spam: applied.spam, notNow: applied.notNow, excluded });
       return c.json(leadReviewTicketDto.parse({ ticket, items: items.map((i) => ({ draftId: i.draftId, name: i.name, to: i.to, subject: i.subject, hash: i.hash })), held, applied }));
+    })
+    // 3m item 1: `mail_junk` of the owner's attended session, a loopback call with the agent send token (decision 0046), never the
+    // admin's Origin. One inbound message to Mail's Junk, then out of Needs you with an Activity line. Nothing is sent.
+    .post("/api/projects/:slug/mail/inbound/:id/agent-junk", v("param", slugParam.extend({ id: z.coerce.number().int().positive() })), async (c) => {
+      if (!o.agentToken || !tokenMatches(c.req.header(AGENT_SEND_HEADER), o.agentToken)) return c.json({ error: "Refused: only the hub's own MCP server may ask this.", code: "forbidden" as const }, 403);
+      if (!deps) return c.json({ error: "Mail is not set up on this server.", code: "wrong_state" as const }, 409);
+      const { slug, id } = c.req.valid("param");
+      const j = await junkInbound({ repos, mailer: deps.mailer }, slug, id, "attended", deps.now?.() ?? new Date());
+      if (!j.ok) return c.json({ error: j.error, code: j.code }, j.code === "not_found" ? 404 : 409);
+      return c.json({ ok: true as const, closed: j.closed.length });
     });
 }
 

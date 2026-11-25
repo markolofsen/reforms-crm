@@ -131,6 +131,32 @@ export function mailPassRepo(db: Db) {
       });
     },
 
+    /**
+     * P147 3m item 1: the message went to Mail's Junk (the review click on a junk proposal, or the owner's attended session). The
+     * sender's open rows leave Needs you, and Activity gets one line. Call it only after Mail moved the message.
+     */
+    async junked(d: { project: string; inboundId: number; by: "review" | "attended"; at: string }): Promise<number[]> {
+      return write(db, (tx) => {
+        const r = tx.select().from(inboundMail).where(and(eq(inboundMail.project, d.project), eq(inboundMail.id, d.inboundId))).get();
+        if (!r) throw new RepoError("not_found", `No inbound message ${d.inboundId} in project ${d.project}`);
+        const ids = tx.select({ id: inboundMail.id }).from(inboundMail).where(and(eq(inboundMail.project, d.project), eq(inboundMail.email, r.email), SQL_OPEN)).all().map((x) => x.id);
+        if (ids.length) tx.update(inboundMail).set({ dismissedAt: d.at }).where(inArray(inboundMail.id, ids)).run();
+        const runId = sessionRun(tx, { project: d.project, batchKey: `mail-junk:${d.at.slice(0, 10)}`, skill: MAIL_PASS_SKILL, at: d.at });
+        const client = tx.select({ id: clients.id }).from(clients).where(and(eq(clients.project, d.project), eq(clients.email, r.email))).get()?.id ?? null;
+        insertEvent(tx, {
+          project: d.project,
+          runId,
+          at: d.at,
+          kind: "decision",
+          tool: "mail_junk",
+          summary: `Mail moved to Junk: ${r.name || r.email}`,
+          detail: JSON.stringify({ action: "mail_junk", by: d.by, subject: r.subject.slice(0, 200), inbound: { id: r.id, account: r.account, mailbox: r.mailbox }, closed: ids }),
+          clientId: client,
+        });
+        return ids;
+      });
+    },
+
     /** The owner's untick in the review: excluded from today's batch; the next pass leaves the thread alone. */
     async exclude(project: string, ids: readonly number[], at: string): Promise<number> {
       if (!ids.length) return 0;

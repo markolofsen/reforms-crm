@@ -40,7 +40,7 @@ export function fakeLeadPassBrain(d: FakeLeadPassDeps): LeadPassBrain {
 }
 
 // P147 3h: the fake mail turn. A sender that looks automated or a subject that asks to renew access, verify or reset is
-// `no_reply` (phishing or a notification); every other thread gets a recorded reply draft in its thread and the decision reply.
+// `no_reply` (a notification), `spam` (phishing: moved to Junk at the owner's click, 3m item 1); every other thread gets a recorded reply draft in its thread and the decision reply.
 const AUTOMATED = /(^|[._-])(no-?reply|notifications?|mailer-daemon|alerts?)@/i;
 const PHISHING = /\b(access renewal|verify your|password reset|account suspended)\b/i;
 
@@ -48,12 +48,12 @@ async function mailTurn(d: FakeLeadPassDeps, t: LeadPassTurn, at: string): Promi
   const id = Number(t.pageId);
   const row = await d.repos.inboundMail.get(t.project, id);
   if (!row) return { kind: "failed", code: "failed", detail: `no inbound ${t.pageId}` };
-  const decide = async (decision: "reply" | "no_reply", reason: string): Promise<LeadPassTurnResult> => {
+  const decide = async (decision: "reply" | "no_reply" | "spam", reason: string): Promise<LeadPassTurnResult> => {
     await d.repos.mailPass.decide({ project: t.project, inboundId: id, decision, reason, passId: t.passId, at });
     return { kind: "decided", decision, costUsd: 0 };
   };
   if (AUTOMATED.test(row.email)) return decide("no_reply", "an automated notification: nothing to answer");
-  if (PHISHING.test(row.subject)) return decide("no_reply", "phishing: it asks to renew access from a look-alike sender");
+  if (PHISHING.test(row.subject)) return decide("spam", "Phishing: it asks to renew access from a look-alike sender");
   await d.repos.drafts.record({ project: t.project, email: row.email, name: row.name, subject: /^re:/i.test(row.subject) ? row.subject : `Re: ${row.subject}`, mailRef: row.messageId, skill: "triage-mail", excerpt: "Thank you for your message.", mailPass: { inboundId: id, passId: t.passId, day: at.slice(0, 10) } });
   return decide("reply", "a client's question: the fake brain answers every human thread");
 }

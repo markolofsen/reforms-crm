@@ -139,7 +139,7 @@ export type MailPassDecision = (typeof MAIL_PASS_DECISIONS)[number];
 export type PassDecision = LeadPassDecision | MailPassDecision;
 /** The mail pass's proposals the owner's review click applies: Spam, and No reply needed. */
 export const MAIL_PASS_PROPOSED: readonly MailPassDecision[] = ["spam", "no_reply"];
-export const MAIL_PASS_DECISION_LABELS: Record<MailPassDecision, string> = { reply: "Reply", client: "Client", no_reply: "No reply proposed", spam: "Spam proposed", hand_over: "For you" };
+export const MAIL_PASS_DECISION_LABELS: Record<MailPassDecision, string> = { reply: "Reply", client: "Client", no_reply: "No reply proposed", spam: "Junk proposed", hand_over: "For you" };
 /** The env var that binds a `hub mcp` process to the one inbound row of a mail turn (its `inbound_mail.id`). */
 export const MAIL_INBOUND_ENV = "HUB_MAIL_INBOUND";
 export const mailInboundOf = (raw: string | undefined): number | undefined => {

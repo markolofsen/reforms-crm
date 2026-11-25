@@ -51,5 +51,6 @@ describe("Send all ready (3m item 5)", () => {
   it("says the proposals as one line", () => {
     expect(proposalsLine(d.proposals)).toBe("Also mark 2 as spam / no reply needed");
     expect(proposalsLine([proposal(1, "spam"), proposal(2, "not_now"), proposal(3, "spam")])).toBe("Also mark 3 as spam / not now");
+    expect(proposalsLine([proposal(4, "spam", "mail"), proposal(5, "no_reply", "mail")])).toBe("Also mark 2 as junk / no reply needed");
   });
 });

@@ -24,4 +24,5 @@ export const NOT_DECLARED: Readonly<Record<string, string>> = {
   "post /api/projects/:slug/messengers/autolink/agent-create": "the agent's `client_create`, from a chat or with none (P143 L2), called by `hub mcp` in an attended session",
   "post /api/projects/:slug/messengers/autolink/agent-link": "the agent's `chat_link` (P143 L2), called by `hub mcp` in an attended session",
   "post /api/projects/:slug/lead-pass/agent-run": "the agent's `lead_pass_start` (P147 F3), called by `hub mcp` in an attended session with its token",
+  "post /api/projects/:slug/mail/inbound/:id/agent-junk": "the agent's `mail_junk` (P147 3m item 1), called by `hub mcp` in an attended session with its token",
 };

@@ -14,8 +14,9 @@ import { batchRuns } from "../../src/send/batch-door";
 import { runMailPass } from "../../src/passes/mail-pass";
 
 // P147 3h (decision 0055 point 9): the mail pass on the fake brain. Its list is the Mail reader's open threads (one per sender,
-// newest), its drafts join the day's lead batch, phishing is no_reply, a new sender's reply opens unticked in the review, the
-// review click applies a No reply proposal as the owner's No reply needed, and autosend holds a first reply to a new sender.
+// newest), its drafts join the day's lead batch, phishing is a spam proposal, a new sender's reply opens unticked in the review,
+// the review click moves a spam proposal to Mail's Junk (3m item 1) and applies a No reply one as No reply needed, and autosend
+// holds a first reply to a new sender. The attended `mail_junk` reaches the same move with the agent token only.
 // FakeMailer throughout: nothing reaches Mail.
 
 const projectMd = ["# Acme", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", "| mail.accounts | owner@acme.example | 2026-11-14 | agent |", "| mail.addresses | owner@acme.example | 2026-11-14 | owner |", "| mail.sender | owner@acme.example | 2026-11-14 | owner |", ""].join("\n");
@@ -52,15 +53,15 @@ afterEach(() => {
 const run = () => runMailPass({ repos, brain: fakeLeadPassBrain({ repos }), project: () => undefined }, "acme", "button");
 
 describe("the mail pass (decision 0055 point 9)", () => {
-  it("lists each sender's newest open message once, drafts the human ones into the day's lead batch, and decides phishing no_reply", async () => {
+  it("lists each sender's newest open message once, drafts the human ones into the day's lead batch, and proposes phishing as spam", async () => {
     await repos.inboundMail.store([inbound(1), inbound(2, { email: "p1@corp1.example" }), inbound(3, { email: "it-helpdesk@corp-security.example", subject: "Access Renewal required" })], NOW);
     const due = await repos.mailPass.due("acme", at(48));
     expect(due.rows.map((r) => r.email).sort()).toEqual(["it-helpdesk@corp-security.example", "p1@corp1.example"]);
     const row = await run();
-    expect(row).toMatchObject({ kind: "mail", listed: 2, turns: 2, replied: 1, noReply: 1, failed: 0, error: null });
+    expect(row).toMatchObject({ kind: "mail", listed: 2, turns: 2, replied: 1, spam: 1, failed: 0, error: null });
     expect((await repos.batches.get("acme", row?.batchId as number))?.intent).toBe("lead_reply");
     const decided = await repos.mailPass.decided("acme", at(48));
-    expect(decided.find((r) => r.email.startsWith("it-helpdesk"))).toMatchObject({ passDecision: "no_reply", display: "proposed" });
+    expect(decided.find((r) => r.email.startsWith("it-helpdesk"))).toMatchObject({ passDecision: "spam", display: "proposed" });
     expect(decided.find((r) => r.email === "p1@corp1.example")).toMatchObject({ passDecision: "reply", display: "drafted", newSender: true });
     expect((await run())).toMatchObject({ listed: 0, turns: 0 });
     // One ledger with the lead pass: the mail turns count in the day's budget.
@@ -79,7 +80,7 @@ describe("the mail pass (decision 0055 point 9)", () => {
     expect(reasons).not.toContain(LEAD_FIRST_REPLY_REASON);
   });
 
-  it("the review shows a new sender's reply unticked and applies a ticked No reply proposal as No reply needed", async () => {
+  it("the review shows a new sender's reply unticked and moves a ticked spam proposal to Junk, out of Needs you", async () => {
     await repos.inboundMail.store([inbound(1), inbound(3, { email: "it-helpdesk@corp-security.example", subject: "Access Renewal required" })], NOW);
     const row = await run();
     const batchId = row?.batchId as number;
@@ -88,10 +89,26 @@ describe("the mail pass (decision 0055 point 9)", () => {
     const r = (await (await app.request(url)).json()) as { rows: Array<{ kind: string; newSender: boolean; ticked: boolean }>; proposals: Array<{ kind: string; inbound: number | null; decision: string }> };
     expect(r.rows.map((x) => [x.kind, x.newSender, x.ticked])).toEqual([["mail", true, false]]);
     const p = r.proposals.find((x) => x.kind === "mail");
-    expect(p).toMatchObject({ decision: "no_reply" });
-    const t = (await (await app.request(`${url}/ticket`, { method: "POST", headers: ADMIN, body: JSON.stringify({ send: [], exclude: [], proposals: [{ inbound: p?.inbound, decision: "no_reply" }] }) })).json()) as { applied: { noReply: number } };
-    expect(t.applied.noReply).toBe(1);
+    expect(p).toMatchObject({ decision: "spam" });
+    const t = (await (await app.request(`${url}/ticket`, { method: "POST", headers: ADMIN, body: JSON.stringify({ send: [], exclude: [], proposals: [{ inbound: p?.inbound, decision: "spam" }] }) })).json()) as { applied: { junk: number; notMoved: string[] } };
+    expect(t.applied).toMatchObject({ junk: 1, notMoved: [] });
+    expect(mailer.junked).toEqual([{ account: "owner@acme.example", mailbox: "INBOX", messageId: "m3@x.test" }]);
     expect((await repos.mailPass.item("acme", p?.inbound as number))?.display).toBe("dismissed");
     expect(mailer.sent).toEqual([]);
+  });
+
+  it("a spam proposal Mail did not move stays in Needs you, and the attended route takes the agent token only", async () => {
+    await repos.inboundMail.store([inbound(3, { email: "it-helpdesk@corp-security.example", subject: "Access Renewal required" })], NOW);
+    const row = await run();
+    const app = testApp(repos, { sender: { kind: "fake", mailer, projectsDir: deps.projectsDir, policyDir: deps.policyDir, allowList: [], adminPort: 5173, now: () => NOW, batchRuns: batchRuns({ limits: { dailyCap: 50, spacingSeconds: 0 } }), batchLimits: { dailyCap: 50, spacingSeconds: 0 } } });
+    const id = (await repos.mailPass.decided("acme", at(48)))[0]?.id as number;
+    mailer.failJunk = "the message is no longer in INBOX";
+    const t = (await (await app.request(`http://127.0.0.1:4317/api/projects/acme/lead-review/${row?.batchId}/ticket`, { method: "POST", headers: ADMIN, body: JSON.stringify({ send: [], exclude: [], proposals: [{ inbound: id, decision: "spam" }] }) })).json()) as { applied: { junk: number; notMoved: string[] } };
+    expect(t.applied.junk).toBe(0);
+    expect(t.applied.notMoved[0]).toMatch(/no longer in INBOX/);
+    expect((await repos.mailPass.item("acme", id))?.display).toBe("proposed");
+    const junk = `http://127.0.0.1:4317/api/projects/acme/mail/inbound/${id}/agent-junk`;
+    expect((await app.request(junk, { method: "POST", headers: ADMIN })).status).toBe(403);
+    expect(mailer.junked).toEqual([]);
   });
 });
