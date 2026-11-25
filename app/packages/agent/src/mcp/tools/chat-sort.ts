@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineTool } from "../define";
+import { defineTool, unavailableAnswer } from "../define";
 import { ToolError } from "../result";
 
 // P128 X5 ("sort the chats", phrase of skill `sort-chats`): the agent reads the unlinked chats the Hub saw and proposes
@@ -22,7 +22,7 @@ export const chatsUnlinkedTool = defineTool({
     const slug = project();
     if (!env.chatSort) throw new ToolError("unavailable", "This session cannot read the unlinked chats (the Hub server is not reachable).");
     const a = await env.chatSort.unlinked(slug);
-    if (!a.ok) throw new ToolError(a.status === 0 ? "unavailable" : "failed", a.error);
+    if (!a.ok) throw a.status === 0 ? unavailableAnswer(a.error) : new ToolError("failed", a.error);
     const chats = a.value.map((c) => ({ channel: c.channel, chat_id: c.chatId, title: c.title, why: c.why, last_at: c.lastAt, inbound: c.inbound, proposed: c.proposed }));
     return { project: slug, chats, next: chats.length === 0 ? "Tell the owner in one line that no unlinked chat waits." : "Decide per chat from its title and why: a shop, a bot, a group, spam or a private contact is not a client. Propose those with chats_propose_hide; leave a possible client alone." };
   },
@@ -43,7 +43,7 @@ export const chatsProposeHideTool = defineTool({
     const slug = project();
     if (!env.chatSort) throw new ToolError("unavailable", "This session cannot propose hides (the Hub server is not reachable).");
     const a = await env.chatSort.propose(slug, items.map((i) => ({ channel: i.channel, chatId: i.chat_id, reason: i.reason })));
-    if (!a.ok) throw new ToolError(a.status === 0 ? "unavailable" : a.status === 400 ? "invalid" : "failed", a.error);
+    if (!a.ok) throw a.status === 0 ? unavailableAnswer(a.error) : new ToolError(a.status === 400 ? "invalid" : "failed", a.error);
     return { project: slug, proposed: a.value.kept, skipped: a.value.skipped, hidden: 0 as const, next: `Tell the owner in one line: ${a.value.kept} ${a.value.kept === 1 ? "chat is" : "chats are"} proposed for hiding; he reviews them on Messengers ▸ Not linked. Nothing was hidden.` };
   },
 });

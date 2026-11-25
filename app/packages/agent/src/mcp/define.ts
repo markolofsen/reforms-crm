@@ -14,6 +14,21 @@ import { errFields, ops, withAction } from "@hub/log/ops";
 
 export type Effect = "read" | "pointer" | "draft" | "send";
 
+/**
+ * P147 verdict 10: the one time limit of every HTTP-backed tool (the loopback calls of `chats_unlinked`, `chats_propose_hide`,
+ * `client_create`, `chat_link` and `messenger_send`): 10 s for a read or a proposal, 150 s for a write that creates (a link loads
+ * a chat's history), 60 s for the one send. A slow server answers `unavailable` with `retry_after_s` in about the limit, never a
+ * hang: the 2026-11-25 dock turn waited on `chats_unlinked` while the server logged 44 s requests under load.
+ */
+export const HTTP_TOOL_LIMIT_MS = { read: 10_000, create: 150_000, send: 60_000 } as const;
+export const HTTP_RETRY_AFTER_S = 30;
+/** The one text of a slow server (verdict 10). */
+export const slowServerText = (ms: number): string => `The Hub server did not answer in ${Math.round(ms / 1000)} s (busy). Tell the owner in one line; try once more at most.`;
+/** Whether a fetch failed by its time limit (AbortSignal.timeout), not by a refused connection. */
+export const timedOut = (e: unknown): boolean => e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+/** The one refusal of an HTTP-backed tool whose server did not answer (status 0). */
+export const unavailableAnswer = (message: string): ToolError => new ToolError("unavailable", message, { retry_after_s: HTTP_RETRY_AFTER_S });
+
 /** At most this many characters per description (P129 verdict 6): what the tool does and returns, no refusal handling. */
 export const DESCRIPTION_MAX = 600;
 

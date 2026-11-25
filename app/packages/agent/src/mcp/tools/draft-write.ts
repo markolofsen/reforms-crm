@@ -11,7 +11,8 @@ import { draftRecord, type DraftRecord } from "../../records/schema";
 import { defineTool } from "../define";
 import { isRefusalCode } from "../refusals";
 import { ToolError } from "../result";
-import { ownFollowUpClient } from "../ports";
+import { boundLead, ownFollowUpClient, type ToolCtx } from "../ports";
+import { LEAD_PASS_SKILL, leadPassRequest } from "@hub/config/lead-pass";
 import { displayNameFor } from "@hub/projects/brands";
 
 // P52 (decision 0030): the one Mail write of `hub mcp`, an unsent draft in Mail's Drafts with Mail in the background
@@ -59,24 +60,28 @@ export const draftWriteTool = defineTool({
   }),
   output: draftWriteOutput,
   effect: "draft",
-  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client"],
+  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other"],
   handler: async (ctx, raw) => {
-    const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined)));
+    // P147 verdict 5: a lead turn writes one new thread to its lead's reply address, with the server's owner_request (never the model's).
+    const leadTurn = ctx.env.leadPage !== undefined ? await leadTurnOf(ctx, raw) : null;
+    const given = leadTurn ? { ...raw, owner_request: leadTurn.ownerRequest } : raw;
+    const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined)));
     if (!parsed.success) throw new ToolError("invalid", `${parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}. Nothing was written.`);
     const call = parsed.data;
     const slug = ctx.project();
     if (!ctx.env.drafts || !ctx.env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
     const s = draftScope(ctx, slug, ctx.env.drafts, ctx.env.projectMail(slug));
     refuseOwnSignoff(s, call.content);
-    ownerWordsOf(s, call.owner_request);
+    if (!leadTurn) ownerWordsOf(s, call.owner_request);
     try {
       if (call.kind === "revise" && s.ctx.env.followUpClient !== undefined) ownFollowUpClient(s.ctx.env, (await s.ctx.repos.drafts.get(call.draft))?.clientId);
       if (call.kind === "revise") return await afterWrite(s, await reviseHubDraft(s, call.draft, call.content), { draft: call.draft, content: call.content, to: undefined, owner_request: call.owner_request, reason: call.reason });
       if (call.kind === "new") {
         await ownClientEmail(s, call.to);
+        const leadPass = leadTurn?.leadPass ?? (await dockLead(s, call.to, call.record.skill));
         await precheckRecord(s, call.to, call.record);
         const w = await writeNewThread(s, { to: call.to, subject: call.subject, content: call.content, owner_request: call.owner_request, account: call.account, from: call.from, brand: call.brand });
-        const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null }, v);
+        const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, leadPass }, v);
         return "pending" in w ? await adopted(s, w, first) : await afterWrite(s, w, { draft: undefined, content: call.content, to: call.to, owner_request: call.owner_request, reason: undefined }, first);
       }
       const inbound = await inboundOf(s, call.message);
@@ -93,6 +98,26 @@ export const draftWriteTool = defineTool({
     }
   },
 });
+
+type LeadPassRef = { pageId: string; passId: number | null; day: string };
+
+/** P147 verdict 5: a lead turn's call is a new thread to the lead's reply address; the record joins the turn's pass and batch. */
+async function leadTurnOf(ctx: ToolCtx, raw: { kind: string; to?: string | undefined }): Promise<{ ownerRequest: string; leadPass: LeadPassRef }> {
+  const slug = ctx.project();
+  const lead = await boundLead(ctx, slug);
+  if (raw.kind !== "new") throw new ToolError("lead_other", "This lead turn writes one draft: kind new, to the lead's reply address. Nothing was written.");
+  if (!lead.email) throw new ToolError("lead_other", "This lead has no reply address (a phone or Telegram only): decide hand_over. Nothing was written.");
+  if ((raw.to ?? "").trim().toLowerCase() !== lead.email) throw new ToolError("lead_other", `This lead turn writes only to ${lead.email}, the lead's reply address. Nothing was written.`);
+  const day = ctx.now().toISOString().slice(0, 10);
+  return { ownerRequest: leadPassRequest(day, lead.pageId), leadPass: { pageId: lead.pageId, passId: ctx.env.leadPass ?? null, day } };
+}
+
+/** P147: an attended pass's draft (record.skill lead-pass) to a lead not yet converted joins the day's lead batch too. */
+async function dockLead(s: DraftScope, to: string, skill: string | null | undefined): Promise<LeadPassRef | null> {
+  if (skill !== LEAD_PASS_SKILL) return null;
+  const lead = await s.ctx.repos.leadPass.unconvertedLead(s.slug, to);
+  return lead ? { pageId: lead.pageId, passId: null, day: s.ctx.now().toISOString().slice(0, 10) } : null;
+}
 
 /** Decision 0050 (P142 verdict 5): a sweep turn writes to its own client only. */
 async function ownClientEmail(s: DraftScope, email: string): Promise<void> {

@@ -1,4 +1,5 @@
 import { AGENT_SEND_HEADER } from "./send-token";
+import { HTTP_TOOL_LIMIT_MS, slowServerText, timedOut } from "../mcp/define";
 
 // `messenger_send`'s port (decision 0046, P132 B1-2; the tool is `../mcp/tools/messengers.ts`): in an ATTENDED session only, the agent sends one messenger draft after the owner
 // told it to in this session ("отправь", "send it"). The tool names the chat and the draft, nothing else: the server finds the
@@ -34,9 +35,9 @@ export function httpAgentSend(o: { port: () => number; token: () => string | nul
     if (!token) return { ok: false, status: 0, reason: "unavailable", error: "Not sent: the Hub server has not started (no agent send token).", next: "Tell the owner in one line that the Hub server is not running; the draft waits." };
     let r: Response;
     try {
-      r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/messengers/drafts/${draft}/agent-send`, { method: "POST", headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token }, body: JSON.stringify({ chat }), signal: AbortSignal.timeout(60_000) });
+      r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/messengers/drafts/${draft}/agent-send`, { method: "POST", headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token }, body: JSON.stringify({ chat }), signal: AbortSignal.timeout(HTTP_TOOL_LIMIT_MS.send) });
     } catch (e) {
-      return { ok: false, status: 0, reason: "unavailable", error: `Not sent: the Hub server did not answer (${e instanceof Error ? e.message : String(e)}).`, next: "Tell the owner in one line; never retry: a send may have started." };
+      return { ok: false, status: 0, reason: "unavailable", error: `Not sent: ${timedOut(e) ? slowServerText(HTTP_TOOL_LIMIT_MS.send) : `the Hub server did not answer (${e instanceof Error ? e.message : String(e)}).`}`, next: "Tell the owner in one line; never retry: a send may have started." };
     }
     const body = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (r.ok && body.ok === true) return body as AgentSendAnswer & { ok: true };

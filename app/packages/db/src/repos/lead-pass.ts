@@ -16,6 +16,7 @@ export type LeadPassRow = typeof leadPasses.$inferSelect;
 /** A lead row with its derived display state and the status of its pass draft. */
 export type LeadPassItem = LeadRow & { display: LeadPassDisplay; draftStatus: string | null };
 
+const COUNT_KEY = { reply: "replied", client: "clients", spam: "spam", not_now: "notNow", hand_over: "handedOver" } as const satisfies Record<LeadPassDecision, keyof LeadPassRow>;
 const norm = (id: string) => id.replace(/-/g, "").toLowerCase();
 const DUE = sql.raw(`(${OPEN_LEAD}) and lead_rows.pass_decision is null`);
 
@@ -201,6 +202,17 @@ export function leadPassRepo(db: Db) {
     /** Lead turns on this Mac since `since`, every project (verdict 13's 60 a day, a ledger separate from P142's). */
     async passTurnsSince(since: string): Promise<number> {
       return Number(db.select({ n: sql<number>`coalesce(sum(${leadPasses.turns}), 0)` }).from(leadPasses).where(gte(leadPasses.startedAt, since)).get()?.n ?? 0);
+    },
+    /** An attended session's decisions of one day are one `dock` pass row (verdict 4): found or started, its count bumped. */
+    async dockDecision(project: string, decision: LeadPassDecision, at: string): Promise<number> {
+      return write(db, (tx) => {
+        const day = at.slice(0, 10);
+        const found = tx.select().from(leadPasses).where(and(eq(leadPasses.project, project), eq(leadPasses.trigger, "dock"), sql`substr(${leadPasses.startedAt}, 1, 10) = ${day}`)).orderBy(desc(leadPasses.id)).get();
+        const row = found ?? tx.insert(leadPasses).values({ project, trigger: "dock", startedAt: at }).returning().get();
+        const col = { reply: leadPasses.replied, client: leadPasses.clients, spam: leadPasses.spam, not_now: leadPasses.notNow, hand_over: leadPasses.handedOver }[decision];
+        tx.update(leadPasses).set({ [COUNT_KEY[decision]]: sql`${col} + 1`, listed: sql`${leadPasses.listed} + 1`, finishedAt: at }).where(eq(leadPasses.id, row.id)).run();
+        return row.id;
+      });
     },
     /** The day's open lead batch, or null (the review's banner). */
     async dayBatch(project: string, day: string): Promise<number | null> {

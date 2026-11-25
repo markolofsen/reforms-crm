@@ -83,6 +83,10 @@ export const REFUSAL_CODES = [
   // P145 B3: bug_report found several open reports of the area, or the project has no Bug reports database
   "bug_report_several",
   "no_bug_database",
+  // P147 (decision 0055): a lead turn's hub mcp serves one lead (D2); a lead is decided once; a lead's card is made at the send (D5)
+  "lead_other",
+  "lead_decided",
+  "is_lead",
 ] as const;
 
 export type RefusalCode = (typeof REFUSAL_CODES)[number];
@@ -164,6 +168,9 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   nothing_to_close: { retry: "no", next: "Nothing of theirs waits for an answer here: leave it and say so in one line." },
   already_linked: { retry: "no", next: "The chat is linked already: say to whom in one line (messenger_history names the client)." },
   followup_other_client: { retry: "now", next: "This follow-up turn serves one client: use its id, its threads and its chats only (the prompt names them)." },
+  lead_other: { retry: "now", next: "This lead turn serves one lead: its reply address and its one matched client only (the prompt names them)." },
+  lead_decided: { retry: "no", next: "This lead already has a decision: say it in one line; the owner's Redo on its card clears it." },
+  is_lead: { retry: "no", next: "Write the first reply as a new-thread draft; the card is made when the owner sends it from Mail ▸ Leads ▸ Review." },
   not_in_notion: { retry: "now", next: "Find the client with client_create's lookup (by email or phone), or create one from this chat with client_create." },
 };
 

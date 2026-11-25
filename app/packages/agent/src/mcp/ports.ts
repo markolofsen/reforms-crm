@@ -117,6 +117,16 @@ export interface HubMcpEnv {
    */
   syncFollowUp?: (slug: string, f: FollowUpSync) => Promise<{ state: string }>;
   /**
+   * Decision 0055 (P147 verdict 5, D2): the one lead (its normalised Notion page id, `HUB_LEAD_PAGE`) a lead pass turn's `hub mcp`
+   * serves, and its pass (`HUB_LEAD_PASS`). Set, the server registers only `LEAD_PASS_HUB_TOOLS`; `draft_write` writes only a new
+   * thread to the lead's reply address with the server's `owner_request`; `client_show` and `message_show` read only the client
+   * whose email is exactly that address (`lead_other` otherwise).
+   */
+  leadPage?: string;
+  leadPass?: number;
+  /** P147: the Hub-owned decision and reason copied to the Leads page after `lead_decide`. Never throws; its state is the tool's answer. */
+  syncLeadDecision?: (slug: string, d: { pageId: string; decision: string; reason: string }) => Promise<{ state: string }>;
+  /**
    * P145 B3 (decision 0054): files one bug report in the project's Bug reports database (search, append or create). Never throws;
    * its state is what `bug_report` answers. Absent: the tool refuses `unavailable`.
    */
@@ -175,6 +185,25 @@ export interface ToolCtx {
 export function ownFollowUpClient(env: HubMcpEnv, cid: number | null | undefined): void {
   if (env.followUpClient === undefined) return;
   if (cid !== env.followUpClient) throw new ToolError("followup_other_client", `This follow-up turn serves client ${env.followUpClient} only: nothing else is read or written here.`);
+}
+
+/** P147 (D2): the lead a lead turn serves, or the refusal `lead_other` when the binding names no stored lead. */
+export async function boundLead(ctx: Pick<ToolCtx, "repos" | "env">, slug: string) {
+  const page = ctx.env.leadPage;
+  const row = page ? await ctx.repos.leadRows.get(slug, page) : null;
+  if (!row) throw new ToolError("lead_other", `This lead turn is bound to lead ${page ?? "(none)"}, which project ${slug} does not hold: nothing is read or written here.`);
+  return row;
+}
+
+/**
+ * P147 D2: in a lead turn the one client a tool may read is the one whose email is exactly the lead's reply address; any other
+ * match (phone, company domain, name) is the owner's (`hand_over`). Elsewhere it passes. `cid` null or undefined is another client.
+ */
+export async function ownLeadClient(ctx: Pick<ToolCtx, "repos" | "env">, slug: string, cid: number | null | undefined): Promise<void> {
+  if (ctx.env.leadPage === undefined) return;
+  const lead = await boundLead(ctx, slug);
+  const own = lead.email ? await ctx.repos.clients.findByIdentity(slug, "email", lead.email) : undefined;
+  if (own === undefined || cid !== own) throw new ToolError("lead_other", `This lead turn reads only the client whose email is ${lead.email ?? "the lead's (none)"}: another match is the owner's to judge (hand_over, "possible match").`);
 }
 
 export function toolCtx(repos: Repos, env: HubMcpEnv): ToolCtx {

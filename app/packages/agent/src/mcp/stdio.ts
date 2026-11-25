@@ -24,6 +24,7 @@ import { ops } from "@hub/log/ops";
 import { bindProject } from "./binding";
 import { AUTOPILOT_CHAT_ENV } from "@hub/config/autopilot";
 import { backgroundRunOf, FOLLOW_UP_CLIENT_ENV } from "@hub/config/follow-ups";
+import { LEAD_PAGE_ENV, LEAD_PASS_ENV, leadPageOf } from "@hub/config/lead-pass";
 
 /** Decision 0048 (verdict 20): the chat an autopilot turn's server is bound to (`HUB_AUTOPILOT_CHAT`, a row id), or none. */
 export function autopilotChatOf(env: NodeJS.ProcessEnv): number | undefined {
@@ -42,12 +43,20 @@ export function followUpClientOf(env: NodeJS.ProcessEnv): number | undefined {
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
 
+/** Decision 0055 (P147 verdict 4): the lead a lead turn's server is bound to (`HUB_LEAD_PAGE`), or none; a malformed id binds to no lead. */
+export const leadPageEnvOf = (env: NodeJS.ProcessEnv): string | undefined => leadPageOf(env[LEAD_PAGE_ENV]);
+/** The turn's pass (`HUB_LEAD_PASS`, a `lead_passes` row id), or none. */
+export function leadPassEnvOf(env: NodeJS.ProcessEnv): number | undefined {
+  const n = Number(env[LEAD_PASS_ENV]?.trim());
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
 /**
  * Decision 0046 (owner 2026-11-25): a session is attended when the owner started it (the dock, a terminal, a resumed session),
  * and unattended only when it is a background run the Hub started (an autopilot turn, a follow-up sweep turn: the runner sets
  * the variable). Never the permission mode: every session runs with no prompts and the OS sandbox on.
  */
-export const attendedSession = (env: NodeJS.ProcessEnv): boolean => !backgroundRunOf(env) && autopilotChatOf(env) === undefined && followUpClientOf(env) === undefined;
+export const attendedSession = (env: NodeJS.ProcessEnv): boolean => !backgroundRunOf(env) && autopilotChatOf(env) === undefined && followUpClientOf(env) === undefined && leadPageEnvOf(env) === undefined;
 
 /** P142 F7: a plan to the client's Notion page (the four Hub properties and the dated line); its state is the tool's answer. */
 const syncFollowUpOf = (paths: { projects: string; secrets: string }) => async (slug: string, f: FollowUpSync) =>
@@ -129,6 +138,9 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const autopilotChat = autopilotChatOf(env);
   // Decision 0050: a sweep turn's server serves one client, with no send port and no chat sort either.
   const followUpClient = followUpClientOf(env);
+  // Decision 0055: a lead turn's server serves one lead, with no send port and no chat sort either.
+  const leadPage = leadPageEnvOf(env);
+  const leadPass = leadPassEnvOf(env);
   // Decision 0046: `messenger_send`, client_create and chat_link exist only in a session the owner started.
   const attended = attendedSession(env);
   const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};
@@ -151,7 +163,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // P112 S3: the slug binds only with its capability, once, for this process's life.
   const binding = bindProject(paths, env);
   if (binding.refusal) ops("agent").warn("hub mcp started unbound: HUB_PROJECT came without a valid project capability", { reason: binding.refusal });
-  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : { chatSort }), syncFollowUp: syncFollowUpOf(paths), fileBugReport: (slug, i) => fileBugReportFor({ projectsDir: paths.projects, secretsDir: paths.secrets }, slug, i), adminOrigin: () => { try { return `http://127.0.0.1:${instancePorts(paths, env).admin}`; } catch { return null; } }, records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, dbBehind: () => handle.behind?.() ?? 0, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : leadPage !== undefined ? { leadPage, ...(leadPass !== undefined ? { leadPass } : {}) } : { chatSort }), syncFollowUp: syncFollowUpOf(paths), fileBugReport: (slug, i) => fileBugReportFor({ projectsDir: paths.projects, secretsDir: paths.secrets }, slug, i), adminOrigin: () => { try { return `http://127.0.0.1:${instancePorts(paths, env).admin}`; } catch { return null; } }, records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, dbBehind: () => handle.behind?.() ?? 0, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

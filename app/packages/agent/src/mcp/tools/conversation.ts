@@ -1,7 +1,7 @@
 import { agentPhone, agentTelegram, type AgentChatLinkedDto } from "@hub/contract/messengers";
 import { z } from "zod";
 import type { ChatSortAnswer, ChatSortPort } from "../../messenger/chat-sort-port";
-import { defineTool } from "../define";
+import { defineTool, unavailableAnswer } from "../define";
 import type { ToolCtx } from "../ports";
 import { ToolError } from "../result";
 import { attended, chatAccess } from "./messengers";
@@ -78,7 +78,8 @@ function port(ctx: ToolCtx): ChatSortPort {
   return p;
 }
 const answer = (slug: string, a: ChatSortAnswer<AgentChatLinkedDto>) => {
-  if (!a.ok) throw new ToolError(a.status === 0 ? "unavailable" : a.status === 403 ? "unattended" : a.status === 400 ? "invalid" : a.status === 404 ? "not_found" : /already linked/i.test(a.error) ? "already_linked" : /no notion card|give client/i.test(a.error) ? "not_in_notion" : "refused", a.error);
+  if (!a.ok && a.status === 0) throw unavailableAnswer(a.error);
+  if (!a.ok) throw new ToolError(a.status === 403 ? "unattended" : a.status === 400 ? "invalid" : a.status === 404 ? "not_found" : /already linked/i.test(a.error) ? "already_linked" : /no notion card|give client/i.test(a.error) ? "not_in_notion" : "refused", a.error);
   const v = a.value;
   return { project: slug, chat: v.chat, client: v.clientId, name: v.name, how: v.how, notion: v.notion, next: nextOf(v) };
 };
@@ -102,11 +103,14 @@ export const clientCreateTool = defineTool({
   }),
   output: linked,
   effect: "pointer",
-  refusals: ["invalid", "unattended", "unavailable", "not_found", "already_linked", "refused"],
+  refusals: ["invalid", "unattended", "unavailable", "not_found", "already_linked", "refused", "is_lead"],
   handler: async (ctx, { chat, name, company, email, phone, telegram }) => {
     const slug = ctx.project();
     if (chat === undefined && !email && !phone && !telegram) throw new ToolError("invalid", "Give chat, or at least one of email, phone or telegram: a client is found and reached by one of them.");
     if (chat !== undefined && (phone || telegram)) throw new ToolError("invalid", "With chat, the chat's own number or username fills the card: omit phone and telegram.");
+    // P147 D5 (decision 0055 point 6): a lead's card is made when the owner's reply is sent (decision 0044 point 3), never here.
+    const lead = email ? await ctx.repos.leadPass.unconvertedLead(slug, email) : null;
+    if (lead) throw new ToolError("is_lead", `${email} is a lead (${lead.name}, Notion Leads): its card is made when your reply is sent; open Review (Mail ▸ Leads). Nothing was created.`, { lead: lead.pageId });
     const p = port(ctx);
     return answer(slug, await p.create(slug, { name, ...(chat !== undefined ? { chat } : {}), ...(company ? { company } : {}), ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(telegram ? { telegram } : {}) }));
   },

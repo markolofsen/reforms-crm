@@ -1,5 +1,6 @@
 import { agentChatLinkedDto, agentUnlinkedDto, autolinkProposedDto, type AgentChatLinkedDto, type AgentUnlinkedDto } from "@hub/contract/messengers";
 import { AGENT_SEND_HEADER } from "./send-token";
+import { HTTP_TOOL_LIMIT_MS, slowServerText, timedOut } from "../mcp/define";
 
 // P128 X5 ("sort the chats"): `hub mcp`'s two loopback calls for `chats_unlinked` and `chats_propose_hide`
 // (`../mcp/tools/chat-sort.ts`), with the token of the agent send (decision 0046). The server holds the unlinked chats in
@@ -20,7 +21,7 @@ export interface ChatSortPort {
 
 export function httpChatSort(o: { port: () => number; token: () => string | null; fetch?: typeof fetch }): ChatSortPort {
   const f = o.fetch ?? fetch;
-  async function call<T>(slug: string, path: string, body: unknown, pick: (json: unknown) => T, timeoutMs = 20_000): Promise<ChatSortAnswer<T>> {
+  async function call<T>(slug: string, path: string, body: unknown, pick: (json: unknown) => T, timeoutMs: number = HTTP_TOOL_LIMIT_MS.read): Promise<ChatSortAnswer<T>> {
     const token = o.token();
     if (!token) return { ok: false, status: 0, error: "The Hub server has not started (no agent token)." };
     try {
@@ -29,7 +30,7 @@ export function httpChatSort(o: { port: () => number; token: () => string | null
       if (!r.ok) return { ok: false, status: r.status, error: errorOf(json) ?? `The server answered ${r.status}.` };
       return { ok: true, value: pick(json) };
     } catch (e) {
-      return { ok: false, status: 0, error: `The Hub server did not answer (${e instanceof Error ? e.message : String(e)}).` };
+      return { ok: false, status: 0, error: timedOut(e) ? slowServerText(timeoutMs) : `The Hub server did not answer (${e instanceof Error ? e.message : String(e)}).` };
     }
   }
   return {
@@ -39,8 +40,8 @@ export function httpChatSort(o: { port: () => number; token: () => string | null
       return { kept, skipped };
     }),
     // A link loads the chat's last 30 days, which may wait for the phone (WhatsApp answers a history request within 2 minutes).
-    create: (slug, body) => call(slug, "agent-create", body, (j) => agentChatLinkedDto.parse(j), 150_000),
-    link: (slug, body) => call(slug, "agent-link", body, (j) => agentChatLinkedDto.parse(j), 150_000),
+    create: (slug, body) => call(slug, "agent-create", body, (j) => agentChatLinkedDto.parse(j), HTTP_TOOL_LIMIT_MS.create),
+    link: (slug, body) => call(slug, "agent-link", body, (j) => agentChatLinkedDto.parse(j), HTTP_TOOL_LIMIT_MS.create),
   };
 }
 
