@@ -1,4 +1,5 @@
 import { slimMessageContent } from "./slim-headers";
+import { cleanVendorReply, postHookOutput } from "./guard-output";
 import { codexSessionPaths, pathsAt, type HubPaths } from "@hub/config/paths";
 import { backgroundRunOf } from "@hub/config/follow-ups";
 import { auditToolCalls, HUB_MESSENGER_SEND, type AuditLayout, type SkillScope, type ToolCall } from "@hub/projects/audit";
@@ -250,30 +251,39 @@ export function preDraftViolations(payload: GuardInput, root: string, slug: stri
   } catch { return []; }
 }
 
-/** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger and its result to the session log (both from the ORIGINAL reply), then for `get_message_content` prints a replacement reply with slim headers. Always exit 0. */
+/**
+ * `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger and its result to the session
+ * log (both from the ORIGINAL reply), then prints one output (P154 verdict 9): the replacement reply (slim mail headers; a third-party
+ * reply without the vendor's guidance, P154) and every note (P82, P154) together, or nothing. Always exit 0.
+ */
 export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: string; stdout?: string } {
   let stdout: string | undefined;
   try {
     const payload = JSON.parse(stdin) as PostPayload;
     const env = g.env ?? process.env;
     const slug = env.HUB_PROJECT?.trim();
+    const paths = g.paths ?? pathsAt(g.root, env);
+    const name = String(payload.tool_name ?? "");
     if (slug) recordPost(g.root, slug, payload);
     // P62: a session's list_calendars names the account its calendar connector is signed in to.
-    if (slug && /^mcp__gcal-/.test(String(payload.tool_name ?? ""))) {
-      const paths = g.paths ?? pathsAt(g.root, env);
-      recordConnectorRead(paths, projectConnectors(paths, g.projectsDir ?? defaultProjectsRoot(), slug).attached, String(payload.tool_name), payload.tool_response);
-    }
+    if (slug && /^mcp__gcal-/.test(name)) recordConnectorRead(paths, projectConnectors(paths, g.projectsDir ?? defaultProjectsRoot(), slug).attached, name, payload.tool_response);
     const result = toolResultEvent(parsePayload(stdin) ?? {}, "claude", slug || null);
-    if (result) appendEvents(logStoreOf(g.paths ?? pathsAt(g.root, env)), stampAction([result], env[ACTION_ENV]));
-    if (String(payload.tool_name ?? "").endsWith("__get_message_content")) {
+    if (result) appendEvents(logStoreOf(paths), stampAction([result], env[ACTION_ENV]));
+    let updated: unknown;
+    const notes: string[] = [];
+    if (name.endsWith("__get_message_content")) {
       const slim = slimMessageContent(payload.tool_response);
-      if (slim != null) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", updatedMCPToolOutput: slim } });
+      if (slim != null) updated = slim;
     }
+    // P154: a third-party reply's instructions for the assistant (an offer, a link to show) are removed before the model reads it.
+    const cleaned = cleanVendorReply(name, updated ?? payload.tool_response, { slug: slug || undefined, session: typeof payload.session_id === "string" ? payload.session_id : "", paths });
+    if (cleaned) { updated = cleaned.reply; notes.push(cleaned.note); }
     // P82 (S0 point 3): a Notion search not narrowed to the project, or a fetch from another database, gets one note for the model.
-    if (slug && /^mcp__notion__notion-(search|fetch)$/.test(String(payload.tool_name ?? ""))) {
-      const note = notionNote(String(payload.tool_name), payload.tool_input, payload.tool_response, projectConnectors(g.paths ?? pathsAt(g.root, env), g.projectsDir ?? defaultProjectsRoot(), slug).scope.notion);
-      if (note) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: note } });
+    if (slug && /^mcp__notion__notion-(search|fetch)$/.test(name)) {
+      const note = notionNote(name, payload.tool_input, payload.tool_response, projectConnectors(paths, g.projectsDir ?? defaultProjectsRoot(), slug).scope.notion);
+      if (note) notes.push(note);
     }
+    stdout = postHookOutput("PostToolUse", { updated, notes });
   } catch { /* the ledger must never stop a session */ }
   return { code: 0, stderr: "", ...(stdout ? { stdout } : {}) };
 }

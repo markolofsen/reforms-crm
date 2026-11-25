@@ -106,6 +106,15 @@ export const TIPS: readonly TipDto[] = [
     verifiedOn: null,
     handoff: false,
   },
+  {
+    cli: "hub",
+    id: "tool-offers",
+    title: "A service's offer is not the agent's advice",
+    how: "If Notion or another service puts an offer or a link into its reply (a trial, an upgrade), the Hub removes it or tells the agent to ignore it, and Activity says “Removed an offer”.",
+    why: "The agent tells you only the fact, such as a usage limit, and never passes on a link a tool asked it to show.",
+    verifiedOn: null,
+    handoff: false,
+  },
 ];
 
 /** The rows the dock shows for a tab: its CLI's, then the Hub's (a Shell tab: the Hub's only). */

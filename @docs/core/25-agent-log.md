@@ -13,7 +13,7 @@ The sources are the CLIs' own hooks, never the terminal's byte stream: a session
 | `answer` | the agent's final message of a turn (`last_assistant_message`) | `hub log --hook` on `Stop`, in line (after the answer is shown) | `hub log --hook` on `Stop` |
 | `tool_call` | the tool and its input; a Notion write also its action and the page ids its input names (`data.notion`, P133, P131 verdict 6: `hub log` prints "Notion write <action> <ids>" and `hub log summary` counts them) | `hub guard` (`PreToolUse`, already ran) | imported at `Stop` from the Codex rollout |
 | `tool_result` | the result (an excerpt, or a hash for mail), with its duration | `hub guard --post` (`PostToolUse`, already ran) | imported at `Stop` from the rollout |
-| `tool_error` | a call that failed or was refused | `PostToolUseFailure`, `PermissionDenied` | (in the rollout output) |
+| `tool_error` | a call that failed or was refused (the original error; P154: `hub guard --post-failure` runs beside it and only adds a note for the model) | `PostToolUseFailure`, `PermissionDenied` | (in the rollout output) |
 | `asked` | the CLI waited on the owner: a permission prompt, an idle wait, a permission request | `Notification` (`permission_prompt`, `idle_prompt`, `elicitation_dialog`, `agent_needs_input`) | `PermissionRequest` |
 | `guard` | a violation `hub guard` saw, warn or block (this replaced `state/guard.log`) | `hub guard` | (Codex has no guard hook) |
 | `session` | start and end, with the path of the native transcript | `SessionStart`, `SessionEnd` | `SessionStart` |

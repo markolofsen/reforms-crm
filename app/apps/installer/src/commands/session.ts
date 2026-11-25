@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { listProjects, runAgent } from "../agent";
 import { runGuard, runGuardPost } from "../safety";
+import { runGuardPostFailure } from "../guard-output";
 import { c } from "../term";
 import { focusLine } from "@hub/agent/focus";
 import { currentFocus, runFocusHook } from "../focus-command";
@@ -45,7 +46,9 @@ export function register(program: Command): void {
 
   program.command("guard").description("PreToolUse hook of `hub agent`: reads one tool call as JSON on stdin; exit 0 allows, exit 2 blocks. Default warn mode (logs to state/guard.log); HUB_GUARD=block refuses a call that leaves the project.")
     .option("--post", "PostToolUse hook: append the call to the evidence ledger (state/evidence/<slug>/<session>.jsonl); never blocks")
-    .action((o: { post?: boolean }) => {
+    .option("--post-failure", "PostToolUseFailure hook (P154): a third-party error reply that carries instructions for the assistant gets a note; never blocks")
+    .action((o: { post?: boolean; postFailure?: boolean }) => {
+      if (o.postFailure) { const r = runGuardPostFailure(readFileSync(0, "utf8"), { root: ledgerRoot() }); if (r.stdout) process.stdout.write(r.stdout + "\n"); return; }
       if (o.post) { const r = runGuardPost(readFileSync(0, "utf8"), { root: ledgerRoot() }); if (r.stdout) process.stdout.write(r.stdout + "\n"); return; }
       const r = runGuard(readFileSync(0, "utf8"), { root: ctxOf().paths.home, projectsDir: projectsDir(), paths: ctxOf().paths });
       if (r.stderr) console.error(r.stderr);

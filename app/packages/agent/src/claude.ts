@@ -93,7 +93,7 @@ export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
       UserPromptSubmit: [{ hooks: [{ type: "command", command: focusHookCommand(i.nodeBin, i.paths, "claude"), timeout: 5 }] }],
       // P54: the session log's other events. In the background (`async`), except the answer (Stop, StopFailure): measured in
       // print mode on 2.1.220, an async Stop hook wrote nothing, so it runs in line, after the answer is already shown.
-      ...Object.fromEntries(CLAUDE_LOG_EVENTS.map((e) => [e, [{ hooks: [{ type: "command", command: logHookCommand(i.nodeBin, i.paths, "claude"), ...(CLAUDE_LOG_IN_LINE.has(e) ? { timeout: 10 } : { timeout: 20, async: true }) }] }]])),
+      ...Object.fromEntries(CLAUDE_LOG_EVENTS.map((e) => [e, [{ hooks: [{ type: "command", command: logHookCommand(i.nodeBin, i.paths, "claude"), ...(CLAUDE_LOG_IN_LINE.has(e) ? { timeout: 10 } : { timeout: 20, async: true }) }] }, ...(e === "PostToolUseFailure" ? [POST_FAILURE_GUARD(hub)] : [])]])),
     },
     sandbox: claudeSandbox(i.paths),
   };
@@ -109,6 +109,12 @@ export const logHookCommand = (nodeBin: string, paths: HubPaths, cli: AgentCli):
  * Claude Code events `hub log --hook` takes (P54). The prompt is logged by the focus hook and the tool calls by `hub guard`
  * (both already run), so neither is here.
  */
+/**
+ * P154 verdict 5: an MCP error result fires `PostToolUseFailure`, whose only output is `additionalContext` (observed on 2.1.220),
+ * so vendor guidance in it is answered with a note by `hub guard --post-failure`. Not async: an async hook cannot add context.
+ */
+const POST_FAILURE_GUARD = (hub: string) => ({ matcher: "mcp__.*", hooks: [{ type: "command", command: `${hub} --post-failure`, timeout: 10 }] });
+
 export const CLAUDE_LOG_EVENTS = ["SessionStart", "Stop", "StopFailure", "Notification", "PostToolUseFailure", "PermissionDenied", "SessionEnd"] as const;
 const CLAUDE_LOG_IN_LINE: ReadonlySet<string> = new Set(["Stop", "StopFailure"]);
 

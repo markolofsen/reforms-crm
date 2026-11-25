@@ -46,7 +46,7 @@ export interface AgentCheckInput {
 type SessionSettings = {
   permissions?: { deny?: string[] };
   sandbox?: { enabled?: unknown; allowUnsandboxedCommands?: unknown; network?: { allowedDomains?: unknown; deniedDomains?: unknown } };
-  hooks?: { PreToolUse?: unknown };
+  hooks?: { PreToolUse?: unknown; PostToolUseFailure?: unknown };
 };
 type McpConfig = { mcpServers?: Record<string, Record<string, unknown>> };
 type SendPolicyFile = { schema?: unknown; mode?: unknown; recipients?: unknown };
@@ -176,7 +176,10 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   if (cli === "codex") row("guard.hook", "Guard hook", "skip", "Codex has no hook: the forbidden-command rules and the sandbox hold");
   else {
     const pre = JSON.stringify(settings?.hooks?.PreToolUse ?? "");
-    row("guard.hook", "Guard hook", pre.includes(" guard") ? "pass" : "fail", pre.includes(" guard") ? "PreToolUse runs hub guard" : "no guard hook in the session settings", prepare);
+    // P154: an error reply's vendor guidance is answered by `hub guard --post-failure`; older session files lack it.
+    const failure = JSON.stringify(settings?.hooks ?? {}).includes("guard --post-failure");
+    if (!pre.includes(" guard")) row("guard.hook", "Guard hook", "fail", "no guard hook in the session settings", prepare);
+    else row("guard.hook", "Guard hook", failure ? "pass" : "warn", failure ? "PreToolUse runs hub guard; an error reply's instructions get a note" : "PreToolUse runs hub guard; the session files predate the failure guard (P154)", prepare);
   }
 
   // 10. The session log (P54): the prompt hook logs the prompt, `hub log --hook` the answer and the session.

@@ -12,10 +12,12 @@ import { z } from "zod";
  * `sent` (P87, decision 0037 as amended): a mail or a message went out through the send door; the row's `why` is the way it
  * went (Batch, By hand, Autosend, "By hand on Telegram"). In All only; Activity ▸ Sends lists every send. `changed` (P153): a
  * watch list or lens changed and the server took it without a restart ("Watch list changed: +2 groups"); no client, All only.
+ * `cleaned` (P154): the guard removed a vendor's instructions (an offer, a link to show) from a third-party tool reply; its who
+ * is the server ("Notion"), at most one per session and tool; no client, All only.
  */
-export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked", "sent", "changed"] as const;
+export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked", "sent", "changed", "cleaned"] as const;
 export type ActivityOutcome = (typeof ACTIVITY_OUTCOMES)[number];
-export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat", sent: "Sent", changed: "Changed the watch" };
+export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat", sent: "Sent", changed: "Changed the watch", cleaned: "Removed an offer" };
 
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export const ACTIVITY_VIEWS = ["all", "needs_you", "drafts", "skipped"] as const;

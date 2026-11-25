@@ -1,7 +1,8 @@
 // The only public entry of @hub/db: the async repository layer and the database opener.
 import { existsSync } from "node:fs";
 import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from "@hub/config";
-import { openDbReadOnly } from "./client";
+import { openDb, openDbReadOnly } from "./client";
+import { recordCleanedReply } from "./repos/runs";
 import { agentSettingsOf } from "./repos/agent-settings";
 export { draftCountsReadOnly } from "./status";
 export { copyAndVerify, inspectCopy, restoreCheck, type CopyCheck, type RestoreCheck } from "./backup-check";
@@ -117,5 +118,23 @@ export function readAgentSettings(dbPath: string, project: string | undefined): 
     }
   } catch {
     return { ...DEFAULT_AGENT_SETTINGS };
+  }
+}
+
+/**
+ * P154: the post hook's Activity line for a cleaned tool reply, on one short write connection. Never throws and never creates a
+ * database (a missing file, a database that is behind, a busy one: false, nothing written).
+ */
+export function recordCleanedReplyAt(dbPath: string, o: Parameters<typeof recordCleanedReply>[1]): boolean {
+  if (!existsSync(dbPath)) return false;
+  try {
+    const h = openDb(dbPath);
+    try {
+      return recordCleanedReply(h.db, o);
+    } finally {
+      h.close();
+    }
+  } catch {
+    return false;
   }
 }

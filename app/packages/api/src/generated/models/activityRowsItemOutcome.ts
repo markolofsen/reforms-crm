@@ -18,4 +18,5 @@ export const ActivityRowsItemOutcome = {
   linked: 'linked',
   sent: 'sent',
   changed: 'changed',
+  cleaned: 'cleaned',
 } as const;

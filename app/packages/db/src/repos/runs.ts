@@ -44,6 +44,21 @@ export function sessionRun(tx: Pick<Db, "select" | "insert" | "update">, o: { pr
   return tx.insert(agentRuns).values({ project: o.project, startedAt: o.at, finishedAt: o.at, trigger: "owner", skill: o.skill ?? null, status: "ok", batchKey: key }).returning({ id: agentRuns.id }).get().id;
 }
 
+/**
+ * P154: one Activity line when the guard removed a vendor's instructions from a tool reply ("Notion · Removed an offer"), at
+ * most one per session and tool: the run's `batchKey` names both, and a second call finds the run and writes nothing. Sync, so
+ * the post hook (a short process) writes it on one short connection. Returns whether a line was written.
+ */
+export function recordCleanedReply(db: Db, o: { project: string; session: string; server: string; tool: string; label: string; at: string }): boolean {
+  const key = `tool-reply:${o.session || "-"}:${o.server}:${o.tool}`;
+  return write(db, (t) => {
+    if (t.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.project, o.project), eq(agentRuns.batchKey, key))).get()) return false;
+    const runId = t.insert(agentRuns).values({ project: o.project, startedAt: o.at, finishedAt: o.at, trigger: "guard", skill: null, status: "ok", batchKey: key }).returning({ id: agentRuns.id }).get().id;
+    insertEvent(t, { project: o.project, runId, at: o.at, kind: "decision", tool: null, summary: `Removed an offer: ${o.label}`, detail: JSON.stringify({ action: "tool_reply_cleaned", reason: `${o.tool}: the reply carried instructions for the assistant (an offer or a link to show); the Hub removed them, or told the agent to ignore them, before it answered.` }) });
+    return true;
+  });
+}
+
 export function runsRepo(db: Db) {
   return {
     async start(input: NewRun): Promise<number> {
