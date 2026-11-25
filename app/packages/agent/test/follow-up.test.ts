@@ -47,8 +47,8 @@ describe("a sweep turn's hub mcp (verdict 5)", () => {
     expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual([...FOLLOW_UP_HUB_TOOLS].sort());
   });
 
-  it("its model process allows the eight and denies messenger_send and every other hub tool by name", () => {
-    expect(FOLLOW_UP_ALLOWED).toHaveLength(8);
+  it("its model process allows the nine and denies messenger_send and every other hub tool by name", () => {
+    expect(FOLLOW_UP_ALLOWED).toHaveLength(9);
     const denied = followUpDisallowed();
     expect(denied).toContain("mcp__hub__messenger_send");
     expect(denied).toContain("mcp__hub__client_create");

@@ -65,7 +65,7 @@ notice, "thanks" or "ok": nothing new, nothing written. Used by `triage-mail` (s
 Every `## Brands` row is a project key: lower case, letters and digits only, so `Caribbean MLS`, `caribbean-mls` and
 `CaribbeanMLS` name one project. The client's `Projects` (multi_select) is the projects they are confirmed for.
 - **Strong evidence adds the option** (the one whose key equals the brand's; never a new option): `message_show`'s `brand` (the
-  hub reads it from the recipient headers in its fixed order; never from `Delivered-To` or `X-Forwarded-To` yourself, which name
+  Hub reads it from the recipient headers in its fixed order; never from `Delivered-To` or `X-Forwarded-To` yourself, which name
   the shared mailbox on a forwarded mail), a linked lead's `Brand`, or the client naming the product. A known client who writes
   about another project gains that option; the ones they have stay.
 - **A weak guess** (a mention, a signature, a page they visited) is one line in `Conversation summary`

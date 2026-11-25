@@ -11,7 +11,7 @@
     { "key": "sdkrouter", "names": ["SDKRouter", "sdkrouter"] },
     { "key": "onemark", "names": ["OneMark", "onemark"] },
     { "key": "caribbeanmls", "names": ["Caribbean MLS", "caribbean-mls", "CaribbeanMLS"] },
-    { "key": "danmerriam", "names": ["Dan Merriam", "dan-merriam", "DanMerriam.com"] },
+    { "key": "danmerriam", "names": ["Dan Merriam", "dan-merriam", "DanMerriam", "dan merriam"] },
     { "key": "secretbay", "names": ["Secret Bay", "secret-bay"] }
   ],
   "liveLeadsBrand": ["carapis", "Caribbean MLS", "Dan Merriam", "Reforms", "Other", "cmdop"],

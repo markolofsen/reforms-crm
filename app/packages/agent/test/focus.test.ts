@@ -274,12 +274,12 @@ describe("hub mcp", () => {
     expect((await (await connect(undefined)).call("knowledge_search", { query: "csv" })).json.error).toBe("unbound");
   });
 
-  it("lists exactly the twenty-three tools: thirteen read-only (project_show, mail_list, message_show, maps_due (P136), follow_ups_due (P142), link_fetch and the knowledge tools among them), highlight the pointer, draft_write the one Mail write, client_record the record of a client without a draft, client_map the client's map (P135), chats_unlinked and chats_propose_hide (P128 X5: the agent reads the unlinked chats and proposes hides, the owner confirms), messenger_draft_write the one messenger write, conversation_done, client_create and chat_link (P143), follow_up_plan the sweep's decision (P142); none send-like", async () => {
+  it("lists exactly the twenty-four tools: thirteen read-only (project_show, mail_list, message_show, maps_due (P136), follow_ups_due (P142), link_fetch and the knowledge tools among them), highlight the pointer, draft_write the one Mail write, client_record the record of a client without a draft, client_map the client's map (P135), chats_unlinked and chats_propose_hide (P128 X5: the agent reads the unlinked chats and proposes hides, the owner confirms), messenger_draft_write the one messenger write, conversation_done, client_create and chat_link (P143), follow_up_plan the sweep's decision (P142), bug_report the client's bug report (P145); none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(23);
-    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["chat_link", "chats_propose_hide", "client_create", "client_map", "client_record", "conversation_done", "draft_write", "follow_up_plan", "highlight", "messenger_draft_write"]);
+    expect(HUB_MCP_TOOLS).toHaveLength(24);
+    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["bug_report", "chat_link", "chats_propose_hide", "client_create", "client_map", "client_record", "conversation_done", "draft_write", "follow_up_plan", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
 

@@ -73,7 +73,7 @@ export const bugReportTool = defineTool({
     const r = await file(slug, i);
     if (r.state === "several") throw new ToolError("bug_report_several", `${r.candidates.length} open reports have this area: ${r.candidates.slice(0, 5).map((c) => `${c.pageId} "${c.bug}"`).join("; ")}. Call again with into.`);
     if (r.state === "no_database") throw new ToolError("no_bug_database", r.detail);
-    if (r.state === "no_token" || r.state === "failed") throw new ToolError("notion_unavailable", `The report was not filed: ${r.detail}.`);
+    if (!("pageId" in r)) throw new ToolError("notion_unavailable", `The report was not filed: ${r.detail}.`);
     const who = conv.pageId || conv.email ? "" : " The chat has no client, so the report lists none.";
     return {
       project: slug,

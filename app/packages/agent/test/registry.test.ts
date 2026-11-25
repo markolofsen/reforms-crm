@@ -75,7 +75,7 @@ describe("the refusal registry", () => {
 
   it("gives a fix line only to faults the owner alone can fix", () => {
     const fixable = REFUSAL_CODES.filter((c) => REFUSALS[c].fix);
-    expect(fixable.sort()).toEqual(["mail_not_allowed", "mail_not_running", "notion_unavailable", "unavailable"]);
+    expect(fixable.sort()).toEqual(["mail_not_allowed", "mail_not_running", "no_bug_database", "notion_unavailable", "unavailable"]);
   });
 
   it("uses each code once", () => {
