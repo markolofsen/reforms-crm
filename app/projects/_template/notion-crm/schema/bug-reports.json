@@ -1,0 +1,23 @@
+{
+  "database": "bug-reports",
+  "title": "Bug reports",
+  "source": "P145 B1 (decision 0054): a core database for every project kind, required by none. Created beside Clients by `hub install --only notion.bug-reports`; the agent files into it through the Hub tool `bug_report` only. Data source ids are not carried and are NOT portable.",
+  "properties": {
+    "Bug": { "type": "title", "writer": "agent", "description": "The symptom in one line, in the client's terms. Written by the Hub's bug_report tool; people may edit.", "note": "Never a cause: a cause is people's, in Notes." },
+    "Projects": { "type": "multi_select", "writer": "agent", "options": [], "description": "The project keys this report belongs to (decision 0053), the same options as Clients Projects.", "note": "Options are the `## Brands` rows; `notion.projects` keeps them in step." },
+    "Clients": { "type": "relation", "target": "clients", "writer": "agent", "description": "Every client who reported this bug. A second client with the same symptom is added here, never filed again.", "note": "Several; one-way (Clients gets no reverse property)." },
+    "Channel": { "type": "select", "writer": "agent", "options": ["Mail", "WhatsApp", "Telegram", "Other"] },
+    "Source link": { "type": "url", "writer": "agent", "description": "Where the first report was made: the conversation in the Hub admin. Written by the tool from the conversation, never typed by the agent." },
+    "Client's words": { "type": "text", "writer": "agent", "description": "The client's own sentence, quoted (at most 1,500 characters). Later reports are appended to the page body, dated." },
+    "Evidence": { "type": "text", "writer": "agent", "description": "One line per URL, id or screenshot reference the client gave. Only what the client sent or the agent saw." },
+    "Area": { "type": "select", "writer": "agent", "options": [], "description": "<kind>: <name>, lower case (parser: <source>, site: <domain>, api, admin). An option is reused when its normalised form matches.", "note": "The open-report search keys on Area and Projects." },
+    "Status": { "type": "select", "writer": "people", "options": ["New", "Triaged", "In progress", "Fixed", "Won't fix", "Duplicate"], "description": "The agent sets New only; people move it on. A select, not a Status: the API cannot create a Status.", "note": "Fixed with an empty Client told makes the follow-up sweep propose a \"fixed\" message (B4, after P142)." },
+    "Severity": { "type": "select", "writer": "people", "options": ["Critical", "High", "Normal", "Low"], "description": "Set by people at triage; empty until then. The agent never writes it." },
+    "Duplicate of": { "type": "relation", "target": "bug-reports", "writer": "people", "description": "The report this one repeats (Status Duplicate)." },
+    "Reported at": { "type": "date", "writer": "agent", "description": "When the first report's message was sent." },
+    "Last reported": { "type": "date", "writer": "agent", "description": "When the latest report was appended." },
+    "Client told": { "type": "date", "writer": "Hub", "description": "When the clients were told it is fixed: set by the Hub at the send of the \"fixed\" message. Do not edit." },
+    "Fix link": { "type": "url", "writer": "people", "description": "The commit, pull request or task that fixed it." },
+    "Notes": { "type": "text", "writer": "people", "description": "People's notes, the cause among them. The agent never writes here." }
+  }
+}

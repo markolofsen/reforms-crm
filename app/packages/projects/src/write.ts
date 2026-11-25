@@ -5,8 +5,9 @@ import { BRANDS_HEADER, joinSignature, normalizedDisplayName } from "./brands";
 import { isPolicyField } from "./fields";
 import { ProjectError, type Issue } from "./md/issues";
 import { scan, tableOf } from "./md/scan";
-import { headerLine, SECTIONS } from "./md/sections";
-import { BYS, checkValue, FIELDS, isIsoDate, parseProjectMd, type By } from "./parse";
+import { findSection, headerLine, SECTIONS } from "./md/sections";
+import { BYS, checkValue, extractDatabases, FIELDS, isIsoDate, normalizeId, parseProjectMd, type By } from "./parse";
+import { UUID } from "./values";
 
 const SETTINGS_HEADER = headerLine(SECTIONS.settings);
 const ANSWERS_HEADER = headerLine(SECTIONS.answers);
@@ -231,6 +232,32 @@ export function applyBrandRow(text: string, slug: string, b: BrandRowInput): str
 /** `folder` is <projects>/<slug>. */
 export function writeBrandRow(folder: string, slug: string, b: Omit<BrandRowInput, "date"> & { date?: string }): void {
   rewrite(join(folder, "project.md"), (t) => applyBrandRow(t, slug, { ...b, date: b.date ?? localDate() }));
+}
+
+/**
+ * P145 B2: one `- <slug>: <id>` item at the end of `## Notion databases` (the section is made at the end when missing), every other
+ * byte kept. A slug already listed is left as it is: the installer adds a database it created, it never moves one.
+ */
+export function applyDatabaseEntry(text: string, slug: string, dataSourceId: string): string {
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(slug) || !UUID.test(dataSourceId)) throw new ProjectError([{ severity: "error", code: "bad_value", line: null, field: slug, message: `"${slug}: ${dataSourceId}" is not a database slug and data source id` }]);
+  if (extractDatabases(text).databases.some((d) => d.slug === slug)) return text;
+  const lines = rawLines(text);
+  const plain = lines.map(bare);
+  const section = findSection(scan(plain), SECTIONS.databases);
+  const eol = eolOf(lines[0], "\n");
+  const item = `- ${slug}: ${normalizeId(dataSourceId)}`;
+  if (!section) return `${text}${text.endsWith("\n") ? "" : eol}${eol}## Notion databases${eol}${eol}${item}${eol}`;
+  let last = section.start;
+  for (let i = section.start + 1; i < section.end; i++) if (/^\s*[-*]\s+\S/.test(plain[i] ?? "")) last = i;
+  const at = last === section.start ? section.start + 1 : last + 1;
+  const before = lines.slice(0, at).join("");
+  const sep = before.endsWith("\n") ? "" : eol;
+  return `${before}${sep}${last === section.start ? eol : ""}${item}${eol}${lines.slice(at).join("")}`;
+}
+
+/** `folder` is <projects>/<slug>. */
+export function writeDatabaseEntry(folder: string, slug: string, dataSourceId: string): void {
+  rewrite(join(folder, "project.md"), (t) => applyDatabaseEntry(t, slug, dataSourceId));
 }
 
 export function rewrite(file: string, edit: (text: string) => string): void {

@@ -4,6 +4,8 @@ import { verifyProjectDatabases } from "../notion-check";
 import { addMapField, mapFieldRows } from "../notion-map-field";
 import { addFollowUpFields, followUpFieldRows } from "../notion-follow-up-fields";
 import { descriptionRows, syncDescriptions } from "../notion-descriptions";
+import { addProjectOptions, projectFieldRows, projectKeyVerdict } from "../notion-projects-field";
+import { applyBugReports, bugReportsRows } from "../notion-bug-reports";
 import path from "node:path";
 import type { Step } from "../types";
 import { fileState, NOTION_FILE, probeNotion, readValue } from "@hub/connections";
@@ -36,7 +38,7 @@ export const notionSteps: Step[] = [
   {
     id: "notion.access", group: "Notion", title: "The integration reaches every database of every project",
     why: "Notion shares nothing with an integration by default, and a database that is moved or merged loses its grant. The unattended extras (`notion-dump`, the Overview counts) read each database with the integration token, so each one must be shared with it.",
-    verifies: "For every project that lists Notion databases: each database in project.md answers to the integration (shared, readable, capability Read content), is not archived and not in the trash, and every database its relations point at (Leads, People, ...) is reachable and live too. A failure names the database and says to share it with the integration under Connections. Read only: GET requests. WARN when there is no token to test with.",
+    verifies: "For every project that lists Notion databases: each database in project.md answers to the integration (shared, readable, capability Read content), is not archived and not in the trash, and every database its relations point at (Leads, People, ...) is reachable. A failure names the database and says to share it with the integration under Connections. A relation target project.md does not list that is archived (an optional or legacy module such as Organizations, P145 verdict 9) is a WARN naming the property: the Hub never writes it. Read only: GET requests. WARN when there is no token to test with.",
     manual: {
       steps: [
         "In Notion open the project's teamspace root page, choose `...` > Connections and add the integration. Sub-pages and databases inherit it; a database that was moved out loses it, so share again after a move.",
@@ -51,7 +53,7 @@ export const notionSteps: Step[] = [
       const sharedOnly = needs.every((p) => p.parsed.config.notion.tokenFile === NOTION_FILE);
       if (sharedOnly && fileState(ctx.configDir, NOTION_FILE).state !== "stored") return warn("not tested: no usable Notion token (see notion.token)");
       const v = await verifyProjectDatabases(ctx, projects);
-      return v.ok ? pass(v.detail) : fail(v.detail);
+      return !v.ok ? fail(v.detail) : v.warnings?.length ? warn(v.detail) : pass(v.detail);
     },
   },
   {
@@ -103,6 +105,49 @@ export const notionSteps: Step[] = [
     },
     async apply(ctx) {
       return syncDescriptions(ctx, await descriptionRows(ctx, projectStore({ projects: ctx.paths.projects }).list(), ctx.paths.notionPack));
+    },
+  },
+  {
+    id: "notion.projects", group: "Notion", title: "Every brand is a project option",
+    why: "P145 (decision 0053): one project key names a project everywhere: a `## Brands` row, a Clients (and Documents, Contacts, Tasks, Expenses, Bug reports) `Projects` option and a Leads `Brand` option match when their keys (lower case, letters and digits) are equal. A brand with no option cannot be tagged, and a lead form's writer leaves Brand empty.",
+    verifies: "For each project with `## Brands`: Clients has `Projects` (multi_select), and every brand row has an option of its key in Clients.Projects, Leads.Brand and the `Projects` of the other listed databases. Read only: one GET per database. WARN for an option no brand row claims (another project's brand, or a project with no brand row), for a database whose property is missing or not a multi_select, or with no token.",
+    does: "Adds the missing options (and creates Clients `Projects` when missing): one PATCH per data source, the live options sent back unchanged with the new ones; nothing is removed or renamed. The integration needs Update content.",
+    async check(ctx) {
+      const rows = await projectFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list());
+      if (!rows.length) return pass("no project lists ## Brands and a Notion database with a project property");
+      const todo = rows.filter((r) => r.state === "missing" || r.state === "no_property");
+      if (todo.length) return fail(`${todo.map((r) => r.detail).join("; ")}: \`hub install --only notion.projects\` adds them`);
+      const other = rows.filter((r) => r.state !== "ok" || r.unclaimed.length);
+      return other.length ? warn(other.map((r) => r.detail).join("; ")) : pass(`${rows.length} database(s) carry every brand's option`);
+    },
+    async apply(ctx) {
+      return addProjectOptions(ctx, await projectFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
+    },
+  },
+  {
+    id: "notion.project-keys", group: "Notion", title: "Brands, keys and options agree",
+    why: "P145 (decision 0053): the doctor shows every brand with its project key and the options it matched, so drift between project.md and Notion is visible: a brand with no option, a key two options share, an option no brand claims, or a Clients database without the `Project signals` formula.",
+    verifies: "Per project and database: `<brand>-><key>-><matched options>`. FAIL when a brand matches no option or two; WARN for an option no brand row claims (never `Other`) and for a Clients database without `Project signals` (a formula the API cannot create: its text is in the pack's schema/clients.json). Read only.",
+    async check(ctx) {
+      const v = projectKeyVerdict(await projectFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
+      return v.level === "pass" ? pass(v.detail) : v.level === "warn" ? warn(v.detail) : fail(v.detail);
+    },
+  },
+  {
+    id: "notion.bug-reports", group: "Notion", title: "Bug reports database",
+    why: "P145 (decision 0054): a client's bug report is filed in the project's Bug reports database by the Hub's `bug_report` tool (one report per symptom, the clients and their words appended). Required by no project kind: without it the tool says the database is missing.",
+    verifies: "Each project with a Clients database lists `bug-reports` in project.md, and that database has every property and option of the pack's schema/bug-reports.json, with `Clients` pointing at the project's Clients. Read only. WARN with no token, or for a property of another type (renamed by hand in Notion).",
+    does: "Creates \"Bug reports\" under Clients' parent page with the pack's properties and a one-way relation to Clients, then writes `bug-reports: <id>` into project.md; on a listed database adds only the missing properties and options (nothing renamed or removed). The integration needs Insert content.",
+    async check(ctx) {
+      const rows = await bugReportsRows(ctx, projectStore({ projects: ctx.paths.projects }).list());
+      if (!rows.length) return pass("no project lists a Clients database");
+      const todo = rows.filter((r) => r.state === "absent" || r.state === "missing");
+      if (todo.length) return fail(`${todo.map((r) => r.detail).join("; ")}: \`hub install --only notion.bug-reports\``);
+      const other = rows.filter((r) => r.state !== "ok");
+      return other.length ? warn(other.map((r) => r.detail).join("; ")) : pass(rows.map((r) => r.detail).join("; "));
+    },
+    async apply(ctx) {
+      return applyBugReports(ctx, await bugReportsRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
     },
   },
   {

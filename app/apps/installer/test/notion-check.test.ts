@@ -151,7 +151,10 @@ describe("notionCheck (doctor --project)", () => {
     expect(r.detail).toContain("relation target clients.Leads -> lead0000: not shared with the integration (404): share that database with the integration under Connections");
     expect(seen.filter((x) => x.toLowerCase().startsWith("lead"))).toHaveLength(1);
     answers["LEAD-0000-0000-0000-0000"] = { body: { archived: true } };
-    expect((await notionCheck(f.ctx, project())).detail).toContain("relation target clients.Leads -> lead0000: archived in Notion");
+    // P145 K3 (verdict 9): an archived target project.md does not list is a legacy module the Hub never writes: a warning, not a failure.
+    const legacy = await notionCheck(f.ctx, project());
+    expect(legacy.ok).toBe(true);
+    expect(legacy.warnings).toEqual(["relation target clients.Leads -> lead0000: archived in Notion (the Hub does not use it): relink the property to the live database, or remove it"]);
     answers["LEAD-0000-0000-0000-0000"] = {};
     const ok = await notionCheck(f.ctx, project());
     expect(ok).toEqual({ ok: true, detail: "2/2 readable: clients, deals; 1 relation target(s) reachable" });

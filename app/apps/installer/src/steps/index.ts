@@ -39,7 +39,8 @@ export const STEPS: Step[] = [
   ...mcpSteps,
   ...tag(mailSteps, "automation", ["mail.account"]),
   ...tag(messengerSteps, "automation"),
-  ...tag(notionSteps, "automation", ["notion.token", "notion.access"]),
+  // P145: notion.projects, notion.project-keys and notion.bug-reports write or judge the live schema: run by `--only` (or --automation), never by a plain install.
+  ...tag(notionSteps, "automation", ["notion.token", "notion.access", "notion.projects", "notion.project-keys", "notion.bug-reports"]),
   ...leadSteps,
   // P49: the Agent tools rows reach every MCP server once per CLI, so they are an audit (`--fast` leaves them out). The terminal
   // row and the CLIs row (P66: one login-shell detection, cached per run) are the install workflow's: setup and install run them.

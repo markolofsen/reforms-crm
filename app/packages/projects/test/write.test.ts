@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendAnswer, applyAnswer, applyLinkRows, applySetting, writeSetting } from "../src/write";
+import { appendAnswer, applyAnswer, applyDatabaseEntry, applyLinkRows, applySetting, writeSetting } from "../src/write";
 import { hasErrors, ProjectError } from "../src/md/issues";
 import { parseProjectMd } from "../src/parse";
 
@@ -125,5 +125,20 @@ describe("file wrappers", () => {
     expect(p.answers).toHaveLength(2);
     expect(hasErrors(p.issues)).toBe(false);
     writeFileSync(join(dir, "x"), "");
+  });
+});
+
+describe("applyDatabaseEntry (P145 B2)", () => {
+  const id = "01234567-89ab-cdef-0123-456789abcdef";
+  it("adds one item after the last database and changes nothing else; a second run is a no-op", () => {
+    const next = applyDatabaseEntry(acme, "bug-reports", id);
+    expect(changed(acme, next)).toEqual({ removed: [], added: [`- bug-reports: ${id}`] });
+    expect(parseProjectMd(next, "acme-travel").config.notion.databases.at(-1)).toEqual({ slug: "bug-reports", dataSourceId: id });
+    expect(applyDatabaseEntry(next, "bug-reports", id)).toBe(next);
+  });
+  it("makes the section when project.md has none, and refuses a bad id", () => {
+    const next = applyDatabaseEntry("# P\n\nText.\n", "bug-reports", id);
+    expect(next).toBe(`# P\n\nText.\n\n## Notion databases\n\n- bug-reports: ${id}\n`);
+    expect(() => applyDatabaseEntry("# P\n", "bug-reports", "nope")).toThrow(ProjectError);
   });
 });
