@@ -60,6 +60,27 @@ describe("P140 K3 the deny list of an owner's session", () => {
     expect(settings.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, allowUnsandboxedCommands: false });
   });
 
+  it("P159: ssh, scp and rsync run outside Claude's sandbox; the keys stay denied to the agent's own reads", () => {
+    const settings = claudeSettings({ paths, projectsDir: projects, slug: "acme", nodeBin: "node" });
+    expect((settings.sandbox as { excludedCommands: string[] }).excludedCommands).toEqual(["ssh *", "scp *", "rsync *"]);
+    // nothing else leaves the sandbox, and no retry outside it
+    expect(settings.sandbox).toMatchObject({ allowUnsandboxedCommands: false });
+    const deny = (settings.permissions as { deny: string[] }).deny;
+    expect(deny).toEqual(expect.arrayContaining(["Read(~/.ssh)", "Read(~/.ssh/**)"]));
+    expect((settings.sandbox as { filesystem: { denyRead: string[] } }).filesystem.denyRead).toContain(path.join(homedir(), ".ssh"));
+  });
+
+  it("P159: Codex has the network on for ssh, ~/.ssh writable (its ControlMaster sockets), the owner's other token files unreadable", () => {
+    const t = codexConfigToml({ paths, projectsDir: projects, slug: "acme", servers: {}, instructions: "x", nodeBin: "/n/node", userHome: "/u/owner" });
+    expect(t).toMatch(/\[permissions\.hub\.network\]\nenabled = true\n/);
+    expect(t).toContain('"/u/owner/.ssh" = "write"');
+    for (const f of [".aws", ".netrc", ".git-credentials", ".config/gh", ".npmrc", ".docker/config.json", ".config/crm/notion.json", ".google-multi-mcp/config.json", ".config/reforms-hub/openrouter-key"]) expect(t).toContain(`${JSON.stringify(path.join("/u/owner", f))} = "none"`);
+    // the instance's own secrets and protected paths are unchanged
+    expect(t).toContain(`${JSON.stringify(paths.secrets)} = "none"`);
+    expect(t).toContain(`${JSON.stringify(paths.stateProjects)} = "read"`);
+    expect(t).not.toMatch(/danger-full-access|dangerously/);
+  });
+
   it("Codex: other projects' folders are \"read\"; their session files and Codex homes \"none\"", () => {
     const t = codexConfigToml({ paths, projectsDir: projects, slug: "acme", servers: {}, instructions: "x", nodeBin: "/n/node" });
     const q = (p: string) => JSON.stringify(p);

@@ -133,6 +133,15 @@ describe("the capabilities line", () => {
     expect(sessionCapabilities("realty", [], "claude")).toContain("calendar: none attached");
     expect(sessionCapabilities("realty", [att("gcal-hello", "calendar")], "codex")).toMatch(/not in Codex sessions/);
   });
+  it("P159: tells both CLIs that ssh, scp and rsync work, and Claude how to call them so they leave the sandbox", () => {
+    const c = sessionCapabilities("realty", [], "claude");
+    expect(c).toContain("ssh: `ssh`, `scp` and `rsync` over ssh reach any host with the owner's own ~/.ssh");
+    expect(c).toContain("start the Bash call with the command itself");
+    const x = sessionCapabilities("realty", [], "codex");
+    expect(x).toContain("ssh: `ssh`, `scp` and `rsync` over ssh reach any host");
+    expect(x).not.toContain("Bash call");
+    for (const l of [c, x]) expect(l).toContain("Never print or copy a key");
+  });
   it("names the owner's own browser, to use by default, and the send door, for both CLIs (decision 0040 as amended; owner 2026-11-26)", () => {
     for (const cli of ["claude", "codex"] as const) {
       const l = sessionCapabilities("realty", [], cli);

@@ -152,6 +152,19 @@ describe("agentChecks", () => {
     writeFileSync(path.join(codexHome(paths, "acme"), "config.toml"), 'sandbox_mode = "danger-full-access"\n');
     expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["mode"]).toMatchObject({ state: "fail", detail: "the Codex config bypasses the sandbox" });
   });
+  it("P159: session files older than the ssh rule fail the Mode row (Claude without the exclusions, Codex with the network off)", async () => {
+    const paths = instance();
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input() }))["mode"]).toMatchObject({ state: "pass", detail: "no prompts: OS sandbox on, loopback closed, ssh/scp/rsync outside it" });
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["mode"]).toMatchObject({ state: "pass", detail: "no prompts: the hub profile, network on (ssh)" });
+    const file = path.join(paths.stateProjects, "acme", "settings.json");
+    const s = JSON.parse(readFileSync(file, "utf8")) as { sandbox: Record<string, unknown> };
+    delete s.sandbox.excludedCommands;
+    writeFileSync(file, JSON.stringify(s));
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input() }))["mode"]).toMatchObject({ state: "fail", detail: "ssh, scp and rsync are not outside the sandbox (session files older than P159)" });
+    const toml = path.join(codexHome(paths, "acme"), "config.toml");
+    writeFileSync(toml, readFileSync(toml, "utf8").replace(/(\[permissions\.hub\.network\]\n)enabled = true/, "$1enabled = false"));
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["mode"]!.state).toBe("fail");
+  });
   it("a Codex config that asks for approvals fails; a broken policy file fails", async () => {
     const paths = instance();
     const file = path.join(codexHome(paths, "acme"), "config.toml");

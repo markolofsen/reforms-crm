@@ -3,8 +3,9 @@ import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 
 // The one permission mode of a hub agent session (P49 section 5A; owner 2026-11-25: no friction, no switch), both CLIs: no
-// prompts, and the OS sandbox is on by itself: Claude's commands reach every host but loopback (3l; Codex's stay offline, its
-// profile has no per-host rule), no Apple Events, and the files below are read-only. MCP connectors run in the CLI process, outside the sandbox, unchanged. Bypass without the sandbox does
+// prompts, and the OS sandbox is on by itself: Claude's commands reach every host but loopback (3l), and `ssh`, `scp` and `rsync`
+// run outside it (P159); Codex's commands reach every host, loopback included (P159: its profile has no per-host rule that lets
+// ssh through), no Apple Events, and the files below are read-only. MCP connectors run in the CLI process, outside the sandbox, unchanged. Bypass without the sandbox does
 // not exist. The mode says nothing about who is there: a session the owner started is attended, a background run the Hub
 // started is not (`backgroundRunOf` of `@hub/config/follow-ups`).
 
@@ -69,9 +70,22 @@ export const ownerSecretReadRules = (): string[] => OWNER_SECRET_FILES.flatMap((
 export const LOOPBACK_HOSTS: readonly string[] = ["localhost", "*.localhost", "127.0.0.1", "::1", "0.0.0.0", "*.nip.io", "*.sslip.io", "*.xip.io", "localtest.me", "*.localtest.me", "lvh.me", "*.lvh.me", "*.vcap.me"];
 
 /**
+ * P159 (owner 2026-11-26: "Надо разрешить агентам доступ по SSH обязательно… Всегда."): the commands Claude runs outside the
+ * sandbox (`excludedCommands`). The sandbox's proxy carries HTTP(S) only, so a sandboxed `ssh` has no route (`Operation not
+ * permitted` on port 22), and `~/.ssh` is unreadable inside it. Outside, ssh reads its own config, known_hosts, keys and
+ * ControlMaster sockets. The Bash text must match: `ssh host 'cmd'` alone; a `cd`, a redirect or a `$(...)` in the same call
+ * keeps the whole call sandboxed. The trade-off: these three run with the owner's full access (an `-o ProxyCommand=` or a local
+ * `scp`/`rsync` reads or writes any file, the protected paths and `~/.ssh` included); the agent's own `cat` and Read of the keys
+ * stay refused.
+ */
+export const SSH_COMMANDS: readonly string[] = ["ssh", "scp", "rsync"];
+export const claudeExcludedCommands = (): string[] => SSH_COMMANDS.map((c) => `${c} *`);
+
+/**
  * Claude Code's `sandbox` block of an owner's session. `failIfUnavailable`: no sandbox, no session (never a silent unsandboxed
  * run). 3l: every host is open (`*`) but {@link LOOPBACK_HOSTS}, and a local server may bind; the protected paths are
- * read-only. Apple Events stay off (no `osascript` to Mail). The MCP servers are the CLI's own calls.
+ * read-only. Apple Events stay off (no `osascript` to Mail). The MCP servers are the CLI's own calls. P159: `ssh`, `scp` and
+ * `rsync` run outside ({@link claudeExcludedCommands}).
  */
 export function claudeSandbox(paths: HubPaths, home: string = os.homedir()): Record<string, unknown> {
   return {
@@ -79,6 +93,7 @@ export function claudeSandbox(paths: HubPaths, home: string = os.homedir()): Rec
     failIfUnavailable: true,
     autoAllowBashIfSandboxed: true,
     allowUnsandboxedCommands: false,
+    excludedCommands: claudeExcludedCommands(),
     network: { allowedDomains: ["*"], deniedDomains: [...LOOPBACK_HOSTS], allowLocalBinding: true },
     filesystem: { denyWrite: claudeProtectedPaths(paths), denyRead: [paths.secrets, ...ownerSecretPaths(home)] },
   };
@@ -94,4 +109,4 @@ export const CODEX_BYPASS = "--dangerously-bypass-approvals-and-sandbox";
 export const CODEX_MODE_ARGS: readonly string[] = ["-a", "never"];
 
 /** The one sentence the launcher and the terminal tab show for the mode. */
-export const MODE_LINE = "no prompts, OS sandbox on (network open but loopback, no Apple Events; secrets, the send policy, the guards and the core read-only)";
+export const MODE_LINE = "no prompts, OS sandbox on (network open, Claude's but loopback; ssh, scp and rsync always work; no Apple Events; secrets, the send policy, the guards and the core read-only)";

@@ -150,4 +150,14 @@ sentence naming the instance's `allow_list` (minus the project's own addresses):
 test draft on his words, never refused as not a client; `draft_write` lets them pass its new-thread client check
 (`14-bulk-send-interface.md`). Built by `capabilitiesOf` from the send policy file, not project.md.
 
+## 9. SSH (P159)
+
+The owner, 2026-11-26: «Надо разрешить агентам доступ по SSH обязательно. У Клода и у Кодекса свои аргументы надо разрешать. Всегда.»
+Every bound session's capabilities line ends with an ssh part (`sshCapability`, `app/packages/agent/src/connectors.ts`): `ssh`, `scp`
+and `rsync` over ssh reach any host with the owner's own `~/.ssh`, and a key is never printed or copied. Claude's part adds how to call
+them: the Bash call starts with the command, with no `cd`, redirect or `$(...)` in it, because only then does it leave the sandbox
+(`excludedCommands`); a filter runs on the remote side or after a pipe. Codex's part has no such rule: its commands run on an open
+network inside its sandbox. How each CLI is set up, what was measured and the trade-offs (Claude: the three commands run with full
+access; Codex: the key is readable and loopback is reachable): [24-terminal.md](24-terminal.md), "SSH, always".
+
 Update this page when the architecture changes.

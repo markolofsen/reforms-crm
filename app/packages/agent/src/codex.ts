@@ -1,8 +1,9 @@
+import os from "node:os";
 import path from "node:path";
 import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
 import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherDrops, otherProjects } from "./deny";
 import { focusHookCommand, logHookCommand } from "./claude";
-import { CODEX_BYPASS, CODEX_MODE_ARGS, protectedPaths } from "./session";
+import { CODEX_BYPASS, CODEX_MODE_ARGS, OWNER_SECRET_FILES, protectedPaths } from "./session";
 import { HUB_MCP_WRITE_TOOLS } from "./mcp/server";
 import { NOTION_ALLOWED } from "@hub/projects/notion-tools";
 
@@ -39,11 +40,28 @@ export interface CodexSessionInput {
   carry?: Record<string, string>;
   /** The Node that runs the hub (the focus hook calls `hub focus --hook` with it). */
   nodeBin?: string;
+  /** The owner's home (his token files and `~/.ssh`); the OS user's by default. */
+  userHome?: string;
+}
+
+/**
+ * P159 (owner 2026-11-26: ssh always works): the owner's token files Codex may not read now that its network is on
+ * ({@link OWNER_SECRET_FILES} but `~/.ssh`), and `~/.ssh` writable. Measured on Codex 0.153: a prefix rule `allow` does not take
+ * a command out of the sandbox under `approval_policy = "never"` (the model is told never to ask for escalation), and the
+ * proxy mode (per-host rules) carries HTTP only, so ssh needs the direct network. Inside the sandbox ssh reads its own key (a
+ * key denied leaves only the ssh-agent, empty after a reboot: `Permission denied (publickey)`) and binds its ControlMaster
+ * socket under `~/.ssh` (a read-only `~/.ssh` is a fatal `unix_listener: cannot bind`). Codex accepts only `deny` on a glob,
+ * so the folder is writable as a whole. The trade-off, written down: a Codex command can read the private key and reach
+ * loopback (the Hub's API and mail-mcp's port).
+ */
+export function codexOwnerAccess(userHome: string = os.homedir()): Array<[string, "write" | "none"]> {
+  return OWNER_SECRET_FILES.map((f): [string, "write" | "none"] => [path.join(userHome, f), f === ".ssh" ? "write" : "none"]);
 }
 
 /**
  * `config.toml` of an owner's session. The sandbox is a permissions profile: workspace-write (`:workspace_roots` writable,
- * the disk readable) with the protected paths read-only and secrets and other projects unreadable, network off. A
+ * the disk readable) with the protected paths read-only and secrets and other projects unreadable, the network on (P159, for
+ * ssh) and the owner's token files unreadable ({@link codexOwnerAccess}). A
  * plain `--sandbox workspace-write` cannot keep `state/projects` (the send policy) read-only, so the profile replaces it.
  */
 export function codexConfigToml(i: CodexSessionInput): string {
@@ -52,7 +70,7 @@ export function codexConfigToml(i: CodexSessionInput): string {
   out.push(`approval_policy = "never"`, `default_permissions = ${str(CODEX_PROFILE)}`, `developer_instructions = ${str(i.instructions)}`, "");
   out.push(`[permissions.${CODEX_PROFILE}.filesystem]`, `":root" = "read"`, `":workspace_roots" = "write"`);
   // One entry per path (TOML refuses a key twice): unreadable wins over read-only.
-  const access = new Map<string, "read" | "none">(protectedPaths(i.paths).map((p) => [p, "read"]));
+  const access = new Map<string, "read" | "write" | "none">([...codexOwnerAccess(i.userHome), ...protectedPaths(i.paths).map((p): [string, "read"] => [p, "read"])]);
   // P112 S3: another project's session files (its project capability) and Codex home are closed. Its folder and the other
   // tabs' drops are read-only (P140 K3: an owner's session reads any project's files).
   const others = otherProjects(i.projectsDir, i.slug);
@@ -60,7 +78,7 @@ export function codexConfigToml(i: CodexSessionInput): string {
   const closed: Array<[string, "read" | "none"]> = [[i.paths.secrets, "none"], ...others.flatMap((o): Array<[string, "read" | "none"]> => [[path.join(i.projectsDir, o), open], [path.join(i.paths.stateProjects, o), "none"], [path.join(i.paths.codexHomes, o), "none"]]), ...otherDrops(i.paths, i.projectsDir, i.slug).map((d): [string, "read" | "none"] => [d, open])];
   for (const [p, a] of closed) access.set(p, a);
   for (const [p, a] of access) out.push(`${str(p)} = ${str(a)}`);
-  out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = false", "");
+  out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = true", "");
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");
   // P51: the focus line per prompt (Codex 0.146 `UserPromptSubmit`, measured in F0). Codex runs only trusted hooks; this one is
   // the hub's own, in a home only the hub writes, so the launcher passes `--dangerously-bypass-hook-trust` (see `codexArgs`).

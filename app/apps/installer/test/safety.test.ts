@@ -178,7 +178,7 @@ describe("generated session files", () => {
   });
   it("every owner session has the OS sandbox: the network open but loopback, no Apple Events, its own guards read-only (P49 S9, 3l)", () => {
     const u = settings as { sandbox: { allowAppleEvents?: unknown; network: { deniedDomains: string[] }; filesystem: { denyWrite: string[] } }; permissions: { deny: string[] } };
-    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, network: { allowedDomains: ["*"], allowLocalBinding: true } });
+    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, excludedCommands: ["ssh *", "scp *", "rsync *"], network: { allowedDomains: ["*"], allowLocalBinding: true } });
     expect(u.sandbox.network.deniedDomains).toEqual(expect.arrayContaining(["localhost", "127.0.0.1", "::1"]));
     expect(u.sandbox.allowAppleEvents).toBeUndefined();
     const dw: string[] = u.sandbox.filesystem.denyWrite;
@@ -215,13 +215,13 @@ describe("the Codex home (P49 S10)", () => {
     expect(toml).toMatch(/\[mcp_servers\."hub"\]\n(?:(?!\[mcp_servers)[^\n]*\n)*?tool_timeout_sec = 300\n/);
     expect(toml).not.toContain("slack");
   });
-  it("has no prompts and no bypass: approvals never, the profile's sandbox, network off, the policy read-only", () => {
+  it("has no prompts and no bypass: approvals never, the profile's sandbox, network on for ssh (P159), the policy read-only", () => {
     expect(toml).toContain('approval_policy = "never"');
     expect(toml).toContain('[mcp_servers."hub".tools."draft_write"]\napproval_mode = "approve"');
     expect(toml).toContain('default_permissions = "hub"');
     expect(toml).not.toMatch(/danger-full-access|dangerously/);
     expect(toml).toContain(`${JSON.stringify(path.join(root, "state", "projects"))} = "read"`);
-    expect(toml).toMatch(/\[permissions\.hub\.network\]\nenabled = false/);
+    expect(toml).toMatch(/\[permissions\.hub\.network\]\nenabled = true/);
     expect(toml).toContain('model = "gpt-test"');
   });
   it("approves the hub's own writing tools by name (the send on the owner's word included), never a read tool or another server's", () => {

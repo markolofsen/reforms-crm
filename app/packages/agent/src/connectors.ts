@@ -151,6 +151,16 @@ export function browserCapability(cli: AgentCli): string {
 }
 
 /**
+ * The ssh part of the capabilities line (P159, owner 2026-11-26: ssh always works, both CLIs): the agent is told it may, so it
+ * does not report a sandbox block from habit. Claude runs `ssh`, `scp` and `rsync` outside its sandbox only when the Bash call
+ * starts with the command (`claudeExcludedCommands`); Codex runs them inside, on its open network.
+ */
+export function sshCapability(cli: AgentCli): string {
+  const how = cli === "claude" ? "; start the Bash call with the command itself (no `cd`, redirect or `$(...)` in the same call, which keeps it in the sandbox where it fails); run filters on the remote side or after a pipe" : "";
+  return `ssh: \`ssh\`, \`scp\` and \`rsync\` over ssh reach any host with the owner's own ~/.ssh (config, keys, known hosts)${how}. Never print or copy a key`;
+}
+
+/**
  * The capabilities line of a bound session (K4), appended after the project's identity: what this session can reach, built from
  * the same resolver that writes its MCP file, so it never names a tool the session lacks. Rules: `@docs/core/26-capabilities.md`.
  * P82: with the project's Notion scope, the notion part names its databases by id (one source with the guard, `notion-scope.ts`).
@@ -169,5 +179,6 @@ export function sessionCapabilities(slug: string, attached: readonly AttachedCon
     parts.push(drive.length ? `drive: ${drive.map(who).join(", ")}, search, read and link onto the client's Notion profile only; never share, copy, create or trash` : "drive: none attached");
   }
   parts.push(browserCapability(cli)); // decision 0040 as amended: his browser, the Hub's send door
+  parts.push(sshCapability(cli)); // P159: ssh always
   return `Project ${slug}'s capabilities (generated from project.md and the instance's connectors; how to use them: @docs/core/26-capabilities.md): ${parts.join("; ")}. A service listed as none is not reachable here: say so, never look for another way.`;
 }

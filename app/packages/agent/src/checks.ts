@@ -6,7 +6,7 @@ import { codexConfigBypasses, codexHome, CODEX_PROFILE } from "./codex";
 import { connectorRows } from "./connector-checks";
 import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, deniedTools, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
-import { CLI_LABELS, LOOPBACK_HOSTS, MEASURED_VERSIONS } from "./session";
+import { claudeExcludedCommands, CLI_LABELS, LOOPBACK_HOSTS, MEASURED_VERSIONS } from "./session";
 import { HUB_MCP_WRITE_TOOLS } from "./mcp/server";
 import { codexNotionAuth, NO_NOTION_EVIDENCE, notionFix, notionRow, notionSignIn, type NotionEvidence } from "./notion-signin";
 
@@ -45,7 +45,7 @@ export interface AgentCheckInput {
 /** The fields of a session's settings.json the checks read; JSON is trusted to this shape, every field optional. */
 type SessionSettings = {
   permissions?: { deny?: string[] };
-  sandbox?: { enabled?: unknown; allowUnsandboxedCommands?: unknown; network?: { allowedDomains?: unknown; deniedDomains?: unknown } };
+  sandbox?: { enabled?: unknown; allowUnsandboxedCommands?: unknown; excludedCommands?: unknown; network?: { allowedDomains?: unknown; deniedDomains?: unknown } };
   hooks?: { PreToolUse?: unknown; PostToolUseFailure?: unknown };
 };
 type McpConfig = { mcpServers?: Record<string, Record<string, unknown>> };
@@ -143,18 +143,21 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   const linked = existsSync(skillsDir) ? readdirSync(skillsDir).length : 0;
   row("skills.linked", "Skills linked", linked ? "pass" : "fail", linked ? `${linked} in ${skillsDir}` : `none in ${skillsDir}`, prepare);
 
-  // 7. The mode: the OS sandbox with no bypass, and (P147 3l) the network open but the loopback hosts, as `claudeSandbox` writes it.
+  // 7. The mode: the OS sandbox with no bypass, and (P147 3l) the network open but the loopback hosts, as `claudeSandbox` writes it;
+  // P159: ssh, scp and rsync outside Claude's sandbox, Codex's network on (an older file fails until the next launch or `--prepare`).
   if (cli === "claude") {
     const sb = settings?.sandbox;
     const denied = sb?.network?.deniedDomains;
+    const excluded = sb?.excludedCommands;
+    const ssh = Array.isArray(excluded) && claudeExcludedCommands().every((c) => excluded.includes(c));
     const good = !!sb && sb.enabled === true && sb.allowUnsandboxedCommands === false && Array.isArray(denied) && LOOPBACK_HOSTS.every((h) => denied.includes(h));
-    row("mode", "Mode", good ? "pass" : "fail", good ? "no prompts: OS sandbox on, loopback closed, no unsandboxed commands" : "no OS sandbox block in the session settings", prepare);
+    row("mode", "Mode", good && ssh ? "pass" : "fail", good && ssh ? "no prompts: OS sandbox on, loopback closed, ssh/scp/rsync outside it" : good ? "ssh, scp and rsync are not outside the sandbox (session files older than P159)" : "no OS sandbox block in the session settings", prepare);
   } else if (toml === null) row("mode", "Mode", "fail", "no Codex config", prepare);
   else if (codexConfigBypasses(toml)) row("mode", "Mode", "fail", "the Codex config bypasses the sandbox", prepare);
   else {
-    const profile = toml.includes(`default_permissions = "${CODEX_PROFILE}"`) && /\[permissions\.hub\.network\]\s*\nenabled = false/.test(toml);
+    const profile = toml.includes(`default_permissions = "${CODEX_PROFILE}"`) && /\[permissions\.hub\.network\]\s*\nenabled = true/.test(toml);
     const approval = toml.includes(`approval_policy = "never"`);
-    row("mode", "Mode", profile && approval ? "pass" : "fail", profile && approval ? "no prompts: the hub profile, no network" : "the Codex config does not use the hub profile and approval never", prepare);
+    row("mode", "Mode", profile && approval ? "pass" : "fail", profile && approval ? "no prompts: the hub profile, network on (ssh)" : "the Codex config does not use the hub profile with the network on and approval never", prepare);
   }
 
   // The approval overrides are the hub's own writing tools, by name, and nothing else (no other server's tool, no unknown name).
