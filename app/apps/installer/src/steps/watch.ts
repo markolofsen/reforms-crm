@@ -13,8 +13,8 @@ export const watchSteps: Step[] = [
   {
     id: "watch.lens", group: "Watch", title: "Each watch list names a lens that loads",
     why: "A project that watches public groups names a lens (the instance's own package under packages/) that says what to look for. A lens that does not load parks that project's watcher, and the Watch page shows nothing for it.",
-    verifies: "Every `projects/<slug>/watch.md` reads (a lens name, the on switch, the account, the poll minutes, public group usernames), and its lens at `packages/<lens>/src/index.ts` loads and passes the check (declaration, strict schema, facets). PASS when no project has a watch list.",
-    manual: { steps: ["Fix the line the row names: in watch.md, or in the lens package (`packages/<lens>/src/index.ts`).", "Run `./run.sh doctor --only watch.lens` again; restart the server so the watcher reloads the lens."] },
+    verifies: "Every `projects/<slug>/watch.md` reads (a lens name, the on switch, the account, the poll minutes, at most 15 public group usernames), and its lens loads and passes the check: `packages/<lens>/lens.json` (version, title, prompt, triggers, keep, window, budget) and `packages/<lens>/src/index.ts` (declaration, strict schema, facets). PASS when no project has a watch list.",
+    manual: { steps: ["Fix the line the row names: in watch.md, in the lens's `lens.json`, or in its code (`packages/<lens>/src/index.ts`).", "Run `./run.sh doctor --only watch.lens` again. The running server takes a fixed watch.md or lens.json within seconds; a change to the lens's code needs a server restart."] },
     async check(ctx) {
       const dir = ctx.paths.projects;
       const slugs = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".") && !e.name.startsWith("_")).map((e) => e.name).sort() : [];

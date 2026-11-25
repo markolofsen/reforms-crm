@@ -31,6 +31,7 @@ export const SAY = [
   { skill: "calendar", example: "what do I have this week on X", what: "Reads the project's calendar; a hold is made only after your yes" },
   { skill: "triage-mail", example: "link this Drive folder to client <X>", what: "Links a Drive folder or file to the client's Notion profile; never shares it" },
   { skill: "kb-review", example: "kb review X", what: "Turns the agent's knowledge gaps into entries to add or fix" },
+  { skill: "watch", example: "what do the watched groups of X talk about", what: "Reads the Watch's data and advises; adds or removes a group, or a topic or trigger, on your word" },
   { skill: "knowledge-import", example: "load the knowledge of X", what: "Fills the knowledge base from files and indexes it" },
   { skill: "mail-filters", example: "set up the mail filters of X", what: "Proposes Gmail filter rules from a sample of senders; never changes Gmail" },
   { skill: "project-setup", example: "set up project X", what: "A short interview, one question at a time, that writes project.md" },

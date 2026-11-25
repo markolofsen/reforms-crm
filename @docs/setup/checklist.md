@@ -158,8 +158,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 ## Watch
 
 - [ ] **Each watch list names a lens that loads** (`watch.lens`)
-  - Proves: Every `projects/<slug>/watch.md` reads (a lens name, the on switch, the account, the poll minutes, public group usernames), and its lens at `packages/<lens>/src/index.ts` loads and passes the check (declaration, strict schema, facets). PASS when no project has a watch list.
-  - You: Fix the line the row names: in watch.md, or in the lens package (`packages/<lens>/src/index.ts`). Run `./run.sh doctor --only watch.lens` again; restart the server so the watcher reloads the lens.
+  - Proves: Every `projects/<slug>/watch.md` reads (a lens name, the on switch, the account, the poll minutes, at most 15 public group usernames), and its lens loads and passes the check: `packages/<lens>/lens.json` (version, title, prompt, triggers, keep, window, budget) and `packages/<lens>/src/index.ts` (declaration, strict schema, facets). PASS when no project has a watch list.
+  - You: Fix the line the row names: in watch.md, in the lens's `lens.json`, or in its code (`packages/<lens>/src/index.ts`). Run `./run.sh doctor --only watch.lens` again. The running server takes a fixed watch.md or lens.json within seconds; a change to the lens's code needs a server restart.
 ## Agent
 
 - [ ] **Agent tools (one row per project and CLI)** (`agent.tools`; `hub doctor` only; setup and install never run it)
