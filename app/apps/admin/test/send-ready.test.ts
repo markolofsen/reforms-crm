@@ -37,15 +37,22 @@ describe("Send all ready (3m item 5)", () => {
   });
 
   it("sends the ticked, excludes only what the owner unticked, and posts the proposals by page or inbound row", () => {
-    expect(ticketOf(d, initialTicks(d), true, null)).toEqual({ send: [1, 5], exclude: [], proposals: [{ pageId: "q1", decision: "spam" }, { inbound: 2, decision: "no_reply" }] });
-    expect(ticketOf(d, new Set([5, 3]), false, null)).toEqual({ send: [3, 5], exclude: [1], proposals: [] });
+    expect(ticketOf(d, initialTicks(d), initialTicks(d), true, null)).toEqual({ send: [1, 5], exclude: [], proposals: [{ pageId: "q1", decision: "spam" }, { inbound: 2, decision: "no_reply" }] });
+    expect(ticketOf(d, new Set([5, 3]), initialTicks(d), false, null)).toEqual({ send: [3, 5], exclude: [1], proposals: [] });
+  });
+
+  it("never excludes a row that became ready after the list opened (the owner never unticked it)", () => {
+    const before = review([row(1), row(6, { held: ["Mail is busy"], ticked: false })]);
+    const opened = initialTicks(before);
+    const after = review([row(1), row(6)]);
+    expect(ticketOf(after, opened, opened, false, null)).toEqual({ send: [1], exclude: [], proposals: [] });
   });
 
   it("a selection's Send N limits the click to its drafts and never marks proposals", () => {
-    expect(ticketOf(d, initialTicks(d), true, new Set([5]))).toEqual({ send: [5], exclude: [], proposals: [] });
-    const ctx = { project: "acme", batchId: 7, review: d, ready: 2, open: () => undefined };
-    expect(selectedReady(ctx, [5, 3, 2, 99])).toEqual([5]);
-    expect(selectedReady(null, [5])).toEqual([]);
+    expect(ticketOf(d, initialTicks(d), initialTicks(d), true, new Set([5]))).toEqual({ send: [5], exclude: [], proposals: [] });
+    const ctx = { project: "acme", batchId: 7, waiting: { drafts: 5, proposals: 2 }, open: () => undefined };
+    expect(selectedReady(ctx, [{ id: 5, batchId: 7 }, { id: 3, batchId: 7 }, { id: 99, batchId: 4 }, { id: 98, batchId: null }])).toEqual([5, 3]);
+    expect(selectedReady(null, [{ id: 5, batchId: 7 }])).toEqual([]);
   });
 
   it("says the proposals as one line", () => {

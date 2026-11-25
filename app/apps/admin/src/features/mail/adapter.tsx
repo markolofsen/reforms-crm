@@ -192,7 +192,7 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
   const line = headerOf(counts, brands);
   // P147 3m item 5: the picked replies in today's list; Send N opens the same sheet with only them.
   const ready = useSendReady();
-  const readyPicked = selectedReady(ready, sel.drafts.map((d) => d.id));
+  const readyPicked = selectedReady(ready, sel.drafts);
   const sendPicked = ready && readyPicked.length > 0 ? { count: readyPicked.length, onSend: () => (ready.open(readyPicked), sel.clear()) } : undefined;
   const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped"), send: sendPicked };
   const channel: Channel = {

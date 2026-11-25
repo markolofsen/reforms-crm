@@ -68,11 +68,12 @@ export const initialTicks = (d: Pick<LeadReviewDto, "rows">): Set<number> => new
 
 /**
  * The click's body: the ticked sendable rows go, the ones the owner unticked (they opened ticked) are left out of today, and the
- * proposals when their line is ticked. `only` (a list selection) limits all of it to those drafts and never touches proposals.
+ * proposals when their line is ticked. `opened` is the ticks the list opened with, kept from that moment: a row that became ready
+ * later (the pass still drafting, Mail busy then readable) was never unticked by the owner and is never excluded. `only` (a list
+ * selection) limits all of it to those drafts and never touches proposals.
  */
-export function ticketOf(d: LeadReviewDto, ticks: ReadonlySet<number>, alsoMark: boolean, only: ReadonlySet<number> | null): LeadReviewTicketBody {
+export function ticketOf(d: LeadReviewDto, ticks: ReadonlySet<number>, opened: ReadonlySet<number>, alsoMark: boolean, only: ReadonlySet<number> | null): LeadReviewTicketBody {
   const shown = d.rows.filter((r) => canSend(r) && (only === null || only.has(r.draftId)));
-  const opened = initialTicks(d);
   return {
     send: shown.filter((r) => ticks.has(r.draftId)).map((r) => r.draftId),
     exclude: shown.filter((r) => !ticks.has(r.draftId) && opened.has(r.draftId)).map((r) => r.draftId),
@@ -115,7 +116,8 @@ type ListProps = { project: string; d: LeadReviewDto; only?: ReadonlySet<number>
 
 /** The list itself, in the sheet or on the review page. */
 export function ReadyList({ project, d, only = null, onSent }: ListProps) {
-  const [ticks, setTicks] = useState(() => initialTicks(d));
+  const [opened] = useState(() => initialTicks(d));
+  const [ticks, setTicks] = useState<ReadonlySet<number>>(opened);
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
   const [alsoMark, setAlsoMark] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export function ReadyList({ project, d, only = null, onSent }: ListProps) {
   const fill = useFillMarker(project, d.batchId, { onDone: (id) => (setTicks((t) => flip(t, id, true)), setError(null)), onError: (e) => setError(sentence(e)) });
   const rows = only === null ? d.rows : d.rows.filter((r) => only.has(r.draftId));
   const { needs, ready, newSenders } = groupRows(rows);
-  const body = ticketOf(d, ticks, alsoMark, only);
+  const body = ticketOf(d, ticks, opened, alsoMark, only);
   const showProposals = only === null && d.proposals.length > 0;
 
   const rowView = (row: Row) => {

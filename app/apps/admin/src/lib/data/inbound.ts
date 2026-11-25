@@ -120,8 +120,11 @@ export function useRedoLead(project: string, pageId: string, on: { onError: (e: 
   return useCommand({ project, touches: INBOX, run: (_: void) => leadPassApi.redo(project, pageId), onSuccess: () => void qc.invalidateQueries({ queryKey: keys.lead(project, pageId) }), onError: on.onError });
 }
 
-/** The review of the day's lead batch: each draft's full text read from Mail now (the server keeps the hash it showed). */
-export const useLeadReview = (project: string, batchId: number | null) => useQuery({ queryKey: keys.leadReview(project, batchId ?? 0), queryFn: () => leadPassApi.review(project, batchId ?? 0), staleTime: 0, enabled: batchId !== null && batchId > 0 });
+/**
+ * The review of the day's lead batch: each draft's full text read from Mail now (the server keeps the hash it showed). Mounted
+ * only by the open sheet and the review page; no read on window focus, since each read asks Mail for every draft.
+ */
+export const useLeadReview = (project: string, batchId: number | null) => useQuery({ queryKey: keys.leadReview(project, batchId ?? 0), queryFn: () => leadPassApi.review(project, batchId ?? 0), staleTime: 0, refetchOnWindowFocus: false, enabled: batchId !== null && batchId > 0 });
 
 /**
  * 3i P2: the owner's answer to one `[Owner: …]` placeholder of a review draft. The draft's text is read from Mail now, the marker is
