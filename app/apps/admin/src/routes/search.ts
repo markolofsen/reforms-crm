@@ -3,6 +3,7 @@ import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } f
 import { keyText, parseClientKey } from "@hub/contract/client-key";
 import { LEAD_VIEWS, type LeadView } from "@hub/contract/inbound";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
+import { WATCH_VIEWS, type WatchView } from "@hub/contract/watch";
 import { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView } from "@hub/contract/messenger-panel";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
@@ -126,6 +127,12 @@ export const AGENT_SEARCH = { filter: view(AGENT_VIEWS, "attention") } as const;
  * default, Linked, Not linked, Hidden) and its channel (All, the default, Telegram, WhatsApp); the enums the API validates.
  */
 export const MESSENGERS_SEARCH = { filter: view(MESSENGER_VIEWS, "needs_you"), link: view(MESSENGER_LINK_FILTERS, "any"), channel: view(MESSENGER_CHANNEL_FILTERS, "all"), q: text } as const;
+
+/** P144: Watch's view (Triggers, the default; Topics, Moments, People, Groups, Trend), its period in days, a trigger and a group (`moments` narrows to them). */
+export const WATCH_DAYS = ["7", "30", "90"] as const;
+const name: SearchKeySpec<string> = { read: (v) => (v !== undefined && /^[a-z0-9_]{1,64}$/.test(v) ? v : ""), fallback: "" };
+export const WATCH_SEARCH = { view: view(WATCH_VIEWS, "triggers"), days: view(WATCH_DAYS, "30"), trigger: name, group: name } as const;
+export { WATCH_VIEWS, type WatchView };
 
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
 export { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView };

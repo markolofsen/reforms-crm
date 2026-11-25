@@ -29,6 +29,7 @@ import type { LiveService } from "../live/live";
 import type { TerminalService } from "../terminal/terminal";
 import type { OverviewService } from "../overview/overview";
 import type { SchemeSources } from "../overview/scheme";
+import type { WatchDomain } from "../watch/start";
 
 /** The Mailer behind Send, and which one it is (the fake only with a throwaway `HUB_DB`). */
 export type RuntimeSender = SenderOptions & { kind: "mail-app" | "fake" };
@@ -95,6 +96,8 @@ export type Runtime = {
   live?: LiveService;
   terminal?: TerminalService;
   overview?: { service?: OverviewService; scheme?: Partial<SchemeSources> };
+  /** P144: the public-chat watcher; absent in tests that do not wire it (its routes answer 404). */
+  watch?: WatchDomain;
   /** P101: an injected read-only Notion reader for Quick Links. */
   projectLinks?: { reader?: NotionReader };
 };

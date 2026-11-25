@@ -77,10 +77,13 @@ export function createLlm(deps: LlmDeps): Llm {
   function run<S extends z.ZodType>(task: Task<S, ObjectShape>, call: ObjectCall): Promise<RunResult<z.output<S>>>;
   function run<S extends z.ZodType, I>(task: Task<S, BatchShape>, call: BatchCall<I>): Promise<Array<BatchItem<z.output<S>>>>;
   function run<S extends z.ZodType>(task: Task<S, WindowShape>, call: WindowCall): Promise<Array<WindowResult<z.output<S>>>>;
-  function run<S extends z.ZodType, I>(task: Task<S, Shape>, call: ObjectCall | BatchCall<I> | WindowCall): Promise<unknown> {
+  function run<S extends z.ZodType>(task: Task<S, Shape>, call: ObjectCall | BatchCall<unknown> | WindowCall): Promise<unknown> {
     if (isTask(task, "object") && "input" in call) return runObject(task, call, callDeps, task.shape.maxTokens ?? 1024);
-    if (isTask(task, "batch") && "items" in call) return runBatchTask(task, call, callDeps);
-    if (isTask(task, "window") && "items" in call) return runWindowTask(task, { ...call, items: call.items.filter(isWindowItem) }, callDeps);
+    if (isTask(task, "batch") && "items" in call) return runBatchTask<S, unknown>(task, call, callDeps);
+    if (isTask(task, "window") && "items" in call) {
+      const items: readonly unknown[] = call.items;
+      return runWindowTask(task, { ...call, items: items.filter(isWindowItem) }, callDeps);
+    }
     return Promise.reject(new Error(`task ${task.name}: the call does not match its ${task.shape.kind} shape`));
   }
 

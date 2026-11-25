@@ -17,6 +17,7 @@ import { sendRoutes } from "./send/sends-routes";
 import { liveRoutes } from "./live/routes";
 import { terminalRoutes } from "./terminal/routes";
 import { localRoutes } from "./local/routes";
+import { watchRoutes } from "./watch/routes";
 
 /** The wire code of a kind (`@hub/contract/errors`): the kind itself, except a failed upstream service, which the wire calls `server`. */
 const wireCode = (kind: ErrorKind): ApiErrorCode => (kind === "upstream" ? "server" : kind);
@@ -61,5 +62,6 @@ export function createApp(rt: Runtime) {
     .route("/", agent(ctx.agent))
     .route("/", terminalRoutes(ctx.terminal))
     .route("/", localRoutes(ctx.local))
-    .route("/", messengers(ctx.messengers));
+    .route("/", messengers(ctx.messengers))
+    .route("/", watchRoutes(ctx.watch));
 }

@@ -60,6 +60,9 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
   return r;
 }
 
+/** The watcher's database files (P144), one per project, by name. */
+const watchDbs = (ctx: Ctx): string[] => (existsSync(ctx.paths.watch) ? readdirSync(ctx.paths.watch).filter((f) => /^[a-z0-9][a-z0-9-]*\.db$/.test(f)).sort() : []);
+
 async function snapshot(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
   let t: Target;
   try { t = resolveTarget(ctx); } catch (e) { if (e instanceof BackupError) return { ok: false, lines: [e.message] }; throw e; }
@@ -81,6 +84,7 @@ async function snapshot(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
   if (!opts.apply) {
     lines.push(`dry run: nothing is written (add --apply)`, `snapshot folder: ${final}`);
     lines.push(existsSync(ctx.paths.db) ? `- data/app.db: VACUUM INTO copy, then integrity_check (${kb(statSync(ctx.paths.db).size)} live)` : "- data/app.db: does not exist yet, skipped");
+    for (const f of watchDbs(ctx)) lines.push(`- data/watch/${f}: VACUUM INTO copy, then integrity_check (P144: the watcher's own file)`);
     lines.push(existsSync(ctx.paths.configFile) ? "- config/config.json: copied" : "- config/config.json: does not exist, skipped");
     if (!projects.length) lines.push("- notion: no project lists databases, nothing to copy");
     for (const p of projects) {
@@ -108,6 +112,13 @@ async function snapshot(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
       dbCounts = { tables: c.tables, rows: c.rows };
       lines.push(`data/app.db: copied (${kb(c.bytes)}), integrity_check ok, ${c.tables} tables, ${c.rows} rows`);
     } else lines.push("data/app.db: does not exist yet, skipped");
+    // P144 (verdict 12): each project's watch file (data/watch/<slug>.db) beside app.db, copied the same way.
+    for (const f of watchDbs(ctx)) {
+      mkdirSync(path.join(stage, "data", "watch"), { recursive: true });
+      const c = copyAndVerify(path.join(ctx.paths.watch, f), path.join(stage, "data", "watch"), f);
+      if (c.integrity !== "ok") throw new BackupError(`the copy of data/watch/${f} fails its integrity check (${c.integrity.slice(0, 120)}): no snapshot made`);
+      lines.push(`data/watch/${f}: copied (${kb(c.bytes)}), integrity_check ok, ${c.tables} tables, ${c.rows} rows`);
+    }
     if (existsSync(ctx.paths.configFile)) {
       const dest = path.join(stage, CONFIG_IN_SNAPSHOT);
       mkdirSync(path.dirname(dest));

@@ -1,5 +1,5 @@
 import type { Route } from "next";
-import { AGENT_SEARCH, clientKeyParam, KNOWLEDGE_SEARCH, LEADS_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
+import { AGENT_SEARCH, clientKeyParam, KNOWLEDGE_SEARCH, LEADS_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, WATCH_SEARCH, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
 
 // `/mail/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
 // dynamic page) can judge it (decision 0021). P127 A2 (owner remark 2026-11-23): there is ONE route tree. A scoped row's page
@@ -89,10 +89,14 @@ export const ROUTE_TABLE = {
   // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
   "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", search: MESSENGERS_SEARCH, nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
   "messengers.conversation": defineRoute("/messengers/c/[id]", { section: "messengers", scoped: true, title: "Chats", crumb: "Conversation", params: { id: positiveId }, search: MESSENGERS_SEARCH }),
-  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", search: LOG_SEARCH, nav: { label: "Activity", icon: "activity", order: 3, chord: "a", phone: "bar" } }),
-  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", search: KNOWLEDGE_SEARCH, nav: { label: "Knowledge", icon: "knowledge", order: 4, chord: "k", phone: "more" } }),
+  // P144 (decision 0052, plan verdict 14, the rule 8a reason): what public groups talk about. Not Messengers: those rows are
+  // clients with Reply and drafts, a public group's people are not clients and have no reply path. The nav shows it only when a
+  // project of the instance watches public groups (`GET /api/watch`); the row itself is on every instance, like every row.
+  "watch.page": defineRoute("/watch", { section: "watch", scoped: true, title: "Watch", search: WATCH_SEARCH, nav: { label: "Watch", icon: "watch", order: 3, chord: "w", phone: "more" } }),
+  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", search: LOG_SEARCH, nav: { label: "Activity", icon: "activity", order: 4, chord: "a", phone: "bar" } }),
+  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", search: KNOWLEDGE_SEARCH, nav: { label: "Knowledge", icon: "knowledge", order: 5, chord: "k", phone: "more" } }),
   // P70: Settings opens on its first pane, Sending (the row's title); the nav names the section, the sub-nav the pane.
-  "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 5, chord: "s", phone: "bar" } }),
+  "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 6, chord: "s", phone: "bar" } }),
   // P75: the checks before sending are their own pane, next to Sending (guards on each draft, a different kind of setting).
   "settings.checks": defineRoute("/settings/checks", { section: "settings", scoped: true, title: "Checks", nav: { label: "Checks", icon: "checks", order: 1, parent: "settings.page" } }),
   "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 2, parent: "settings.page" } }),
@@ -101,7 +105,7 @@ export const ROUTE_TABLE = {
   "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", search: AGENT_SEARCH, nav: { label: "Agent", icon: "agents", order: 4, parent: "settings.page" } }),
   "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 5, parent: "settings.page" } }),
   "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 6, parent: "settings.page" } }),
-  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 6, chord: "h", phone: "more" } }),
+  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 7, chord: "h", phone: "more" } }),
 } as const;
 
 export type RouteId = keyof typeof ROUTE_TABLE;

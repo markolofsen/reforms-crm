@@ -6,6 +6,7 @@ import { childrenOf, SECTIONS, type IconKey, type SectionId } from "@/routes/sec
 import { ROUTE_TABLE } from "@/routes/table";
 import type { RouteId } from "@/routes/table";
 import { useHotkeys, type KeyMap } from "@hub/ui/use-hotkey";
+import { useWatchProjects } from "@/lib/data/watch";
 import { shortcutsOn } from "./use-shortcuts";
 import { useGo } from "./use-go";
 import { useRoute } from "./use-route";
@@ -27,7 +28,11 @@ function pagesOf(landing: RouteId, id: SectionId, current: string): NavChild[] {
 
 const CHORD_HELP = SECTIONS.map((s) => [`${s.chord[0]} ${s.chord[1]}`.toUpperCase(), `go to ${s.title}`] as const);
 
-/** The sections for the shell (every instance has every one, P63), with their destination, their child pages, which one is current, and the `g` chords. */
+/**
+ * The sections for the shell (every instance has every one, P63), with their destination, their child pages, which one is current, and the `g` chords.
+ * P144: Watch is drawn only while a project of the instance watches public groups (`GET /api/watch`), or while it is on screen;
+ * its chord stays, and the page says what is missing.
+ */
 export function useSectionNav(): NavItem[] {
   const route = useRoute();
   const go = useGo();
@@ -36,7 +41,8 @@ export function useSectionNav(): NavItem[] {
     [go],
   );
   useHotkeys(keys, shortcutsOn, CHORD_HELP, { capture: true });
-  return SECTIONS.map((s) => ({
+  const watching = (useWatchProjects().data?.projects.length ?? 0) > 0;
+  return SECTIONS.filter((s) => s.id !== "watch" || watching || route.section === "watch").map((s) => ({
     id: s.id,
     route: s.route,
     title: s.title,

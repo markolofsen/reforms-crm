@@ -6,3 +6,4 @@ export * from './messengers/messengers';
 export * from './meta/meta';
 export * from './sending/sending';
 export * from './terminal/terminal';
+export * from './watch/watch';

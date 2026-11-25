@@ -96,16 +96,17 @@ const indexOf = (v: unknown, size: number): number | null => (typeof v === "numb
 
 /** The list's entries with `[n]` mapped to ids; entries whose speaker index is outside the window are dropped. */
 export function mapEntries(value: unknown, shape: WindowShape, ids: readonly string[]): WindowEntry[] {
-  const list = isRecord(value) && Array.isArray(value[shape.list]) ? value[shape.list] : [];
+  const raw: unknown = isRecord(value) ? value[shape.list] : undefined;
+  const list: readonly unknown[] = Array.isArray(raw) ? raw : [];
   const out: WindowEntry[] = [];
-  for (const raw of list) {
-    if (!isRecord(raw)) continue;
-    const n = indexOf(raw[shape.index], ids.length);
+  for (const entry of list) {
+    if (!isRecord(entry)) continue;
+    const n = indexOf(entry[shape.index], ids.length);
     const itemId = n === null ? undefined : ids[n - 1];
     if (n === null || itemId === undefined) continue;
     const refs: Record<string, string[]> = {};
     for (const f of shape.refs ?? []) {
-      const got = Array.isArray(raw[f]) ? raw[f] : [];
+      const got = Array.isArray(entry[f]) ? entry[f] : [];
       const mapped = got.flatMap((v: unknown) => {
         const k = indexOf(v, ids.length);
         const id = k === null || k === n ? undefined : ids[k - 1];
@@ -113,7 +114,7 @@ export function mapEntries(value: unknown, shape: WindowShape, ids: readonly str
       });
       refs[f] = [...new Set(mapped)];
     }
-    out.push({ entry: raw, itemId, refs });
+    out.push({ entry, itemId, refs });
   }
   return out;
 }

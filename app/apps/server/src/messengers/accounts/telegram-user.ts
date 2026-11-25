@@ -17,6 +17,7 @@ import {
   sessionAccounts,
   sessionsDir,
   type MtClient,
+  type MtPublic,
   type MtLoginClient,
   type LoginCredentials,
   type DialogIdentity,
@@ -84,7 +85,24 @@ interface Slot {
   st: TelegramUserAccountDto;
   ac: AbortController;
   adapter: TelegramUserSendingAdapter | null;
+  /** P144: the connection's public reads for the watcher, while it is connected. */
+  public: MtPublic | null;
+  /** P144: the owner's own calls on this connection in flight (polls, read-throughs, sends): the watcher waits while any is. */
+  busy: number;
   done: Promise<void>;
+}
+
+/** The client with every owner call counted in `slot.busy` (P144 verdict 11: the owner's work goes first). `listen` is the updates loop, not a call. */
+function counted(client: MtClient, slot: Slot): MtClient {
+  const track = <A extends unknown[], R>(f: (...a: A) => Promise<R>) => async (...a: A): Promise<R> => {
+    slot.busy += 1;
+    try {
+      return await f(...a);
+    } finally {
+      slot.busy -= 1;
+    }
+  };
+  return { ...client, dialogs: track(client.dialogs.bind(client)), history: track(client.history.bind(client)), sendText: track(client.sendText.bind(client)), typing: track(client.typing.bind(client)) };
 }
 
 export interface TelegramUserHandle {
@@ -107,6 +125,12 @@ export interface TelegramUserHandle {
   login: LoginFlows;
   /** Stops the account's connection and removes its session folder. */
   disconnect(account: string): Promise<boolean>;
+  /** P144: the watcher's public reads over a running account's connection, or undefined while it is not running. */
+  publicClient(account: string): MtPublic | undefined;
+  /** P144: whether the owner's own Telegram work is in flight on the account. */
+  ownerBusy(account: string): boolean;
+  /** The running accounts' ids (the watcher's `account: default` picks the first). */
+  accounts(): string[];
   stop(): Promise<void>;
 }
 
@@ -135,7 +159,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
   async function open(account: string, p: string): Promise<void> {
     const st = blank(account);
     const ac = new AbortController();
-    const slot: Slot = { st, ac, adapter: null, done: Promise.resolve() };
+    const slot: Slot = { st, ac, adapter: null, public: null, busy: 0, done: Promise.resolve() };
     slots.set(account, slot);
     const parked = parkedOf((await o.repos.messengers.account(p, CHANNEL, account))?.lastError);
     if (parked) return void park(st, parked);
@@ -166,9 +190,10 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
       let client: MtClient | null = null;
       try {
         client = (await clientsNow()).session(read.session);
+        slot.public = client.public ?? null;
         // Decision 0049 (P141 U1): a private chat that writes becomes known unless the owner hid it; its cache keeps 30 days, since
         // opening the chat reads it through from Telegram.
-        const adapter = createTelegramUserAdapter({ client, account, knownChats: () => knownChats(p), cacheUnlinked: true, cacheDays: CACHE_DAYS, ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}) });
+        const adapter = createTelegramUserAdapter({ client: counted(client, slot), account, knownChats: () => knownChats(p), cacheUnlinked: true, cacheDays: CACHE_DAYS, ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}) });
         slot.adapter = adapter;
         await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now, retentionDays: CACHE_DAYS, cache: { channel: CHANNEL, hidden: isHidden } });
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";
@@ -180,6 +205,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
         }
       } finally {
         slot.adapter = null;
+        slot.public = null;
         await client?.close().catch(() => undefined);
       }
     })();
@@ -263,6 +289,9 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
       await close(account);
       return removeSession(dir, CHANNEL, account);
     },
+    publicClient: (account) => (live(account) ? (slots.get(account)?.public ?? undefined) : undefined),
+    ownerBusy: (account) => (slots.get(account)?.busy ?? 0) > 0,
+    accounts: () => [...slots.entries()].filter(([, s]) => s.st.state === "running").map(([a]) => a),
     async stop() {
       await login.closeAll();
       for (const a of [...slots.keys()]) await close(a);

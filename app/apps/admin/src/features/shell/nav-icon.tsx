@@ -1,4 +1,4 @@
-import { ActivityIcon, BookOpenIcon, BotIcon, CircleHelpIcon, InboxIcon, LaptopIcon, LayoutDashboardIcon, ListChecksIcon, MailIcon, MessagesSquareIcon, PlugIcon, SettingsIcon, type LucideIcon } from "lucide-react";
+import { ActivityIcon, BookOpenIcon, BotIcon, CircleHelpIcon, InboxIcon, LaptopIcon, LayoutDashboardIcon, ListChecksIcon, MailIcon, MessagesSquareIcon, PlugIcon, RadarIcon, SettingsIcon, type LucideIcon } from "lucide-react";
 import { createElement } from "react";
 import type { IconKey } from "@/routes/sections";
 
@@ -16,6 +16,7 @@ const ICONS: Record<IconKey, LucideIcon> = {
   connections: PlugIcon,
   help: CircleHelpIcon,
   messengers: MessagesSquareIcon,
+  watch: RadarIcon,
 };
 
 export function NavIcon({ name }: { name: IconKey }) {

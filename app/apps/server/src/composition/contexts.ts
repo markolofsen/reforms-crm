@@ -14,6 +14,7 @@ import type { OverviewContext } from "../overview/context";
 import type { LiveContext } from "../live/context";
 import type { TerminalContext } from "../terminal/context";
 import type { LocalContext } from "../local/context";
+import type { WatchContext } from "../watch/context";
 import { INBOUND_OFF } from "../mail/inbound";
 import { SENT_OFF } from "../mail/sent";
 import { OFF } from "../messengers/bot";
@@ -39,6 +40,7 @@ export type Contexts = {
   terminal: TerminalContext;
   local: LocalContext;
   messengers: MessengersContext;
+  watch: WatchContext;
 };
 
 const optional = <K extends string, V>(key: K, value: V | undefined): Partial<Record<K, V>> => (value === undefined ? {} : ({ [key]: value } as Record<K, V>));
@@ -129,5 +131,6 @@ export function contexts(rt: Runtime): Contexts {
       ...optional("agentToken", sender?.agent?.token),
       ...optional("autopilot", rt.messengers.autopilot),
     },
+    watch: { adminPort, now, monthCost: (task: string) => repos.llmCalls.monthCost({ task }, now()), ...optional("domain", rt.watch) },
   };
 }

@@ -68,6 +68,8 @@ from the CLIs' own hooks. It records and never decides. `hub log` reads it; the 
 and gives each one agent turn, which nudges with a draft, waits until a date, stops or hands the client to the owner, and notes it on
 Activity ▸ Follow-ups and the client's Notion page. Mail nudges stay drafts; only an autopilot chat may send one: [core/30-follow-ups.md](core/30-follow-ups.md).
 
+**Public group watch.** Watch reads public Telegram groups a project lists, with a lens the instance supplies, and shows what they talk about; it never posts or contacts anyone: [core/31-watch.md](core/31-watch.md).
+
 **After a restart of the Mac.** One LaunchAgent per instance runs `./run.sh up --service` at login, set up by `./run.sh setup` and switched
 on Settings ▸ This Mac. It starts the server and the admin only: no agent session starts and no browser opens until the owner opens them:
 [core/08-local-app-stack.md](core/08-local-app-stack.md).

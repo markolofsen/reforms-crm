@@ -29,6 +29,7 @@ export const GENERATED_OPERATIONS = {
   send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "getLeadReview", "confirmLeadReview", "listSends", "cancelSend", "stopSends", "resumeSends"],
   agent: ["getAgentFeed", "getAgentTools", "refreshAgentTools", "postFocus", "getPointer"],
   terminal: ["getTerminal", "createTerminalSession", "ensureTerminalSession", "dropTerminalFiles", "closeTerminalSession", "createTerminalTicket"],
+  watch: ["listWatchProjects", "getWatch", "joinWatchGroup"],
 } as const;
 
 export type GeneratedOperation = (typeof GENERATED_OPERATIONS)[keyof typeof GENERATED_OPERATIONS][number];
@@ -51,6 +52,8 @@ export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
   "lib/api/messengers/autopilot.ts": ["createAutopilotTicket", "setAutopilot", "setProjectAutopilot"],
   "lib/api/instance.ts": ["openLocal"],
   "lib/api/terminal.ts": ["createTerminalTicket", "postFocus"],
+  // P144: Join asks Telegram to add the owner's account to one public group, on his click only.
+  "lib/api/watch.ts": ["joinWatchGroup"],
 };
 
 export const generatedOperations = (): readonly GeneratedOperation[] => Object.values(GENERATED_OPERATIONS).flat();

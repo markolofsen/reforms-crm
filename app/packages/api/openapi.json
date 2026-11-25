@@ -6931,6 +6931,157 @@
           }
         }
       }
+    },
+    "/api/watch": {
+      "get": {
+        "operationId": "listWatchProjects",
+        "summary": "List the projects that watch public groups",
+        "tags": [
+          "watch"
+        ],
+        "responses": {
+          "200": {
+            "description": "List the projects that watch public groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchProjects"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/watch": {
+      "get": {
+        "operationId": "getWatch",
+        "summary": "Read one project's Watch page: triggers, topics, moments, people, groups, trend",
+        "tags": [
+          "watch"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 180
+            }
+          },
+          {
+            "name": "trigger",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "minIntensity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read one project's Watch page: triggers, topics, moments, people, groups, trend",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Watch"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/watch/groups/{username}/join": {
+      "post": {
+        "operationId": "joinWatchGroup",
+        "summary": "Join one watched group that must be joined to be read (the owner's word)",
+        "tags": [
+          "watch"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{3,31}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Join one watched group that must be joined to be read (the owner's word)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchJoin"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20732,11 +20883,27 @@
                   "string",
                   "null"
                 ]
+              },
+              "keySource": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "env",
+                      "machine",
+                      "instance"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
               "state",
-              "fix"
+              "fix",
+              "keySource"
             ],
             "additionalProperties": false
           }
@@ -24876,6 +25043,516 @@
         "required": [
           "ok",
           "opened"
+        ],
+        "additionalProperties": false
+      },
+      "WatchProjects": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "lens": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "standing": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "invalid",
+                        "lens",
+                        "off",
+                        "no_account",
+                        "parked",
+                        "polling"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "until": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "reason",
+                    "until"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "slug",
+                "lens",
+                "standing"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "projects"
+        ],
+        "additionalProperties": false
+      },
+      "Watch": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "lens": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standing": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "invalid",
+                  "lens",
+                  "off",
+                  "no_account",
+                  "parked",
+                  "polling"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "until": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "state",
+              "reason",
+              "until"
+            ],
+            "additionalProperties": false
+          },
+          "labels": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "days": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "spend": {
+            "type": "object",
+            "properties": {
+              "monthMicroUsd": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "budgetMicroUsd": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "monthMicroUsd",
+              "budgetMicroUsd"
+            ],
+            "additionalProperties": false
+          },
+          "nextAnalysis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trigger": {
+                  "type": "string"
+                },
+                "triggerOther": {
+                  "type": "string"
+                },
+                "moments": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "avgIntensity": {
+                  "type": "number"
+                },
+                "strong": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "daily": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                }
+              },
+              "required": [
+                "trigger",
+                "triggerOther",
+                "moments",
+                "avgIntensity",
+                "strong",
+                "daily"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "topic": {
+                  "type": "string"
+                },
+                "windows": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "topic",
+                "windows"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "moods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group": {
+                  "type": "string"
+                },
+                "mood": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "group",
+                "mood"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "moments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group": {
+                  "type": "string"
+                },
+                "messageId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "trigger": {
+                  "type": "string"
+                },
+                "triggerOther": {
+                  "type": "string"
+                },
+                "intensity": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reactors": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "context": {
+                  "type": "string"
+                },
+                "why": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "group",
+                "messageId",
+                "trigger",
+                "triggerOther",
+                "intensity",
+                "quote",
+                "author",
+                "reactors",
+                "context",
+                "why",
+                "at",
+                "link"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "author": {
+                  "type": "string"
+                },
+                "moments": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "intensitySum": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "triggers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "lastAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "author",
+                "moments",
+                "intensitySum",
+                "triggers",
+                "groups",
+                "lastAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "username": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "access": {
+                  "type": "string",
+                  "enum": [
+                    "unknown",
+                    "open",
+                    "join_required",
+                    "pending",
+                    "joined",
+                    "refused"
+                  ]
+                },
+                "accessLine": {
+                  "type": "string"
+                },
+                "perDay": {
+                  "type": "number"
+                },
+                "density": {
+                  "type": "number"
+                },
+                "moments": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "costMicroUsd": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "lastPolledAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "canJoin": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "username",
+                "title",
+                "access",
+                "accessLine",
+                "perDay",
+                "density",
+                "moments",
+                "costMicroUsd",
+                "lastPolledAt",
+                "canJoin"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "trend": {
+            "type": "object",
+            "properties": {
+              "days": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "series": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "trigger": {
+                      "type": "string"
+                    },
+                    "counts": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    }
+                  },
+                  "required": [
+                    "trigger",
+                    "counts"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "days",
+              "series"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "slug",
+          "lens",
+          "standing",
+          "labels",
+          "days",
+          "spend",
+          "nextAnalysis",
+          "triggers",
+          "topics",
+          "moods",
+          "moments",
+          "people",
+          "groups",
+          "trend"
+        ],
+        "additionalProperties": false
+      },
+      "WatchJoin": {
+        "type": "object",
+        "properties": {
+          "access": {
+            "type": "string",
+            "enum": [
+              "joined",
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "access"
         ],
         "additionalProperties": false
       }

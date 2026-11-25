@@ -335,6 +335,9 @@ importers:
       '@hub/terminal':
         specifier: workspace:*
         version: link:../../packages/terminal
+      '@hub/watch':
+        specifier: workspace:*
+        version: link:../../packages/watch
       commander:
         specifier: 15.1.0
         version: 15.1.0
@@ -420,6 +423,9 @@ importers:
       '@hub/terminal':
         specifier: workspace:*
         version: link:../../packages/terminal
+      '@hub/watch':
+        specifier: workspace:*
+        version: link:../../packages/watch
       hono:
         specifier: 4.13.18
         version: 4.13.18
@@ -1115,6 +1121,40 @@ importers:
       typescript-eslint:
         specifier: 'catalog:'
         version: 8.72.2(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@22.20.5)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/watch:
+    dependencies:
+      '@hub/config':
+        specifier: workspace:*
+        version: link:../config
+      '@hub/contract':
+        specifier: workspace:*
+        version: link:../contract
+      '@hub/db':
+        specifier: workspace:*
+        version: link:../db
+      '@hub/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../log
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      eslint:
+        specifier: 'catalog:'
+        version: 10.15.0(jiti@2.7.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@22.20.5)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))

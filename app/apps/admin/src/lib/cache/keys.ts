@@ -93,6 +93,9 @@ export const keys = {
   /** P147: the lead pass line and the day's review (under `inbound`: the inbox, drafts and sends topics read them again). */
   leadPass: (project: string) => ["inbound", project, "lead-pass"] as const,
   /** The review of one batch; `read` tells the stored first paint and a selection's read apart (a prefix of the batch's key). */
+  /** P144: the projects that watch public groups (the nav shows Watch only when one does), and one project's Watch page. */
+  watchProjects: () => ["watch"] as const,
+  watch: (project: string, days: number, trigger: string | null, group: string | null) => ["watch", project, days, trigger, group] as const,
   leadReview: (project: string, batchId: number, read?: string) => (read === undefined ? (["inbound", project, "lead-review", batchId] as const) : (["inbound", project, "lead-review", batchId, read] as const)),
 };
 
@@ -126,6 +129,7 @@ const scheme = () => keys.scheme();
 const draftMail = of("draft-mail");
 const conversationMail = of("conversation-mail");
 const conversationText = of("conversation-text");
+const watch = of("watch");
 
 /**
  * What each live topic invalidates (P50). `tsc` fails when a topic is added without its keys. Only `mail` names a Mail key
@@ -156,4 +160,6 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   core: () => [keys.core(), scheme()],
   pointer: () => [keys.pointer()],
   "ops-log": () => [keys.opsErrors(), keys.opsLines()],
+  // P144: the watcher stored messages or moments, or a group's access changed; the list of watching projects rides along.
+  watch: (p) => [watch(p), keys.watchProjects()],
 };

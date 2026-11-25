@@ -119,10 +119,10 @@ describe("paths and places", () => {
     expect(roundTrip(dest("mail.list"), { project: "demo shop", multi: true }).project).toBe("demo shop");
   });
 
-  it("every section has a list destination that resolves to that section; every instance has every section (P70: six parents; P71 M3: Messengers)", () => {
+  it("every section has a list destination that resolves to that section; every instance has every section (P70: six parents; P71 M3: Messengers; P144: Watch, drawn only while a project watches)", () => {
     for (const s of SECTIONS) expect(roundTrip(sectionList(s.id), MANY).section).toBe(s.id);
-    expect(SECTIONS.map((s) => s.id)).toEqual(["overview", "mail", "messengers", "log", "knowledge", "settings", "help"]);
-    expect(SECTIONS.map((s) => s.chord[1])).toEqual(["o", "e", "m", "a", "k", "s", "h"]);
+    expect(SECTIONS.map((s) => s.id)).toEqual(["overview", "mail", "messengers", "watch", "log", "knowledge", "settings", "help"]);
+    expect(SECTIONS.map((s) => s.chord[1])).toEqual(["o", "e", "m", "w", "a", "k", "s", "h"]);
     expect(SECTIONS.filter((s) => s.phone === "bar").map((s) => s.id)).toEqual(["overview", "mail", "log", "settings"]);
   });
 

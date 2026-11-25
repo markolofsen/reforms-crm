@@ -155,6 +155,11 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **Each public lead form answers (one row per form)** (`leads.forms`)
   - Proves: GET only: the page answers 200; a static form carries its listed fields; the page or its own scripts reference the endpoint; the page's CSP lets a script reach it; Turnstile, when configured, is on the page with its sitekey and allowed by the CSP; the endpoint answers a GET with no 404 or 5xx. Silence (`silence.source` `notion-leads` or `mailbox`, read only): a lead arrived within `silence.days` (or max(14, 3 x the median gap of the last 90 days)), else a WARN, never a FAIL. With `--canary`: the signed canary is stored, a recipient resolves and the route is configured (`{stored, recipient_ok, route_ok}`); a handler without canary support is a WARN and gets no POST. Each request 5 s with one retry on a network failure, a form at most 25 s, all forms at once; the row shows the form's own time.
   - You: Read the row: it names the first thing that failed (page, field, endpoint reference, CSP, Turnstile, endpoint route, canary). Fix it in the site that owns the form, deploy, and run `hub doctor --only Leads` again (`--canary` before you report done).
+## Watch
+
+- [ ] **Each watch list names a lens that loads** (`watch.lens`)
+  - Proves: Every `projects/<slug>/watch.md` reads (a lens name, the on switch, the account, the poll minutes, public group usernames), and its lens at `packages/<lens>/src/index.ts` loads and passes the check (declaration, strict schema, facets). PASS when no project has a watch list.
+  - You: Fix the line the row names: in watch.md, or in the lens package (`packages/<lens>/src/index.ts`). Run `./run.sh doctor --only watch.lens` again; restart the server so the watcher reloads the lens.
 ## Agent
 
 - [ ] **Agent tools (one row per project and CLI)** (`agent.tools`; `hub doctor` only; setup and install never run it)

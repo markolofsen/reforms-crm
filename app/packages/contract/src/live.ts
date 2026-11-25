@@ -13,7 +13,7 @@ import { z } from "zod";
  * `pointer` (P72): the agent's `highlight` wrote `state/pointer.json` (`hub mcp`, a short connection like `mail`), so the admin reads `GET /api/pointer`.
  * `ops-log` (P86): today's ops log file grew (`state/log/ops-<day>.jsonl`), so Overview's Recent errors reads again.
  */
-export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "sequences", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart", "core", "pointer", "ops-log"] as const;
+export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "sequences", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart", "core", "pointer", "ops-log", "watch"] as const;
 export const liveTopic = z.enum(LIVE_TOPICS);
 export type LiveTopic = (typeof LIVE_TOPICS)[number];
 

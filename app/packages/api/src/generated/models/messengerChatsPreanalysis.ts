@@ -5,10 +5,12 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { MessengerChatsPreanalysisKeySource } from './messengerChatsPreanalysisKeySource';
 import type { MessengerChatsPreanalysisState } from './messengerChatsPreanalysisState';
 
 export type MessengerChatsPreanalysis = {
   state: MessengerChatsPreanalysisState;
   /** @nullable */
   fix: string | null;
+  keySource: MessengerChatsPreanalysisKeySource;
 };

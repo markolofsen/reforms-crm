@@ -103,7 +103,7 @@ export interface BatchInput<I> {
   project: string;
   items: readonly I[];
   /** What the model sees of one item (JSON); the item itself by default. */
-  render?: (item: I) => unknown;
+  render?(item: I): unknown;
   /** Lines added after the task's system text for this call only. */
   instructions?: string;
 }

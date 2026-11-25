@@ -1,6 +1,6 @@
 import { MemoryStorage } from "@mtcute/core";
 import { TelegramClient, type Message, type Peer } from "@mtcute/node";
-import type { MtClient, MtMessage, MtPeer } from "./telegram-user";
+import type { MtClient, MtMessage, MtPeer, MtPublic } from "./telegram-user";
 import type { LoginCredentials, MtLoginClient } from "./telegram-user-login";
 import type { UserSession } from "./sessions";
 
@@ -54,6 +54,36 @@ export function mtcuteLoginClient(c: LoginCredentials): MtLoginClient {
   };
 }
 
+/** RPC errors that mean "no such public chat" for a resolve (anything else is thrown as is). */
+const NOT_PUBLIC = /USERNAME_NOT_OCCUPIED|USERNAME_INVALID|CHANNEL_INVALID|PEER_ID_INVALID|not found|not a chat|is a user|MtPeerNotFound/i;
+
+/**
+ * P144: the watcher's reads (decision 0052 point 7). `getChat` resolves a username once (the watcher caches the id), `getHistory`
+ * reads from `minId` oldest first and marks nothing read, `joinChat` joins or asks to join. A username that is not a group or a
+ * channel (a person, a bot, nothing) is "not public" here.
+ */
+function publicOf(tg: TelegramClient): MtPublic {
+  return {
+    async resolve(username) {
+      try {
+        const chat = await tg.getChat(username);
+        return { id: chat.id, title: chat.title };
+      } catch (e) {
+        if (e instanceof Error && NOT_PUBLIC.test(e.message)) return null;
+        throw e;
+      }
+    },
+    async history(chatId, o) {
+      const rows = await tg.getHistory(chatId, { limit: o.limit, ...(o.minId > 0 ? { minId: o.minId } : {}), reverse: true });
+      return rows.map((m) => ({ id: m.id, date: m.date, text: m.text, senderId: m.sender.type === "user" ? m.sender.id : null, senderUsername: m.sender.type === "user" ? m.sender.username : null }));
+    },
+    async join(chatId) {
+      const r = await tg.joinChat(chatId);
+      return r.status === "ok" ? "joined" : "pending";
+    },
+  };
+}
+
 /** A client restored from a stored session, for the supervisor's one connection per account. */
 export function mtcuteSessionClient(s: UserSession): MtClient {
   const tg = newClient(s);
@@ -98,6 +128,7 @@ export function mtcuteSessionClient(s: UserSession): MtClient {
     async typing(chatId) {
       await tg.sendTyping(chatId, "typing");
     },
+    public: publicOf(tg),
     async close() {
       if (handlers) {
         tg.onNewMessage.remove(handlers.message);

@@ -19,6 +19,7 @@ import { startKnowledgeIndex } from "../knowledge/start";
 import { followUpBrainOf, startFollowUps } from "../follow-ups/start";
 import { leadPassBrainOf, startLeadPass } from "../passes/start";
 import { messengerPolicy } from "../send/messenger-policy";
+import { startWatch } from "../watch/start";
 
 /** A started runtime and what only the process needs from it: the terminal's upgrade and one stop for every domain. */
 export type Started = { runtime: Runtime; upgrade: ReturnType<typeof startTerminal>["terminal"]["upgrade"]; stop(): Promise<void> };
@@ -76,6 +77,9 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
   const { terminal, detector } = startTerminal({ repos, paths, modes, adminPort, apiPort: o.apiPort });
   const agent = startAgent({ repos, paths, modes, detector, recheck: () => void terminal.recheck() });
   const instance = startInstance({ repos, paths, modes, projects, fakeMail: mail.kind === "fake", bot: messengers.handles.bot });
+  // P144 (draft decision 0052): the public-chat watcher, per project with a watch.md; a list starts off and reads nothing until
+  // the owner turns it on. It reads through the Telegram user account's connection, never posts.
+  const watch = await startWatch({ repos, paths, telegram: () => messengers.handles.telegramUser, bump: (project) => void bumpTopic(db, "watch", project) });
   // P140 K1: the knowledge index follows the files (a pass now, then a watcher on each project's knowledge/).
   const knowledge = await startKnowledgeIndex({ repos, projectsDir });
   // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched, since
@@ -127,6 +131,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     instance: instance.handles,
     live,
     terminal,
+    watch,
   };
   return {
     runtime,
@@ -136,6 +141,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
       await leadPass.stop();
       live.stop();
       knowledge.stop();
+      watch.stop();
       instance.stop();
       mail.stop();
       terminal.stop();

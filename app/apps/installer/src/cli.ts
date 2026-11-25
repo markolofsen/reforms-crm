@@ -20,6 +20,7 @@ import { register as registerInstance } from "./commands/instance";
 import { register as registerDrafts } from "./commands/drafts";
 import { register as registerConnections } from "./commands/connections";
 import { register as registerLogs } from "./commands/logs";
+import { register as registerWatch } from "./commands/watch";
 
 const SHOWN = new Set(["agent", "up", "doctor", "setup"]);
 
@@ -73,6 +74,7 @@ registerInstance(program);
 registerDrafts(program);
 registerConnections(program);
 registerLogs(program);
+registerWatch(program);
 
 async function main(): Promise<void> {
   let argv = process.argv.slice(2);

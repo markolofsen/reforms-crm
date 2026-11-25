@@ -57,6 +57,34 @@ export interface MtClient {
   /** The "typing…" status in a private chat (mtcute `sendTyping`); sends no message (decision 0048, verdict 13). */
   typing(chatId: number): Promise<void>;
   close(): Promise<void>;
+  /**
+   * P144 (decision 0052 point 7): the public-chat watcher's three reads over this same connection (one MTProto connection per
+   * session). Read-only except `join`, which runs only on the owner's Join. Its messages go to the watch store, never to ingest.
+   */
+  public?: MtPublic;
+}
+
+/** A public group or channel, as the watcher's reader sees it. */
+export interface MtPublicChat {
+  id: number;
+  title: string;
+}
+
+/** One message of a public group: the sender's id and public username only, never a name or a phone. */
+export interface MtPublicMessage {
+  id: number;
+  date: Date;
+  text: string;
+  senderId: number | null;
+  senderUsername: string | null;
+}
+
+export interface MtPublic {
+  /** A public group or channel by username; null when the username is not one (or not found). */
+  resolve(username: string): Promise<MtPublicChat | null>;
+  /** Messages newer than `minId`, oldest first, at most `limit`; never marks anything read. Throws Telegram's error as is. */
+  history(chatId: number, o: { minId: number; limit: number }): Promise<MtPublicMessage[]>;
+  join(chatId: number): Promise<"joined" | "pending">;
 }
 
 /** The bounded queue: past it the queue is cleared and the next poll reads the linked chats' history from the cursor instead. */

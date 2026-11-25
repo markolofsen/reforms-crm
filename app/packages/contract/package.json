@@ -44,7 +44,8 @@
     "./project": "./src/project.ts",
     "./inbox": "./src/inbox.ts",
     "./settings": "./src/settings.ts",
-    "./lens": "./src/lens.ts"
+    "./lens": "./src/lens.ts",
+    "./watch": "./src/watch.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

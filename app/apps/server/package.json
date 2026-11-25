@@ -33,6 +33,7 @@
     "@hub/send": "workspace:*",
     "@hub/sequences": "workspace:*",
     "@hub/terminal": "workspace:*",
+    "@hub/watch": "workspace:*",
     "hono": "4.13.18",
     "zod": "4.6.7"
   },
