@@ -67,6 +67,8 @@ export const drafts = sqliteTable(
     // A step of a follow-up sequence (P47): the enrollment it belongs to and which step it is. `@hub/send` never sends such a draft.
     enrollmentId: integer("enrollment_id").references((): AnySQLiteColumn => enrollments.id, { onDelete: "set null" }),
     sequenceStep: integer("sequence_step"),
+    // P142 (migration 0046): a nudge of the follow-up sweep, its number (1st, 2nd...); autosend never sends it (`follow-up-nudge`).
+    followUpN: integer("follow_up_n"),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   },

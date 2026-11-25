@@ -76,6 +76,9 @@ export const messengerChats = sqliteTable(
     doneThrough: text("done_through"),
     doneBy: text("done_by").$type<"owner" | "agent">(),
     doneReason: text("done_reason"),
+    // P142 (migration 0046): the newest outbound message the server saw (ingest's echo, the owner's phone, the door's send), the mirror
+    // of `last_inbound_at`, never pruned: "we wrote last" survives the cache (verdict 11).
+    lastOutboundAt: text("last_outbound_at"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );
@@ -175,6 +178,8 @@ export const messengerDrafts = sqliteTable(
     // What admitted an agent's draft (0025): the owner's words in an `on_request` chat; a follow-up after our own last message.
     ownerRequest: text("owner_request"),
     nudge: integer("nudge", { mode: "boolean" }).notNull().default(false),
+    // P142 (migration 0046): a nudge of the follow-up sweep, its number; the door counts it on the plan when it is sent.
+    followUpN: integer("follow_up_n"),
   },
   (t) => [index("messenger_drafts_project_status").on(t.project, t.status)],
 );

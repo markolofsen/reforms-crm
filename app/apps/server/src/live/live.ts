@@ -22,7 +22,10 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   client_maps: "clients",
   clients: "clients",
   drafts: "drafts",
-  enrollments: "follow-ups",
+  // P142: P47's enrolments are the sequences topic; `follow-ups` is the sweep's plans and runs (one name, one thing).
+  enrollments: "sequences",
+  follow_ups: "follow-ups",
+  follow_up_sweeps: "follow-ups",
   inbox_rows: "inbox",
   // P96: a client message the Mail reader stored, or No reply needed: the Inbox view, its count and the status line move.
   inbound_mail: "inbox",

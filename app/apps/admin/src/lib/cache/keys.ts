@@ -46,6 +46,8 @@ export const keys = {
   /** P98: one Inbox message's state (open, drafts, the answering draft): under `inbound`, so the topics that refresh the list refresh it. */
   inboundItem: (project: string, id: number) => ["inbound", project, "item", id] as const,
   enrollments: (project: string, view: string) => ["enrollments", project, view] as const,
+  /** P142: the project's follow-up plans (Activity ▸ Follow-ups, the conversation headers, the list chips) and its sweep line. */
+  followUps: (project: string) => ["follow-ups", project] as const,
   /** P73: the timeline of one view, of one client or every one (`null`); its pages live under this key (an infinite query). */
   activity: (project: string, view: string, client: number | null) => ["activity", project, view, client ?? "every"] as const,
   projectFacts: (project: string) => ["project", project] as const,
@@ -103,6 +105,7 @@ const batches = of("batches");
 const notByEmail = of("not-by-email");
 const inbound = of("inbound");
 const enrollments = of("enrollments");
+const followUps = of("follow-ups");
 const activity = of("activity");
 const project = of("project");
 const links = of("links");
@@ -133,7 +136,9 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   // P87: a send is a row of Activity ▸ All too (decision 0037 as amended).
   sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), project(p), overview(), scheme(), inbound(p)],
   inbox: (p) => [notByEmail(p), drafts(p), overview(), inbound(p)],
-  "follow-ups": (p) => [enrollments(p), drafts(p)],
+  sequences: (p) => [enrollments(p), drafts(p)],
+  // P142: a plan or a sweep moved: the follow-up rows, the conversation headers and Overview's part.
+  "follow-ups": (p) => [followUps(p), overview(), activity(p)],
   batches: (p) => [batches(p), drafts(p)],
   rules: (p) => [rules(p), agentSettings(p), drafts(p), project(p)],
   projects: (p) => [keys.projects(), project(p), links(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],

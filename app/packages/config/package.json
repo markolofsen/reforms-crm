@@ -13,6 +13,7 @@
     "./core-version": "./src/core-version.ts",
     "./chat-rules": "./src/chat-rules.ts",
     "./autopilot": "./src/autopilot.ts",
+    "./follow-ups": "./src/follow-ups.ts",
     "./llm": "./src/llm.ts",
     "./person": "./src/person.ts",
     "./profile": "./src/profile.ts",

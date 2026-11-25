@@ -97,4 +97,4 @@ export const useNotByEmail = (project: string, kind: InboxKind | null, o: { keep
 export const useEnrollments = (project: string, view: EnrollmentView) => useQuery({ queryKey: keys.enrollments(project, view), queryFn: () => sequencesApi.enrollments(project, view) });
 
 /** Stop one client's follow-ups (the server skips the open step in the same write). Resume is the owner's, in his terminal. */
-export const useStopFollowUps = (project: string, enrollmentId: number) => useCommand({ project, touches: ["follow-ups"], run: (_: void) => sequencesApi.stop(project, enrollmentId) });
+export const useStopFollowUps = (project: string, enrollmentId: number) => useCommand({ project, touches: ["sequences"], run: (_: void) => sequencesApi.stop(project, enrollmentId) });

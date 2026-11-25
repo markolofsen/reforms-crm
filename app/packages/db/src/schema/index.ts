@@ -11,3 +11,4 @@ export * from "./projects";
 export * from "./knowledge";
 export * from "./messengers";
 export * from "./llm";
+export * from "./follow-ups";
