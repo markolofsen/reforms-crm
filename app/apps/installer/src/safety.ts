@@ -12,6 +12,7 @@ import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
+import { coreGitViolations } from "@hub/agent/core-access";
 import { PROJECT_CAPABILITY_ENV, projectCapability } from "@hub/agent/mcp-binding";
 import { notionDenial } from "@hub/projects/notion-tools";
 import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
@@ -169,7 +170,7 @@ export function auditLayout(paths: HubPaths): AuditLayout {
   return { projects: both(paths.projects), db: both(paths.db) };
 }
 
-export interface GuardInput { tool_name?: unknown; tool_input?: unknown; session_id?: unknown; agent_id?: unknown }
+export interface GuardInput { tool_name?: unknown; tool_input?: unknown; session_id?: unknown; agent_id?: unknown; /** The hook payload's working folder (Claude Code). */ cwd?: unknown }
 export interface GuardResult { violations: string[]; block: boolean; /** P62: a connector violation, which blocks whatever the mode. */ always?: true }
 
 /** The hub's own skills (folders of the core's `skills/` with a SKILL.md) and the ones the project's kind allows; none for an unknown kind. */
@@ -231,12 +232,25 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead, background: backgroundRunOf(env) });
   // P71 M2: a messenger reply is written from its chat's own history (a Mail draft is not judged for what was read: P140 K2).
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug));
+  // P159: git against the core (its live checkout, main) is refused in every mode (`@hub/agent/core-access`).
+  const core = coreGitOf(payload, g.root, paths.core);
+  if (core.length) { r.violations.push(...core); r.always = true; }
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");
   // P54: the call, and what the guard saw, go to the session log (the writer never throws).
   appendEvents(logStoreOf(paths), stampAction(toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }), env[ACTION_ENV]));
   if (!r.violations.length) return { code: 0, stderr: "" };
   const text = `hub guard (${r.always ? "block" : mode}): ${r.violations.join("; ")}`;
   return r.block ? { code: 2, stderr: text } : { code: 0, stderr: text };
+}
+
+/** P159: the core rule on a Bash call (`coreGitViolations`), from the hook's `cwd` (else the instance root). Never throws. */
+export function coreGitOf(payload: GuardInput, root: string, core: string): string[] {
+  try {
+    if (String(payload.tool_name ?? "") !== "Bash") return [];
+    const command = (payload.tool_input as { command?: unknown } | null)?.command;
+    if (typeof command !== "string" || !/\bgit\b/.test(command)) return [];
+    return coreGitViolations(command, typeof payload.cwd === "string" && payload.cwd ? payload.cwd : root, core);
+  } catch { return []; }
 }
 
 /** The messenger rule (P71 M2): a `messenger_draft_write` is judged against this session's (and subagent's) ledger: its chat was read first. Never throws. */

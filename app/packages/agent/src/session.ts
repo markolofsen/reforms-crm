@@ -1,6 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
+import { coreAccess } from "./core-access";
 
 // The one permission mode of a hub agent session (P49 section 5A; owner 2026-11-25: no friction, no switch), both CLIs: no
 // prompts, and the OS sandbox is on by itself: Claude's commands reach every host but loopback (3l), and `ssh`, `scp` and `rsync`
@@ -79,7 +80,21 @@ export const LOOPBACK_HOSTS: readonly string[] = ["localhost", "*.localhost", "1
  * stay refused.
  */
 export const SSH_COMMANDS: readonly string[] = ["ssh", "scp", "rsync"];
-export const claudeExcludedCommands = (): string[] => SSH_COMMANDS.map((c) => `${c} *`);
+/**
+ * P159 part 2: `git push` too, outside the sandbox: the GitHub credential (`~/.git-credentials`, the `store` helper) stays
+ * unreadable to the session's own commands, and the guard's core rule (`coreGitViolations`) reads every push first.
+ */
+export const claudeExcludedCommands = (): string[] => [...SSH_COMMANDS.map((c) => `${c} *`), "git push *"];
+
+/**
+ * Claude's write rules for the core (P159 part 2, `@hub/agent/core-access`): the main checkout's entries read-only one by one
+ * (a deny wins over an allow in Claude's sandbox, measured), the git dir writable but its hooks and config, and the worktree
+ * folder beside the core writable.
+ */
+export function claudeCoreWrites(paths: HubPaths): { denyWrite: string[]; allowWrite: string[] } {
+  const c = coreAccess(paths.core);
+  return { denyWrite: [...c.checkout, ...c.gitReadOnly], allowWrite: [c.gitDir, c.dock] };
+}
 
 /**
  * Claude Code's `sandbox` block of an owner's session. `failIfUnavailable`: no sandbox, no session (never a silent unsandboxed
@@ -88,6 +103,7 @@ export const claudeExcludedCommands = (): string[] => SSH_COMMANDS.map((c) => `$
  * `rsync` run outside ({@link claudeExcludedCommands}).
  */
 export function claudeSandbox(paths: HubPaths, home: string = os.homedir()): Record<string, unknown> {
+  const core = claudeCoreWrites(paths);
   return {
     enabled: true,
     failIfUnavailable: true,
@@ -95,7 +111,7 @@ export function claudeSandbox(paths: HubPaths, home: string = os.homedir()): Rec
     allowUnsandboxedCommands: false,
     excludedCommands: claudeExcludedCommands(),
     network: { allowedDomains: ["*"], deniedDomains: [...LOOPBACK_HOSTS], allowLocalBinding: true },
-    filesystem: { denyWrite: claudeProtectedPaths(paths), denyRead: [paths.secrets, ...ownerSecretPaths(home)] },
+    filesystem: { denyWrite: [...claudeProtectedPaths(paths).filter((p) => p !== paths.core), ...core.denyWrite], allowWrite: core.allowWrite, denyRead: [paths.secrets, ...ownerSecretPaths(home)] },
   };
 }
 
@@ -109,4 +125,4 @@ export const CODEX_BYPASS = "--dangerously-bypass-approvals-and-sandbox";
 export const CODEX_MODE_ARGS: readonly string[] = ["-a", "never"];
 
 /** The one sentence the launcher and the terminal tab show for the mode. */
-export const MODE_LINE = "no prompts, OS sandbox on (network open, Claude's but loopback; ssh, scp and rsync always work; no Apple Events; secrets, the send policy, the guards and the core read-only)";
+export const MODE_LINE = "no prompts, OS sandbox on (network open, Claude's but loopback; ssh, scp and rsync always work; no Apple Events; secrets, the send policy, the guards and the core's live checkout read-only; the core is improved in a worktree beside it)";

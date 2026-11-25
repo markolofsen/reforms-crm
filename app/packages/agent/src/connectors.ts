@@ -161,6 +161,18 @@ export function sshCapability(cli: AgentCli): string {
 }
 
 /**
+ * The core part of the capabilities line (P159 part 2, owner 2026-11-26: the agent improves the shared instructions and skills):
+ * a worktree beside the core, explicit-path commits, and main only for `skills/` and `@docs/` (the guard's `coreGitViolations`
+ * in Claude; Codex has no guard hook and cannot push, its credential is closed).
+ */
+export function coreCapability(cli: AgentCli): string {
+  const push = cli === "claude"
+    ? "A change only under skills/ and @docs/ may go live: `git push origin dock/<topic>:main` (the guard refuses any other push to main, a force, a delete or -u); anything else: `git push origin dock/<topic>` and tell the owner it waits for the coordinator"
+    : "You cannot push (the GitHub credential is closed to Codex): commit in the worktree and give the owner the branch name";
+  return `core: improve the hub's shared skills and docs (skills/, @docs/) in a git worktree beside the core, never in its live checkout (read-only; the core is the instance's \`core\` link): \`git -C "$(readlink core)" fetch origin\`, then \`git -C "$(readlink core)" worktree add "$(readlink core)-dock/<topic>" -b dock/<topic> origin/main\`, edit there, commit with explicit paths in one command (\`git add <paths> && git commit\`, the message ending with your Co-Authored-By line), never \`git add -A\`, a stash or a force push; it is a public repo: no client names, emails, ids or keys. ${push}. Once main moves, the coordinator updates the live checkout and the next session start (or \`./run.sh agent <slug> --prepare\`, his) picks up the text`;
+}
+
+/**
  * The capabilities line of a bound session (K4), appended after the project's identity: what this session can reach, built from
  * the same resolver that writes its MCP file, so it never names a tool the session lacks. Rules: `@docs/core/26-capabilities.md`.
  * P82: with the project's Notion scope, the notion part names its databases by id (one source with the guard, `notion-scope.ts`).
@@ -180,5 +192,6 @@ export function sessionCapabilities(slug: string, attached: readonly AttachedCon
   }
   parts.push(browserCapability(cli)); // decision 0040 as amended: his browser, the Hub's send door
   parts.push(sshCapability(cli)); // P159: ssh always
+  parts.push(coreCapability(cli)); // P159 part 2: the core through a worktree
   return `Project ${slug}'s capabilities (generated from project.md and the instance's connectors; how to use them: @docs/core/26-capabilities.md): ${parts.join("; ")}. A service listed as none is not reachable here: say so, never look for another way.`;
 }

@@ -7,6 +7,7 @@
   "exports": {
     "./deny": "./src/deny.ts",
     "./session": "./src/session.ts",
+    "./core-access": "./src/core-access.ts",
     "./claude": "./src/claude.ts",
     "./codex": "./src/codex.ts",
     "./checks": "./src/checks.ts",
