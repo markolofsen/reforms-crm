@@ -15,6 +15,7 @@ import { bareId } from "@hub/mail-app/records";
 import { errFields, ops } from "@hub/log/ops";
 import { previewOf } from "@hub/mail-app/own-text";
 import { mailRunning, readInbound, readMessageText, readSent, type ReceivedMessage } from "@hub/mail-app/read";
+import { isLeadNotice, logLeadNotice, MACHINE, storedRowIsNotice } from "./lead-notice";
 
 /**
  * The Mail reader (P96 S1, verdicts 1 to 4, 12, 13). The server reads each active project's inbound mailboxes in Apple Mail,
@@ -96,7 +97,6 @@ export const LABEL_MAILBOXES = ["hub/client", "hub/partner"] as const;
 /** The filters' classes that are never a client writing (counted by triage, never read). */
 const NOT_A_CLIENT = new Set(["service", "marketing", "cold-outreach", "spam"]);
 /** An address that is a machine's by its local part (Cloudflare, DMARC reports, OpenAI, a site's robot). */
-const MACHINE = /^(no-?reply|do-?not-?reply|noreply-[\w.-]+|[\w.-]*-noreply|notifications?|notify|alerts?|mailer-daemon|postmaster|bounces?|dmarc[\w.-]*|robot|daemon)(\+[^@]*)?@/i;
 
 export type Verdict =
   | { kind: "client"; why: "thread" | "client" | "test"; threadRef: string | null; threadDraftId: number | null }
@@ -138,18 +138,6 @@ export function judge(m: Pick<ReceivedMessage, "email" | "subject" | "inReplyTo"
   return { kind: "unknown" };
 }
 
-/**
- * P97 verdict 1 (decision 0044 point 1): a site's notification of a lead is never a person writing. A sender on the project's
- * `leads.notice_senders`, or a machine address the mail filters whitelist (the owner keeps `robot@…` visible in Mail, which
- * made it an Inbox client row), is a lead notice. A machine the filters do not whitelist stays `machine`, as before.
- */
-export function isLeadNotice(email: string, noticeSenders: readonly string[], whitelisted: boolean): boolean {
-  const e = email.trim().toLowerCase();
-  return noticeSenders.includes(e) || (whitelisted && MACHINE.test(e));
-}
-
-/** A stored Inbox row whose sender is a lead notice by its address alone (the re-judge of rows stored before P97: a stored machine sender was whitelisted). */
-export const storedRowIsNotice = (email: string, noticeSenders: readonly string[]): boolean => isLeadNotice(email, noticeSenders, true);
 
 const lower = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 const normSubject = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
@@ -244,7 +232,7 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
       if (v.kind === "unknown") unknown++;
       if (v.kind === "ignored" && v.reason === "lead_notice") {
         notices++;
-        if (!firstPass && !seenNotices.has(m.messageId)) freshNotice = true;
+        if (!firstPass && !seenNotices.has(m.messageId)) { freshNotice = true; await logLeadNotice(p.slug, m, p.config, () => readMessageText(osa, m.account, m.mailbox, m.mailId)); }
         seenNotices.add(m.messageId);
       }
       if (v.kind !== "client") continue;

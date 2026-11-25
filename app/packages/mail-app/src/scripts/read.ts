@@ -127,13 +127,17 @@ export const INBOUND_SCRIPT = `on run argv
       try
         set bulk to bulk & " prec " & (content of (first header of m whose name is "Precedence"))
       end try
+      set pkey to ""
+      try
+        set pkey to content of (first header of m whose name is "X-Project-Key")
+      end try
       set snd to ""
       try
         set snd to sender of m
       end try
       set d to date received of m
       set stamp to ((year of d) as text) & "," & (((month of d) as integer) as text) & "," & ((day of d) as text) & "," & ((time of d) as text)
-      set out to out & (id of m) & FS & (message id of m) & FS & irt & FS & refs & FS & snd & FS & stamp & FS & (subject of m) & FS & ((read status of m) as text) & FS & bulk & RS
+      set out to out & (id of m) & FS & (message id of m) & FS & irt & FS & refs & FS & snd & FS & stamp & FS & (subject of m) & FS & ((read status of m) as text) & FS & bulk & FS & pkey & RS
     end repeat
   end tell
   return "ok" & RS & out

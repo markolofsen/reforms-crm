@@ -78,6 +78,8 @@ export interface ReceivedMessage {
   read: boolean;
   /** A bulk or automatic header was present (List-Unsubscribe, Auto-Submitted other than `no`, Precedence bulk/list/junk). */
   bulk: boolean;
+  /** P145: the `X-Project-Key` header a site's lead notice carries (django_notion), as sent; null when absent. Trusted only from a notice sender. */
+  projectKey: string | null;
   account: string;
   mailbox: string;
 }
@@ -99,13 +101,13 @@ export function parseInbound(out: string, account: string, mailbox: string): Rec
   const msgs: ReceivedMessage[] = [];
   const recs = records(out);
   for (const rec of recs[0]?.startsWith("ok") ? recs.slice(1) : recs) {
-    const [id = "", mid = "", irt = "", refs = "", snd = "", stamp = "", subject = "", read = "", bulk = ""] = rec.split(FS);
+    const [id = "", mid = "", irt = "", refs = "", snd = "", stamp = "", subject = "", read = "", bulk = "", pkey = ""] = rec.split(FS);
     const receivedAt = localStamp(stamp.trim());
     const mailId = Number(id);
     const s = senderOf(snd);
     if (!bareId(mid) || !receivedAt || !Number.isInteger(mailId) || !s.email) continue;
     const references = [...refs.matchAll(/<([^<>\s]+)>/g)].map((x) => bareId(x[1])).filter(Boolean);
-    msgs.push({ mailId, messageId: bareId(mid), inReplyTo: bareId(irt) || null, references, email: s.email, name: s.name, receivedAt, subject, read: read.trim() === "true", bulk: isBulk(bulk), account, mailbox });
+    msgs.push({ mailId, messageId: bareId(mid), inReplyTo: bareId(irt) || null, references, email: s.email, name: s.name, receivedAt, subject, read: read.trim() === "true", bulk: isBulk(bulk), projectKey: pkey.trim().slice(0, 80) || null, account, mailbox });
   }
   return msgs;
 }
