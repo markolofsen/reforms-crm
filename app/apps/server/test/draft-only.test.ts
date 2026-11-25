@@ -70,8 +70,13 @@ describe("no route sends", () => {
     expect(src.filter((f) => /\bbatchRuns\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/batch-door.ts", "send/sends-routes.ts"]);
     // A messenger send: only the door mints the human actor's send, only the send routes call the door, only send/messenger-senders.ts hands the
     // account's send (`TelegramUserHandle.sender`, `WhatsAppHandle.sender` since P71 M5) to them.
-    // Decision 0048 (P139 A4): the autopilot's send is the one other caller, with the `autopilot` authority only.
-    expect(src.filter((f) => /\bapplyMessenger\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["messengers/autopilot/deliver.ts", "send/sends-routes.ts"]);
+    // Decision 0048 (P139 A4): the autopilot's send is the one other caller, with the `autopilot` authority only; decision 0050
+    // (P142 F5): its held follow-up nudge is the same authority with the reason `nudge`.
+    expect(src.filter((f) => /\bapplyMessenger\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["follow-ups/nudges.ts", "messengers/autopilot/deliver.ts", "send/sends-routes.ts"]);
+    const nudge = readFileSync(join(dir, "follow-ups/nudges.ts"), "utf8");
+    expect(nudge.match(/applyMessenger\(/g)).toHaveLength(1);
+    expect(nudge).toMatch(/kind: "autopilot", actor: AUTOPILOT_SEND_ACTOR, turn: n\.actionId, reason: FOLLOW_UP_SEND_REASON/);
+    expect(nudge).not.toMatch(/owner_click|owner_word|\.sender\(/);
     const deliver = readFileSync(join(dir, "messengers/autopilot/deliver.ts"), "utf8");
     expect(deliver.match(/applyMessenger\(/g)).toHaveLength(1);
     expect(deliver).toMatch(/kind: "autopilot", actor: AUTOPILOT_SEND_ACTOR/);

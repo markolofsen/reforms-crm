@@ -15,7 +15,7 @@ let repos: Repos;
 let now: number;
 const clock: Clock = { now: () => now, setTimeout: () => 0, clearTimeout: () => undefined, random: () => 0.5 };
 const at = (hh: number, mm: number, day = 25) => new Date(2026, 10, day, hh, mm).getTime();
-const brain: FollowUpBrain = { turn: async () => ({ kind: "decided", decision: "wait" }) };
+const brain: FollowUpBrain = { name: "test", turn: async () => ({ kind: "decided", decision: "wait", nudge: null, costUsd: null }) };
 
 beforeEach(() => {
   dir = mkdtempSync(path.join(tmpdir(), "hub-schedule-"));
