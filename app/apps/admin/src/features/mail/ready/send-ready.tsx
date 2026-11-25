@@ -10,6 +10,8 @@ import { toastManager } from "@hub/ui/toast";
 import { useLeadPass, useLeadReview } from "@/lib/data/inbound";
 import { ReadyList, sentLine } from "@/features/mail/leads/review";
 import { SendingLine } from "./sending-line";
+import { useGo } from "@/hooks/use-go";
+import { dest } from "@/routes/paths";
 
 // Send all ready (P147 3m item 5, the owner: «Мне не нравится неочевидно сделанная отправка массовая. Надо упростить.»). One
 // primary button on top of Mail ▸ Needs you and Leads, "Send all ready (N)", N the day's pass drafts still waiting (the pass's own
@@ -59,6 +61,7 @@ export function SendReadyProvider({ project, children }: { project: string; chil
   const pass = useLeadPass(project).data;
   const batchId = pass?.review.batchId ?? null;
   const [sheet, setSheet] = useState<{ only: ReadonlySet<number> | null } | null>(null);
+  const go = useGo();
   const ctx: Ctx = { project, batchId, waiting: { drafts: pass?.review.drafts ?? 0, proposals: pass?.review.proposals ?? 0 }, open: (only) => setSheet({ only: only ? new Set(only) : null }) };
   const title = useRef<HTMLHeadingElement>(null);
   return (
@@ -80,6 +83,8 @@ export function SendReadyProvider({ project, children }: { project: string; chil
                 only={sheet.only}
                 onSent={(t) => {
                   setSheet(null);
+                  // Owner 2026-11-25: after Send N the app shows Mail ▸ Sent, the run on its top.
+                  if (t.items.length) go(dest("mail.sent"));
                   if (t.held.length || t.applied.notMoved.length || !t.items.length) toastManager.add({ title: t.items.length ? `${t.items.length} sending` : "Nothing sent", description: sentLine(t), type: t.items.length ? "success" : "warning" });
                 }}
                 project={project}

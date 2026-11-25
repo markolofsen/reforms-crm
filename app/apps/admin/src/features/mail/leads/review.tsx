@@ -15,6 +15,7 @@ import { sentence } from "@/lib/api/client";
 import { useConfirmLeadReview, useFillMarker, useLeadReview } from "@/lib/data/inbound";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
+import { useGo } from "@/hooks/use-go";
 import { dest } from "@/routes/paths";
 import { SendingLine } from "@/features/mail/ready/sending-line";
 
@@ -222,7 +223,7 @@ export function ReadyList({ project, d, only = null, onSent, verifying = null }:
       <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t bg-background py-3">
         <ActionButton data-testid="review-send" disabled={verifying !== null || !d.verified || confirm.isPending || n + body.proposals.length + body.exclude.length === 0} onClick={() => confirm.mutate(body)} size="m" variant="primary">
           <SendIcon aria-hidden="true" />
-          {confirm.isPending ? "Starting" : n === 0 && body.proposals.length > 0 ? `Mark ${body.proposals.length}` : `Send ${n}`}
+          {n === 0 && body.proposals.length > 0 ? `Mark ${body.proposals.length}` : `Send ${n}`}
         </ActionButton>
         <p className="text-muted-foreground text-xs tabular-nums" role="status">
           {verifying === "failed" ? "Mail did not answer: close and open again to check the drafts." : verifying !== null ? `Checking ${verifying} ${verifying === 1 ? "draft" : "drafts"} in Mail…` : `One every ${d.spacingSeconds} s · mails today ${d.cap.used} of ${d.cap.limit}`}
@@ -256,6 +257,7 @@ export function LeadReviewScreen() {
   const mail = useLeadReview(project, batch);
   const q = mail.data ? mail : stored;
   const [said, setSaid] = useState<string | null>(null);
+  const go = useGo();
   return (
     <Page
       label="Today's replies"
@@ -274,7 +276,7 @@ export function LeadReviewScreen() {
         </p>
       )}
       <QueryView loading={<ListSkeleton label="Reading today's drafts" />} query={q} what="today's replies">
-        {(d) => (d.rows.length + d.proposals.length + d.handOvers.length === 0 ? <EmptyState title="Nothing to send">The day’s passes wrote no draft and proposed nothing.</EmptyState> : <ReadyList d={d} key={d.batchId} onSent={(t) => setSaid(sentLine(t))} project={project} verifying={mail.data ? null : mail.isError ? "failed" : d.rows.length} />)}
+        {(d) => (d.rows.length + d.proposals.length + d.handOvers.length === 0 ? <EmptyState title="Nothing to send">The day’s passes wrote no draft and proposed nothing.</EmptyState> : <ReadyList d={d} key={d.batchId} onSent={(t) => (t.items.length ? go(dest("mail.sent")) : setSaid(sentLine(t)))} project={project} verifying={mail.data ? null : mail.isError ? "failed" : d.rows.length} />)}
       </QueryView>
     </Page>
   );
