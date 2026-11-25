@@ -3,7 +3,8 @@ import { noticeKeyOf, noticeKeyOfText } from "../../src/mail/lead-notice";
 
 // P145 K5 (verdict 12): a lead notice names its project by the `X-Project-Key` header or the fixed first body line. Only a sender
 // on leads.notice_senders is believed; a stranger's header or line names nothing.
-const config = { brands: [{ name: "Shop One" }, { name: "Other Site" }], leads: { noticeSenders: ["robot@mail.example.test"] } };
+const brand = (name: string) => ({ name, receivesAt: [], signature: [], answered: "", by: "owner" as const });
+const config = { brands: [brand("Shop One"), brand("Other Site")], leads: { noticeSenders: ["robot@mail.example.test"] } };
 const text = (body: string) => async () => body;
 const never = async (): Promise<string | null> => {
   throw new Error("the body must not be read");
