@@ -23,7 +23,8 @@
     "./context": "./src/context.ts",
     "./fields": "./src/fields.ts",
     "./doctor": "./src/doctor.ts",
-    "./audit": "./src/audit.ts"
+    "./audit": "./src/audit.ts",
+    "./write": "./src/write.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

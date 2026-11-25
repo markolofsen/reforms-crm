@@ -32,7 +32,7 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
           d.chats.length === 0 ? (
         <div className="flex flex-col gap-1 text-sm">
           <p>No linked chats yet. <AppLink to={dest("messengers.page")}>Link a chat from Chats.</AppLink></p>
-          <p className="text-muted-foreground text-xs">An unlinked chat still opens on Chats; its messages are kept as a 30-day cache (decision 0049).</p>
+          <p className="text-muted-foreground text-xs">An unlinked chat still opens on Chats; its messages are kept as a 30-day cache.</p>
         </div>
       ) : (
         <>

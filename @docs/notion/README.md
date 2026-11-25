@@ -5,7 +5,7 @@ One place for everything about the Notion side of an instance: what the CRM in N
 | You want | Read |
 |---|---|
 | Every database and every field, with type, writer and options | [`fields.md`](fields.md) (generated; do not edit) |
-| What a module is for, its rules, its views, the Help page tree | the knowledge pack: [`app/projects/_template/notion-crm/`](../../app/projects/_template/notion-crm/README.md), files `00` to `10` |
+| What a module is for, its rules, its views, the Help page tree | the knowledge pack: [`app/projects/_template/notion-crm/`](../../app/projects/_template/notion-crm/README.md), files `00` to `11` |
 | The machine-readable contract (types, options, relations, view filters) | the pack's `schema/<db>.json` and `views/<db>.json` |
 | How an agent deploys it | [`skills/notion-project-deploy/SKILL.md`](../../skills/notion-project-deploy/SKILL.md) and [`../core/15-notion-project-deploy-skill.md`](../core/15-notion-project-deploy-skill.md) |
 
@@ -18,7 +18,11 @@ The pack is a snapshot of one live CRM (`📘 Help`), distilled and made generic
 3. **Build the databases.** `./run.sh project setup <slug>` interviews you once; when the project's Notion has no databases it hands over to the `notion-project-deploy` skill. That skill makes a dry-run plan (CREATE / ADD / SKIP / exists), creates nothing until you say go, never deletes and never touches rows, and writes each data source id back into `project.md` under `## Notion databases`.
 4. **Check.** `./run.sh doctor <slug>` runs `notion.access`, which reads every database through the integration and names each one it cannot reach. All 404 means the integration sees none of the teamspace: share it again, see `../setup/access.md`.
 
-Core modules: Clients, Leads, Tasks, Documents (conversation reports are Documents of Type Report; the separate Reports database is retired, decision 0022). Workflows are not a Notion module: they are files in the project folder (`projects/<slug>/workflows/`, `hub workflows list <slug>`). Optional: Deals, Organizations, Open loops, Participants, Expenses and Payments, Business contacts, Knowledge. A property flagged `vertical` (real estate) or `ads` is built only if the interview asks for it.
+Core modules: Clients, Leads, Tasks, Documents (conversation reports are Documents of Type Report; the separate Reports database is retired, decision 0022; a CRM may still name Documents' relation to Clients `People`, and the skills find it by its target, not its name) and Bug reports (P145, decision 0054: required by no kind, created by `hub install --only notion.bug-reports` beside Clients and listed in project.md as `bug-reports`). Workflows are not a Notion module: they are files in the project folder (`projects/<slug>/workflows/`, `hub workflows list <slug>`). Optional: Deals, Expenses and Payments, Business contacts, Knowledge, and the legacy module `sales-legacy` (Organizations, Open loops): kept where a project has live rows, never read or written by the Hub; `notion.access` warns, never fails, about an archived one. Participants left the pack on 2026-11-25.
+
+## One project key (P145, decision 0053)
+
+Clients, Documents, Business contacts, Tasks, Expenses and Bug reports carry the project as the multi_select **`Projects`**, one option per project key; Leads keeps **`Brand`**, the integration-written fact of which site a lead came from, with the same options. The key of a name is its lower case with everything but letters and digits dropped, so the options keep the human names (`Caribbean MLS`) and a site's slug (`caribbean-mls`) matches them. Clients' **`Projects`** is confirmed membership (the agent and people, on evidence; the Hub on a card it creates or links to a lead), and **`Project signals`** is a formula nobody writes (Projects, the Brand of linked Leads, an import key or a Lead source); the per-project views filter on it, and Project unknown is both empty. `hub install --only notion.projects` adds a brand's missing option and never removes one; `hub doctor --only notion.project-keys` prints each brand, its key and the options it matched. An older CRM's Business contacts `Brand` is renamed `Projects` in Notion: the Hub reads only `Projects`. A property flagged `vertical` (real estate) or `ads` is built only if the interview asks for it.
 
 ## Telegram and WhatsApp on a client
 

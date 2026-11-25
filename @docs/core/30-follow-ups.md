@@ -62,6 +62,12 @@ At most 30 client turns per sweep (the rest roll to tomorrow, oldest date first)
 
 Live topic `follow-ups` (the `follow_ups` and `follow_up_sweeps` rows); P47's enrolments are the topic `sequences`. Ops source `follow-ups`: one line per sweep and per turn, each in its action id ([28-ops-log.md](28-ops-log.md)).
 
+## Bug reports (P145, decision 0054)
+
+A client's bug report is filed in the project's Bug reports database (`hub install --only notion.bug-reports` creates it; pack page `notion-crm/11-bug-reports.md`) by the hub tool `bug_report`, in every turn kind: a dock session, triage, the messenger and autopilot turns and this sweep's turn. It searches the open reports (New, Triaged, In progress) of the same `Area` and project, appends the client, their words and evidence to the one it finds, creates one with Status New when there is none, and with several creates nothing and lists them. One entry per message; never Severity, Notes, Fix link or a cause. The reply says it is recorded and will be looked at and promises no date and no cause; in autopilot the turn files it and hands back.
+
+**Closing the loop (B4, not built yet):** this sweep's selector gains one reason, a report with Status Fixed and an empty `Client told`, for each of its clients: a short "fixed" draft in the client's channel, quoting the symptom in their words; the send sets `Client told`. No draft for Do not contact, Won't fix or Duplicate. It waits for P142 to release `apps/server/src/follow-ups/`; until then people tell the client.
+
 ## Code
 
 `packages/config/src/follow-ups.ts` (vocabularies, limits, the brain's port), `packages/db/src/repos/follow-up*.ts` (the plan, the selector, the hooks), migration 0046, `packages/agent/src/mcp/tools/follow-ups.ts` (`follow_ups_due`, `follow_up_plan`), `apps/server/src/follow-ups/` (schedule, sweep, prefetch, nudges, routes), `packages/notion/src/follow-ups.ts`, the installer step `notion.follow-ups`, the skill `skills/follow-up-sweep`, the e2e `apps/admin/e2e/z-follow-ups.spec.ts` (`HUB_FOLLOWUP_BRAIN=fake`, refused without a throwaway `HUB_DB`).

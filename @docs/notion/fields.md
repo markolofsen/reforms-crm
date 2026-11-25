@@ -8,18 +8,41 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 
 ## Databases
 
+- [Bug reports](#bug-reports) (`bug-reports`, 16 fields)
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
-- [Clients](#clients) (`clients`, 48 fields)
-- [Deals](#deals) (`deals`, 45 fields)
-- [Documents](#documents) (`documents`, 18 fields)
-- [Expenses](#expenses) (`expenses`, 19 fields)
+- [Clients](#clients) (`clients`, 49 fields)
+- [Deals](#deals) (`deals`, 44 fields)
+- [Documents](#documents) (`documents`, 19 fields)
+- [Expenses](#expenses) (`expenses`, 20 fields)
 - [Knowledge](#knowledge) (`knowledge`, 21 fields)
 - [Leads](#leads) (`leads`, 30 fields)
 - [Open loops](#open-loops) (`open-loops`, 8 fields)
 - [Organizations](#organizations) (`organizations`, 6 fields)
-- [Participants](#participants) (`participants`, 7 fields)
 - [Payments](#payments) (`payments`, 15 fields)
-- [Tasks](#tasks) (`tasks`, 42 fields)
+- [Tasks](#tasks) (`tasks`, 43 fields)
+
+## Bug reports
+
+Pack file: `schema/bug-reports.json`.
+
+| Field | Type | Writer | Options and notes |
+|---|---|---|---|
+| Bug | title | agent | Description: "The symptom in one line, in the client's terms. Written by the Hub's bug_report tool; people may edit." Never a cause: a cause is people's, in Notes. |
+| Projects | multi_select | agent | Description: "The project keys this report belongs to (decision 0053), the same options as Clients Projects." Options are the `## Brands` rows; `notion.projects` keeps them in step. |
+| Clients | relation to clients | agent | Description: "Every client who reported this bug. A second client with the same symptom is added here, never filed again." Several; one-way (Clients gets no reverse property). |
+| Channel | select | agent | Options: Mail, WhatsApp, Telegram, Other. |
+| Source link | url | agent | Description: "Where the first report was made: the conversation in the Hub admin. Written by the tool from the conversation, never typed by the agent." |
+| Client's words | text | agent | Description: "The client's own sentence, quoted (at most 1,500 characters). Later reports are appended to the page body, dated." |
+| Evidence | text | agent | Description: "One line per URL, id or screenshot reference the client gave. Only what the client sent or the agent saw." |
+| Area | select | agent | Description: "<kind>: <name>, lower case (parser: <source>, site: <domain>, api, admin). An option is reused when its normalised form matches." The open-report search keys on Area and Projects. |
+| Status | select | people | Description: "The agent sets New only; people move it on. A select, not a Status: the API cannot create a Status." Options: New, Triaged, In progress, Fixed, Won't fix, Duplicate. Fixed with an empty Client told makes the follow-up sweep propose a "fixed" message (B4, after P142). |
+| Severity | select | people | Description: "Set by people at triage; empty until then. The agent never writes it." Options: Critical, High, Normal, Low. |
+| Duplicate of | relation to bug-reports | people | Description: "The report this one repeats (Status Duplicate)." |
+| Reported at | date | agent | Description: "When the first report's message was sent." |
+| Last reported | date | agent | Description: "When the latest report was appended." |
+| Client told | date | Hub | Description: "When the clients were told it is fixed: set by the Hub at the send of the "fixed" message. Do not edit." |
+| Fix link | url | people | Description: "The commit, pull request or task that fixed it." |
+| Notes | text | people | Description: "People's notes, the cause among them. The agent never writes here." |
 
 ## Business contacts
 
@@ -44,7 +67,7 @@ Pack file: `schema/business-contacts.json`.
 | Context | text | people |  |
 | Tasks | relation to tasks, reverse "Business contacts" |  | two-way; reverse Tasks.Business contacts |
 | Related clients | relation to clients | people | optional, one-way, no reverse on Clients; a business contact is never a client Flags: optional. |
-| Brand | multi_select | people | which site or product a contact belongs to; options are the project's own (live SaaS CRM, 2026-11-17) Flags: optional. |
+| Projects | multi_select | agent and people | The project keys of the row (decision 0053): the same options as Clients Projects. `hub install --only notion.projects` adds a brand's option where none has its key. |
 
 ## Clients
 
@@ -65,6 +88,8 @@ Pack file: `schema/clients.json`.
 | Grade | select | human | Options: Priority, Standard, Low. |
 | Type | select | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." Options: Agent/Broker, CBI agent, Lawyer, Banker/Lender, Accountant/Tax, Developer, Service provider, Media, Colleague, Other. generic: drop Agent/Broker, CBI agent |
 | Lead source | select | agent and people | Description: "Kept current by the agent from what the client says (never invented); the owner may edit." Options: Partner brokerage, Resort partner, Portal, Own website, Referral, CBI partner, Past client, Event, Outbound, Other. generic: Referral, Past client, Event, Outbound, Other |
+| Projects | multi_select | agent and people | Description: "The projects this client is confirmed for (one option per project key; decision 0053). Added by the agent and people on evidence, never removed by the Hub." Confirmed membership (decision 0053). Options are the project's `## Brands` rows (and a project with no brand row, such as a development), matched by project key: lower case, letters and digits only. Strong evidence adds an option: the client wrote to a brand's address, a linked lead carries that Brand, or the client names the product. A weak guess (a mention, a signature, a visited page) is a `Project hint:` line in Conversation summary, never an option. The Hub writes it on a new card and adds the lead's project to a known card it links; it never removes one. `hub install --only notion.projects` keeps the options in step with `## Brands`. |
+| Project signals | formula | formula | Formula: the union of Projects, the Brand of every linked Lead except Other, and the project a client's import key or Lead source names (per instance: an External ID prefix such as `<project>:client:`, or a Lead source value that is a site). Read-only, never written by anyone (decision 0053 point 4). The API cannot create a cross-database formula: create it by hand in Notion (`hub doctor --only notion.project-keys` warns while it is missing). Project views filter on it and exclude Synthetic rows; Project unknown is Projects empty AND Project signals empty. A lead counts only once it is linked to the client (P97). Flags: created by hand (the API cannot). |
 | Islands | multi_select |  | Options: Region A, Region B, Region C, Other. Flags: vertical. |
 | Waiting band | select | CRM | Options: Today, 1-3 days, Up to 2 weeks, Up to a month, Over a month. |
 | Waiting since | date | CRM |  |
@@ -89,13 +114,12 @@ Pack file: `schema/clients.json`.
 | Conversation summary | text | Hub |  |
 | Synthetic | checkbox | people |  |
 | Owner note | text | read back | Flags: vertical. |
-| Organization | relation to organizations, reverse "Clients" | CRM |  |
+| Organization | relation to organizations, reverse "Clients" | CRM | Optional module `sales-legacy` (Organizations, Open loops): deployed only where a project keeps them; the Hub never reads or writes it (P145 verdict 9). Flags: optional, module sales-legacy. |
 | Deals | relation to deals, reverse "Client" | CRM |  |
-| Open loop items | relation to open-loops, reverse "Person" | CRM |  |
+| Open loop items | relation to open-loops, reverse "Person" | CRM | Optional module `sales-legacy` (Organizations, Open loops): deployed only where a project keeps them; the Hub never reads or writes it (P145 verdict 9). Flags: optional, module sales-legacy. |
 | Leads | relation to leads, reverse "Client" | people |  |
 | Tasks | relation to tasks, reverse "Client" | people |  |
-| Participations | relation to participants, reverse "Person" | people |  |
-| Open loops | rollup via Open loop items |  |  |
+| Open loops | rollup via Open loop items |  | Optional module `sales-legacy` (Organizations, Open loops): deployed only where a project keeps them; the Hub never reads or writes it (P145 verdict 9). Flags: optional, module sales-legacy. |
 | Open tasks | rollup via Tasks |  |  |
 | Overdue tasks | rollup via Tasks |  |  |
 | Task due | rollup via Tasks |  |  |
@@ -109,7 +133,7 @@ Pack file: `schema/deals.json`.
 |---|---|---|---|
 | Title | title | CRM |  |
 | Client | relation to clients (one) | CRM |  |
-| Others | relation to clients | CRM | do not use, use Participants |
+| Others | relation to clients | CRM | do not use: the other people on a deal are Tasks or Notes (the Participants module left the pack, P145) |
 | Pipeline | select | CRM | Options: Buyers, Sellers, Developers, Referral partners. |
 | Stage | select | CRM | Options: New lead, Seller lead, Prospecting, Qualified, Warm, Hot, Offer, Off-market, Exclusive, Contract, Firm / Pending, Closed, On hold, Lost, Not qualified, Withdrawn, Expired, Potential, In discussion, Information received, Agreement signed, Data room live, Active inventory, Active, Inactive. 25 options, one list for all pipelines Flags: vertical. |
 | Furthest stage | select | CRM | Options: New lead, Seller lead, Prospecting, Qualified, Warm, Hot, Offer, Off-market, Exclusive, Contract, Firm / Pending, Closed, On hold, Lost, Not qualified, Withdrawn, Expired, Potential, In discussion, Information received, Agreement signed, Data room live, Active inventory, Active, Inactive. |
@@ -146,7 +170,6 @@ Pack file: `schema/deals.json`.
 | Next step | text | people (read back) |  |
 | Drive folder | url | people |  |
 | Hub id | text | integration (writer not verified) |  |
-| Participants | relation to participants, reverse "Opportunity" | people |  |
 | Tasks | relation to tasks, reverse "Deal" | people |  |
 | No task | formula |  | Formula: open deal with no open task (needs Tasks Is open); cross-database. Flags: skip: trap 2. |
 | Open tasks | rollup via Tasks |  |  |
@@ -160,6 +183,7 @@ Pack file: `schema/documents.json`.
 | Field | Type | Writer | Options and notes |
 |---|---|---|---|
 | Document | title | people |  |
+| Projects | multi_select | agent and people | The project keys of the row (decision 0053): the same options as Clients Projects. `hub install --only notion.projects` adds a brand's option where none has its key. |
 | Date | date | people | date of the document or of the conversation (report) |
 | Type | select | people | Options: Reference, Spec, Procedure, Brief, Contract / legal, SEO, Other, Report. Report marks a conversation report; the Reports view filters on it |
 | Status | status (created as select) | people | document lifecycle. Live saas is select, live realty is status (trap 1): both match this entry Flags: skipped (trap 1). |
@@ -185,6 +209,7 @@ Pack file: `schema/expenses.json`.
 | Field | Type | Writer | Options and notes |
 |---|---|---|---|
 | Expense | title | people / integration |  |
+| Projects | multi_select | agent and people | The project keys of the row (decision 0053): the same options as Clients Projects. `hub install --only notion.projects` adds a brand's option where none has its key. |
 | Vendor | select | people | Options: Hetzner, Anthropic, Google, Cloudflare, Notion, OpenRouter, Netlify, Topview.ai, Eugeniy, Creators Studio Bali. live options are the owner's vendors; fresh project starts empty |
 | Category | select | people | Options: Infrastructure, AI & LLM, SaaS, Team, Hardware, Video production, Legal & fees, Marketing, Travel, Other. |
 | Status | select | people | Options: Active, Trial, Paused, Cancelled, Done, Needs review. |
@@ -267,7 +292,7 @@ Pack file: `schema/leads.json`.
 | UTM campaign | text | Hub | Flags: ads. |
 | Ad click time | date | Hub | Flags: ads. |
 | Ad consent | checkbox | Hub | Flags: ads. |
-| Brand | multi_select | integration (the owner's backend, e.g. django_notion) | Which site or product the lead came from. The options are the names of the project's `## Brands` rows in project.md (doc 16 section 3C), exactly; a project without that table has one option, its own name. The deploy creates the property with those names, and the writer must use exactly those names. Filter on it; one lead can carry several brands. |
+| Brand | multi_select | integration (the owner's backend, e.g. django_notion) | Description: "The project key of the lead's origin: the site or product it came from. Written by the integration; options named like the Hub's ## Brands rows." The project key of the lead's origin (decision 0053): which site or product the lead came from. Leads keeps `Brand` (the other databases use `Projects`): the integration writes it (django_notion matches the backend's project key to the option with the same key: lower case, letters and digits only), the silence check filters on it, and Clients' `Project signals` reads it. The options are named like the project's `## Brands` rows; `hub install --only notion.projects` adds a missing one. A missing option leaves Brand empty, never stops the form. One lead can carry several brands; `Other` is no project. |
 
 ## Open loops
 
@@ -296,20 +321,6 @@ Pack file: `schema/organizations.json`.
 | Clients | relation to clients, reverse "Organization" | CRM |  |
 | CRM id | text | CRM |  |
 | Synced at | date | CRM |  |
-
-## Participants
-
-Pack file: `schema/participants.json`.
-
-| Field | Type | Writer | Options and notes |
-|---|---|---|---|
-| Participant | title | people |  |
-| Opportunity | relation to deals, reverse "Participants" | people |  |
-| Person | relation to clients, reverse "Participations" | people |  |
-| Role | select | people | Options: Lawyer, Agent/Broker, Co-buyer, Referrer, Developer contact, Banker/Lender, Accountant/Tax, Other. |
-| Primary | checkbox | people |  |
-| Notes | text | people |  |
-| Opportunity key | text | people | stable key of the Django opportunity, for a Deals row not yet synced; missing from 02-sales.md before 2026-11-14 |
 
 ## Payments
 
@@ -340,6 +351,7 @@ Pack file: `schema/tasks.json`.
 | Field | Type | Writer | Options and notes |
 |---|---|---|---|
 | Task | title | people |  |
+| Projects | multi_select | agent and people | The project keys of the row (decision 0053): the same options as Clients Projects. `hub install --only notion.projects` adds a brand's option where none has its key. |
 | Status | status (created as select) |  | Flags: skipped (trap 1). |
 | Due | date | people/backend |  |
 | Priority | select |  | Options: Urgent, High, Normal, Low. |
