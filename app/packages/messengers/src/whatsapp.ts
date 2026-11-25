@@ -117,6 +117,33 @@ const safely = (fn: () => void): void => {
   }
 };
 
+/**
+ * The history requests still open, by chat: a timer per request that leaves one ops line when the phone never answers within `ms`.
+ * An answer (`settle`), a failed request or the adapter's close clears it.
+ */
+function historyRequests(account: string, ms: number) {
+  const pending = new Map<string, ReturnType<typeof setTimeout>>();
+  const settle = (chatId: string) => {
+    clearTimeout(pending.get(chatId));
+    pending.delete(chatId);
+  };
+  return {
+    settle,
+    open(chatId: string) {
+      settle(chatId);
+      const t = setTimeout(() => {
+        pending.delete(chatId);
+        log.info("the phone did not answer a history request", { account, afterS: Math.round(ms / 1000) });
+      }, ms);
+      t.unref?.();
+      pending.set(chatId, t);
+    },
+    clear() {
+      for (const chatId of [...pending.keys()]) settle(chatId);
+    },
+  };
+}
+
 export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapter {
   const { account } = o;
   const self = `+${account}`;
@@ -131,9 +158,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
   let closed = false;
   const wake: { fn: (() => void) | null } = { fn: null };
   const directory = createWaDirectory();
-  /** The history requests still open, by chat: a timer that leaves one ops line when the phone never answers. */
-  const pending = new Map<string, ReturnType<typeof setTimeout>>();
-  const settle = (chatId: string) => (clearTimeout(pending.get(chatId)), pending.delete(chatId));
+  const requests = historyRequests(account, o.historyMs ?? WA_HISTORY_MS);
 
   const refreshKnown = async () => {
     const rows = await o.knownChats();
@@ -149,7 +174,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       const m = { ...raw, chatId: directory.place(raw.chatId) };
       // The owner's chat with himself ("Message yourself") is not a client's.
       if (m.chatId === self) continue;
-      if (source === "history") settle(m.chatId);
+      if (source === "history") requests.settle(m.chatId);
       directory.note(m.chatId, { newest: { id: m.editOf ?? m.id, fromMe: m.fromMe, at: m.at }, ...(m.jid ? { jid: m.jid } : {}), ...(m.pushName ? { pushName: m.pushName } : {}) });
       const mapped = toWaInbound(m, account, source === "history");
       const title = directory.titleOf(m.chatId);
@@ -238,6 +263,12 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
   const ensure = async () => {
     if (!sock && !closed) await connect();
   };
+  /** A close the socket reported since the last poll is that poll's failure, once. */
+  const throwFailure = () => {
+    const f = failure;
+    failure = null;
+    if (f) throw f;
+  };
 
   return {
     channel: "whatsapp",
@@ -256,18 +287,10 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
     async poll(p: PollOptions): Promise<PollBatch> {
       try {
         await refreshKnown();
-        if (failure) {
-          const f = failure;
-          failure = null;
-          throw f;
-        }
+        throwFailure();
         await ensure();
         if (queue.length === 0) await wait(p.timeoutSec * 1000, wake, p.signal);
-        if (failure) {
-          const f = failure;
-          failure = null;
-          throw f;
-        }
+        throwFailure();
         // Drained against the allow-list read above: without the cache, a chat unlinked since its message was queued never reaches
         // ingest; with it, ingest decides by the stored rows.
         const out = queue.splice(0, p.limit).filter((m) => o.cacheUnlinked || known.has(m.chatId));
@@ -295,18 +318,12 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       try {
         await ensure();
         if (!sock) return local;
-        settle(chatId);
-        const t = setTimeout(() => {
-          pending.delete(chatId);
-          log.info("the phone did not answer a history request", { account, afterS: Math.round((o.historyMs ?? WA_HISTORY_MS) / 1000) });
-        }, o.historyMs ?? WA_HISTORY_MS);
-        t.unref?.();
-        pending.set(chatId, t);
+        requests.open(chatId);
         // The answer is not awaited: it reaches ingest through `poll` whenever the phone sends it (verdict 2).
         await sock.requestHistory(address, anchor, h.limit ?? IMPORT_LIMIT);
         return local;
       } catch (err) {
-        settle(chatId);
+        requests.settle(chatId);
         if (local.length) {
           log.warn("the history request to the phone failed; the Mac's WhatsApp app answered", { account, kind: err instanceof Error ? err.name : "Error" });
           return local;
@@ -351,7 +368,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       closed = true;
       wake.fn?.();
       directory.clear();
-      for (const chatId of [...pending.keys()]) settle(chatId);
+      requests.clear();
       const s = sock;
       sock = null;
       await s?.close();

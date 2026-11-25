@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import { MARKS, type Mark, type SafetyResult } from "@hub/config";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
@@ -62,12 +62,16 @@ const LIVE: SendStatus[] = ["queued", "sending", "sent"];
 
 type Reader = Db | WriteTx;
 
-function usage(db: Reader, channel: MessengerChannel, account: string, at: string): MessengerUsage {
-  const mine = and(eq(sendLog.channel, channel), eq(sendLog.sender, account));
+/** The usage of the send rows `mine` selects at `at`: live rows of the last 24 h, and the newest attempt of any outcome. */
+function usageWhere(db: Reader, mine: SQL | undefined, at: string): MessengerUsage {
   const since = new Date(new Date(at).getTime() - DAY_MS).toISOString();
   const n = db.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
   const last = db.select({ at: sql<string | null>`max(${sendLog.createdAt})` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent", "failed"]))).get();
   return { sentLastDay: Number(n?.n ?? 0), lastAttemptAt: last?.at ?? null };
+}
+
+function usage(db: Reader, channel: MessengerChannel, account: string, at: string): MessengerUsage {
+  return usageWhere(db, and(eq(sendLog.channel, channel), eq(sendLog.sender, account)), at);
 }
 
 /** Throws `wrong_state` with `words` when Stop sending is on for this project or every project: read inside a send row's own write. */
@@ -86,6 +90,73 @@ export function usageRefusal(u: MessengerUsage, limits: { dailyCap: number; spac
     if (wait > 0) return `the last send on this account was under ${limits.spacingSeconds} seconds ago: wait ${wait} s`;
   }
   return null;
+}
+
+/**
+ * The write of `beginMessage`, inside its transaction: Stop sending, the account's cap and spacing, the actor's share of the cap and
+ * the owner's word are read again here, then the `sending` row is inserted.
+ */
+function insertMessengerSend(tx: WriteTx, input: NewMessengerSend): SendRow {
+  refuseWhenStopped(tx, input.project, "Stop sending is on");
+  const refused = usageRefusal(usage(tx, input.channel, input.account, input.at), input.limits, input.at);
+  if (refused) throw new RepoError("wrong_state", refused);
+  if (input.limits.actorCap !== undefined) refuseOverActorCap(tx, input, input.limits.actorCap);
+  const word = input.ownerWord ?? null;
+  if (word !== null && tx.select({ id: sendLog.id }).from(sendLog).where(eq(sendLog.ownerWord, word)).get()) throw new RepoError("wrong_state", "this word of the owner was already used for a send: one send per word");
+  try {
+    return tx
+      .insert(sendLog)
+      .values({ project: input.project, channel: input.channel, messengerDraftId: input.messengerDraftId, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text, ownerWord: word })
+      .returning()
+      .get();
+  } catch (e) {
+    if (isUnique(e)) throw new RepoError("wrong_state", "This draft is already being sent or sent");
+    throw e;
+  }
+}
+
+/** Decision 0048: this actor's own live rows on the account in 24 h stop at its share of the cap. */
+function refuseOverActorCap(tx: WriteTx, input: NewMessengerSend, cap: number): void {
+  const since = new Date(new Date(input.at).getTime() - DAY_MS).toISOString();
+  const mine = tx.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(eq(sendLog.channel, input.channel), eq(sendLog.sender, input.account), eq(sendLog.actor, input.actor), inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
+  const n = Number(mine?.n ?? 0);
+  if (n >= cap) throw new RepoError("wrong_state", `${input.actor} sent ${n} messages on this account in the last 24 hours, its share of the cap is ${cap}`);
+}
+
+/** What the send checks need beyond the draft row: the draft and its client's address and marks. */
+export type SendSubject = { draft: DraftRow; client: { id: number; email: string; repliesOwed: boolean; marks: Mark[] } };
+
+function subjectOf(db: Db, draftId: number): SendSubject | null {
+  const d = db.select().from(drafts).where(eq(drafts.id, draftId)).get();
+  if (!d) return null;
+  const c = db.select().from(clients).where(eq(clients.id, d.clientId)).get();
+  if (!c) return null;
+  const m = db.select({ mark: marks.mark }).from(marks).where(eq(marks.clientId, c.id)).all().map((r) => r.mark);
+  return { draft: d, client: { id: c.id, email: c.email ?? "", repliesOwed: c.repliesOwed, marks: m.filter((x): x is Mark => (MARKS as readonly string[]).includes(x)) } };
+}
+
+/**
+ * The safety rules of the project run on the text that will really go out (the one in Mail, not the excerpt the row holds).
+ * Results the person acknowledged on the draft keep their `acked` flag.
+ */
+function safetyOfDraft(db: Db, draftId: number, actual: { subject: string; toAddr: string; ccAddr: string | null; body: string }, now: Date): SafetyResult[] {
+  const s = subjectOf(db, draftId);
+  if (!s) return [];
+  const { draft, client } = s;
+  const closed = db
+    .select({ at: sql<string | null>`max(${drafts.actedAt})` })
+    .from(drafts)
+    .where(and(eq(drafts.clientId, client.id), or(eq(drafts.status, "done"), eq(drafts.status, "sent")), sql`${drafts.id} <> ${draftId}`))
+    .get();
+  // P65 S2: the newest Mail version the Hub wrote says whether it had to sign in English.
+  const newest = db.select({ fallback: mailVersions.signatureFallback }).from(mailVersions).where(eq(mailVersions.draftId, draftId)).orderBy(desc(mailVersions.id)).limit(1).get();
+  return evaluateSafety(
+    // P85b: the stored findings too, as the list's own results have it (`loadSafety`): without them the card's live checks
+    // left out a check that still blocked Checked, so a batch draft could not be Checked at all.
+    { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null, findings: findingsOf(draft) },
+    loadRules(db, draft.project),
+    parseJson<string[]>(draft.acked, []),
+  );
 }
 
 /**
@@ -178,30 +249,7 @@ export function sendsRepo(db: Db) {
      * past a guard. `wrong_state` with the reason in words when a guard refuses, or when the draft already has a live row.
      */
     async beginMessage(input: NewMessengerSend): Promise<SendRow> {
-      return write(db, (tx) => {
-        refuseWhenStopped(tx, input.project, "Stop sending is on");
-        const u = usage(tx, input.channel, input.account, input.at);
-        const refused = usageRefusal(u, input.limits, input.at);
-        if (refused) throw new RepoError("wrong_state", refused);
-        if (input.limits.actorCap !== undefined) {
-          const since = new Date(new Date(input.at).getTime() - DAY_MS).toISOString();
-          const mine = tx.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(eq(sendLog.channel, input.channel), eq(sendLog.sender, input.account), eq(sendLog.actor, input.actor), inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
-          const n = Number(mine?.n ?? 0);
-          if (n >= input.limits.actorCap) throw new RepoError("wrong_state", `${input.actor} sent ${n} messages on this account in the last 24 hours, its share of the cap is ${input.limits.actorCap}`);
-        }
-        const word = input.ownerWord ?? null;
-        if (word !== null && tx.select({ id: sendLog.id }).from(sendLog).where(eq(sendLog.ownerWord, word)).get()) throw new RepoError("wrong_state", "this word of the owner was already used for a send: one send per word");
-        try {
-          return tx
-            .insert(sendLog)
-            .values({ project: input.project, channel: input.channel, messengerDraftId: input.messengerDraftId, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text, ownerWord: word })
-            .returning()
-            .get();
-        } catch (e) {
-          if (isUnique(e)) throw new RepoError("wrong_state", "This draft is already being sent or sent");
-          throw e;
-        }
-      });
+      return write(db, (tx) => insertMessengerSend(tx, input));
     },
 
     /** queued -> sending, once, for whoever gets there first. Null when it is no longer queued (cancelled, or another runner took it). */
@@ -274,11 +322,7 @@ export function sendsRepo(db: Db) {
      * cap) and the newest attempt of any outcome (the spacing between two mails of a run).
      */
     async actorUsage(project: string, actor: string, at: string): Promise<MessengerUsage> {
-      const mine = and(eq(sendLog.project, project), eq(sendLog.actor, actor), eq(sendLog.channel, "mail"));
-      const since = new Date(new Date(at).getTime() - DAY_MS).toISOString();
-      const n = db.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
-      const last = db.select({ at: sql<string | null>`max(${sendLog.createdAt})` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent", "failed"]))).get();
-      return { sentLastDay: Number(n?.n ?? 0), lastAttemptAt: last?.at ?? null };
+      return usageWhere(db, and(eq(sendLog.project, project), eq(sendLog.actor, actor), eq(sendLog.channel, "mail")), at);
     },
 
     /** Attempts that count against the daily cap: queued, sending and sent, autosends only, since `since`. */
@@ -351,13 +395,8 @@ export function sendsRepo(db: Db) {
     },
 
     /** What the send checks need beyond the draft row: the client's address and marks. Null when the draft is unknown. */
-    async subject(draftId: number): Promise<{ draft: DraftRow; client: { id: number; email: string; repliesOwed: boolean; marks: Mark[] } } | null> {
-      const d = db.select().from(drafts).where(eq(drafts.id, draftId)).get();
-      if (!d) return null;
-      const c = db.select().from(clients).where(eq(clients.id, d.clientId)).get();
-      if (!c) return null;
-      const m = db.select({ mark: marks.mark }).from(marks).where(eq(marks.clientId, c.id)).all().map((r) => r.mark);
-      return { draft: d, client: { id: c.id, email: c.email ?? "", repliesOwed: c.repliesOwed, marks: m.filter((x): x is Mark => (MARKS as readonly string[]).includes(x)) } };
+    async subject(draftId: number): Promise<SendSubject | null> {
+      return subjectOf(db, draftId);
     },
 
     /**
@@ -365,23 +404,7 @@ export function sendsRepo(db: Db) {
      * row holds). Results the person acknowledged on the draft keep their `acked` flag.
      */
     async safetyOf(draftId: number, actual: { subject: string; toAddr: string; ccAddr: string | null; body: string }, now: Date = new Date()): Promise<SafetyResult[]> {
-      const s = await this.subject(draftId);
-      if (!s) return [];
-      const { draft, client } = s;
-      const closed = db
-        .select({ at: sql<string | null>`max(${drafts.actedAt})` })
-        .from(drafts)
-        .where(and(eq(drafts.clientId, client.id), or(eq(drafts.status, "done"), eq(drafts.status, "sent")), sql`${drafts.id} <> ${draftId}`))
-        .get();
-      // P65 S2: the newest Mail version the Hub wrote says whether it had to sign in English.
-      const newest = db.select({ fallback: mailVersions.signatureFallback }).from(mailVersions).where(eq(mailVersions.draftId, draftId)).orderBy(desc(mailVersions.id)).limit(1).get();
-      return evaluateSafety(
-        // P85b: the stored findings too, as the list's own results have it (`loadSafety`): without them the card's live checks
-        // left out a check that still blocked Checked, so a batch draft could not be Checked at all.
-        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null, findings: findingsOf(draft) },
-        loadRules(db, draft.project),
-        parseJson<string[]>(draft.acked, []),
-      );
+      return safetyOfDraft(db, draftId, actual, now);
     },
   };
 }
