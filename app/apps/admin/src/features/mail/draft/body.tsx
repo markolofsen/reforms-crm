@@ -73,7 +73,11 @@ export function DraftBody({ d, project, actions, live, onRead, reading, editing 
       {gone && <MailGone draftId={d.id} project={project} trashRef={gone.trashRef} />}
       {unreadable && !gone && !sent && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">{mailProblem(live?.reason)}. Open it in Mail.</p>
+          {live?.slow ? (
+            <p className="text-muted-foreground text-sm" data-testid="mail-slow">Mail is busy and did not answer after three tries. The draft is safe there; read it again in a minute.</p>
+          ) : (
+            <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">{mailProblem(live?.reason)}. Open it in Mail.</p>
+          )}
           {onRead && (
             <ActionButton disabled={reading} onClick={onRead} size="s" variant="quiet">
               {reading ? "Reading" : "Read again"}

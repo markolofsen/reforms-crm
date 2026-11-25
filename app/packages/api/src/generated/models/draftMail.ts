@@ -29,6 +29,7 @@ export interface DraftMail {
   body: string;
   /** @nullable */
   hash: string | null;
+  slow?: boolean;
   safetyResults: DraftMailSafetyResultsItem[];
   readAt: string;
 }

@@ -100,7 +100,7 @@ export function draftMailRoutes({ repos, sender }: MailContext) {
       }
       if (!f.mail) {
         const trash = f.gone ? await inTrash(draft, projectMail(slug)?.accounts ?? []) : null;
-        return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, note: null, gone: f.gone ? { trashRef: trash?.ref ?? null } : null, ...empty }));
+        return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, ...(f.slow ? { slow: true } : {}), note: null, gone: f.gone ? { trashRef: trash?.ref ?? null } : null, ...empty }));
       }
       const m = f.mail;
       const hash = f.note ? null : mailHash(m);

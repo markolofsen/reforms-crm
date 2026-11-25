@@ -14,7 +14,7 @@ import { addresses, norm } from "./recipients";
  * named only). `note`: Mail holds several drafts of this thread; such a read has no hash. `gone` (P56): Mail answered
  * and holds no draft for it at all, so the card looks in Trash.
  */
-export type MailFound = { mail: MailDraft; reason?: undefined; note?: string; aside?: string; gone?: undefined } | { mail?: undefined; reason: string; note?: undefined; aside?: undefined; gone?: boolean };
+export type MailFound = { mail: MailDraft; reason?: undefined; note?: string; aside?: string; gone?: undefined } | { mail?: undefined; reason: string; note?: undefined; aside?: undefined; gone?: boolean; slow?: boolean };
 
 /**
  * `strict` (Send, the dry run, Checked): one draft or a refusal, never a guess. `show` (the card's read, P53): with
@@ -47,7 +47,7 @@ export async function findMail(deps: { mailer: Pick<Mailer, "findDrafts"> }, dra
   try {
     all = await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject });
   } catch (e) {
-    if (e instanceof MailNotAnswering) return { reason: `${e.message}. ${MAIL_NOT_ANSWERING_FIX}` };
+    if (e instanceof MailNotAnswering) return { reason: `${e.message}. ${MAIL_NOT_ANSWERING_FIX}`, slow: true };
     return { reason: `Mail could not be read: ${(e as Error).message}` };
   }
   const own = scope.accounts ? new Set(scope.accounts.map((a) => a.trim().toLowerCase())) : null;

@@ -75,7 +75,19 @@ export const useManualDraft = (project: string, clientId: number, brand: string 
  * regains focus, so a text edited in Mail shows up before Checked or Send, and the answer carries the hash Checked binds to.
  */
 export const useDraftMail = (project: string, draftId: number, enabled: boolean) =>
-  useQuery({ queryKey: keys.draftMail(project, draftId), queryFn: () => sendApi.mail(project, draftId), enabled, staleTime: 0, refetchOnWindowFocus: true });
+  useQuery({ queryKey: keys.draftMail(project, draftId), queryFn: () => readPatiently(() => sendApi.mail(project, draftId)), enabled, staleTime: 0, refetchOnWindowFocus: true });
+
+/** 3k: a busy Mail is read again quietly, three tries over about 30 s, before the card says anything. */
+export const MAIL_TRIES = 3;
+export const MAIL_RETRY_MS = 12_000;
+export async function readPatiently<T extends { slow?: boolean | undefined }>(read: () => Promise<T>, tries = MAIL_TRIES, waitMs = MAIL_RETRY_MS, wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<T> {
+  let r = await read();
+  for (let i = 1; i < tries && r.slow; i++) {
+    await wait(waitMs);
+    r = await read();
+  }
+  return r;
+}
 
 /** The last Mail read of a draft, as the card holds it (the `C` key judges the tick on it without reading Mail again). */
 export function useDraftMailOf(project: string): (draftId: number) => DraftMailDto | undefined {

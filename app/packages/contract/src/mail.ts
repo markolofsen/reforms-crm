@@ -36,6 +36,8 @@ export const draftMailDto = z.object({
   subject: z.string(),
   body: z.string(),
   hash: z.string().nullable(),
+  /** 3k: Mail did not answer in time (a busy Mail, not a fault of the draft); the admin reads again quietly before it says so. */
+  slow: z.boolean().optional(),
   safetyResults: z.array(safetyResultDto),
   readAt: z.string(),
 });

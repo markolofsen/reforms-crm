@@ -14,7 +14,7 @@ function List({ title, items }: { title: string; items: string[] | undefined }) 
 }
 
 /**
- * "Based on": what the agent says it read before it wrote this draft (the context block the draft's record stored, `draft_write`):
+ * "Why this reply" (3k: one disclosure, closed until opened): what the agent says it read before it wrote this draft (the context block the draft's record stored, `draft_write`):
  * the messages, the Notion profile, the facts, the anchors only this client has. Shown, never graded (P140 K2: the agent follows
  * the workflow). Nothing here is the reply text.
  */
@@ -26,7 +26,7 @@ export function BasedOnStrip({ d }: { d: ReviewDraft }) {
   return (
     <Collapsible className="rounded-lg border" data-testid="based-on">
       <CollapsibleTrigger className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-start text-sm">
-        <span className="font-medium">Based on</span>
+        <span className="font-medium">Why this reply</span>
         <span className="min-w-0 flex-1 text-muted-foreground">
           {read}, profile {profile?.state ?? "not read"}, {plural(facts?.used?.length ?? 0, "fact")} used
         </span>

@@ -16312,6 +16312,9 @@
               "null"
             ]
           },
+          "slow": {
+            "type": "boolean"
+          },
           "safetyResults": {
             "type": "array",
             "items": {
