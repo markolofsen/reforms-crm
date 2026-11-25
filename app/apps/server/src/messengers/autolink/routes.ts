@@ -132,7 +132,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken, age
         return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: r.notion }));
       }),
     )
-    // P143 L2: the agent's Create from this chat and Link, attended only (`client_create`, `chat_link` of `hub mcp`).
+    // P143 L2: the agent's Create (from this chat, or a Clients card with no chat) and Link, attended only (`client_create`, `chat_link` of `hub mcp`).
     .post("/api/projects/:slug/messengers/autolink/agent-create", (c) =>
       agentGuarded(c, agentClientCreateBody, (b, slug, a) => agentCreate(c, slug, a, b)),
     )

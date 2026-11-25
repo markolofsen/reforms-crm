@@ -5,7 +5,8 @@ import { AGENT_SEND_HEADER } from "./send-token";
 // (`../mcp/tools/chat-sort.ts`), with the token of the agent send (decision 0046). The server holds the unlinked chats in
 // memory only (decision 0036 point 3); the agent reads their identities and proposes hides; the owner confirms them in one
 // dialog. Neither call hides, links or sends. P143 L2: two more, attended only, `client_create` and `chat_link`, which link a chat
-// (and create its Clients card) through the same path as the owner's Create and Link in the admin; neither sends.
+// (and create its Clients card) through the same path as the owner's Create and Link in the admin, or create a card with no chat;
+// neither sends.
 
 export type UnlinkedChat = AgentUnlinkedDto["chats"][number];
 export type ChatSortAnswer<T> = { ok: true; value: T } | { ok: false; status: number; error: string };
@@ -13,7 +14,7 @@ export type ChatSortAnswer<T> = { ok: true; value: T } | { ok: false; status: nu
 export interface ChatSortPort {
   unlinked(slug: string): Promise<ChatSortAnswer<UnlinkedChat[]>>;
   propose(slug: string, items: readonly { channel: UnlinkedChat["channel"]; chatId: string; reason: string }[]): Promise<ChatSortAnswer<{ kept: number; skipped: number }>>;
-  create(slug: string, body: { chat: number; name: string; email?: string; company?: string }): Promise<ChatSortAnswer<AgentChatLinkedDto>>;
+  create(slug: string, body: { chat?: number; name: string; email?: string; phone?: string; telegram?: string; company?: string }): Promise<ChatSortAnswer<AgentChatLinkedDto>>;
   link(slug: string, body: { chat: number; client?: number; record?: string }): Promise<ChatSortAnswer<AgentChatLinkedDto>>;
 }
 

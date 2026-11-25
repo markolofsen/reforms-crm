@@ -138,15 +138,19 @@ const failed = (e: unknown): { status: number | null; kind: string | null } => {
 
 export type CreateChatClientOutcome = { state: "created"; pageId: string; page: PageObject } | { state: "refused"; note: string } | { state: "no_schema"; note: string };
 
-/** The owner's Create from a chat: one Clients card (Name, Email when known, Relationship Lead, the chat's field). A 403 is the fix sentence. */
+/**
+ * Create, the owner's and the agent's (P143 L2): one Clients card (Name, Email and Phone when known, Relationship Lead, the chat's
+ * Telegram or WhatsApp). `identity` is the chat's, or the Telegram username the agent was given for a client with no chat; null
+ * when there is neither. A 403 is the fix sentence.
+ */
 export async function createChatClient(
   deps: { reader: NotionReader; writer: ChatClientWriter },
-  o: { clientsDataSource: string; name: string; email?: string | null; identity: ChatIdentity },
+  o: { clientsDataSource: string; name: string; email?: string | null; phone?: string | null; identity: ChatIdentity | null },
 ): Promise<CreateChatClientOutcome> {
   const ds = await deps.reader.retrieveDataSource(o.clientsDataSource);
-  const props = newClientProperties(ds, { name: o.name, email: o.email });
+  const props = newClientProperties(ds, { name: o.name, email: o.email, phone: o.phone ?? null });
   if (!props) return { state: "no_schema", note: "the Clients database has no title property" };
-  const chat = chatProperty(ds, o.identity);
+  const chat = o.identity ? chatProperty(ds, o.identity) : null;
   if (chat) props[chat.name] = chat.type === "phone_number" ? { phone_number: chat.value.slice(0, 60) } : { rich_text: [{ type: "text", text: { content: chat.value.slice(0, 200) } }] };
   try {
     const pageId = await deps.writer.createClient(o.clientsDataSource, props);
@@ -160,7 +164,7 @@ export async function createChatClient(
       const asRead = Array.isArray(val) ? (val as Array<{ text?: { content?: string } }>).map((x) => ({ plain_text: x.text?.content ?? "" })) : val;
       properties[k] = { type: c.type, [c.type]: asRead };
     }
-    ops("notion").info("client card created in Notion from a chat", { property: chat?.name ?? null });
+    ops("notion").info("client card created in Notion", { property: chat?.name ?? null, withPhone: "Phone" in props });
     return { state: "created", pageId, page: { id: pageId, last_edited_time: new Date().toISOString(), properties } };
   } catch (e) {
     if (refused(e)) {

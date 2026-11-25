@@ -1,4 +1,4 @@
-import type { AgentChatLinkedDto } from "@hub/contract/messengers";
+import { agentPhone, agentTelegram, type AgentChatLinkedDto } from "@hub/contract/messengers";
 import { z } from "zod";
 import type { ChatSortAnswer, ChatSortPort } from "../../messenger/chat-sort-port";
 import { defineTool } from "../define";
@@ -13,6 +13,7 @@ import { attended, chatAccess } from "./messengers";
 //   It removes attention, not the follow-up (P142).
 // - `client_create` and `chat_link`: the owner's Create and Link of the admin, for the chat in focus, through the server's own path
 //   (a loopback door with the agent token, attended only): a lookup by the person's identities first, so no duplicate is made.
+//   `client_create` also makes a client with no chat (a name and an email, phone or Telegram username): a Clients card alone.
 // A capability, not a duty (L3): the owner's WhatsApp and Telegram are personal too.
 
 const reason = z.string().trim().min(3).max(300);
@@ -68,7 +69,7 @@ export const conversationDoneTool = defineTool({
   },
 });
 
-const linked = z.object({ project: z.string(), chat: z.number(), client: z.number().nullable(), name: z.string(), how: z.enum(["created", "linked_existing", "linked"]), notion: z.string().nullable(), next: z.string() });
+const linked = z.object({ project: z.string(), chat: z.number().nullable(), client: z.number().nullable(), name: z.string(), how: z.enum(["created", "linked_existing", "linked", "existing"]), notion: z.string().nullable(), next: z.string() });
 
 function port(ctx: ToolCtx): ChatSortPort {
   if (!attended(ctx.env)) throw new ToolError("unattended", "Only in a session the owner started: a client is created or linked on his word or for a plainly business chat.");
@@ -77,28 +78,37 @@ function port(ctx: ToolCtx): ChatSortPort {
   return p;
 }
 const answer = (slug: string, a: ChatSortAnswer<AgentChatLinkedDto>) => {
-  if (!a.ok) throw new ToolError(a.status === 0 ? "unavailable" : a.status === 403 ? "unattended" : a.status === 404 ? "not_found" : /already linked/i.test(a.error) ? "already_linked" : /no notion card|give client/i.test(a.error) ? "not_in_notion" : "refused", a.error);
+  if (!a.ok) throw new ToolError(a.status === 0 ? "unavailable" : a.status === 403 ? "unattended" : a.status === 400 ? "invalid" : a.status === 404 ? "not_found" : /already linked/i.test(a.error) ? "already_linked" : /no notion card|give client/i.test(a.error) ? "not_in_notion" : "refused", a.error);
   const v = a.value;
-  return { project: slug, chat: v.chat, client: v.clientId, name: v.name, how: v.how, notion: v.notion, next: `Tell the owner in one line: chat:${v.chat} is linked to ${v.name}${v.how === "created" ? " (a new Clients card)" : ""}; he can Unlink it in Messengers. Nothing was sent.` };
+  return { project: slug, chat: v.chat, client: v.clientId, name: v.name, how: v.how, notion: v.notion, next: nextOf(v) };
 };
+function nextOf(v: AgentChatLinkedDto): string {
+  if (v.chat === null) return v.how === "existing" ? `Tell the owner in one line: ${v.name} is already a client (${v.notion}). Nothing was sent.` : `Tell the owner in one line: ${v.name} is a new Clients card in Notion, with no chat linked. Nothing was sent.`;
+  return `Tell the owner in one line: chat:${v.chat} is linked to ${v.name}${v.how === "created" ? " (a new Clients card)" : ""}; he can Unlink it in Messengers. Nothing was sent.`;
+}
 
 export const clientCreateTool = defineTool({
   name: "client_create",
-  title: "Create a client from a chat and link it",
+  title: "Create a client, from a chat or with none",
   description:
-    "Creates the client of an unlinked chat (`chat`, chat:<id> from focus) and links it: first a lookup by the email and the chat's number or username (an existing Hub client or Notion card is linked, never a duplicate), else one new Clients card (name, company, email when they gave it, the chat's number or username). Only when the owner says so or the chat is plainly business; never for a personal chat; in doubt, ask him. Fill only what they said.",
+    "Creates a client. With `chat` (chat:<id> from focus, unlinked): a lookup by the email and the chat's number or username first (an existing Hub client or Notion card is linked, never a duplicate), else one new Clients card (name, company, email if given, the chat's number or username), then the link. With no chat: a name and one or more of email, phone, telegram; a lookup by each first (a found client is answered, nothing made), else one new Clients card. Only on the owner's word or for a plainly business person; never a personal chat or contact; in doubt, ask him. Fill only what they said.",
   input: z.object({
-    chat: z.number().int().positive().describe("The internal messenger chat id from focus."),
+    chat: z.number().int().positive().optional().describe("The internal messenger chat id from focus; omit for a client with no chat."),
     name: z.string().trim().min(1).max(200).describe("The person's name as they gave it (or the company's when that is all)."),
     company: z.string().trim().min(1).max(200).optional(),
     email: z.email().max(254).optional().describe("Only an address they wrote."),
+    phone: agentPhone.optional().describe("No chat only: a number they gave, with its country code."),
+    telegram: agentTelegram.optional().describe("No chat only: a Telegram username they gave."),
   }),
   output: linked,
   effect: "pointer",
-  refusals: ["unattended", "unavailable", "not_found", "already_linked", "refused"],
-  handler: async (ctx, { chat, name, company, email }) => {
+  refusals: ["invalid", "unattended", "unavailable", "not_found", "already_linked", "refused"],
+  handler: async (ctx, { chat, name, company, email, phone, telegram }) => {
     const slug = ctx.project();
-    return answer(slug, await port(ctx).create(slug, { chat, name, ...(company ? { company } : {}), ...(email ? { email } : {}) }));
+    if (chat === undefined && !email && !phone && !telegram) throw new ToolError("invalid", "Give chat, or at least one of email, phone or telegram: a client is found and reached by one of them.");
+    if (chat !== undefined && (phone || telegram)) throw new ToolError("invalid", "With chat, the chat's own number or username fills the card: omit phone and telegram.");
+    const p = port(ctx);
+    return answer(slug, await p.create(slug, { name, ...(chat !== undefined ? { chat } : {}), ...(company ? { company } : {}), ...(email ? { email } : {}), ...(phone ? { phone } : {}), ...(telegram ? { telegram } : {}) }));
   },
 });
 

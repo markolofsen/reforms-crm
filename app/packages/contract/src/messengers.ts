@@ -274,24 +274,33 @@ export const agentUnlinkedDto = z.strictObject({
 export type AgentUnlinkedDto = z.infer<typeof agentUnlinkedDto>;
 
 /**
- * P143 L2: `hub mcp`'s two doors in an attended session (the agent token, never the browser). Create from this chat: one lookup by
- * the person's identities first (a Hub client, then the Notion card with this email or this chat's number or username), else one
- * new Clients card (Name, Email when known, the chat's number or username), then the link. Link: the chat to a client the Hub knows
- * (`client`) or to a Notion card (`record`, its page id). Both answer what happened in one line for the owner.
+ * P143 L2: `hub mcp`'s two doors in an attended session (the agent token, never the browser). Create, from a chat or with no chat:
+ * one lookup by every identity given first (a Hub client, then the Notion card with this email, number or username), else one new
+ * Clients card (Name, Email, Phone or Telegram when given, else the chat's number or username), then the chat's link. With no chat
+ * the card is the whole result: the Hub's client row comes with a draft, a kept message or a linked chat (decision 0009). Link: the
+ * chat to a client the Hub knows (`client`) or to a Notion card (`record`, its page id). Both answer what happened in one line.
  */
-export const agentClientCreateBody = z.strictObject({
-  chat: z.number().int().positive(),
-  name: z.string().trim().min(1).max(200),
-  email: z.email().max(254).optional(),
-  company: z.string().trim().min(1).max(200).optional(),
-});
+export const agentPhone = z.string().trim().regex(/^\+?[\d\s\-().]{7,24}$/, "a phone number, digits with an optional +").refine((v) => /^\d{7,15}$/.test(v.replace(/\D/g, "")), "a phone number of 7 to 15 digits");
+export const agentTelegram = z.string().trim().regex(/^@?[A-Za-z][A-Za-z0-9_]{3,31}$/, "a Telegram username (a number goes in phone)");
+export const agentClientCreateBody = z
+  .strictObject({
+    chat: z.number().int().positive().optional(),
+    name: z.string().trim().min(1).max(200),
+    email: z.email().max(254).optional(),
+    phone: agentPhone.optional(),
+    telegram: agentTelegram.optional(),
+    company: z.string().trim().min(1).max(200).optional(),
+  })
+  .refine((b) => b.chat !== undefined || b.email !== undefined || b.phone !== undefined || b.telegram !== undefined, "Give chat, or at least one of email, phone or telegram")
+  .refine((b) => b.chat === undefined || (b.phone === undefined && b.telegram === undefined), "With chat, the chat's own number or username fills the card: phone and telegram are for a client with no chat");
 export const agentChatLinkBody = z.strictObject({ chat: z.number().int().positive(), client: z.number().int().positive().optional(), record: z.string().min(1).max(64).optional() });
+/** `chat` is null for a client made with no chat; `existing` is a client found with no chat to link, so nothing was made. */
 export const agentChatLinkedDto = z.strictObject({
   ok: z.literal(true),
-  chat: z.number().int(),
+  chat: z.number().int().nullable(),
   clientId: z.number().int().nullable(),
   name: z.string(),
-  how: z.enum(["created", "linked_existing", "linked"]),
+  how: z.enum(["created", "linked_existing", "linked", "existing"]),
   notion: z.string().nullable(),
   imported: z.number(),
   importError: z.string().nullable(),

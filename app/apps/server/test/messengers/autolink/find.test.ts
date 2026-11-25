@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeLoginClient, FakeMtClient, fakePerson, type MtMessage, type MtPeer } from "@hub/messengers";
 import type { ChatClientWriter } from "@hub/notion/chat-client";
+import { AGENT_SEND_HEADER } from "@hub/agent/send-token";
 import { testApp } from "../../support/runtime";
+import { autolinkRoutes } from "../../../src/messengers/autolink/routes";
 import { recordMatches, startAutolink, type Autolink } from "../../../src/messengers/autolink/autolink";
 import { startClientDirectory, type ClientDirectory } from "../../../src/clients/directory";
 import { startTelegramUser, type TelegramUserHandle } from "../../../src/messengers/accounts/telegram-user";
@@ -240,6 +242,60 @@ describe("Create client from a chat", () => {
     const gate = await app.request(`${BASE}/api/projects/p/messengers/autolink/create`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel: "telegram_user", account: "42", chatId: "2002", name: "N", email: "n@example.test" }) });
     expect(gate.status).toBe(403);
     expect((await post("/api/projects/p/messengers/autolink/create", { channel: "telegram_user", account: "42", chatId: "2002", name: "N", email: "not-an-email" })).status).toBe(400);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe("P143: the agent's client_create with no chat", () => {
+  const TOKEN = "t".repeat(64);
+  let unattended = false;
+  const agentPost = (body: unknown) =>
+    autolinkRoutes({ repos, autolink: { project: "p", autolink: al, directory, stop: () => undefined }, adminPort: ADMIN, agentToken: TOKEN, agentUnattended: () => unattended }).request(`${BASE}/api/projects/p/messengers/autolink/agent-create`, {
+      method: "POST",
+      headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: TOKEN },
+      body: JSON.stringify(body),
+    });
+  beforeEach(() => {
+    unattended = false;
+  });
+
+  it("makes one Clients card with the name, company, Phone and Telegram, and no Hub row (rule 16)", async () => {
+    const r = await agentPost({ name: "Ahmed", company: "Qimma Auctions", phone: "+966 54 455 5430", telegram: "@qimma_k" });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ ok: true, chat: null, clientId: null, name: "Ahmed, Qimma Auctions", how: "created", notion: "Created Ahmed, Qimma Auctions in Notion with Phone, Telegram" });
+    expect(writes).toEqual([
+      {
+        op: "create",
+        args: [
+          "ds",
+          {
+            Name: { title: [{ type: "text", text: { content: "Ahmed, Qimma Auctions" } }] },
+            Phone: { phone_number: "+966544555430" },
+            Relationship: { select: { name: "Lead" } },
+            Telegram: { rich_text: [{ type: "text", text: { content: "qimma_k" } }] },
+          },
+        ],
+      },
+    ]);
+    expect(al.record("new-page")).toMatchObject({ name: "Ahmed, Qimma Auctions" });
+    expect(rows("select count(*) n from clients")).toEqual([{ n: 0 }]);
+  });
+
+  it("looks up every identity first: a card with this phone, or a Hub client with this email, is answered and nothing is made", async () => {
+    const card = await agentPost({ name: "Anna", phone: "+62 813 0000 1111" });
+    expect(await card.json()).toMatchObject({ chat: null, name: "Anna", how: "existing", notion: "An existing Clients card of Anna; nothing was created" });
+    const id = await repos.clients.create({ project: "p", email: "zoe@example.test", name: "Zoe" });
+    const hub = await agentPost({ name: "Zoe Z", email: "zoe@example.test", telegram: "zoe_z" });
+    expect(await hub.json()).toMatchObject({ chat: null, clientId: id, name: "Zoe", how: "existing" });
+    expect(writes).toEqual([]);
+  });
+
+  it("refuses a name alone, a number for a name and an unattended instance; nothing is written", async () => {
+    expect((await agentPost({ name: "Ahmed" })).status).toBe(400);
+    expect((await agentPost({ name: "+966 54 455 5430", phone: "+966 54 455 5430" })).status).toBe(400);
+    expect((await agentPost({ chat: 1, name: "Ahmed", phone: "+966 54 455 5430" })).status).toBe(400);
+    unattended = true;
+    expect((await agentPost({ name: "Ahmed", email: "ahmed@example.test" })).status).toBe(403);
     expect(writes).toEqual([]);
   });
 });

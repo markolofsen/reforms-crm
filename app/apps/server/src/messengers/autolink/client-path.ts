@@ -8,6 +8,7 @@ import { entryOf } from "../../clients/directory";
 import { notFound } from "../../http/http";
 import type { MessengersContext } from "../context";
 import type { chatIdentityKit } from "./chat-identity";
+import { clientWithoutChat, nameWithCompany, type NewClientBody } from "./client-new";
 import type { ProjectAutolink } from "./setup";
 
 /**
@@ -79,9 +80,12 @@ export function clientPath({ repos, kit, agentUnattended }: { repos: MessengersC
   }
   const refusedOf = (c: Context, r: Refused) => c.json({ error: r.refused, code: r.code }, r.code === "not_found" ? 404 : 409);
 
-  /** P143 L2: the agent's doors act only in an attended instance (decision 0046's rule for the agent send), on a known user chat. */
+  /** P143 L2: the agent's doors act only in an attended instance (decision 0046's rule for the agent send). */
+  const unattendedRefusal = (c: Context): Response | null => (!agentUnattended || agentUnattended() ? c.json({ error: "This instance runs unattended sessions: only the owner links or creates clients here.", code: "forbidden" as const }, 403) : null);
+  /** P143 L2: the agent's chat doors, attended, on a known user chat of this project. */
   async function agentChat(c: Context, slug: string, chat: number): Promise<{ row: NonNullable<Awaited<ReturnType<MessengersContext["repos"]["messengers"]["chatById"]>>>; channel: UserChannel; account: string } | Response> {
-    if (!agentUnattended || agentUnattended()) return c.json({ error: "This instance runs unattended sessions: only the owner links or creates clients here.", code: "forbidden" as const }, 403);
+    const refused = unattendedRefusal(c);
+    if (refused) return refused;
     const row = await repos.messengers.chatById(slug, chat);
     if (!row) return notFound(c, "chat");
     if (row.channel === "telegram_bot") return c.json({ error: "A bot chat is not linked by the autolink.", code: "wrong_state" as const }, 409);
@@ -90,8 +94,14 @@ export function clientPath({ repos, kit, agentUnattended }: { repos: MessengersC
   }
   const agentActor = () => humanActor("agent (owner present)");
 
-  /** P143 L2: the agent's Create from this chat: one lookup by the person's identities first (P141 C2), else `createFromChat`. */
-  async function agentCreate(c: Context, slug: string, a: ProjectAutolink, b: { chat: number; name: string; email?: string | undefined; company?: string | undefined }): Promise<Response> {
+  const createWithoutChat = clientWithoutChat({ repos });
+
+  /**
+   * P143 L2: the agent's Create, from this chat (one lookup by the person's identities first, P141 C2, else `createFromChat`) or,
+   * with no chat, a Clients card alone (`clientWithoutChat`).
+   */
+  async function agentCreate(c: Context, slug: string, a: ProjectAutolink, b: NewClientBody & { chat?: number | undefined }): Promise<Response> {
+    if (b.chat === undefined) return unattendedRefusal(c) ?? createWithoutChat(c, slug, a, b);
     const at = await agentChat(c, slug, b.chat);
     if (at instanceof Response) return at;
     // P141 C2: one lookup by the person's identities first: a client the Hub knows by this email or this number is linked to.
@@ -105,7 +115,7 @@ export function clientPath({ repos, kit, agentUnattended }: { repos: MessengersC
       if ("refused" in r) return refusedOf(c, r);
       return c.json(agentChatLinkedDto.parse({ ok: true, chat: b.chat, clientId: known ?? null, name: r.name, how: "linked_existing", notion: r.notion, imported: r.imported, importError: r.importError }));
     }
-    const name = b.company && !b.name.toLowerCase().includes(b.company.toLowerCase()) ? `${b.name}, ${b.company}` : b.name;
+    const name = nameWithCompany(b.name, b.company);
     const r = await createFromChat(slug, a, agentActor(), { channel: at.channel, account: at.account, chatId: at.row.chatId, name, ...(at.row.title ? { title: at.row.title } : {}), ...(b.email ? { email: b.email } : {}) });
     if ("refused" in r) return refusedOf(c, r);
     const clientId = (await repos.clients.findByNotionPage(slug, r.pageId)) ?? null;
