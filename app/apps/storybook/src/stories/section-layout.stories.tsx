@@ -11,7 +11,7 @@ const VIEWS = [
   { id: "returns", label: "Returns", count: null },
 ];
 
-/** One section layout (P125 L1) with its menu column; from 640px of its own width a column (compact below 960px); narrower, a row of tabs on top. */
+/** One section layout (P125 L1) with its menu column; the column at every width, compact below 960px of its own width. */
 function Section({ width }: { width: number }) {
   const [current, setCurrent] = useState("all");
   const items: SectionNavItem[] = VIEWS.map((v) => ({
@@ -25,7 +25,7 @@ function Section({ width }: { width: number }) {
   }));
   return (
     <div className="h-[420px] border bg-background" style={{ width }}>
-      <SectionLayout nav={(form) => <SectionNav form={form} items={items} label="Knowledge views" />} navLabel="Knowledge views">
+      <SectionLayout nav={<SectionNav items={items} label="Knowledge views" />} navLabel="Knowledge views">
         <p className="p-4">The entries of “{VIEWS.find((v) => v.id === current)?.label}”.</p>
       </SectionLayout>
     </div>

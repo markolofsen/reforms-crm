@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SECTION_NAV_MIN_PX, SectionLayout } from "../src/product/shell/section-layout";
+import { SECTION_NAV_WIDE_PX, SectionLayout } from "../src/product/shell/section-layout";
 import { navGroups, SectionNav, type SectionNavItem } from "../src/product/shell/section-nav";
 
 // P125 L1: the section menu's grouping, nesting and counts, and that the selection is marked for a screen reader.
@@ -27,26 +27,15 @@ describe("SectionNav", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toMatch(/ps-6[^>]*href="#auth"|href="#auth"[^>]*ps-6/);
   });
-
-  it("owner 2026-11-25: the tabs form is the same links in one row that scrolls in its own strip, no group heading, no drawer", () => {
-    const html = renderToStaticMarkup(<SectionNav form="tabs" items={[item("sending", { group: "Settings", current: true, render: (c, cls) => <a aria-current="page" className={cls} href="#sending">{c}</a> }), item("checks", { count: 2 })]} label="Settings pages" />);
-    expect(html).toContain('aria-label="Settings pages"');
-    expect(html).toContain('data-form="tabs"');
-    expect(html).toContain("scroll-strip");
-    expect(html).toContain('data-slot="segmented-control"');
-    expect(html).not.toContain("<h3");
-    expect(html).toContain('aria-current="page"');
-    expect(html).toContain(">2<");
-  });
 });
 
 describe("SectionLayout", () => {
-  it("draws the column and the tabs, one shown by the layout's own width (640px), and no sheet button", () => {
-    const html = renderToStaticMarkup(<SectionLayout nav={(form) => <SectionNav form={form} items={[item("a")]} label="Pages" />} navLabel="Pages"><p>body</p></SectionLayout>);
-    expect(SECTION_NAV_MIN_PX).toBe(640);
-    expect(html).toMatch(/<aside[^>]*@\[40rem\]:block/);
-    expect(html).toContain('data-slot="section-tabs"');
-    expect(html).toContain('data-form="tabs"');
+  it("owner 2026-11-25: the column at every width, compact below 960px of its own width; no drawer, no tabs", () => {
+    const html = renderToStaticMarkup(<SectionLayout nav={<SectionNav items={[item("a")]} label="Pages" />} navLabel="Pages"><p>body</p></SectionLayout>);
+    expect(SECTION_NAV_WIDE_PX).toBe(960);
+    expect(html).toContain("grid-cols-[var(--section-nav-compact)_minmax(0,1fr)]");
+    expect(html).toMatch(/<aside aria-label="Pages" class="[^"]*border-e"/);
+    expect(html).not.toMatch(/[" ]hidden[" ]|:hidden/);
     expect(html).not.toContain("<button");
   });
 });
