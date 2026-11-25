@@ -56,6 +56,8 @@ async function settle(fn: () => Promise<Record<string, unknown>>) {
   }
 }
 
+/** P147 3j (5): the one text of a `hub mcp` process older than the core on disk. */
+export const CORE_CHANGED = "The Hub was updated: start a new dock session. This session's tools are the old ones.";
 export const DB_BEHIND = "The Hub's database is behind this core: restart the Hub server (it applies the migration), then call again.";
 
 /** A DbBehindError (a write connection's open), or SQLite naming a column or table this core has and the file does not. */

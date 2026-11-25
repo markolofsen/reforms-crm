@@ -1,5 +1,5 @@
 import { isOwnAddress } from "@hub/projects/addresses";
-import { headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody } from "@hub/projects/brands";
+import { headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, type OwnSignoff } from "@hub/projects/brands";
 import { normalizeAddress } from "@hub/projects/parse";
 import type { DraftWriter, InboundMessage } from "@hub/mail-app/writer/types";
 import type { Revision, Signed } from "../mail";
@@ -37,7 +37,8 @@ export interface Written {
   mailRef: string;
 }
 
-export function draftScope(ctx: ToolCtx, slug: string, writer: DraftWriter, mail: ProjectMail): DraftScope {
+/** P147 3f G2: `own` is the agent's sign-off and team line in the client's language, used only where the project has none in it. */
+export function draftScope(ctx: ToolCtx, slug: string, writer: DraftWriter, mail: ProjectMail, own?: OwnSignoff | null): DraftScope {
   const cfg = configOf(mail);
   // The brand comes from the answered message's headers; an unreadable header block in a project with brands gives the
   // placeholder, never another brand's lines. P65 S2: in the reply's language.
@@ -46,7 +47,7 @@ export function draftScope(ctx: ToolCtx, slug: string, writer: DraftWriter, mail
     ? async (inbound: InboundMessage, body: string, thread?: { brand: string; wroteTo: string | null; draftId: number }): Promise<Signed> => {
         const raw = await writer.readHeaders(inbound).catch(() => null);
         const r = thread ? { wroteTo: thread.wroteTo, brand: thread.brand, via: "address" as const, reason: `the thread's earlier draft ${thread.draftId} was ${thread.brand}'s` } : raw === null ? null : resolveBrand(headersFromText(raw), cfg);
-        const block = signatureFor(cfg, r, replyLanguage(body));
+        const block = signatureFor(cfg, r, replyLanguage(body), own);
         return { body: signBody(body, block, signatureLines(cfg)), wroteTo: r?.wroteTo ?? null, brand: r?.brand ?? null, brandReason: r?.reason ?? "the message's headers could not be read", signature: block.placeholder ? "placeholder" : block.lines.length ? "signed" : "none", ...(block.fallback ? { signatureFallback: block.fallback } : {}) };
       }
     : undefined;
@@ -55,7 +56,7 @@ export function draftScope(ctx: ToolCtx, slug: string, writer: DraftWriter, mail
   const signFrom = (fromAddr: string, body: string, named?: string | null): Signed => {
     const row = named ? cfg.brands.find((b) => b.name.toLowerCase() === named.toLowerCase()) : undefined;
     const res = row ? { wroteTo: null, brand: row.name, via: "address" as const, reason: `the brand ${row.name} was named for this message` } : resolveBrand(headersFromText(`From: ${fromAddr}`), cfg);
-    const block = signatureFor(cfg, res, replyLanguage(body));
+    const block = signatureFor(cfg, res, replyLanguage(body), own);
     return { body: mail.identity ? signBody(body, block, signatureLines(cfg)) : body, wroteTo: null, brand: res.brand, brandReason: res.reason, signature: !mail.identity ? "none" : block.placeholder ? "placeholder" : block.lines.length ? "signed" : "none", ...(block.fallback ? { signatureFallback: block.fallback } : {}) };
   };
   const isOurs = (a: string) => isOwnAddress(a, cfg.mail) || (!!mail.sender && normalizeAddress(a) === normalizeAddress(mail.sender));

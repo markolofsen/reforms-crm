@@ -353,3 +353,18 @@ describe("replyFrom (P58)", () => {
     expect(r.fromReason).toMatch(/someone@else\.example is not on mail\.accounts: from mail\.sender info@caribbeanrealestatemls\.com/);
   });
 });
+
+describe("the agent's own sign-off in the client's language (P147 3f G2, G3)", () => {
+  const brand = { name: "Acme", receivesAt: [], signature: ["en: Acme team | ru: Команда Acme", "acme.example"], answered: "2026-11-25", by: "owner" as const };
+  const c = { signoff: "en: Best regards, | ru: С уважением,", brands: [brand], languages: ["en", "ru"] };
+  const r = { brand: "Acme", wroteTo: null };
+  it("a language the project does not sign in: the agent's lines, then the shared site line", () => {
+    expect(signatureFor(c, r, "en", { language: "es", lines: ["Saludos,", "Equipo Acme"] })).toEqual({ lines: ["Saludos,", "Equipo Acme", "acme.example"], placeholder: false });
+  });
+  it("a language the project signs in: its own lines, the agent's ignored", () => {
+    expect(signatureFor(c, r, "ru", { language: "ru", lines: ["Пока,"] }).lines).toEqual(["С уважением,", "Команда Acme", "acme.example"]);
+  });
+  it("the client's language known, no lines of the agent's: signed in English with the amber fallback", () => {
+    expect(signatureFor(c, r, "en", { language: "es", lines: [] })).toMatchObject({ fallback: "es" });
+  });
+});

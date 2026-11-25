@@ -1,6 +1,6 @@
 import { clientKey } from "@hub/contract/client-key";
 import { brandForKey } from "@hub/projects/brands";
-import type { BugChannel, BugReportInput } from "@hub/notion/bug-reports";
+import { BUG_KINDS, type BugChannel, type BugReportInput } from "@hub/notion/bug-reports";
 import { z } from "zod";
 import { defineTool } from "../define";
 import { ownFollowUpClient, type ToolCtx } from "../ports";
@@ -25,8 +25,16 @@ function project(ctx: ToolCtx, slug: string, named: string | undefined): string 
 }
 
 /** The conversation as the report records it: the client's Clients page, the channel and the admin link. */
-async function conversationOf(ctx: ToolCtx, slug: string, input: { chat?: number | undefined; client?: number | undefined }): Promise<{ clientId: number | null; pageId: string | null; email: string | null; channel: BugChannel; path: string }> {
-  if ((input.chat === undefined) === (input.client === undefined)) throw new ToolError("invalid", "Give chat or client, one of them: the conversation the report is in.");
+async function conversationOf(ctx: ToolCtx, slug: string, input: { chat?: number | undefined; client?: number | undefined; lead?: string | undefined }): Promise<{ clientId: number | null; pageId: string | null; email: string | null; channel: BugChannel; path: string }> {
+  // P147 3g: a lead (no conversation yet) is its own source: the Leads card; in a lead turn only its own lead.
+  if (input.lead !== undefined && input.chat === undefined && input.client === undefined) {
+    const page = input.lead.replace(/-/g, "").toLowerCase();
+    if (ctx.env.leadPage !== undefined && page !== ctx.env.leadPage) throw new ToolError("lead_other", `This lead turn serves lead ${ctx.env.leadPage} only.`);
+    const lead = await ctx.repos.leadRows.get(slug, page);
+    if (!lead) throw new ToolError("not_found", `No lead ${input.lead} in project ${slug}.`);
+    return { clientId: null, pageId: null, email: lead.email, channel: "Other", path: `/${slug}/mail/leads/${page}` };
+  }
+  if ((input.chat === undefined) === (input.client === undefined)) throw new ToolError("invalid", "Give chat, client or lead, one of them: the conversation the report is in.");
   if (input.chat !== undefined) {
     const row = await chatAccess(ctx.repos, ctx.env).target(slug, { chat: input.chat });
     const clientId = await ctx.repos.messengers.clientByIdentifier(slug, row.channel === "whatsapp" ? "whatsapp" : "telegram", row.chatId);
@@ -46,30 +54,32 @@ export const bugReportTool = defineTool({
   name: "bug_report",
   title: "File a client's bug report",
   description:
-    "Files what a client reports as broken (the product does something wrong, with an example, or a known symptom again) in the project's Bug reports: appended to the open report of the same area, else a new one. Not for a feature request, a how-to or billing question, or \"slow\" with no example. Give the conversation, the area, the symptom in their terms, their words and the evidence you saw; never a cause. Afterwards reply: recorded, will be looked at; no date, no cause.",
+    "Files one difficulty in the project's Bug reports (kind): Product, what a client reports as broken (with an example, or a known symptom again); Knowledge gap, a client asked what the knowledge base does not answer specifically; Workflow, you handed over, gave up or worked around a refusal. Appended to the open report of the same kind and area, else a new one. Always in addition to the reply or the hand-over, never instead. Give the conversation, the area, the symptom in their terms, their words and the evidence; never a cause. For Product, afterwards reply: recorded, will be looked at; no date, no cause.",
   input: z
     .object({
       chat: z.number().int().positive().optional().describe("The internal messenger chat id (chat:<id> from focus) the report is in."),
       client: z.number().int().positive().optional().describe("Or a Mail client's id (client_show, mail_list)."),
+      lead: z.string().trim().regex(/^[0-9a-fA-F-]{32,36}$/).optional().describe("Or a lead's Notion page id (leads_open; a lead turn: its own lead)."),
       message: z.string().trim().min(1).max(300).describe("The message the report is in: its Message-ID (message_show) or the chat message's id (messenger_history). One entry per message."),
       project: z.string().trim().min(1).max(80).optional().describe("The product the bug is in: a ## Brands name of project_show; omit when the project has one."),
-      area: z.string().trim().min(3).max(100).describe('Where it is, as "<kind>: <name>" in lower case: "parser: <source>", "site: <domain>", "api", "admin".'),
+      kind: z.enum(BUG_KINDS).default("Product").describe("Product: the product misbehaves. Knowledge gap: knowledge_search gave no specific fact for what they asked. Workflow: you handed over, gave up or worked around a refusal."),
+      area: z.string().trim().min(3).max(100).describe('Where it is, as "<kind>: <name>" in lower case: "parser: <source>", "site: <domain>", "api", "admin"; a gap "knowledge: <topic>"; workflow "workflow: <tool or step>". The same gist again appends to the same report.'),
       symptom: z.string().trim().min(5).max(200).describe("What is wrong, one line, in the client's terms. Not a cause."),
       words: z.string().trim().min(1).max(1500).describe("The client's own words, quoted as they wrote them."),
-      evidence: z.array(evidence).max(10).default([]).describe("One item per URL, id or screenshot reference the client gave or you opened with link_fetch; only what you saw."),
+      evidence: z.array(evidence).max(10).default([]).describe("One item per URL, id or screenshot reference the client gave or you opened with link_fetch; only what you saw. A gap: the query you ran and the nearest fact found. Workflow: the tool, its refusal, what you tried."),
       into: z.string().trim().min(32).max(36).optional().describe("Only after a refusal bug_report_several: the page id of the report this repeats."),
     })
     .strict(),
   output: z.object({ project: z.string(), state: z.enum(["created", "appended", "already"]), report: z.string(), client: z.number().nullable(), note: z.string().nullable(), next: z.string() }),
   effect: "draft",
-  refusals: ["not_found", "not_linked", "autopilot_other_chat", "followup_other_client", "unavailable", "bug_report_several", "no_bug_database", "notion_unavailable"],
+  refusals: ["not_found", "lead_other", "not_linked", "autopilot_other_chat", "followup_other_client", "unavailable", "bug_report_several", "no_bug_database", "notion_unavailable"],
   handler: async (ctx, input) => {
     const slug = ctx.project();
     const file = ctx.env.fileBugReport;
     if (!file) throw new ToolError("unavailable", "This hub MCP server cannot write Notion (no bug report writer).");
     const conv = await conversationOf(ctx, slug, input);
     const origin = ctx.env.adminOrigin?.() ?? null;
-    const i: BugReportInput = { project: project(ctx, slug, input.project), area: input.area, symptom: input.symptom, words: input.words, evidence: input.evidence, channel: conv.channel, sourceLink: origin ? `${origin}${conv.path}` : null, clientPageId: conv.pageId, clientEmail: conv.email, messageKey: `${slug}:${input.message}`, at: ctx.now().toISOString(), ...(input.into ? { into: input.into } : {}) };
+    const i: BugReportInput = { project: project(ctx, slug, input.project), kind: input.kind, area: input.area, symptom: input.symptom, words: input.words, evidence: input.evidence, channel: conv.channel, sourceLink: origin ? `${origin}${conv.path}` : null, clientPageId: conv.pageId, clientEmail: conv.email, messageKey: `${slug}:${input.message}`, at: ctx.now().toISOString(), ...(input.into ? { into: input.into } : {}) };
     const r = await file(slug, i);
     if (r.state === "several") throw new ToolError("bug_report_several", `${r.candidates.length} open reports have this area: ${r.candidates.slice(0, 5).map((c) => `${c.pageId} "${c.bug}"`).join("; ")}. Call again with into.`);
     if (r.state === "no_database") throw new ToolError("no_bug_database", r.detail);
@@ -81,7 +91,7 @@ export const bugReportTool = defineTool({
       report: r.pageId,
       client: conv.clientId,
       note: r.note,
-      next: `Reply that the report is recorded and will be looked at; promise no date and no cause; ask for one missing piece of evidence if there is none.${who}`,
+      next: input.kind === "Product" ? `Reply that the report is recorded and will be looked at; promise no date and no cause; ask for one missing piece of evidence if there is none.${who}` : `Recorded for the owner (${input.kind}). Go on with the reply or the hand-over; say nothing of it to the client.${who}`,
     };
   },
 });

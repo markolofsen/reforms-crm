@@ -2,7 +2,7 @@ import { AUTOPILOT_POOL } from "@hub/config/autopilot";
 import { newActionId } from "@hub/config/action-id";
 import { LEAD_PASS_FAILURES_STOP, LEAD_PASS_INSTANCE_TURNS_PER_DAY, LEAD_PASS_TURNS, LEAD_PASS_TURN_TIMEOUT_MS, type LeadPassBrain, type LeadPassTrigger, type LeadPassTurnResult } from "@hub/config/lead-pass";
 import { samePersonAs, samePersonReason, type LeadPassRow, type LeadRow, type Repos } from "@hub/db";
-import { replyAddressOf } from "@hub/notion";
+import { FREE_MAIL, replyAddressOf } from "@hub/notion";
 import { errFields, ops, withAction } from "@hub/log/ops";
 import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import { systemClock, type Clock } from "../messengers/autopilot/scheduler";
@@ -81,6 +81,10 @@ export async function mechanical(repos: Repos, project: string, lead: LeadRow): 
   const newer = samePersonAs(lead, await repos.leadPass.earlier(project, lead.pageId, 20));
   if (newer) return { decision: "not_now", reason: samePersonReason(newer) };
   const to = replyAddressOf(lead);
+  // 3j J4: one company (a non-free-mail domain), one decision; a request that clearly differs is the turn's to hand over.
+  const domain = companyDomain(to.address);
+  const colleague = domain ? samePersonAs(lead, await repos.leadPass.sameDomain(project, lead.pageId, domain)) : null;
+  if (colleague) return { decision: "not_now", reason: samePersonReason(colleague, "company") };
   if (!to.address) return { decision: "hand_over", reason: to.why.slice(0, 200) };
   return null;
 }
@@ -153,4 +157,10 @@ export async function runPass(d: PassDeps, project: string, trigger: LeadPassTri
     else log.info(`pass done: ${counts.turns} turn(s) of ${counts.listed} listed`, fields);
     return done;
   });
+}
+
+/** 3j J4: the company domain of an address, or null for free mail or none. Pure. */
+export function companyDomain(address: string | null): string | null {
+  const d = address ? address.slice(address.lastIndexOf("@") + 1).toLowerCase() : "";
+  return d && !FREE_MAIL.has(d) ? d : null;
 }

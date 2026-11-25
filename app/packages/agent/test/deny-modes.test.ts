@@ -155,20 +155,20 @@ describe("decision 0055: a lead pass turn has no send tool (P147 verdict 16)", (
     expect(leadPassDisallowed()).toContain("Workflow");
   });
 
-  it("its hub mcp registers exactly verdict 5's six lead-bound tools, none send-like, attended port or not", async () => {
+  it("its hub mcp registers exactly verdict 5's eight lead-bound tools (3e: link_fetch, 3g: bug_report), none send-like, attended port or not", async () => {
     const server = createHubMcpServer(createRepos(h.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), leadPage: "a".repeat(32), leadPass: 1, agentSend: async () => ({ ok: false, status: 409, reason: "no_owner_word", error: "Not sent.", next: "Ask." }) });
     const [a, b] = InMemoryTransport.createLinkedPair();
     await server.connect(a);
     const client = new Client({ name: "t", version: "0" });
     await client.connect(b);
     const names = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(names).toEqual(["client_show", "draft_write", "knowledge_get", "knowledge_search", "lead_decide", "message_show"]);
+    expect(names).toEqual(["bug_report", "client_show", "draft_write", "knowledge_get", "knowledge_search", "lead_decide", "link_fetch", "message_show"]);
     expect(names).toEqual([...LEAD_PASS_HUB_TOOLS].sort());
     expect(names.filter((n) => SEND_LIKE_TOOL.test(n))).toEqual([]);
   });
 
-  it("its CLI allows the six and denies messenger_send, client_create and every other hub tool by name, and the background run's deny list", () => {
-    expect(LEAD_PASS_ALLOWED).toHaveLength(6);
+  it("its CLI allows the eight and denies messenger_send, client_create and every other hub tool by name, and the background run's deny list", () => {
+    expect(LEAD_PASS_ALLOWED).toHaveLength(8);
     const denied = leadPassDisallowed();
     expect(denied).toContain(SEND);
     expect(denied).toContain("mcp__hub__client_create");

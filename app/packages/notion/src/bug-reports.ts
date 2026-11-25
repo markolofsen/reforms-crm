@@ -19,13 +19,18 @@ import type { DataSourceInfo, NotionReader, PageObject, PropertyConfig } from ".
 
 export const BUG_OPEN_STATUSES = ["New", "Triaged", "In progress"] as const;
 export const BUG_CHANNELS = ["Mail", "WhatsApp", "Telegram", "Other"] as const;
+/** P147 3g H1: one database, three kinds; existing rows (no Kind) are Product. */
+export const BUG_KINDS = ["Product", "Knowledge gap", "Workflow"] as const;
+export type BugKind = (typeof BUG_KINDS)[number];
 export type BugChannel = (typeof BUG_CHANNELS)[number];
 const HEADING = "Reports";
 const WORDS_MAX = 1_500;
 
 export interface BugReportInput {
-  /** The project key or option name ("carapis"); matched to the Projects option with the same key. */
+  /** The project key or option name; matched to the Projects option with the same key. */
   project: string;
+  /** P147 3g: Product (default), Knowledge gap or Workflow; the open-report search keys on Kind plus Area (H3). */
+  kind?: BugKind;
   area: string;
   symptom: string;
   words: string;
@@ -93,6 +98,7 @@ export function newReportProperties(ds: DataSourceInfo, i: BugReportInput, o: { 
   if (has("Client's words", "rich_text")) p["Client's words"] = text(i.words.trim().slice(0, WORDS_MAX));
   if (i.evidence.length && has("Evidence", "rich_text")) p["Evidence"] = text(i.evidence.map((e) => e.trim()).join("\n"));
   if (has("Area", "select")) p["Area"] = { select: { name: o.area } };
+  if (has("Kind", "select")) p["Kind"] = { select: { name: i.kind ?? "Product" } };
   if (has("Status", "select") && optionNames(ds.properties["Status"]).includes("New")) p["Status"] = { select: { name: "New" } };
   if (has("Reported at", "date")) p["Reported at"] = { date: { start: i.at } };
   if (has("Last reported", "date")) p["Last reported"] = { date: { start: i.at } };
@@ -117,7 +123,10 @@ export async function fileBugReport(deps: { reader: NotionReader; writer: BugRep
   // A new Area has no report yet (and a filter on an option Notion does not hold is not worth a call).
   const knownArea = optionNames(ds.properties["Area"]).includes(area);
   if (!target && knownArea) {
-    const filter = { and: [{ property: "Area", select: { equals: area } }, { or: BUG_OPEN_STATUSES.map((s) => ({ property: "Status", select: { equals: s } })) }] };
+    // 3g H3: Kind plus Area is one report (a row with no Kind is Product, as before Kind existed).
+    const kind = i.kind ?? "Product";
+    const byKind = ds.properties["Kind"]?.type === "select" ? [kind === "Product" ? { or: [{ property: "Kind", select: { equals: "Product" } }, { property: "Kind", select: { is_empty: true } }] } : { property: "Kind", select: { equals: kind } }] : [];
+    const filter = { and: [{ property: "Area", select: { equals: area } }, ...byKind, { or: BUG_OPEN_STATUSES.map((s) => ({ property: "Status", select: { equals: s } })) }] };
     const found = deps.reader.findPages ? await deps.reader.findPages(o.dataSourceId, filter, 25) : [];
     const open = found.filter((p) => !project || multiNames(p, "Projects").includes(project));
     if (open.length > 1) return { state: "several", candidates: open.map((p) => ({ pageId: p.id, bug: titleOf(p).slice(0, 200) })) };

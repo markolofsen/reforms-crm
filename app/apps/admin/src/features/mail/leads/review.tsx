@@ -1,10 +1,12 @@
 "use client";
 
 import { ArrowLeftIcon, SendIcon } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
+import { unresolvedMarkers } from "@hub/config";
 import { clientKey } from "@hub/contract/client-key";
 import type { LeadReviewDto, LeadReviewTicketDto } from "@hub/contract/lead-pass";
 import { Checkbox } from "@hub/ui/checkbox";
+import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
@@ -12,7 +14,7 @@ import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { RunView } from "@/features/mail/batch-send";
 import { sentence } from "@/lib/api/client";
 import { useBatchRun, useBatchStop } from "@/lib/data/drafts";
-import { useConfirmLeadReview, useLeadReview } from "@/lib/data/inbound";
+import { useConfirmLeadReview, useFillMarker, useLeadReview } from "@/lib/data/inbound";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { formatTime } from "@/lib/format";
@@ -23,6 +25,9 @@ import { dest } from "@/routes/paths";
 // the owner, linked. One click, "Send N · Spam M · Not now K": the ticked drafts are Checked on exactly the text shown, the unticked
 // are excluded (the next pass leaves them alone), the ticked proposals are applied, and the drafts go out one at a time through
 // Send all Checked's run (spaced, Stop). Edit opens the draft in its conversation; the review then reads the new text again.
+// 3i P2: a draft still holding an `[Owner: …]` placeholder sits apart at the top, "Needs your input (N)", unticked, the marker
+// highlighted and a field per marker; filling one replaces it in Mail (the one writer), the review reads the text again, and the row
+// is ticked. A draft with a placeholder never goes out: the door's own check holds it whatever the tick.
 
 /** The button's words: "Send 3 · Spam 1 · Not now 2" (the empty parts left out). */
 export function clickLabel(send: number, spam: number, notNow: number): string {
@@ -35,6 +40,51 @@ export function clickLabel(send: number, spam: number, notNow: number): string {
 /** The ticks the review opens with: every draft the door would send, every proposal. */
 export function initialTicks(d: LeadReviewDto): { drafts: Set<number>; proposals: Set<string> } {
   return { drafts: new Set(d.rows.filter((r) => r.ticked).map((r) => r.draftId)), proposals: new Set(d.proposals.map((p) => p.pageId)) };
+}
+
+type Row = LeadReviewDto["rows"][number];
+
+/** The placeholders left in a row's text, each once (what the door's `unresolved_marker` check flags). */
+export function markersOf(row: Row): string[] {
+  return row.mail ? [...new Set(unresolvedMarkers(row.mail.body))] : [];
+}
+
+/** The rows that wait on the owner (a placeholder left in the text), and the rest. */
+export function splitNeedsInput(rows: readonly Row[]): { needs: Row[]; rest: Row[] } {
+  const needs = rows.filter((r) => markersOf(r).length > 0);
+  return { needs, rest: rows.filter((r) => !needs.includes(r)) };
+}
+
+/** A row the review can send: one Mail holds with nothing held, drafted or (once filled) waiting For you. */
+export const canSend = (r: Row): boolean => r.held.length === 0 && r.mail !== null && (r.display === "drafted" || r.display === "for_you");
+
+/** The body with each placeholder marked, so the owner sees where his words go. */
+function marked(body: string, markers: readonly string[]): ReactNode[] {
+  if (!markers.length) return [body];
+  const re = new RegExp(`(${markers.map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`);
+  return body.split(re).map((part, i) => (markers.includes(part) ? <mark className="rounded-sm bg-warning/30 px-0.5" key={`${i}-${part}`}>{part}</mark> : part));
+}
+
+/** One field per placeholder: Enter or Fill writes the answer into the draft in Mail. */
+function MarkerFields({ row, markers, busy, onFill }: { row: Row; markers: readonly string[]; busy: boolean; onFill: (marker: string, value: string) => void }) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  return (
+    <div className="flex flex-col gap-2" data-testid="review-markers">
+      {markers.map((m) => {
+        const value = values[m] ?? "";
+        const fill = () => value.trim() && onFill(m, value.trim());
+        return (
+          <label className="flex flex-wrap items-center gap-2 text-sm" key={m}>
+            <span className="font-mono text-xs">{m}</span>
+            <Input aria-label={`${m} for ${row.name}`} className="min-w-48 flex-1" disabled={busy} onChange={(e) => setValues((v) => ({ ...v, [m]: e.target.value }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fill())} value={value} />
+            <ActionButton disabled={busy || !value.trim()} onClick={fill} size="s" variant="secondary">
+              Fill
+            </ActionButton>
+          </label>
+        );
+      })}
+    </div>
+  );
 }
 
 function Review({ project, d }: { project: string; d: LeadReviewDto }) {
@@ -50,67 +100,80 @@ function Review({ project, d }: { project: string; d: LeadReviewDto }) {
     else next.delete(v);
     return next;
   };
-  const sendable = d.rows.filter((r) => r.held.length === 0 && r.display === "drafted");
+  const fill = useFillMarker(project, d.batchId, { onDone: (id) => (setTicks((t) => ({ ...t, drafts: toggle(t.drafts, id, true) })), setError(null)), onError: (e) => setError(sentence(e)) });
+  const { needs, rest } = splitNeedsInput(d.rows);
+  const sendable = d.rows.filter(canSend);
   const send = sendable.filter((r) => ticks.drafts.has(r.draftId)).map((r) => r.draftId);
   const exclude = sendable.filter((r) => !ticks.drafts.has(r.draftId)).map((r) => r.draftId);
   const proposals = d.proposals.filter((p) => ticks.proposals.has(p.pageId));
   const spam = proposals.filter((p) => p.decision === "spam").length;
   const r = run.data?.run ?? null;
+  const rowView = (row: Row) => (
+    <article aria-label={`Reply to ${row.name}`} className="flex flex-col gap-2 rounded-lg border p-3" data-testid="review-row" key={row.draftId}>
+      <header className="flex flex-wrap items-start gap-3">
+        <Checkbox
+          aria-label={`Send the reply to ${row.name}`}
+          checked={ticks.drafts.has(row.draftId)}
+          disabled={!canSend(row) || done !== null}
+          onCheckedChange={(on) => setTicks((t) => ({ ...t, drafts: toggle(t.drafts, row.draftId, on === true) }))}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="font-medium">
+            {row.name}
+            {row.brand ? <span className="text-muted-foreground"> · {row.brand}</span> : null}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {row.mail?.to.join(", ") ?? row.email ?? "no address"} · {row.replyWhy} · {formatTime(row.receivedAt)}
+            {row.language ? ` · ${row.language}` : ""}
+          </p>
+        </div>
+        {row.mail && (
+          <AppLink className="text-sm" to={dest("mail.conversation", { key: clientKey({ id: 1, email: row.mail.to[0] ?? row.email }) }, { filter: "all" })}>
+            Edit
+          </AppLink>
+        )}
+      </header>
+      <p className="measure break-words text-sm">
+        <span className="text-muted-foreground">They asked: </span>
+        {row.request}
+      </p>
+      {row.reason && <p className="text-muted-foreground text-xs">Why: {row.reason}</p>}
+      {row.mail ? (
+        <div className="flex flex-col gap-1 rounded-md bg-muted/40 p-3">
+          <p className="font-medium text-sm">{row.mail.subject}</p>
+          <p className="measure whitespace-pre-wrap break-words text-sm" data-testid="review-body">
+            {marked(row.mail.body, markersOf(row))}
+          </p>
+        </div>
+      ) : null}
+      {markersOf(row).length > 0 && done === null && <MarkerFields busy={fill.isPending} markers={markersOf(row)} onFill={(marker, value) => fill.mutate({ draftId: row.draftId, marker, value })} row={row} />}
+      {row.held.length > 0 && (
+        <p className="text-sm" role="status">
+          Held: {row.held.join("; ")}
+        </p>
+      )}
+    </article>
+  );
   return (
     <div className="flex flex-col gap-6" data-testid="lead-review">
       <p className="text-muted-foreground text-sm">
         {d.name} · one every {d.spacingSeconds} s · batch mails today {d.cap.used} of {d.cap.limit}
       </p>
       {r && <RunView onStop={() => stop.mutate()} run={r} stopping={stop.isPending} />}
+      {needs.length > 0 && (
+        <section aria-labelledby="review-needs" className="flex flex-col gap-3" data-testid="review-needs">
+          <h2 className="font-semibold text-base" id="review-needs">
+            Needs your input ({needs.length})
+          </h2>
+          {needs.map(rowView)}
+        </section>
+      )}
       <section aria-labelledby="review-replies" className="flex flex-col gap-3">
         <h2 className="font-semibold text-base" id="review-replies">
-          Replies ({d.rows.length})
+          Replies ({rest.length})
         </h2>
-        {d.rows.length === 0 && <p className="text-muted-foreground text-sm">No pass draft in this batch.</p>}
-        {d.rows.map((row) => (
-          <article aria-label={`Reply to ${row.name}`} className="flex flex-col gap-2 rounded-lg border p-3" data-testid="review-row" key={row.draftId}>
-            <header className="flex flex-wrap items-start gap-3">
-              <Checkbox
-                aria-label={`Send the reply to ${row.name}`}
-                checked={ticks.drafts.has(row.draftId)}
-                disabled={row.held.length > 0 || row.display !== "drafted" || done !== null}
-                onCheckedChange={(on) => setTicks((t) => ({ ...t, drafts: toggle(t.drafts, row.draftId, on === true) }))}
-              />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="font-medium">
-                  {row.name}
-                  {row.brand ? <span className="text-muted-foreground"> · {row.brand}</span> : null}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {row.mail?.to.join(", ") ?? row.email ?? "no address"} · {row.replyWhy} · {formatTime(row.receivedAt)}
-                </p>
-              </div>
-              {row.mail && (
-                <AppLink className="text-sm" to={dest("mail.conversation", { key: clientKey({ id: 1, email: row.mail.to[0] ?? row.email }) }, { filter: "all" })}>
-                  Edit
-                </AppLink>
-              )}
-            </header>
-            <p className="measure break-words text-sm">
-              <span className="text-muted-foreground">They asked: </span>
-              {row.request}
-            </p>
-            {row.reason && <p className="text-muted-foreground text-xs">Why: {row.reason}</p>}
-            {row.mail ? (
-              <div className="flex flex-col gap-1 rounded-md bg-muted/40 p-3">
-                <p className="font-medium text-sm">{row.mail.subject}</p>
-                <p className="measure whitespace-pre-wrap break-words text-sm" data-testid="review-body">
-                  {row.mail.body}
-                </p>
-              </div>
-            ) : null}
-            {row.held.length > 0 && (
-              <p className="text-sm" role="status">
-                Held: {row.held.join("; ")}
-              </p>
-            )}
-          </article>
-        ))}
+        {rest.length === 0 && <p className="text-muted-foreground text-sm">No other pass draft in this batch.</p>}
+        {rest.map(rowView)}
       </section>
       {d.proposals.length > 0 && (
         <section aria-labelledby="review-proposals" className="flex flex-col gap-2">

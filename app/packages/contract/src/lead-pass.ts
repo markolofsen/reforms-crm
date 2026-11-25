@@ -76,6 +76,8 @@ export const leadReviewRowDto = z.object({
   email: z.string().nullable(),
   /** E3: which address the reply goes to and why ("the email typed on the form", "… mistyped domain …: the account email instead"). */
   replyWhy: z.string(),
+  /** P147 3f G3: "Reply in Spanish (client wrote in Spanish)", from the draft's record; null when the agent did not state it. */
+  language: z.string().nullable(),
   brand: z.string().nullable(),
   receivedAt: z.string(),
   request: z.string(),

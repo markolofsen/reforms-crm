@@ -39,6 +39,8 @@ export interface HubMcpEnv {
   bindingRefusal?: string;
   /** P141 guard: how many migrations the database is behind this core (asked per call); above 0 every tool refuses with db_behind. */
   dbBehind?: () => number;
+  /** P147 3j (5): whether the core's tool sources changed since this process started (asked per call); true, every tool refuses with core_changed. */
+  coreChanged?: () => boolean;
   /** `link_fetch`'s fetcher (tests pass a fake); absent, the real public-only one. */
   linkFetch?: LinkFetch;
   /** `state/focus.json` of the instance. */

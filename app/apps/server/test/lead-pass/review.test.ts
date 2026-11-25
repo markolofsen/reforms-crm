@@ -136,6 +136,18 @@ describe("autosend never sends a first reply to a lead (verdict 11)", () => {
   });
 });
 
+describe("a draft that needs the owner's input never goes out (3i P1)", () => {
+  it("assess refuses an [Owner: …] placeholder in manual and auto mode, and the batch plan holds it", async () => {
+    const { batchId, ids } = await day(1);
+    const held = mailOf(1, { body: "Hello 1,\n\nThe plan costs [Owner: price] a month." });
+    mailer.drafts.splice(0, mailer.drafts.length, held);
+    await repos.drafts.setChecked(ids[0] as number, true, mailHash(held));
+    for (const mode of ["manual", "auto"] as const) expect((await assess(deps, ids[0] as number, { mode })).reasons).toContain("a placeholder is left in the text: [Owner: price]");
+    const plan = await planBatch(deps, "acme", batchId);
+    expect(plan?.items.map((i) => i.draftId)).not.toContain(ids[0]);
+  });
+});
+
 describe("the lead review and its one click (verdict 7, D10)", () => {
   const leadsSpy = () => {
     const calls: string[] = [];

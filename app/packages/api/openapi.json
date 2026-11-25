@@ -22880,6 +22880,12 @@
                 "replyWhy": {
                   "type": "string"
                 },
+                "language": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "brand": {
                   "type": [
                     "string",
@@ -22981,6 +22987,7 @@
                 "name",
                 "email",
                 "replyWhy",
+                "language",
                 "brand",
                 "receivedAt",
                 "request",

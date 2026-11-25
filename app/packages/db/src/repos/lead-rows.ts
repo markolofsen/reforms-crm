@@ -53,7 +53,7 @@ export type LeadsCounts = Record<LeadsView, number>;
  * The view a lead row is in, or null (a lead its Status closed in Notion, or a draft to it is the work): New while open and in
  * the window; Replied once a first send converted it; Spam and Not now the owner's asides (a Spam Status set in Notion too).
  */
-export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | "notionStatus" | "passDecision" | "passDraftId" | "passExcludedAt">, open: boolean, inWindow: boolean, draftStatus: string | null = null): LeadsView | null {
+export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | "notionStatus" | "passDecision" | "passReason" | "passDraftId" | "passExcludedAt">, open: boolean, inWindow: boolean, draftStatus: string | null = null): LeadsView | null {
   if (r.convertedAt) return "replied";
   if (r.dismissedReason === "spam" || r.notionStatus === "Spam") return "spam";
   if (r.dismissedReason === "not_now") return "not_now";

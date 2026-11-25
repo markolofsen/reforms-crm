@@ -13,7 +13,7 @@ export interface SignatureBlock {
   /** True when the block is the `[Owner: signature for ...]` placeholder (`hub send` refuses it). */
   placeholder: boolean;
   /** P65 S2: the reply's language had no line of its own, so the English lines were used (the amber check `signature_language`). */
-  fallback?: "en" | "ru";
+  fallback?: string;
 }
 
 const TAG = /^([a-z]{2}):\s*(.*)$/;
@@ -62,9 +62,39 @@ function pick(lines: readonly string[], lang: ReplyLanguage, languages: readonly
  * back to English (with `fallback`) when the project has no line for it: none tagged for it, and untagged lines only
  * when `lang` is among the project's `languages`.
  */
-export function signatureFor(c: { signoff: string; brands: readonly Brand[]; languages: readonly string[] }, r: Pick<BrandResolution, "brand" | "wroteTo"> | null, lang: ReplyLanguage = "en"): SignatureBlock {
+/** P147 3f G2: the agent's own sign-off and team line, in the client's language (`language`: an ISO 639-1 code). */
+export interface OwnSignoff {
+  language: string;
+  lines: readonly string[];
+}
+
+/** Whether the project writes its own sign-off or signature in this language: a line tagged for it, or untagged lines and the language among `languages`. */
+export function projectSignsIn(c: { signoff: string; brands: readonly Brand[]; languages: readonly string[] }, brand: string | null, language: string): boolean {
+  const l = primary(language);
+  const row = brand ? c.brands.find((b) => b.name === brand) : undefined;
+  const lines = [c.signoff.trim(), ...(row?.signature ?? [])].filter(Boolean);
+  const parts = lines.map(lineVariants);
+  const tagged = parts.some((vs) => vs.some((v) => v.lang !== "*"));
+  return tagged ? parts.some((vs) => vs.some((v) => v.lang === l)) : c.languages.map(primary).includes(l);
+}
+
+/** A signature line that names the site (a URL or a bare domain): shared by every language (G2). */
+const SITE_LINE = /(https?:\/\/|www\.|\b[a-z0-9-]+\.(com|ai|io|net|org|co|app|dev|me|de|es|fr|it|ru|uk|us)\b)/i;
+
+export function signatureFor(c: { signoff: string; brands: readonly Brand[]; languages: readonly string[] }, r: Pick<BrandResolution, "brand" | "wroteTo"> | null, lang: ReplyLanguage = "en", own?: OwnSignoff | null): SignatureBlock {
+  // G2: a language the project does not sign in: the agent's own sign-off and team line, then the brand's shared site line(s).
+  if (own && own.lines.length && !projectSignsIn(c, r?.brand ?? null, own.language)) {
+    const row = r?.brand ? c.brands.find((b) => b.name === r.brand) : undefined;
+    if (c.brands.length === 0) return { lines: [...own.lines], placeholder: false };
+    if (row && row.signature.length) {
+      const site = pick(row.signature, "en", c.languages).lines.filter((l) => SITE_LINE.test(l));
+      return { lines: [...own.lines, ...site], placeholder: false };
+    }
+  }
+  // G3: the client's language is known, the project does not sign in it and no own lines came: the amber check names it.
+  const unsigned = own && !own.lines.length && !projectSignsIn(c, r?.brand ?? null, own.language) ? primary(own.language) : null;
   const so = pick(c.signoff.trim() ? [c.signoff.trim()] : [], lang, c.languages);
-  const withFallback = (b: SignatureBlock, fell: boolean): SignatureBlock => (fell ? { ...b, fallback: lang } : b);
+  const withFallback = (b: SignatureBlock, fell: boolean): SignatureBlock => (unsigned ? { ...b, fallback: unsigned } : fell ? { ...b, fallback: lang } : b);
   if (c.brands.length === 0) return withFallback({ lines: so.lines, placeholder: false }, so.fallback);
   const row = r?.brand ? c.brands.find((b) => b.name === r.brand) : undefined;
   if (!row || row.signature.length === 0) {

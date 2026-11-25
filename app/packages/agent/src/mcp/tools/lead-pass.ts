@@ -4,7 +4,7 @@ import { defineTool, unavailableAnswer } from "../define";
 import { boundLead, ownLeadClient } from "../ports";
 import { cut, ToolError } from "../result";
 import { leadDecisionApplied, samePersonAs, samePersonReason } from "@hub/db";
-import { replyAddressOf } from "@hub/notion";
+import { FREE_MAIL, replyAddressOf } from "@hub/notion";
 
 // P147 L2 (decision 0055): the lead pass's two tools. `leads_open` reads the server's mechanical list of open leads with no
 // decision (verdict 3), for an attended pass in the dock; `lead_decide` writes the agent's decision for one lead (verdict 2). The
@@ -59,9 +59,11 @@ export const leadsOpenTool = defineTool({
     for (const r of due.rows) {
       // E3: the address the reply goes to; E4: an older request of a person with a newer row.
       const to = replyAddressOf(r);
-      const newer = samePersonAs(r, await repos.leadPass.earlier(slug, r.pageId, 20));
+      const person = samePersonAs(r, await repos.leadPass.earlier(slug, r.pageId, 20));
+      const dom = to.address ? to.address.slice(to.address.lastIndexOf("@") + 1) : "";
+      const company = !person && dom && !FREE_MAIL.has(dom) ? samePersonAs(r, await repos.leadPass.sameDomain(slug, r.pageId, dom)) : null;
       const client = to.address ? await repos.clients.findByIdentity(slug, "email", to.address) : undefined;
-      leads.push({ page: r.pageId, name: cut(r.name), email: r.email, reply_to: to.address, reply_why: to.why, same_as: newer ? samePersonReason(newer) : null, brand: r.brand, received_at: r.receivedAt, request: cut(r.preview, 120), site: r.site, country: r.country, segment: r.segment, volume: r.volume, has_card: r.hasClient, client: client ?? null });
+      leads.push({ page: r.pageId, name: cut(r.name), email: r.email, reply_to: to.address, reply_why: to.why, same_as: person ? samePersonReason(person) : company ? samePersonReason(company, "company") : null, brand: r.brand, received_at: r.receivedAt, request: cut(r.preview, 120), site: r.site, country: r.country, segment: r.segment, volume: r.volume, has_card: r.hasClient, client: client ?? null });
     }
     return {
       project: slug,

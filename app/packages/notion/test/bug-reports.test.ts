@@ -101,3 +101,23 @@ describe("fileBugReport", () => {
     expect(Object.keys((f.calls[0] as [string, string, Record<string, unknown>])[2])).not.toContain("Projects");
   });
 });
+
+describe("Kind (P147 3g)", () => {
+  const KINDED: DataSourceInfo = { ...DS, properties: { ...DS.properties, Kind: { type: "select", select: opts("Product", "Knowledge gap", "Workflow") }, Area: { type: "select", select: opts("parser: source-a", "knowledge: japanese auctions") } } };
+  const kinded = (open: PageObject[]) => {
+    const f = fake(open);
+    return { ...f, reader: { ...f.reader, retrieveDataSource: async () => KINDED } };
+  };
+  it("a new gap is created with its Kind; the search keys on Kind plus Area", async () => {
+    const f = kinded([]);
+    await fileBugReport(f, { dataSourceId: "bugs" }, input({ kind: "Knowledge gap", area: "knowledge: Japanese auctions" }));
+    expect(JSON.stringify(f.filters[0])).toContain('"property":"Kind","select":{"equals":"Knowledge gap"}');
+    expect((f.calls[0]?.[2] as Record<string, unknown>)["Kind"]).toEqual({ select: { name: "Knowledge gap" } });
+  });
+  it("Product also matches the rows with no Kind (they are Product)", async () => {
+    const f = kinded([report("old", ["Shop One"])]);
+    const r = await fileBugReport(f, { dataSourceId: "bugs" }, input());
+    expect(r).toMatchObject({ state: "appended", pageId: "old" });
+    expect(JSON.stringify(f.filters[0])).toContain('"is_empty":true');
+  });
+});

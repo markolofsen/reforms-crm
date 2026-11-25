@@ -52,7 +52,7 @@ export function samePersonAs<R extends Pick<LeadRow, "id" | "receivedAt" | "dism
 }
 
 /** The reason a sibling row is given (E4), within `LEAD_PASS_REASON_MAX`. */
-export const samePersonReason = (r: Pick<LeadRow, "name" | "receivedAt">): string => `same person as ${r.name.slice(0, 120)} (${r.receivedAt.slice(0, 10)}): one reply`;
+export const samePersonReason = (r: Pick<LeadRow, "name" | "receivedAt">, what: "person" | "company" = "person"): string => `same ${what} as ${r.name.slice(0, 120)} (${r.receivedAt.slice(0, 10)}): one reply`;
 
 /**
  * Verdict 6: the day's open lead batch of a project, made by the first pass draft of the day and joined by the rest (a second
@@ -141,6 +141,19 @@ export function leadPassRepo(db: Db) {
         .select()
         .from(leadRows)
         .where(and(eq(leadRows.project, project), sql`${leadRows.pageId} <> ${r.pageId}`, sql`(${byMail} or ${byPhone})`))
+        .orderBy(sql`${leadRows.receivedAt} desc`)
+        .limit(limit)
+        .all();
+    },
+
+    /** 3j J4: the other rows whose reply address is at this company domain (the caller excludes free mail), newest first. */
+    async sameDomain(project: string, pageId: string, domain: string, limit = 20): Promise<LeadRow[]> {
+      const d = domain.trim().toLowerCase();
+      if (!d) return [];
+      return db
+        .select()
+        .from(leadRows)
+        .where(and(eq(leadRows.project, project), sql`${leadRows.pageId} <> ${norm(pageId)}`, sql`lower(${leadRows.email}) like ${`%@${d}`}`))
         .orderBy(sql`${leadRows.receivedAt} desc`)
         .limit(limit)
         .all();

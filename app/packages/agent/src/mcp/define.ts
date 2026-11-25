@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { ToolCtx } from "./ports";
 import type { RefusalCode } from "./refusals";
 import { noteOwnerFix } from "./owner-fixes";
-import { DB_BEHIND, run, ToolError } from "./result";
+import { CORE_CHANGED, DB_BEHIND, run, ToolError } from "./result";
 import { ACTION_ENV, isActionId, newActionId, toolActionOf } from "@hub/config/action-id";
 import { errFields, ops, withAction } from "@hub/log/ops";
 
@@ -62,7 +62,7 @@ export const annotationsOf = (effect: Effect) => ANNOTATIONS[effect];
 export function registerTools(server: McpServer, tools: readonly ToolDef[], ctx: ToolCtx): void {
   for (const t of tools) {
     server.registerTool(t.name, { title: t.title, description: t.description, inputSchema: t.input, outputSchema: t.output, annotations: annotationsOf(t.effect) }, (input: unknown, extra?: { mcpReq?: { _meta?: Record<string, unknown> } }) =>
-      withAction(toolActionOf(sessionAction(), callIdOf(extra?.mcpReq?._meta)), () => timed(t, () => run(async () => { if ((ctx.env.dbBehind?.() ?? 0) > 0) throw new ToolError("db_behind", DB_BEHIND); return t.handler(ctx, input as Parameters<typeof t.handler>[1]); }, (refused) => noteOwnerFix(ctx, t.name, refused)))),
+      withAction(toolActionOf(sessionAction(), callIdOf(extra?.mcpReq?._meta)), () => timed(t, () => run(async () => { if (ctx.env.coreChanged?.()) throw new ToolError("core_changed", CORE_CHANGED); if ((ctx.env.dbBehind?.() ?? 0) > 0) throw new ToolError("db_behind", DB_BEHIND); return t.handler(ctx, input as Parameters<typeof t.handler>[1]); }, (refused) => noteOwnerFix(ctx, t.name, refused)))),
     );
   }
 }

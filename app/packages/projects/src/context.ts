@@ -46,6 +46,8 @@ export const contextSchema = z
     /** Gaps the draft carries (`profile-empty`, ...): the skill passes them, the hub writes them into the card. */
     gaps: z.array(z.string().trim().max(60)).max(20).optional(),
     template: z.object({ used: z.boolean(), id: z.string().trim().max(100).optional(), role: z.string().trim().max(60).optional() }).strict().optional(),
+    /** P147 3f G3: the language the client's own words are in, and the reply's (the review's "Reply in X (client wrote in Y)"). */
+    language: z.object({ client: z.string().trim().min(2).max(30), reply: z.string().trim().min(2).max(30) }).strict().optional(),
   })
   .strict();
 

@@ -14,7 +14,7 @@ import { ToolError } from "../result";
 import { boundLead, ownFollowUpClient, type ToolCtx } from "../ports";
 import { LEAD_PASS_SKILL, leadPassRequest } from "@hub/config/lead-pass";
 import { replyAddressOf } from "@hub/notion";
-import { displayNameFor } from "@hub/projects/brands";
+import { displayNameFor, replyLanguage } from "@hub/projects/brands";
 
 // P52 (decision 0030): the one Mail write of `hub mcp`, an unsent draft in Mail's Drafts with Mail in the background
 // (`../../mail`, decision 0031: older versions replaced by the `mail_versions` record, never by a line in the text). No send.
@@ -59,6 +59,8 @@ export const draftWriteTool = defineTool({
     owner_request: ownerRequest.optional(),
     record: draftRecord.optional().describe("reply and new: the record of the draft (who, why, what you read)"),
     follow_up: followUp.optional().describe("reply and new: a follow-up nudge, {n}: which one (a reply to our own last message is the usual nudge)"),
+    language: z.string().trim().regex(/^[a-z]{2}$/).optional().describe("the ISO 639-1 language of the client's own words in their newest message (profile.md 3c); the reply is in it"),
+    signoff: z.array(z.string().trim().min(1).max(80)).min(1).max(2).optional().describe("with language, when project.md has no sign-off in it: your sign-off and the brand's team line in that language (\"Saludos,\", \"Equipo <brand>\"); the hub adds the shared site line"),
   }),
   output: draftWriteOutput,
   effect: "draft",
@@ -68,16 +70,20 @@ export const draftWriteTool = defineTool({
     // E2: in any session, `lead` names the lead and the server fills `to` from its row; a `to` that is not that address is refused.
     const leadTurn = ctx.env.leadPage !== undefined ? await leadTurnOf(ctx, raw) : null;
     const dockTo = !leadTurn && raw.lead ? await leadAddressOf(ctx, raw) : null;
-    const { lead: _lead, ...rest } = raw;
-    const given = leadTurn ? { ...rest, to: leadTurn.to, owner_request: leadTurn.ownerRequest } : dockTo ? { ...rest, to: dockTo.to } : rest;
+    const { lead: _lead, language: clientLanguage, signoff, ...rest } = raw;
+    if (signoff?.some((l) => /https?:\/\/|www\./i.test(l))) throw new ToolError("invalid", "signoff is the sign-off and the team line only: the hub adds the site line. Nothing was written.");
+    // 3j J2: `lead` names the request itself, so the owner need not be quoted (as in a lead turn).
+    const leadRequest = dockTo && !rest.owner_request ? leadPassRequest(ctx.now().toISOString().slice(0, 10), dockTo.pageId) : null;
+    const given = leadTurn ? { ...rest, to: leadTurn.to, owner_request: leadTurn.ownerRequest } : dockTo ? { ...rest, to: dockTo.to, ...(leadRequest ? { owner_request: leadRequest } : {}) } : rest;
     const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined)));
     if (!parsed.success) throw new ToolError("invalid", `${parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}. Nothing was written.`);
-    const call = parsed.data;
+    const call = withLanguage(parsed.data, clientLanguage);
     const slug = ctx.project();
     if (!ctx.env.drafts || !ctx.env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
-    const s = draftScope(ctx, slug, ctx.env.drafts, ctx.env.projectMail(slug));
+    const own = clientLanguage ? { language: clientLanguage, lines: signoff ?? [] } : null;
+    const s = draftScope(ctx, slug, ctx.env.drafts, ctx.env.projectMail(slug), own);
     refuseOwnSignoff(s, call.content);
-    if (!leadTurn) ownerWordsOf(s, call.owner_request);
+    if (!leadTurn && !leadRequest) ownerWordsOf(s, call.owner_request);
     try {
       if (call.kind === "revise" && s.ctx.env.followUpClient !== undefined) ownFollowUpClient(s.ctx.env, (await s.ctx.repos.drafts.get(call.draft))?.clientId);
       if (call.kind === "revise") return await afterWrite(s, await reviseHubDraft(s, call.draft, call.content), { draft: call.draft, content: call.content, to: undefined, owner_request: call.owner_request, reason: call.reason });
@@ -191,4 +197,13 @@ async function adopted(s: DraftScope, w: Pending, first: (v: VersionBrand) => Re
     next: firstNext(rec, " The hub recorded the draft it had already saved in Mail for this message; nothing new was written (draft_show shows its From)."),
   };
   return out;
+}
+
+/** P147 3f G3: the client's language and the reply's go into the record's context (the review's "Reply in X (client wrote in Y)"). */
+function withLanguage<T extends { kind: string; content: string; record?: DraftRecord }>(call: T, client: string | undefined): T {
+  if (!client || !call.record?.context) return call;
+  const detected = replyLanguage(call.content);
+  // The detector tells Russian from Latin script only: a Latin-script reply in another language is taken as the stated one.
+  const reply = detected === "ru" || client === "en" || client === "ru" ? detected : client;
+  return { ...call, record: { ...call.record, context: { ...call.record.context, language: { client, reply } } } };
 }

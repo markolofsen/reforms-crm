@@ -19,6 +19,7 @@ Purpose: a client says the product does something wrong, and the report must not
 | Clients | the tool | every client who reported it; added, never removed |
 | Channel, Source link | the tool | from the conversation, never typed by the agent |
 | Client's words, Evidence | the tool | quoted, as sent; only what the client gave or the agent saw (`link_fetch`) |
+| Kind | the tool | `Product` (default; a row with none is Product), `Knowledge gap` (a client asked what the knowledge base does not answer specifically), `Workflow` (the agent could not resolve something itself). P147 3g |
 | Area | the tool | `<kind>: <name>` in lower case (`parser: <source>`, `site: <domain>`, `api`, `admin`); an option is reused when its normalised form matches |
 | Status | the tool sets New; then people | New, Triaged, In progress, Fixed, Won't fix, Duplicate |
 | Severity, Duplicate of, Fix link, Notes | people | the agent never writes them; a cause belongs in Notes |
@@ -29,7 +30,7 @@ Purpose: a client says the product does something wrong, and the report must not
 
 The agent files through `bug_report` (the Hub MCP server), never by creating a page with the Notion connector, because the search, the Clients relation and the link must be the same every time.
 
-1. It searches the **open** reports (New, Triaged, In progress) with the same Area and project.
+1. It searches the **open** reports (New, Triaged, In progress) with the same Kind, Area and project.
 2. One match: it adds the client to Clients, appends the new words and evidence to the page body as a dated block, and sets Last reported. Answer `appended`.
 3. Several matches: it creates nothing and returns them; the agent names one with `into`.
 4. None: it creates a report with Status New. Answer `created`.

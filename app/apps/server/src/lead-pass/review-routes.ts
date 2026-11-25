@@ -70,11 +70,13 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
         await repos.leadPass.setServedHash(slug, r.passDraftId, a.mail ? mailHash(a.mail) : null);
         const excluded = r.display === "excluded";
         const to = replyAddressOf(r);
+        const language = languageLine((await repos.drafts.get(r.passDraftId))?.context ?? null);
         rows.push({
           pageId: r.pageId,
           name: r.name,
           email: r.email,
           replyWhy: to.why,
+          language,
           brand: r.brand,
           receivedAt: r.receivedAt,
           request: r.preview,
@@ -156,4 +158,24 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       log.info("lead review confirmed", { project: slug, batch: batchId, send: items.length, held: held.length, spam: applied.spam, notNow: applied.notNow, excluded });
       return c.json(leadReviewTicketDto.parse({ ticket, items: items.map((i) => ({ draftId: i.draftId, name: i.name, to: i.to, subject: i.subject, hash: i.hash })), held, applied }));
     });
+}
+
+const LANGUAGE_NAMES = new Intl.DisplayNames(["en"], { type: "language" });
+const nameOf = (code: string) => {
+  try {
+    return LANGUAGE_NAMES.of(code) ?? code;
+  } catch {
+    return code;
+  }
+};
+
+/** P147 3f G3: "Reply in Spanish (client wrote in Spanish)" from a draft's record context, or null. Pure. */
+export function languageLine(context: string | null): string | null {
+  if (!context) return null;
+  try {
+    const l = (JSON.parse(context) as { language?: { client?: string; reply?: string } }).language;
+    return l?.client && l.reply ? `Reply in ${nameOf(l.reply)} (client wrote in ${nameOf(l.client)})` : null;
+  } catch {
+    return null;
+  }
 }

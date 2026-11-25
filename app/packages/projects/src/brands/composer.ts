@@ -56,7 +56,7 @@ function brandOptions(c: { mail: Pick<ProjectConfig["mail"], "accounts" | "sende
       from: reply.from,
       technicalAddress: technicalAddressOf(reply.from),
       signatureLines: block.lines,
-      signatureFallback: block.fallback ?? null,
+      signatureFallback: asReplyLanguage(block.fallback),
       ...variants,
       status: block.placeholder ? "missing_signature" : "ready",
     };
@@ -68,12 +68,15 @@ const defaultReplyLanguage = (languages: readonly string[]): ReplyLanguage => {
   return configured === "ru" ? "ru" : "en";
 };
 
+/** A composer's fallback is English or Russian only (no agent sign-off there, P147 3f): any other value is none. */
+const asReplyLanguage = (v: string | undefined): ReplyLanguage | null => (v === "en" || v === "ru" ? v : null);
+
 function signatureVariants(c: { signoff: string; brands: readonly Brand[]; languages: readonly string[] }, resolution: BrandResolution | null): Pick<MailComposerBrandOption, "signatureLinesByLanguage" | "signatureFallbackByLanguage"> {
   const en = signatureFor(c, resolution, "en");
   const ru = signatureFor(c, resolution, "ru");
   return {
     signatureLinesByLanguage: { en: en.lines, ru: ru.lines },
-    signatureFallbackByLanguage: { en: en.fallback ?? null, ru: ru.fallback ?? null },
+    signatureFallbackByLanguage: { en: asReplyLanguage(en.fallback), ru: asReplyLanguage(ru.fallback) },
   };
 }
 
@@ -111,7 +114,7 @@ export function mailComposerContext(c: { mail: Pick<ProjectConfig["mail"], "acco
     technicalAddress,
     language,
     signatureLines: block.lines,
-    signatureFallback: block.fallback ?? null,
+    signatureFallback: asReplyLanguage(block.fallback),
     ...variants,
     status,
     reason,

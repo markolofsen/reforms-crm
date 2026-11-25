@@ -36,6 +36,8 @@ export const LEAD_PASS_DISPLAY_LABELS: Record<LeadPassDisplay, string> = {
 /** The facts of one lead row the display state reads. `draftStatus`: the pass draft's status, null when the row is gone. */
 export interface LeadPassFacts {
   passDecision: LeadPassDecision | null;
+  /** 3i P3: a reason starting `needs your input` puts a drafted lead under For you. */
+  passReason?: string | null;
   passDraftId: number | null;
   passExcludedAt: string | null;
   convertedAt: string | null;
@@ -43,6 +45,10 @@ export interface LeadPassFacts {
   notionStatus: string | null;
   draftStatus: string | null;
 }
+
+/** 3i P3: the reason a draft with an `[Owner: …]` placeholder is recorded with. */
+export const LEAD_NEEDS_INPUT = "needs your input";
+export const needsInput = (reason: string | null | undefined): boolean => (reason ?? "").trim().toLowerCase().startsWith(LEAD_NEEDS_INPUT);
 
 /** The derived display state (verdict 2). Pure: the owner's own marks first, then the pass's decision, else New. */
 export function leadPassDisplay(r: LeadPassFacts): LeadPassDisplay {
@@ -55,7 +61,7 @@ export function leadPassDisplay(r: LeadPassFacts): LeadPassDisplay {
   if (r.passDecision === "spam" || r.passDecision === "not_now") return "proposed";
   // A reply or client decision: its draft waits, or the owner deleted it (verdict 3: "draft gone", redone only on Redo).
   if (r.passDraftId === null) return "draft_gone";
-  if (r.draftStatus === "ready" || r.draftStatus === "hold") return "drafted";
+  if (r.draftStatus === "ready" || r.draftStatus === "hold") return needsInput(r.passReason) ? "for_you" : "drafted";
   if (r.draftStatus === "sent" || r.draftStatus === "done") return "sent";
   return "draft_gone";
 }
@@ -102,7 +108,8 @@ export const leadPageOf = (raw: string | undefined): string | undefined => {
 };
 
 /** The six hub tools of a turn (verdict 5, D2), each bound to the turn's lead; nothing else (no built-in, no mail-mcp, no Notion). */
-export const LEAD_PASS_HUB_TOOLS = ["knowledge_search", "knowledge_get", "client_show", "message_show", "draft_write", "lead_decide"] as const;
+/** 3e S5: `link_fetch` joins them, bound to the lead's own site domain (`leadSiteHosts`); 3g H5: `bug_report`, bound to its lead. */
+export const LEAD_PASS_HUB_TOOLS = ["knowledge_search", "knowledge_get", "client_show", "message_show", "link_fetch", "draft_write", "lead_decide", "bug_report"] as const;
 
 /** Verdict 6: the day's lead batch. One per project per day while open; a pass that drafts nothing makes none. */
 export const LEAD_REPLY_INTENT = "lead_reply";

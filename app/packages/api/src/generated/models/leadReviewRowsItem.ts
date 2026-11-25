@@ -16,6 +16,8 @@ export type LeadReviewRowsItem = {
   email: string | null;
   replyWhy: string;
   /** @nullable */
+  language: string | null;
+  /** @nullable */
   brand: string | null;
   receivedAt: string;
   request: string;

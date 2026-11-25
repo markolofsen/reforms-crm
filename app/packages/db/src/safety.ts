@@ -69,7 +69,7 @@ export function evaluateSafety(input: SafetyInput, rules: SafetyRule[], acked: r
         if (client.repliesOwed && !draft.mailRef) fire(rule.kind, "They wrote last, but this draft is not tied to their thread. Reply in the thread, or send it as a new email on purpose.");
         break;
       case "signature_language":
-        if (input.signatureFallback) fire(rule.kind, `The project has no sign-off or signature line for "${input.signatureFallback}", the reply's language: the draft is signed in English. Add a ${input.signatureFallback}: line to signoff or the brand's Signature, or edit the ending.`);
+        if (input.signatureFallback) fire(rule.kind, `The project has no sign-off or signature line for "${input.signatureFallback}", the client's language (P147 3f): the draft is signed in English. Edit the ending in that language, or add a ${input.signatureFallback}: line to signoff and the brand's Signature.`);
         break;
       case "already_sent_recently": {
         const days = rule.params.days ?? 7;

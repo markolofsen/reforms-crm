@@ -10,6 +10,7 @@ import type { HubMcpEnv } from "../src/mcp/ports";
 import { HTTP_RETRY_AFTER_S, HTTP_TOOL_LIMIT_MS, slowServerText } from "../src/mcp/define";
 import { httpChatSort } from "../src/messenger/chat-sort-port";
 import { leadPageEnvOf, attendedSession } from "../src/mcp/stdio";
+import { leadSiteHosts } from "../src/mcp/tools/link";
 
 // P147 L2 (decision 0055): the lead pass's tools, a lead turn's binding (D2), client_create's refusal of a lead (D5) and the one
 // time limit of the HTTP-backed tools (verdict 10). Shape refusals only: the decision itself is never judged.
@@ -55,7 +56,7 @@ async function connect(env: Partial<HubMcpEnv> = {}) {
 }
 
 describe("a lead turn's hub mcp (verdict 5)", () => {
-  it("registers exactly its six lead-bound tools, none that sends", async () => {
+  it("registers exactly its eight lead-bound tools, none that sends", async () => {
     const { client } = await connect({ leadPage: A, leadPass: 1 });
     expect((await client.listTools()).tools.map((t) => t.name).sort()).toEqual([...LEAD_PASS_HUB_TOOLS].sort());
   });
@@ -100,6 +101,24 @@ describe("a lead turn's hub mcp (verdict 5)", () => {
     const r = await call("draft_write", { kind: "new", lead: B, to: "carapisofficial@gmail.com", subject: "Hi", content: "Hi", owner_request: "x" });
     expect(r.json.error).toBe("address_not_on_lead");
     expect(String(r.json.message)).toContain("new@example.test");
+  });
+});
+
+describe("3e S5: a lead turn reads only the lead's own site", () => {
+  it("the hosts are the form's Site and a non-free-mail reply domain", () => {
+    expect(leadSiteHosts({ site: "https://www.kodacar.example/about", email: "ann@gmail.com", accountEmail: null })).toEqual(["kodacar.example"]);
+    expect(leadSiteHosts({ site: null, email: "ann@corp.example", accountEmail: null })).toEqual(["corp.example"]);
+    expect(leadSiteHosts({ site: null, email: "ann@gmail.com", accountEmail: null })).toEqual([]);
+  });
+
+  it("link_fetch refuses another host and opens the lead's own", async () => {
+    const seen: string[] = [];
+    const linkFetch = async (u: string) => (seen.push(u), { url: u, status: 200, contentType: "text/html", body: Buffer.from("<title>Corp</title><p>We sell cars</p>"), cut: false });
+    const { call } = await connect({ leadPage: B, leadPass: 1, linkFetch: linkFetch as never });
+    await repos.leadRows.sync([{ project: "acme", pageId: B, name: "New Person", email: "new@corp.example", accountEmail: null, brand: "Acme", receivedAt: new Date().toISOString(), preview: "Price?", notionStatus: "New", hasClient: false }], new Date());
+    expect((await call("link_fetch", { url: "https://evil.example/x" })).json.error).toBe("link_refused");
+    expect((await call("link_fetch", { url: "https://www.corp.example/about" })).isError).toBe(false);
+    expect(seen).toEqual(["https://www.corp.example/about"]);
   });
 });
 

@@ -26,6 +26,7 @@ import { bindProject } from "./binding";
 import { AUTOPILOT_CHAT_ENV } from "@hub/config/autopilot";
 import { backgroundRunOf, FOLLOW_UP_CLIENT_ENV } from "@hub/config/follow-ups";
 import { LEAD_PAGE_ENV, LEAD_PASS_ENV, leadPageOf } from "@hub/config/lead-pass";
+import { coreChangedSince, toolsStamp } from "./core-stamp";
 
 /** Decision 0048 (verdict 20): the chat an autopilot turn's server is bound to (`HUB_AUTOPILOT_CHAT`, a row id), or none. */
 export function autopilotChatOf(env: NodeJS.ProcessEnv): number | undefined {
@@ -72,6 +73,8 @@ const syncFollowUpOf = (paths: { projects: string; secrets: string }) => async (
 export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const paths = hubPaths({ env });
   const handle = openDbReadOnly(paths.db);
+  // P147 3j (5): the tools this process serves are the ones on disk now; a later edit or update makes it answer core_changed.
+  const coreChanged = coreChangedSince(toolsStamp());
   const behind = handle.behind?.() ?? 0;
   if (behind > 0) ops("agent").warn("hub mcp opened a database behind this core: every tool refuses with db_behind until the Hub server restarts and migrates", { pending: behind });
   const projectMail = (slug: string) => {
@@ -165,7 +168,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // P112 S3: the slug binds only with its capability, once, for this process's life.
   const binding = bindProject(paths, env);
   if (binding.refusal) ops("agent").warn("hub mcp started unbound: HUB_PROJECT came without a valid project capability", { reason: binding.refusal });
-  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : leadPage !== undefined ? { leadPage, ...(leadPass !== undefined ? { leadPass } : {}) } : { chatSort, leadPassRun }), syncFollowUp: syncFollowUpOf(paths), fileBugReport: (slug, i) => fileBugReportFor({ projectsDir: paths.projects, secretsDir: paths.secrets }, slug, i), adminOrigin: () => { try { return `http://127.0.0.1:${instancePorts(paths, env).admin}`; } catch { return null; } }, records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, dbBehind: () => handle.behind?.() ?? 0, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, ...(autopilotChat !== undefined ? { autopilotChat } : followUpClient !== undefined ? { followUpClient } : leadPage !== undefined ? { leadPage, ...(leadPass !== undefined ? { leadPass } : {}) } : { chatSort, leadPassRun }), syncFollowUp: syncFollowUpOf(paths), fileBugReport: (slug, i) => fileBugReportFor({ projectsDir: paths.projects, secretsDir: paths.secrets }, slug, i), adminOrigin: () => { try { return `http://127.0.0.1:${instancePorts(paths, env).admin}`; } catch { return null; } }, records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, dbBehind: () => handle.behind?.() ?? 0, coreChanged, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }
