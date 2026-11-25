@@ -29,8 +29,11 @@ test("messengers: No reply needed closes an owed chat with Undo, from the header
   await expect(noReply(page)).toHaveCount(0);
   await expect(chats(page).getByRole("listitem", { name: RITA })).toHaveCount(0);
   // Undo on the Done toast (the Skip's toast may still be up with its own Undo).
-  await page.locator("[data-slot=toast-viewport] > *").filter({ hasText: `No reply needed: ${RITA}` }).getByRole("button", { name: "Undo" }).click();
+  const doneToast = page.locator("[data-slot=toast-viewport] > *").filter({ hasText: `No reply needed: ${RITA}` });
+  await doneToast.getByRole("button", { name: "Undo" }).click();
   await expect(conversation(page).getByText(/Wrote you/)).toBeVisible();
+  // Undo closes its toast: the next Done's toast is the only one that names the chat.
+  await expect(doneToast).toHaveCount(0);
   // A key typed into the reply composer is text, never Done.
   const composer = conversation(page).getByRole("textbox").first();
   await composer.click();

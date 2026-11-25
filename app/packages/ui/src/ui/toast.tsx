@@ -70,7 +70,7 @@ function Toasts({
   position: ToastPosition;
   portalProps?: React.ComponentProps<typeof Toast.Portal>;
 }): React.ReactElement {
-  const { toasts } = Toast.useToastManager();
+  const { toasts, close } = Toast.useToastManager();
   const swipeDirection = getSwipeDirection(position);
 
   return (
@@ -174,6 +174,8 @@ function Toasts({
                   <Toast.Action
                     className={buttonVariants({ size: "xs" })}
                     data-slot="toast-action"
+                    // An action that ran is spent (Undo twice would undo twice): its toast closes. Base UI's Action does not.
+                    onClick={() => close(toast.id)}
                   >
                     {toast.actionProps.children}
                   </Toast.Action>
@@ -192,7 +194,7 @@ function AnchoredToasts({
 }: {
   portalProps?: React.ComponentProps<typeof Toast.Portal>;
 }): React.ReactElement {
-  const { toasts } = Toast.useToastManager();
+  const { toasts, close } = Toast.useToastManager();
 
   return (
     <Toast.Portal data-slot="toast-portal-anchored" {...portalProps}>
@@ -263,6 +265,7 @@ function AnchoredToasts({
                       <Toast.Action
                         className={buttonVariants({ size: "xs" })}
                         data-slot="toast-action"
+                        onClick={() => close(toast.id)}
                       >
                         {toast.actionProps.children}
                       </Toast.Action>
