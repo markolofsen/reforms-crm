@@ -14,7 +14,7 @@ import { NavDot, useLitRoutes } from "./nav-dot";
 /**
  * The menu column of a section with child pages (P125 L4, admin-principles rule 13): the landing first, named by its own title
  * (Settings opens on Sending), then the children in table order, `aria-current` on the page on screen and the dot of a page that
- * needs the owner. From 960px of the layout's width a column beside the page; below, one button opens it in a sheet. It replaces
+ * needs the owner. From 640px of the layout's width a column beside the page (the dock panel open too); below, a row of tabs on top. It replaces
  * the header tabs of the old `SubNav` (deleted with P125 L5, when Messengers' Settings became a group here).
  */
 export function SectionMenu({ section, children }: { section: SectionId; children: ReactNode }) {
@@ -36,7 +36,7 @@ export function SectionMenu({ section, children }: { section: SectionId; childre
     ),
   }));
   return (
-    <SectionLayout nav={<SectionNav items={items} label={`${parent.title} pages`} />} navButton={`${parent.title} pages`} navLabel={`${parent.title} pages`}>
+    <SectionLayout nav={(form) => <SectionNav form={form} items={items} label={`${parent.title} pages`} />} navLabel={`${parent.title} pages`}>
       {children}
     </SectionLayout>
   );

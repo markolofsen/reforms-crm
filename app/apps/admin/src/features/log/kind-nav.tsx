@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ActivityDto } from "@hub/contract/activity";
-import { SectionNav, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
+import { SectionNav, type SectionNavForm, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
 import { AppLink } from "@/components/app-link";
 import { dest } from "@/routes/paths";
 import { isLogView, type ActivityView } from "@/routes/search";
@@ -11,7 +11,7 @@ import { VIEW_LABELS, VIEW_ORDER } from "./labels";
  * Follow-ups (P142, the plans of the daily sweep), Sends and Errors under their own heading with its count. Each item is a link (`?kind=`, it pushes: routes rule 9); one client's timeline
  * keeps its `?client=` across the timeline kinds, and Sends and Errors drop it (the send history and the ops log are not per client).
  */
-export function KindNav({ value, client, counts, sends, errors, followUps }: { value: ActivityView; client: number | null; counts: ActivityDto["counts"] | undefined; sends: number | undefined; errors: number | undefined; followUps?: number | undefined }) {
+export function KindNav({ value, client, counts, sends, errors, followUps, form }: { form: SectionNavForm; value: ActivityView; client: number | null; counts: ActivityDto["counts"] | undefined; sends: number | undefined; errors: number | undefined; followUps?: number | undefined }) {
   const items: SectionNavItem[] = VIEW_ORDER.map((k) => {
     const current = k === value;
     const to = dest("log.list", { kind: k, client: isLogView(k) ? null : client });
@@ -28,5 +28,5 @@ export function KindNav({ value, client, counts, sends, errors, followUps }: { v
       ),
     };
   });
-  return <SectionNav items={items} label="Activity kinds" />;
+  return <SectionNav form={form} items={items} label="Activity kinds" />;
 }

@@ -197,7 +197,6 @@ test("the nav links are real anchors in the path form; two projects show the swi
 // first; the sidebar draws parents only (no Settings children at any width). A tab's name ends with its label (a dot's words
 // come first).
 test("the nested nav: the seven panes in the sub-nav of every pane, none in the sidebar", async ({ page }) => {
-  const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/mail"));
   await expect(cards(page).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
@@ -209,14 +208,9 @@ test("the nested nav: the seven panes in the sub-nav of every pane, none in the 
     await expect(nav.getByRole("link", { name: /^(Checks|Agent|Connections|This Mac)$/ })).toHaveCount(0);
     await expect(nav.locator('a[href$="/settings/mail"]')).toHaveCount(0);
     const sub = page.getByRole("navigation", { name: "Settings pages" });
-    if (width < 640) {
-      await expect(sub.getByRole("button", { name: `Settings pages: ${name}` })).toBeVisible();
-      continue;
-    }
     await expect(sub.getByRole("link", { name: tab(name) })).toHaveAttribute("aria-current", "page");
     await expect(sub.getByRole("link")).toHaveText(panes.map(([n]) => tab(n)));
   }
-  if (width < 640) return;
   // Keyboard alone: from Sending's sub-nav to Mail.
   await page.goto(at(P, "/settings"));
   await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: tab("Mail") }).focus();

@@ -6,7 +6,7 @@ import { SearchField } from "@hub/ui/product/list/search-field";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/shell/page";
 import { SectionLayout } from "@hub/ui/product/shell/section-layout";
-import { SectionNav, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
+import { SectionNav, type SectionNavForm, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
 import { AppLink } from "@/components/app-link";
 import { LocalActionButton } from "@/components/local-action";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
@@ -26,7 +26,7 @@ const SEARCH_PAUSE_MS = 250;
  * topics" and every topic of the rows in view with its count, a brand as a small heading when the brands differ, a sub-topic
  * indented once. Each item is a link to its address: a view keeps the topic, a topic keeps the view and the search.
  */
-function KnowledgeNav({ filter, topic, q, counts, items }: { filter: View; topic: string; q: string; counts: KnowledgeListDto["counts"] | undefined; items: readonly TopicItem[] }) {
+function KnowledgeNav({ filter, topic, q, counts, items, form }: { form: SectionNavForm; filter: View; topic: string; q: string; counts: KnowledgeListDto["counts"] | undefined; items: readonly TopicItem[] }) {
   const link = (to: Dest, current: boolean) =>
     function NavLink(content: ReactNode, className: string) {
       return (
@@ -38,7 +38,7 @@ function KnowledgeNav({ filter, topic, q, counts, items }: { filter: View; topic
   const views: SectionNavItem[] = VIEW_ORDER.map((v) => ({ id: `view-${v}`, label: VIEW_LABEL[v], count: counts?.[v] ?? null, current: v === filter, group: "Show", render: link(dest("knowledge.page", { filter: v, q, topic }), v === filter) }));
   const all: SectionNavItem = { id: "topic-all", label: "All topics", current: topic === "", group: "Topics", render: link(dest("knowledge.page", { filter, q, topic: "" }), topic === "") };
   const topics: SectionNavItem[] = items.map((t) => ({ id: `topic-${t.topic}`, label: t.label, count: t.count, depth: t.depth, current: t.topic === topic, ...(t.group !== null ? { group: t.group } : {}), render: link(dest("knowledge.page", { filter, q, topic: t.topic }), t.topic === topic) }));
-  return <SectionNav items={[...views, all, ...topics]} label="Knowledge topics" />;
+  return <SectionNav form={form} items={[...views, all, ...topics]} label="Knowledge topics" />;
 }
 
 
@@ -107,7 +107,7 @@ export function KnowledgeView({ project, filter, q, topic }: { project: string; 
       </QueryView>
     );
   return (
-    <SectionLayout nav={<KnowledgeNav counts={d?.counts} filter={filter} items={topicItems(sections, facets.brandsDiffer)} q={q} topic={here} />} navButton="Topics" navLabel="Knowledge topics">
+    <SectionLayout nav={(form) => <KnowledgeNav counts={d?.counts} filter={filter} form={form} items={topicItems(sections, facets.brandsDiffer)} q={q} topic={here} />} navLabel="Knowledge topics">
       <Page actions={header}>{body}</Page>
     </SectionLayout>
   );

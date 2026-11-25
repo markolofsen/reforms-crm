@@ -232,10 +232,11 @@
 }
 
 /* The list column of a list and its detail (`product/list-detail`): 360px, 400px from 1440px. The section menu column
-   (`product/section-layout`, P125): 220px, 240px from 1440px. */
+   (`product/section-layout`, P125): 220px, 240px from 1440px; 176px in a layout box of 640 to 960px (the dock panel open). */
 :root {
   --list-width: 22.5rem;
   --section-nav-width: 13.75rem;
+  --section-nav-compact: 11rem;
 }
 @media (min-width: 90rem) {
   :root {

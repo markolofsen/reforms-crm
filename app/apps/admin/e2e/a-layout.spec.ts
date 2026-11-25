@@ -305,9 +305,10 @@ for (const scheme of ["light", "dark"] as const) {
 
 // P70: the phone bar is five items (Overview, Mail, Activity, Settings, More); More holds Messengers (P71 M3), Knowledge and Help, each label whole;
 // the rail (640-1279) draws parents only, so no pane is in the Sections nav there. P125 L4-L5: Settings' pages are a menu column (Messengers
-// among them) from 960px of the layout's own width; below it (the 768 rail and the phone) one "Settings pages" button opens the same menu in a sheet.
+// among them) from 640px of the layout's own width (the 768 rail too, and beside the dock panel); below it (the phone) the same links are a row
+// of tabs above the page (owner 2026-11-25: no drawer).
 const SETTINGS_PAGES = ["Sending", "Checks", "Mail", "Messengers", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`));
-test("phone bar and rail: parents only, the More menu whole, the Settings pages a sheet below the column width", async ({ page }) => {
+test("phone bar and rail: parents only, the More menu whole, the Settings pages a column or a row of tabs, never a sheet", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/settings/mail"));
   const sub = page.getByRole("navigation", { name: "Settings pages" });
@@ -324,16 +325,13 @@ test("phone bar and rail: parents only, the More menu whole, the Settings pages 
     await expect.poll(() => new URL(page.url()).pathname).toBe(at(P, "/knowledge"));
     await page.goto(at(P, "/settings/mail"));
   }
-  if (width < 1280) {
-    await page.getByRole("button", { name: "Settings pages" }).click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet.getByRole("navigation", { name: "Settings pages" }).getByRole("link")).toHaveText(SETTINGS_PAGES);
-    await sheet.getByRole("link", { name: /This Mac$/ }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe("/settings/mac");
-    if (width >= 640) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "This Mac", exact: true })).toBeHidden();
-  } else {
-    await expect(sub.getByRole("link")).toHaveText(SETTINGS_PAGES);
-  }
+  await expect(sub.getByRole("link")).toHaveText(SETTINGS_PAGES);
+  await expect(page.getByRole("button", { name: "Settings pages" })).toHaveCount(0);
+  const strip = await sub.evaluate((el) => el.closest("[data-slot=section-layout]")?.scrollWidth ?? 0);
+  expect(strip, "the page never scrolls sideways").toBeLessThanOrEqual(width);
+  await sub.getByRole("link", { name: /This Mac$/ }).click();
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/settings/mac");
+  if (width >= 640) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "This Mac", exact: true })).toBeHidden();
 });
 
 // P48 W4: selecting never moves the list, and a row shows its subject. Light only: the geometry is the same in dark.
