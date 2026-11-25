@@ -86,7 +86,8 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
           draftId: r.passDraftId,
           mail: a.mail ? { from: a.mail.sender, to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
           held,
-          ticked: held.length === 0 && !excluded && r.display === "drafted",
+          // 3i P2: a needs-input draft is shown For you; once its marker is filled (nothing held) it ticks like any other.
+          ticked: held.length === 0 && !excluded && a.mail !== null && (r.display === "drafted" || r.display === "for_you"),
         });
       }
       const decided = await repos.leadPass.decided(slug, windowFrom(slug, at));

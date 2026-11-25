@@ -41,7 +41,7 @@ export function leadPassRoutes(ctx: ProjectsContext) {
       const sch = ctx.leadPass?.schedule;
       const last = await repos.leadPass.lastPass(slug);
       const batchId = await repos.leadPass.openBatch(slug);
-      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.display === "drafted").length;
+      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.display === "drafted" || r.display === "for_you").length;
       return c.json(
         leadPassDto.parse({
           today,
