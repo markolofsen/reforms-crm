@@ -1,7 +1,6 @@
 import { Hono, type Context } from "hono";
 import { followUpChangedDto, followUpParam, followUpsDto, runFollowUpsBody, setFollowUpBody, type FollowUpDto } from "@hub/contract/follow-ups";
 import { slugParam } from "@hub/contract/requests";
-import type { FollowUpItem } from "@hub/db";
 import { gateRefusal } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import type { ProjectsContext } from "../projects/context";
@@ -10,6 +9,8 @@ import { nextRun } from "./schedule";
 // The follow-up routes (decision 0050 point 9, P142 F4 and F6). The read is behind the general guard. The owner's writes (Run
 // follow-ups now, Change date, Stop, Resume) take the admin's exact Origin, a loopback Host and `Sec-Fetch-Site: same-origin`; no
 // ticket, since they only start a sweep, delay or stop (verdict 15). A sweep runs in the background: the POST answers at once.
+
+type FollowUpItem = Awaited<ReturnType<ProjectsContext["repos"]["followUps"]["list"]>>[number];
 
 const dto = (p: FollowUpItem): FollowUpDto => ({ clientId: p.clientId, name: p.clientName, state: p.state, display: p.display, nextAt: p.nextAt, waitingOn: p.waitingOn, nudgesSent: p.nudgesSent, lastNudgeAt: p.lastNudgeAt, channel: p.channel, reason: p.reason, stopReason: p.stopReason, line: p.line, decidedBy: p.decidedBy, decidedAt: p.decidedAt });
 

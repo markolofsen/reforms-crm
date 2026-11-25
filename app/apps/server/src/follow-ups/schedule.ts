@@ -1,5 +1,5 @@
 import { FOLLOW_UP_DEFAULT_AT, FOLLOW_UP_RUN_NOW_PER_DAY, type FollowUpSchedule, type FollowUpTrigger } from "@hub/config/follow-ups";
-import type { FollowUpSweepRow, Repos } from "@hub/db";
+import type { FollowUpSweepRow } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";
 import { systemClock, type Clock } from "../messengers/autopilot/scheduler";
 import { localDay, runSweep, type SweepDeps } from "./sweep";

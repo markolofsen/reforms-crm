@@ -26,7 +26,7 @@ export type ClientCounts = Record<ClientFilter, number>;
 
 /**
  * The views of the admin's Mail list, in their menu order. P99 (verdict 3): Mail lists people, one row per client, and the views
- * shrink to Needs you (they wrote, or a draft is ready; the default), Waiting (for them) and All; Follow-ups and Not by email are
+ * shrink to Needs you (they wrote, or a draft is ready; the default), Waiting (for them) and All; Sequence steps and Not by email are
  * filters of All. Hold, Sent and Finished became words and chips on the row. One source for the address
  * (`apps/admin/src/routes/search.ts`).
  */
@@ -41,11 +41,11 @@ export const FILTER_LABELS: Record<ClientFilter, string> = {
   done: "Done",
   sent: "Sent",
   skipped: "Skipped",
-  sequences: "Follow-ups",
+  sequences: "Sequence steps",
 };
 
 // ---- Follow-up sequences (P47, `@docs/core/23-sequences.md`). The owner enrols; the agent drafts each due step; nothing here sends.
-// The code name is `sequence`; the admin says "Follow-ups". The rules over these words live in `@hub/sequences`.
+// The code name is `sequence`; the admin says "Sequence steps" (P142: "Follow-ups" is the daily sweep, decision 0050). The rules over these words live in `@hub/sequences`.
 
 /** Stored states of an enrollment. `waiting`, `due` and `draft ready` are derived, never stored (`displayStateOf` in `@hub/sequences`). */
 export const ENROLLMENT_STATES = ["active", "paused", "finished"] as const;

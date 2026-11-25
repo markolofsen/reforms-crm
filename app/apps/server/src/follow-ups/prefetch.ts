@@ -53,7 +53,7 @@ export async function prefetch(d: PrefetchDeps, slug: string, c: DueClient): Pro
   const plan = await d.repos.followUps.get(slug, c.clientId);
   const lines = await d.repos.followUps.lines(slug, c.clientId);
   const client = await d.repos.clients.get(slug, c.clientId);
-  const notion = d.notionFacts?.(slug, { email: c.email, pageId: client?.notionPageId ?? null }) ?? [];
+  const notion = d.notionFacts?.(slug, { email: c.email ?? client?.email ?? null, pageId: null }) ?? [];
   const out = [
     `Client ${c.clientId}: ${cut(c.name, 120)}${c.email ? ` <${c.email}>` : ""}.`,
     `Our last message: ${c.ourLastAt} on ${c.lastChannel}. Their last: ${c.theirLastAt ?? "never"}.`,
