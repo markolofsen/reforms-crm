@@ -41,6 +41,19 @@ function AddressDetails({ d }: { d: ReviewDraft }) {
 }
 
 /** The draft as a document: addressing, versions, the paper surface and owner actions. */
+/**
+ * P147 3m item 2: where editing starts, or null. The owner edits only a text Mail holds exactly once (a hash), on an open draft
+ * written to Mail (P56 S1). One rule for the footer's Edit and a click on the text.
+ */
+export function editStartOf(d: ReviewDraft, live: DraftMailDto | undefined): { text: string; hash: string } | null {
+  const readable = live?.found ? live : null;
+  if (!readable?.hash || isClosed(d) || d.status !== "ready") return null;
+  return { text: readable.body ?? d.body, hash: readable.hash };
+}
+
+/** A click that only selected some of the text does not start editing. */
+const selecting = (): boolean => (typeof window !== "undefined" ? (window.getSelection()?.toString() ?? "").length > 0 : false);
+
 export function DraftBody({ d, project, actions, live, onRead, reading, editing = null, editor, onEdit }: Props) {
   const closed = isClosed(d);
   const tones = TONES.filter((t) => d.toneBodies[t] !== undefined);
@@ -51,9 +64,7 @@ export function DraftBody({ d, project, actions, live, onRead, reading, editing 
   const gone = unreadable && !sent ? (live.gone ?? null) : null;
   // Exactly the Mail text (decision 0031): nothing of the Hub's is in it, so nothing is hidden.
   const body = readable?.body ?? d.body;
-  // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
-  const editable = readable?.hash ? { hash: readable.hash } : null;
-  const canEdit = editable !== null && !closed && d.status === "ready";
+  const start = editing === null && onEdit ? editStartOf(d, live) : null;
   return (
     <section aria-label="Draft" className="flex min-w-0 flex-col gap-2">
       <div className="min-w-0">
@@ -96,19 +107,21 @@ export function DraftBody({ d, project, actions, live, onRead, reading, editing 
       ) : body === "" ? (
         !unreadable && <p className="text-muted-foreground text-sm">The text of this mail is not stored here. Open it in Mail.</p>
       ) : (
-        <div className="rounded-lg border bg-card p-4">
+        // 3m item 2: a click on the text starts editing (Edit in the footer does the same; Enter on the focused text too).
+        <div
+          aria-label={start ? "Draft text: click to edit" : undefined}
+          className={start ? "cursor-text rounded-lg border bg-card p-4 hover:border-ring/50" : "rounded-lg border bg-card p-4"}
+          data-testid="draft-text"
+          onClick={start ? () => !selecting() && onEdit?.(start) : undefined}
+          onKeyDown={start ? (e) => e.key === "Enter" && e.target === e.currentTarget && (e.preventDefault(), onEdit?.(start)) : undefined}
+          role={start ? "button" : undefined}
+          tabIndex={start ? 0 : undefined}
+        >
           {readable && <p className="mb-2 text-muted-foreground text-xs">As Mail holds it now:</p>}
           {unreadable && <p className="mb-2 text-muted-foreground text-xs">A preview stored with the draft (up to 240 characters), not what Mail holds:</p>}
           <ConversationText format="plain" text={body} />
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        {editable && canEdit && editing === null && onEdit && (
-          <ActionButton onClick={() => onEdit({ text: body, hash: editable.hash })} size="s" variant="quiet">
-            Edit
-          </ActionButton>
-        )}
-      </div>
     </section>
   );
 }

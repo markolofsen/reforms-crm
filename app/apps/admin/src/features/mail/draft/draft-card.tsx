@@ -18,7 +18,7 @@ import { CardHeader } from "./card-header";
 import { stateOf } from "./card-state";
 import { draftLinkOf, mailReadable } from "@/features/mail/draft/mail-read/tick-guard";
 import { CheckList } from "./check-list";
-import { DraftBody } from "./body";
+import { DraftBody, editStartOf } from "./body";
 import { DraftEditor, DraftEditorFooter } from "@/features/mail/draft/mail-read/draft-editor";
 import { useDraftMail } from "@/features/mail/draft/mail-read/use-draft-mail";
 import { useChangedUnder } from "@/features/mail/draft/mail-read/use-changed-under";
@@ -120,6 +120,7 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
     if (editing === null || !editDirty || editSave.isPending || !editValue.trim() || editChangedUnder) return;
     editSave.mutate({ text: editValue, hash: editing.hash }, { onSuccess: () => { setEditing(null); setEditSaved(true); } });
   };
+  const editStart = editing === null ? editStartOf(d, mail) : null;
   const content = (
     <div className="flex min-w-0 flex-1 flex-col gap-3">
         <CardHeader actions={actions} contact={contact} d={d} now={now} ready={state === "acknowledged"} />
@@ -165,7 +166,7 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
         {editing !== null ? (
           <DraftEditorFooter changedUnder={editChangedUnder} dirty={editDirty} error={editSave.isError ? sentence(editSave.error) : null} onCancel={cancelEditing} onSubmit={submitEditing} pending={editSave.isPending} value={editValue} />
         ) : (
-          <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null }} d={d} draftLink={draftLink} on={on} state={state} />
+          <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null }} d={d} draftLink={draftLink} on={on} onEdit={editStart ? () => startEditing(editStart) : null} state={state} />
         )}
       </div>
       <MailSendDialog changedUnder={under.changed} d={d} flow={flow} go={go} mail={mail} mode={review ?? "send"} name={first} onClose={closeReview} onReread={reread} open={review !== null} project={project} readError={mailError} resetFlow={close} />

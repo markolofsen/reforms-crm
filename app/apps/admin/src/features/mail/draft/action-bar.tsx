@@ -25,7 +25,16 @@ export type Handlers = {
   history: () => void;
 };
 
-type Props = { d: ReviewDraft; state: CardState; actions: ReviewActions; context: Context; on: Handlers; /** P58 R1: the Mail draft's own Message-ID when the read found the one draft (`draftLinkOf`), else null. */ draftLink?: string | null };
+type Props = {
+  d: ReviewDraft;
+  state: CardState;
+  actions: ReviewActions;
+  context: Context;
+  on: Handlers;
+  /** P58 R1: the Mail draft's own Message-ID when the read found the one draft (`draftLinkOf`), else null. */ draftLink?: string | null;
+  /** P147 3m item 2: Edit beside Send, while Mail holds the text once and the draft is open (`editStartOf`); null: no Edit. */
+  onEdit?: (() => void) | null;
+};
 
 /** The client's message has a `message:` link (the registry's `mail.openMessage`): a Message-ID, not a Mail draft id. */
 export const hasMailLink = (d: Pick<ReviewDraft, "mailRef">): boolean => d.mailRef !== null && hrefOf("mail.openMessage", { messageId: d.mailRef }) !== null;
@@ -79,7 +88,7 @@ function MoreMenu({ d, state, actions, on, draftLink }: { d: ReviewDraft; state:
  * primary on the right. Send opens the review dialog, so it is never disabled and never asks a second time in the bar. Its parent
  * composer owns the fixed bottom dock, so this component only owns action semantics and layout inside it.
  */
-export function ActionBar({ d, state, actions, context, on, draftLink = null }: Props) {
+export function ActionBar({ d, state, actions, context, on, draftLink = null, onEdit = null }: Props) {
   const primary = primaryFor(state, context);
   const secondary = (s: Secondary) => {
     switch (s) {
@@ -107,6 +116,11 @@ export function ActionBar({ d, state, actions, context, on, draftLink = null }: 
       primary={main}
       start={
         <>
+          {onEdit && (
+            <ActionButton data-testid="draft-edit" disabled={actions.pending} onClick={onEdit} size="m" variant="secondary">
+              Edit
+            </ActionButton>
+          )}
           {secondaryFor(state).map(secondary)}
           {state !== "sending" && <MoreMenu actions={actions} d={d} draftLink={draftLink} on={on} state={state} />}
         </>
