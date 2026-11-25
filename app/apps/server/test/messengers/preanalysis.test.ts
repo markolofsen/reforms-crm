@@ -4,7 +4,7 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { messengerChatsDto } from "@hub/contract/messenger-panel";
 import { createLlm, fakeTransport, memoryLedger, type ChatRequest, type FakeScript } from "@hub/llm";
 import { testApp } from "../support/runtime";
-import { createPreanalysis, PREANALYSIS_TASK, preanalysisStanding } from "../../src/messengers/preanalysis";
+import { createPreanalysis, preanalysisStanding, preanalysisTask } from "../../src/messengers/preanalysis";
 
 // P71 M-P: the pre-analysis of linked chats on the fake model (decision 0039 point 7: no network). Its "Done when": a batch with one
 // broken item hides nothing it could not judge, and the counts by reason show on the panel.
@@ -98,7 +98,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     const anna = list.chats.find((c) => c.chatId === "1001");
     expect(anna?.triage).toEqual({ judged: 3, hidden: { closing: 1, automated: 1, personal: 0 }, unjudged: 1 });
     expect(list.chats.find((c) => c.chatId === "2002")?.triage).toEqual({ judged: 0, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 });
-    expect(list.preanalysis).toEqual({ state: "fake", fix: null });
+    expect(list.preanalysis).toEqual({ state: "fake", fix: null, keySource: null });
 
     // A second pass asks nothing: every message has its verdict, the unjudged one included (never re-asked).
     const n = transport.requests.length;
@@ -188,7 +188,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     const ledger = memoryLedger();
     const llm = createLlm({ ledger, transport: fakeTransport(byWord), retry: quick });
     await createPreanalysis({ repos, llm, now: () => NOW }).run("p");
-    expect(ledger.rows.map((r) => r.task)).toEqual([PREANALYSIS_TASK]);
+    expect(ledger.rows.map((r) => r.task)).toEqual([preanalysisTask.name]);
     expect(handle.db.$client.prepare("select count(*) n from messenger_triage").get()).toEqual({ n: 1 });
     await repos.messengers.forgetChat("p", "telegram_user", "1001");
     expect(handle.db.$client.prepare("select count(*) n from messenger_triage").get()).toEqual({ n: 0 });

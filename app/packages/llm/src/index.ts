@@ -1,25 +1,37 @@
 import type { z } from "zod";
-import { BATCH_RULE, envelopeOf, runBatch, type BatchItem } from "./batch";
-import { run, type CallDeps, type RunResult, type Validated } from "./call";
-import { fakeTransport } from "./fake";
-import type { Ledger } from "./ledger";
-import { issuesText, plainJsonSchema, schemaName, strictJsonSchema, stripOptionalNulls } from "./schema";
-import { llmFake, readKey, readSettings, type Preset } from "./settings";
-import { DEFAULT_RETRY, openRouterTransport, type Message, type RetryPolicy, type Transport } from "./transport";
+import type { Ledger } from "./budget/ledger";
+import type { CallDeps, RunResult } from "./retry/ladder";
+import { DEFAULT_RETRY, type RetryPolicy } from "./retry/backoff";
+import { llmFake, readKey, readSettings } from "./settings";
+import { runBatchTask, type BatchInput, type BatchItem } from "./shapes/batch";
+import { runObject, type ObjectInput } from "./shapes/object";
+import { runWindowTask, type WindowInput, type WindowItem, type WindowResult } from "./shapes/window";
+import type { BatchShape, ObjectShape, Shape, Task, WindowShape } from "./task";
+import type { CostFilter } from "./budget/ledger";
+import { fakeTransport } from "./transport/fake";
+import { openRouterTransport } from "./transport/openrouter";
+import type { Transport } from "./transport/types";
 
 /**
- * `@hub/llm` (P78, decision 0039): the only code in the Hub that calls a model API. Two calls, `object` and `batch`, typed by a zod
- * 4 schema; OpenRouter over plain `fetch`; presets, never model names; a ledger row per attempt; the monthly cap checked before
- * every request. It imports `@hub/config` and zod only: the caller hands it the ledger (the `llm_calls` repository of `@hub/db`).
+ * `@hub/llm` (P78, decisions 0039 and 0051): the only code in the Hub that calls a model API. A caller declares a task
+ * (`defineTask`: name, version, preset, schema, system text, shape, budget) and runs it with `llm.run(task, …)`; the shape
+ * (`object`, `batch`, `window`) decides what the call takes and returns. Under it: OpenRouter through the official `openai` SDK
+ * (`maxRetries: 0`), our ladder, a ledger row per attempt, the instance cap and the task budget before every attempt, and the
+ * fake (`HUB_LLM=fake`). It imports `@hub/config`, zod and `openai` only: the caller hands it the ledger (`llm_calls` of `@hub/db`).
  */
 
-export { BATCH_RULE, type BatchItem } from "./batch";
-export type { RunResult } from "./call";
-export { FAKE_COST_USD, fakeTransport, sampleOf, type FakeReply, type FakeScript } from "./fake";
-export { memoryLedger, type Ledger, type LlmCallRecord } from "./ledger";
-export { plainJsonSchema, readAnswer, SchemaError, strictJsonSchema, stripOptionalNulls } from "./schema";
-export { capSentence, llmFake, hasKey, keyFile, noKeySentence, PRESETS, readKey, type Preset } from "./settings";
-export { LlmError, OPENROUTER_URL, openRouterTransport, type ChatRequest, type ChatResponse, type LlmErrorKind, type Message, type Transport } from "./transport";
+export { memoryLedger, type CostFilter, type Ledger, type LlmCallRecord } from "./budget/ledger";
+export type { RunResult } from "./retry/ladder";
+export { capSentence, hasKey, KEY_SOURCES, keyFile, keySource, llmFake, machineKeyFile, noKeySentence, PRESETS, readKey, type KeySource, type Preset } from "./settings";
+export { BATCH_RULE, type BatchInput, type BatchItem } from "./shapes/batch";
+export type { ObjectInput } from "./shapes/object";
+export { cutWindows, dedupeItems, mapEntries, renderLine, WINDOW_RULE, type WindowEntry, type WindowInput, type WindowItem, type WindowResult } from "./shapes/window";
+export { readAnswer } from "./structured/answer";
+export { plainJsonSchema, SchemaError, strictJsonSchema, stripOptionalNulls } from "./structured/schema";
+export { defineTask, type BatchShape, type ObjectShape, type Shape, type Task, type TaskSpec, type WindowShape } from "./task";
+export { FAKE_COST_USD, fakeTransport, sampleOf, type FakeReply, type FakeScript } from "./transport/fake";
+export { OPENROUTER_BASE_URL, openRouterTransport } from "./transport/openrouter";
+export { LlmError, type ChatRequest, type ChatResponse, type LlmErrorKind, type Message, type Transport } from "./transport/types";
 
 export interface LlmDeps {
   ledger: Ledger;
@@ -32,43 +44,23 @@ export interface LlmDeps {
   fetch?: typeof fetch;
 }
 
-interface Common {
-  /** The job's name, for the ledger (`messages.preanalysis`): never a model, never client text. */
-  task: string;
-  /** Stable text first: it is the prefix a provider's prompt cache can reuse. */
-  system: string;
-  project: string;
-  source?: { kind: string };
-  preset?: Preset;
-}
-
-export interface ObjectCall<S extends z.ZodType> extends Common {
-  schema: S;
-  input: string | Message[];
-  maxTokens?: number;
-}
-
-export interface BatchCall<S extends z.ZodType, I> extends Common {
-  /** The schema of ONE item's answer. */
-  schema: S;
-  items: readonly I[];
-  /** What the model sees of one item (JSON); the item itself by default. */
-  render?: (item: I) => unknown;
-  /** Items per request (default 20, at most 50). */
-  perCall?: number;
-  /** Requests at once (default 3). */
-  concurrency?: number;
-  /** Answer budget per item (default 200 tokens). */
-  maxTokensPerItem?: number;
-}
+export type ObjectCall = Omit<ObjectInput, "maxTokens">;
+export type BatchCall<I> = BatchInput<I>;
+export type WindowCall = WindowInput;
 
 export interface Llm {
   readonly transport: "openrouter" | "fake" | "none";
-  object<S extends z.ZodType>(call: ObjectCall<S>): Promise<RunResult<z.output<S>>>;
-  batch<S extends z.ZodType, I>(call: BatchCall<S, I>): Promise<Array<BatchItem<z.output<S>>>>;
-  /** Micro-dollars this month (UTC): one project's, or the instance's without one. */
-  monthCost(project?: string): Promise<number>;
+  run<S extends z.ZodType>(task: Task<S, ObjectShape>, call: ObjectCall): Promise<RunResult<z.output<S>>>;
+  run<S extends z.ZodType, I>(task: Task<S, BatchShape>, call: BatchCall<I>): Promise<Array<BatchItem<z.output<S>>>>;
+  run<S extends z.ZodType>(task: Task<S, WindowShape>, call: WindowCall): Promise<Array<WindowResult<z.output<S>>>>;
+  /** Micro-dollars this month (UTC): the instance's, or one project's or task's. */
+  monthCost(filter?: CostFilter): Promise<number>;
 }
+
+const isTask = <S extends z.ZodType, K extends Shape["kind"]>(t: Task<S, Shape>, kind: K): t is Task<S, Extract<Shape, { kind: K }>> => t.shape.kind === kind;
+
+const isWindowItem = (v: unknown): v is WindowItem =>
+  typeof v === "object" && v !== null && "id" in v && typeof v.id === "string" && "text" in v && typeof v.text === "string" && "author" in v && (v.author === null || typeof v.author === "string");
 
 export function createLlm(deps: LlmDeps): Llm {
   const env = deps.env ?? process.env;
@@ -82,56 +74,22 @@ export function createLlm(deps: LlmDeps): Llm {
   const now = deps.now ?? (() => new Date());
   const callDeps: CallDeps = { transport, ledger: deps.ledger, settings: () => readSettings(env), retry: { ...DEFAULT_RETRY, ...deps.retry }, now, env };
 
-  const object = <S extends z.ZodType>(c: ObjectCall<S>): Promise<RunResult<z.output<S>>> => {
-    const plain = plainJsonSchema(c.schema);
-    const validate = (json: unknown): Validated<z.output<S>> => {
-      const r = c.schema.safeParse(stripOptionalNulls(json, plain));
-      return r.success ? { ok: true, value: r.data } : { ok: false, issues: issuesText(r.error) };
-    };
-    const input: Message[] = typeof c.input === "string" ? [{ role: "user", content: c.input }] : c.input;
-    return run(
-      { task: c.task, project: c.project, preset: c.preset ?? "cheap", sourceKind: c.source?.kind ?? null, messages: [{ role: "system", content: c.system }, ...input], schemaName: schemaName(c.task), schema: strictJsonSchema(c.schema), maxTokens: c.maxTokens ?? 1024, validate },
-      callDeps,
-    );
-  };
+  function run<S extends z.ZodType>(task: Task<S, ObjectShape>, call: ObjectCall): Promise<RunResult<z.output<S>>>;
+  function run<S extends z.ZodType, I>(task: Task<S, BatchShape>, call: BatchCall<I>): Promise<Array<BatchItem<z.output<S>>>>;
+  function run<S extends z.ZodType>(task: Task<S, WindowShape>, call: WindowCall): Promise<Array<WindowResult<z.output<S>>>>;
+  function run<S extends z.ZodType, I>(task: Task<S, Shape>, call: ObjectCall | BatchCall<I> | WindowCall): Promise<unknown> {
+    if (isTask(task, "object") && "input" in call) return runObject(task, call, callDeps, task.shape.maxTokens ?? 1024);
+    if (isTask(task, "batch") && "items" in call) return runBatchTask(task, call, callDeps);
+    if (isTask(task, "window") && "items" in call) return runWindowTask(task, { ...call, items: call.items.filter(isWindowItem) }, callDeps);
+    return Promise.reject(new Error(`task ${task.name}: the call does not match its ${task.shape.kind} shape`));
+  }
 
   return {
     get transport() {
       const t = transport();
       return t ? t.name : "none";
     },
-    object,
-    async batch<S extends z.ZodType, I>(c: BatchCall<S, I>) {
-      const render = c.render ?? ((item: I): unknown => item);
-      // An item is asked again alone through `object`, whose root must be an object: refuse another shape before any request.
-      strictJsonSchema(c.schema);
-      const wire = strictJsonSchema(envelopeOf(c.schema));
-      const perItem = c.maxTokensPerItem ?? 200;
-      return runBatch({
-        schema: c.schema,
-        items: c.items,
-        perCall: c.perCall ?? 20,
-        concurrency: c.concurrency ?? 3,
-        runner: {
-          chunk: (entries, validate) =>
-            run(
-              {
-                task: c.task,
-                project: c.project,
-                preset: c.preset ?? "cheap",
-                sourceKind: c.source?.kind ?? null,
-                messages: [{ role: "system", content: `${c.system}\n\n${BATCH_RULE}` }, { role: "user", content: JSON.stringify({ items: entries.map((e) => ({ i: e.i, input: render(e.item) })) }) }],
-                schemaName: schemaName(c.task),
-                schema: wire,
-                maxTokens: 200 + perItem * entries.length,
-                validate,
-              },
-              callDeps,
-            ),
-          alone: (item) => object({ task: c.task, system: c.system, project: c.project, input: JSON.stringify(render(item)), schema: c.schema, maxTokens: 200 + perItem, ...(c.source ? { source: c.source } : {}), ...(c.preset ? { preset: c.preset } : {}) }),
-        },
-      });
-    },
-    monthCost: (project) => deps.ledger.monthCost(project, now()),
+    run,
+    monthCost: (filter) => deps.ledger.monthCost(filter ?? {}, now()),
   };
 }

@@ -30,9 +30,17 @@ describe("llm_calls", () => {
     await repos.llmCalls.record(row({ outcome: "invalid", costMicroUsd: 300 }), NOV);
     await repos.llmCalls.record(row({ outcome: "ok", project: "q", costMicroUsd: 1000 }), NOV);
     await repos.llmCalls.record(row({ outcome: "ok", costMicroUsd: 999_999 }), new Date("2026-10-31T23:59:59Z"));
-    expect(await repos.llmCalls.monthCost("p", NOV)).toBe(1100);
-    expect(await repos.llmCalls.monthCost(undefined, NOV)).toBe(2100);
-    expect(await repos.llmCalls.monthCost("p", new Date("2026-12-01T00:00:00Z"))).toBe(0);
+    expect(await repos.llmCalls.monthCost({ project: "p" }, NOV)).toBe(1100);
+    expect(await repos.llmCalls.monthCost({}, NOV)).toBe(2100);
+    expect(await repos.llmCalls.monthCost({ project: "p" }, new Date("2026-12-01T00:00:00Z"))).toBe(0);
+  });
+
+  it("sums one task's month for its own budget (P144 W1), alone or with a project", async () => {
+    await repos.llmCalls.record(row({ outcome: "ok", task: "watch.window", costMicroUsd: 700 }), NOV);
+    await repos.llmCalls.record(row({ outcome: "ok", task: "watch.window", project: "q", costMicroUsd: 50 }), NOV);
+    await repos.llmCalls.record(row({ outcome: "ok", task: "messages.preanalysis", costMicroUsd: 300 }), NOV);
+    expect(await repos.llmCalls.monthCost({ task: "watch.window" }, NOV)).toBe(750);
+    expect(await repos.llmCalls.monthCost({ task: "watch.window", project: "q" }, NOV)).toBe(50);
   });
 
   it("writes a refusal once per project, task and kind in the coalescing window, and reports the month", async () => {

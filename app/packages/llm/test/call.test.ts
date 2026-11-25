@@ -2,10 +2,12 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createLlm, fakeTransport, LlmError, memoryLedger, PRESETS, type FakeScript } from "../src/index";
+import { createLlm, defineTask, fakeTransport, LlmError, memoryLedger, PRESETS, type FakeScript } from "../src/index";
 
-// P78 L1: the ladder of llm.object on the fake transport. Nothing here reaches the network (test/no-network.ts).
+// P78 L1, P144 W1: the ladder of an object task on the fake transport. Nothing here reaches the network (test/no-network.ts).
 const Label = z.object({ label: z.enum(["lead", "spam"]), note: z.string().optional() });
+const labelTask = defineTask({ name: "t.label", version: 1, preset: "cheap", schema: Label, system: "Label it.", shape: { kind: "object" }, source: { kind: "test" } });
+const plainTask = defineTask({ name: "t", version: 1, preset: "cheap", schema: Label, system: "s", shape: { kind: "object" } });
 const config = () => join(process.env.HUB_HOME ?? "", "config", "config.json");
 const setCap = (usd: number) => {
   mkdirSync(join(process.env.HUB_HOME ?? "", "config"), { recursive: true });
@@ -18,11 +20,11 @@ function make(script: FakeScript) {
   const ledger = memoryLedger();
   const transport = fakeTransport(script);
   const llm = createLlm({ ledger, transport, retry: quick });
-  const call = () => llm.object({ task: "t.label", schema: Label, system: "Label it.", input: "hello", project: "p", source: { kind: "test" } });
+  const call = () => llm.run(labelTask, { input: "hello", project: "p" });
   return { ledger, transport, llm, call };
 }
 
-describe("llm.object", () => {
+describe("an object task", () => {
   it("returns the typed value, the model and the cost, and writes one ok row with counts only", async () => {
     const { ledger, transport, call } = make(() => ({ content: '{"label":"lead","note":null}', costUsd: 0.000812 }));
     const r = await call();
@@ -57,7 +59,7 @@ describe("llm.object", () => {
     const ledger = memoryLedger();
     const transport = fakeTransport((_r, n) => (n === 0 ? { error: "rate_limit", status: 429, retryAfterMs: 7000 } : n === 1 ? { error: "upstream", status: 503 } : { content: '{"label":"lead"}' }));
     const llm = createLlm({ ledger, transport, retry: { sleep: async (ms) => void waits.push(ms), random: () => 0.5 } });
-    const r = await llm.object({ task: "t", schema: Label, system: "s", input: "i", project: "p" });
+    const r = await llm.run(plainTask, { input: "i", project: "p" });
     expect(r.attempts).toBe(3);
     expect(waits).toEqual([7000, 1000]);
     expect(ledger.rows.map((x) => x.outcome)).toEqual(["rate_limit", "upstream", "ok"]);
@@ -102,5 +104,33 @@ describe("llm.object", () => {
     writeFileSync(config(), JSON.stringify({ llm: { presets: { cheap: ["vendor/other-model"] } } }));
     const { call } = make(() => ({ content: '{"label":"lead"}' }));
     expect((await call()).model).toBe("vendor/other-model");
+  });
+
+  it("adds a call's instructions after the fixed system text, never before it", async () => {
+    const ledger = memoryLedger();
+    const transport = fakeTransport(() => ({ content: '{"label":"lead"}' }));
+    await createLlm({ ledger, transport, retry: quick }).run(plainTask, { input: "i", project: "p", instructions: "Reply language: Spanish." });
+    expect(transport.requests[0]?.messages[0]).toEqual({ role: "system", content: "s\n\nReply language: Spanish." });
+  });
+
+  it("stops a task at its own monthly budget while the instance cap still has room", async () => {
+    const ledger = memoryLedger();
+    const budgeted = defineTask({ name: "t.watch", version: 1, preset: "window", schema: Label, system: "s", shape: { kind: "object" }, budget: { monthlyUsd: 0.00002 } });
+    const transport = fakeTransport(() => ({ content: '{"label":"lead"}', costUsd: 0.00002 }));
+    const llm = createLlm({ ledger, transport, retry: quick });
+    await llm.run(budgeted, { input: "i", project: "p" });
+    await expect(llm.run(budgeted, { input: "i", project: "p" })).rejects.toMatchObject({ code: "budget", message: expect.stringMatching(/t\.watch reached its monthly budget/) });
+    expect(transport.requests).toHaveLength(1);
+    // Another task is not limited by that budget.
+    expect((await llm.run(plainTask, { input: "i", project: "p" })).value.label).toBe("lead");
+    expect(await llm.monthCost({ task: "t.watch" })).toBe(20);
+  });
+
+  it("refuses a declaration that could not work, at definition", () => {
+    expect(() => defineTask({ name: "Bad Name", version: 1, preset: "cheap", schema: Label, system: "s", shape: { kind: "object" } })).toThrow(/lower case/);
+    expect(() => defineTask({ name: "t", version: 0, preset: "cheap", schema: Label, system: "s", shape: { kind: "object" } })).toThrow(/version/);
+    expect(() => defineTask({ name: "t", version: 1, preset: "cheap", schema: z.object({ m: z.record(z.string(), z.number()) }), system: "s", shape: { kind: "object" } })).toThrow(/open record/);
+    expect(() => defineTask({ name: "t", version: 1, preset: "cheap", schema: Label, system: "s", shape: { kind: "window", size: 10, overlap: 10, list: "x", index: "y" } })).toThrow(/overlap/);
+    expect(() => defineTask({ name: "t", version: 1, preset: "cheap", schema: Label, system: "s", shape: { kind: "window", size: 10, overlap: 2, list: "label", index: "y" } })).toThrow(/not a list of objects/);
   });
 });

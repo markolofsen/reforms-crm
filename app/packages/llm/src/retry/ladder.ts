@@ -1,16 +1,19 @@
 import type { InstanceLlm, LlmOutcome } from "@hub/config/llm";
-import type { Ledger } from "./ledger";
-import { readAnswer } from "./schema";
-import { capSentence, chainOf, MAX_TOKENS_CAP, noKeySentence, PRESET_LIMITS, type Preset } from "./settings";
-import { backoffMs, LlmError, ZERO_USAGE, type ChatResponse, type Message, type RetryPolicy, type Transport, type Usage } from "./transport";
+import type { Ledger } from "../budget/ledger";
+import { checkLimits } from "../budget/limits";
+import { chainOf, MAX_TOKENS_CAP, noKeySentence, PRESET_LIMITS, type Preset } from "../settings";
+import { readAnswer, reask, type Validated } from "../structured/answer";
+import { LlmError, ZERO_USAGE, type ChatResponse, type Message, type Transport, type Usage } from "../transport/types";
+import { backoffMs, type RetryPolicy } from "./backoff";
 
 /**
  * The ladder of one structured call (django-cfg's `LLMRouter.parse`, `routing/llm_router.py:372-505`, made smaller). Per model of
  * the preset: retryable failures (timeout, network, 429, 5xx) are retried on the same model with jittered backoff; a cut answer
  * (`finish_reason: "length"`) is retried once with twice the `max_tokens`, never repaired; a wrong shape is re-asked once with
  * zod's issues; then the next model. The key's own failures (auth, credits) and the Hub's refusals (budget, no key) stop at once.
- * Before EVERY attempt the month's spend is checked against the cap, so a refused call makes no request. Every attempt, the
- * refused ones too, is one ledger row.
+ * Before EVERY attempt the month's spend is checked against the instance cap and the task's own budget (`budget/limits.ts`), so
+ * a refused call makes no request. Every attempt, the refused ones too, is one ledger row. The SDK under the transport retries
+ * nothing (`maxRetries: 0`): this ladder is the only one.
  */
 
 export interface CallDeps {
@@ -23,8 +26,6 @@ export interface CallDeps {
   env: NodeJS.ProcessEnv;
 }
 
-export type Validated<T> = { ok: true; value: T } | { ok: false; issues: string };
-
 export interface RunSpec<T> {
   task: string;
   project: string;
@@ -34,6 +35,8 @@ export interface RunSpec<T> {
   schemaName: string;
   schema: Record<string, unknown>;
   maxTokens: number;
+  /** The task's own monthly budget in micro-dollars, or null (the instance cap still applies). */
+  budgetMicroUsd: number | null;
   validate: (json: unknown) => Validated<T>;
 }
 
@@ -47,15 +50,7 @@ export interface RunResult<T> {
   costMicroUsd: number;
 }
 
-const usd = (micro: number): string => `$${(micro / 1e6).toFixed(2)}`;
-
-const reask = (base: Message[], content: string | null, issues: string): Message[] => [
-  ...base,
-  ...(content ? [{ role: "assistant" as const, content: content.slice(0, 8000) }] : []),
-  { role: "user", content: `Your answer did not match the required JSON schema: ${issues}. Answer again with only the corrected JSON.` },
-];
-
-export async function run<T>(spec: RunSpec<T>, deps: CallDeps): Promise<RunResult<T>> {
+export async function ladder<T>(spec: RunSpec<T>, deps: CallDeps): Promise<RunResult<T>> {
   let attempts = 0;
   let spent = 0;
   const record = async (model: string | null, outcome: LlmOutcome, usage: Usage, latencyMs: number, generationId: string | null) => {
@@ -70,19 +65,21 @@ export async function run<T>(spec: RunSpec<T>, deps: CallDeps): Promise<RunResul
   }
   const settings = deps.settings();
   const limits = PRESET_LIMITS[spec.preset];
+  const taskLimit = spec.budgetMicroUsd === null ? null : { name: spec.task, budgetMicroUsd: spec.budgetMicroUsd };
   let last: LlmError | null = null;
 
   for (const model of chainOf(spec.preset, settings)) {
     let maxTokens = Math.min(MAX_TOKENS_CAP, Math.max(spec.maxTokens, limits.minTokens));
-    let messages = spec.messages;
+    let messages: Message[] = spec.messages;
     let bumped = false;
     let reasked = false;
     let retries = 0;
     for (;;) {
-      const month = await deps.ledger.monthCost(undefined, deps.now());
-      if (month >= settings.capMicroUsd) {
+      try {
+        await checkLimits(deps.ledger, { capMicroUsd: settings.capMicroUsd, task: taskLimit }, deps.now());
+      } catch (e) {
         await record(model, "budget", ZERO_USAGE, 0, null);
-        throw new LlmError("budget", `The monthly LLM cap is reached (${usd(month)} of ${usd(settings.capMicroUsd)}). ${capSentence}`);
+        throw e;
       }
       attempts += 1;
       const t0 = deps.now().getTime();

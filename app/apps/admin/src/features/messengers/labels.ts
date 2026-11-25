@@ -102,6 +102,16 @@ export function prefilterNote(p: PreanalysisDto): string {
   return p.state === "fake" ? `${what} This Hub is using a local test model; no request leaves this computer.` : what;
 }
 
+/** P144 W1: where the key in use is read from, in the owner's words (never the value). */
+export const KEY_SOURCE_WORDS: Record<NonNullable<PreanalysisDto["keySource"]>, string> = {
+  env: "the OPENROUTER_API_KEY variable of the server's environment",
+  machine: "this Mac's own key file, shared by every Hub instance on it (~/.config/reforms-hub/openrouter-key)",
+  instance: "this instance's key file (state/secrets/openrouter-key)",
+};
+
+/** The one line that says where the OpenRouter key comes from; null when no key is read (none, or the local test model). */
+export const keySourceNote = (p: PreanalysisDto): string | null => (p.keySource ? `The OpenRouter key is read from ${KEY_SOURCE_WORDS[p.keySource]}.` : null);
+
 // ---- P84: chats link themselves (decision 0036 point 3 as amended 2026-11-20)
 
 /** Why a seen dialog was not linked by itself, in the owner's words. */

@@ -48,10 +48,7 @@ export type TriageVerdict = (typeof TRIAGE_VERDICTS)[number];
 export const isHiddenLabel = (v: unknown): v is HiddenLabel => typeof v === "string" && (HIDDEN_LABELS as readonly string[]).includes(v);
 /** Each reason in the owner's words (the panel's counts, the Settings note). */
 export const HIDDEN_LABEL_WORDS: Record<HiddenLabel, string> = { closing: "closing", automated: "automated", personal: "personal" };
-/** Bumped when the prompt changes meaning: a stored verdict records the version it was judged under. */
-export const PREANALYSIS_PROMPT_VERSION = 1;
-/** Messages per model call (research 23 section 3.3), and at most this many judged in one pass. */
-export const PREANALYSIS_PER_CALL = 20;
+/** At most this many messages judged in one pass. The prompt's version and the messages per call are the task's (`preanalysis.ts`, decision 0051). */
 export const PREANALYSIS_PER_PASS = 100;
 /** Only messages sent this recently are judged: turning the switch on does not send a chat's whole history to the model. */
 export const PREANALYSIS_LOOKBACK_DAYS = 7;

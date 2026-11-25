@@ -1,4 +1,4 @@
-import { LlmError, type ChatRequest, type ChatResponse, type LlmErrorKind, type Transport } from "./transport";
+import { LlmError, type ChatRequest, type ChatResponse, type LlmErrorKind, type Transport } from "./types";
 
 /**
  * The fake transport (decision 0039 point 7): `HUB_LLM=fake` selects it, as `HUB_MAILER=fake` selects the fake Mailer. It never

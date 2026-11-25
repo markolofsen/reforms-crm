@@ -65,13 +65,20 @@ export function llmCallsRepo(db: Db) {
         .run();
     },
 
-    /** Micro-dollars spent since the first of `now`'s month (UTC), for one project or, without one, the whole instance (the cap's sum). */
-    async monthCost(project?: string, now: Date = new Date()): Promise<number> {
-      const since = gte(llmCalls.createdAt, monthStartUtc(now));
+    /**
+     * Micro-dollars spent since the first of `now`'s month (UTC) over the rows the filter names: no filter is the whole instance
+     * (the cap's sum), `project` one project's, `task` one task's (a task budget, decision 0051).
+     */
+    async monthCost(filter: { project?: string; task?: string } = {}, now: Date = new Date()): Promise<number> {
+      const where = and(
+        gte(llmCalls.createdAt, monthStartUtc(now)),
+        filter.project === undefined ? undefined : eq(llmCalls.project, filter.project),
+        filter.task === undefined ? undefined : eq(llmCalls.task, filter.task),
+      );
       const r = db
         .select({ total: sql<number>`coalesce(sum(${llmCalls.costMicroUsd}), 0)` })
         .from(llmCalls)
-        .where(project === undefined ? since : and(since, eq(llmCalls.project, project)))
+        .where(where)
         .get();
       return r?.total ?? 0;
     },

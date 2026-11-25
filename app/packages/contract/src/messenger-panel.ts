@@ -95,7 +95,12 @@ export type ChatTriageDto = z.infer<typeof chatTriageDto>;
  * key goes; `fake`: `HUB_LLM=fake`, nothing leaves the process; `ready`: a key is there (the monthly cap of P78 still applies).
  */
 export const PREANALYSIS_STATES = ["ready", "fake", "no_key"] as const;
-export const preanalysisDto = z.strictObject({ state: z.enum(PREANALYSIS_STATES), fix: z.string().nullable() });
+/**
+ * P144 W1: where the OpenRouter key in use is read from, first found wins (never its value): `env` (OPENROUTER_API_KEY), `machine`
+ * (one file every instance on this Mac reads), `instance` (this instance's own file). Null when no key is read (fake, none).
+ */
+export const PREANALYSIS_KEY_SOURCES = ["env", "machine", "instance"] as const;
+export const preanalysisDto = z.strictObject({ state: z.enum(PREANALYSIS_STATES), fix: z.string().nullable(), keySource: z.enum(PREANALYSIS_KEY_SOURCES).nullable() });
 export type PreanalysisDto = z.infer<typeof preanalysisDto>;
 
 export const messengerNotionIdentityDto = notionIdentityDto;

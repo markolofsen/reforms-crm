@@ -1,14 +1,14 @@
-import { PREANALYSIS_LOOKBACK_DAYS, PREANALYSIS_PER_CALL, PREANALYSIS_PER_PASS, PREANALYSIS_PROMPT_VERSION, TRIAGE_LABELS, type TriageVerdict } from "@hub/config/chat-rules";
+import { PREANALYSIS_LOOKBACK_DAYS, PREANALYSIS_PER_PASS, TRIAGE_LABELS, type TriageVerdict } from "@hub/config/chat-rules";
 import type { PreanalysisDto } from "@hub/contract/messenger-panel";
 import type { NewTriage, Repos } from "@hub/db";
-import { hasKey, llmFake, noKeySentence, type LlmErrorKind, type Llm } from "@hub/llm";
+import { defineTask, keySource, llmFake, noKeySentence, type LlmErrorKind, type Llm } from "@hub/llm";
 import { errFields, ops } from "@hub/log/ops";
 import { z } from "zod";
 
 /**
  * The pre-analysis of linked chats (P71 M-P, decision 0039, research 23 sections 1 and 3). After a poll stored messages, or when the
  * owner turns a chat's switch on, one pass reads the inbound text messages of linked chats whose `prefilter` is on and that have no
- * verdict yet, and sends them through `llm.batch` (about 20 per call, the `cheap` preset). Each verdict is one `messenger_triage`
+ * verdict yet, and runs them through the declared batch task `preanalysisTask` (20 per call, the `cheap` preset). Each verdict is one `messenger_triage`
  * row. The rules, from mls's two prefilters:
  * - Fail open. A label it is unsure of (`unclear`) reaches the agent; so does a message it could not judge. Only `closing`,
  *   `automated` and `personal` are hidden, and hidden means kept and counted, never deleted.
@@ -19,10 +19,8 @@ import { z } from "zod";
  * - No key, no call. With no OpenRouter key (and not `HUB_LLM=fake`) nothing is asked, so no ledger row is written per poll.
  */
 
-export const PREANALYSIS_TASK = "messages.preanalysis";
-
 /** The stable system text (a provider's prompt cache can reuse it). Client text is data in the user message, never here. */
-export const PREANALYSIS_SYSTEM = [
+const SYSTEM = [
   "You sort the messages a business receives from its clients in a private chat, so the owner's assistant sees only those worth reading.",
   "Each input is one message the client sent: `text` is the message you judge; `before` holds the messages just before it, oldest first, each marked `client` or `owner`, as context only.",
   "Labels: needs_reply (a question, a request, a decision, a complaint: the owner should answer); unclear (you are not sure); fyi (useful information that needs no answer);",
@@ -32,6 +30,20 @@ export const PREANALYSIS_SYSTEM = [
 ].join(" ");
 
 const Verdict = z.object({ label: z.enum(TRIAGE_LABELS).describe("One label for `text`; never judge `before`.") });
+
+/**
+ * The task (decision 0051). `version` is what a stored verdict records (`messenger_triage.prompt_version`): bump it when the
+ * prompt or the labels change meaning. Research 23 section 3.3: 20 messages per call.
+ */
+export const preanalysisTask = defineTask({
+  name: "messages.preanalysis",
+  version: 1,
+  preset: "cheap",
+  schema: Verdict,
+  system: SYSTEM,
+  shape: { kind: "batch", perCall: 20, maxTokensPerItem: 40 },
+  source: { kind: "messenger_message" },
+});
 
 /** What one message looks like to the model: its text and its context, by side. No name, title, id or account. */
 export interface PreItem {
@@ -77,12 +89,13 @@ export interface PreanalysisDeps {
 
 /** The standing without a job (a test app): the key's presence and `HUB_LLM`, as `@hub/llm` reads them. */
 export function preanalysisStanding(env: NodeJS.ProcessEnv = process.env): PreanalysisDto {
-  if (llmFake(env)) return { state: "fake", fix: null };
+  if (llmFake(env)) return { state: "fake", fix: null, keySource: null };
   try {
-    return hasKey(env) ? { state: "ready", fix: null } : { state: "no_key", fix: noKeySentence(env) };
+    const source = keySource(env);
+    return source ? { state: "ready", fix: null, keySource: source } : { state: "no_key", fix: noKeySentence(env), keySource: null };
   } catch {
     // No instance folder (a bare test app): no key file can be there either.
-    return { state: "no_key", fix: "No OpenRouter key: set OPENROUTER_API_KEY." };
+    return { state: "no_key", fix: "No OpenRouter key: set OPENROUTER_API_KEY.", keySource: null };
   }
 }
 
@@ -105,7 +118,7 @@ export function createPreanalysis(d: PreanalysisDeps): Preanalysis {
       const ctx = await m.contextBefore(project, msg, CONTEXT_N);
       items.push({ text: cut(msg.text.trim(), TEXT_MAX), before: ctx.reverse().map((c) => ({ from: c.direction === "in" ? "client" : "owner", text: cut(c.kind === "text" ? c.text.trim() : `(${c.kind})`, CONTEXT_MAX) })) });
     }
-    const answers = await d.llm.batch({ task: PREANALYSIS_TASK, system: PREANALYSIS_SYSTEM, project, source: { kind: "messenger_message" }, preset: "cheap", schema: Verdict, items, perCall: PREANALYSIS_PER_CALL, maxTokensPerItem: 40 });
+    const answers = await d.llm.run(preanalysisTask, { project, items });
     const rows: NewTriage[] = [];
     const kinds = new Map<string, number>();
     for (const a of answers) {
@@ -119,7 +132,7 @@ export function createPreanalysis(d: PreanalysisDeps): Preanalysis {
         result.failed++;
         continue;
       }
-      rows.push({ messageId: msg.id, verdict, model: a.ok ? a.model : null, promptVersion: PREANALYSIS_PROMPT_VERSION });
+      rows.push({ messageId: msg.id, verdict, model: a.ok ? a.model : null, promptVersion: preanalysisTask.version });
       if (verdict === "unjudged") result.unjudged++;
       else result.judged++;
       if (verdict === "closing" || verdict === "automated" || verdict === "personal") result.hidden++;
@@ -153,7 +166,7 @@ export function createPreanalysis(d: PreanalysisDeps): Preanalysis {
     standing: () => {
       const s = preanalysisStanding(env);
       // A transport handed in by a test or a fake run answers even with no key file.
-      return s.state === "no_key" && d.llm.transport !== "none" ? { state: d.llm.transport === "fake" ? "fake" : "ready", fix: null } : s;
+      return s.state === "no_key" && d.llm.transport !== "none" ? { state: d.llm.transport === "fake" ? "fake" : "ready", fix: null, keySource: null } : s;
     },
     run: async (project) => {
       if (running.has(project)) {

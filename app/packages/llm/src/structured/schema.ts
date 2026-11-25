@@ -121,30 +121,3 @@ function stripObject(obj: Node, plain: Node): Node {
   }
   return out;
 }
-
-/** What one answer's text is: JSON, a cut answer (never repaired), or text that is not JSON. */
-export type Answer = { kind: "json"; value: unknown } | { kind: "truncated" } | { kind: "syntax"; message: string } | { kind: "empty" };
-
-/** Strips a Markdown fence if a model added one, then `JSON.parse`. `finish_reason: "length"` is a cut answer whatever the text. */
-export function readAnswer(content: string | null, finishReason: string | null): Answer {
-  if (finishReason === "length") return { kind: "truncated" };
-  const text = (content ?? "").trim();
-  if (text === "") return { kind: "empty" };
-  const fenced = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i.exec(text);
-  try {
-    return { kind: "json", value: JSON.parse(fenced?.[1] ?? text) };
-  } catch (e) {
-    return { kind: "syntax", message: e instanceof Error ? e.message.slice(0, 200) : "not JSON" };
-  }
-}
-
-/** zod's issues in one short line for the re-ask: paths and messages, never the values. */
-export const issuesText = (error: z.ZodError): string =>
-  error.issues
-    .slice(0, 8)
-    .map((i) => `${i.path.length > 0 ? i.path.join(".") : "(root)"}: ${i.message}`)
-    .join("; ")
-    .slice(0, 800);
-
-/** A name OpenRouter accepts for `json_schema.name` (letters, digits, `_`, `-`; at most 64). */
-export const schemaName = (task: string): string => task.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 64) || "answer";

@@ -1,13 +1,16 @@
 import { z } from "zod";
-import type { RunResult, Validated } from "./call";
-import { issuesText, plainJsonSchema, stripOptionalNulls } from "./schema";
-import { LlmError } from "./transport";
+import { ladder, type CallDeps, type RunResult } from "../retry/ladder";
+import { issuesText, validatorOf, type Validated } from "../structured/answer";
+import { strictJsonSchema } from "../structured/schema";
+import type { BatchShape, Task } from "../task";
+import { LlmError } from "../transport/types";
+import { runObject, specOf, systemOf } from "./object";
 
 /**
- * `llm.batch` (decision 0039 point 1): many items in one request (OpenRouter has no batch endpoint), a result per item, in input
+ * The `batch` shape (decision 0039 point 1, a declared task since 0051): many items in one request (OpenRouter has no batch endpoint), a result per item, in input
  * order. The model answers `{ items: [{ i, value }] }`. Only the envelope is checked by the ladder (a list of objects with an
  * integer `i`); each `value` is then checked against the item schema alone, so one bad item never fails the other nineteen. An
- * item whose answer is missing, duplicated or invalid is asked again ONCE, alone, through `llm.object`; if that fails too, only
+ * item whose answer is missing, duplicated or invalid is asked again ONCE, alone, as an `object` call of the same task; if that fails too, only
  * that item fails. A whole chunk that fails (the cap, the key, every model down) fails its items with that error, not re-asked.
  */
 
@@ -52,11 +55,7 @@ export async function pool<T>(jobs: Array<() => Promise<T>>, limit: number): Pro
 const asLlmError = (e: unknown): LlmError => (e instanceof LlmError ? e : new LlmError("upstream", e instanceof Error ? e.message.slice(0, 300) : "the call failed"));
 
 export async function runBatch<S extends z.ZodType, I>(o: { schema: S; items: readonly I[]; perCall: number; concurrency: number; runner: ChunkRunner<I> }): Promise<Array<BatchItem<z.output<S>>>> {
-  const plain = plainJsonSchema(o.schema);
-  const check = (value: unknown): Validated<z.output<S>> => {
-    const r = o.schema.safeParse(stripOptionalNulls(value, plain));
-    return r.success ? { ok: true, value: r.data } : { ok: false, issues: issuesText(r.error) };
-  };
+  const check = validatorOf(o.schema);
   const perCall = Math.max(1, Math.min(50, Math.round(o.perCall)));
   const entries = o.items.map((item, i) => ({ i, item }));
   const chunks: Array<typeof entries> = [];
@@ -98,4 +97,31 @@ export async function runBatch<S extends z.ZodType, I>(o: { schema: S; items: re
   );
 
   return results.map((r, i) => r ?? { i, ok: false, error: new LlmError("upstream", "no result") });
+}
+
+export interface BatchInput<I> {
+  project: string;
+  items: readonly I[];
+  /** What the model sees of one item (JSON); the item itself by default. */
+  render?: (item: I) => unknown;
+  /** Lines added after the task's system text for this call only. */
+  instructions?: string;
+}
+
+/** A `batch` task's run: chunks through the ladder, then each item that failed asked again alone. */
+export function runBatchTask<S extends z.ZodType, I>(task: Task<S, BatchShape>, call: BatchInput<I>, deps: CallDeps): Promise<Array<BatchItem<z.output<S>>>> {
+  const render = call.render ?? ((item: I): unknown => item);
+  const wire = strictJsonSchema(envelopeOf(task.schema));
+  const perItem = task.shape.maxTokensPerItem ?? 200;
+  return runBatch({
+    schema: task.schema,
+    items: call.items,
+    perCall: task.shape.perCall ?? 20,
+    concurrency: task.shape.concurrency ?? 3,
+    runner: {
+      chunk: (entries, validate) =>
+        ladder(specOf(task, { project: call.project, system: systemOf(task.system, call.instructions, BATCH_RULE), input: [{ role: "user", content: JSON.stringify({ items: entries.map((e) => ({ i: e.i, input: render(e.item) })) }) }], schema: wire, maxTokens: 200 + perItem * entries.length, validate }), deps),
+      alone: (item) => runObject(task, { project: call.project, input: JSON.stringify(render(item)), ...(call.instructions ? { instructions: call.instructions } : {}), maxTokens: 200 + perItem }, deps, 200 + perItem),
+    },
+  });
 }

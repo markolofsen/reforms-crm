@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { plainJsonSchema, readAnswer, SchemaError, strictJsonSchema, stripOptionalNulls } from "../src/schema";
+import { readAnswer } from "../src/structured/answer";
+import { plainJsonSchema, SchemaError, strictJsonSchema, stripOptionalNulls } from "../src/structured/schema";
 
 // P78 L0 (offline half) and L1: the strict walk against Gemini's documented subset and OpenAI's strict mode.
 const Shape = z.object({

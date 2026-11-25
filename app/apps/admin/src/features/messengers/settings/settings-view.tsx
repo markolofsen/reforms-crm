@@ -7,6 +7,7 @@ import { useMessengerChats } from "@/lib/data/messengers";
 import { dest } from "@/routes/paths";
 import { ConnectionsView } from "../../settings/connections/connections-view";
 import { SettingsGroup as Group } from "../../settings/group";
+import { keySourceNote } from "../labels";
 import { ChatRules } from "./chat-rules";
 import { TelegramAccount } from "./telegram-account";
 import { WhatsAppAccount } from "./whatsapp/whatsapp-account";
@@ -41,6 +42,7 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
           </p>
           {/* P128 X5: the OpenRouter notice once, with where the key is set, instead of on every chat. */}
           {d.preanalysis.state === "no_key" && <p className="measure text-muted-foreground text-xs" role="note">Pre-analysis is off on every chat until the Hub has an OpenRouter key.{d.preanalysis.fix ? ` ${d.preanalysis.fix}` : " Set it in Settings ▸ Connections."}</p>}
+          {keySourceNote(d.preanalysis) && <p className="measure text-muted-foreground text-xs" role="note">{keySourceNote(d.preanalysis)}</p>}
           <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
             {d.chats.map((c) => (
               <ChatRules c={c} key={c.id} preanalysis={d.preanalysis} project={project} />

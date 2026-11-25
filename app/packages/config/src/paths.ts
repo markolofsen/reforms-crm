@@ -152,6 +152,18 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
   };
 }
 
+/**
+ * The machine's own Hub folder, shared by every instance on this Mac (P144 W1, owner 2026-11-25: one universal OpenRouter key):
+ * `HUB_MACHINE_DIR`, else `$HOME/.config/reforms-hub`. Only the `HOME` of the env handed in counts (never `os.homedir()`), so a
+ * test with its own env never reads the owner's real files; no `HOME` gives null.
+ */
+export function machineDir(env: NodeJS.ProcessEnv = process.env): string | null {
+  const own = fromEnv(env, "HUB_MACHINE_DIR");
+  if (own) return expand(own, env);
+  const home = fromEnv(env, "HOME");
+  return home ? join(home, ".config", "reforms-hub") : null;
+}
+
 /** `<projects>/<slug>`: one project's folder. */
 /** The database is not the instance's own `<home>/data/app.db`: a `HUB_DB` override, which only a throwaway (e2e, a drill) sets. */
 export const throwawayDb = (paths: Pick<HubPaths, "home" | "db">): boolean => resolve(paths.db) !== join(paths.home, "data", "app.db");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import type { MessengerChatDto } from "@hub/contract/messenger-panel";
-import { chatName, chatStateLine, confirmLine, createIdentityLine, createLabel, emptyLine, linkedLine, lastText, lastWho, noDraftLine, notionIdentityLine, notionStatusLine, prefilterNote, readsLine, rulesLine, triageLine, whyLine } from "../src/features/messengers/labels";
+import { chatName, chatStateLine, confirmLine, createIdentityLine, createLabel, emptyLine, linkedLine, lastText, lastWho, noDraftLine, notionIdentityLine, notionStatusLine, keySourceNote, prefilterNote, readsLine, rulesLine, triageLine, whyLine } from "../src/features/messengers/labels";
 
 // The Messengers panel's words (P71 M3): who a chat is, its rules in one line, whose turn it is and why there is no draft.
 
@@ -101,10 +101,13 @@ describe("messenger labels", () => {
     expect(triageLine(chat({ triage: { judged: 2, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 } }))).toBe("Pre-analysis (off now): read 2, hid none.");
     const hidden = chat({ owed: false, last: { direction: "in", kind: "text", text: "thanks", at: "2026-11-20T08:00:00.000Z", hidden: "closing" } });
     expect(noDraftLine(hidden)).toBe("Their last message was hidden by the pre-analysis (closing): no reply owed.");
-    expect(prefilterNote({ state: "no_key", fix: "No OpenRouter key: set OPENROUTER_API_KEY." })).toBe("Needs an OpenRouter key: pre-analysis stays off until the Hub instance is configured.");
-    expect(prefilterNote({ state: "ready", fix: null })).toMatch(/^A cheap model reads each new message and the two before it \(never a name or the chat's title\)/);
-    expect(prefilterNote({ state: "fake", fix: null })).toMatch(/local test model; no request leaves this computer/);
-    for (const s of ["ready", "fake", "no_key"] as const) expect(prefilterNote({ state: s, fix: null })).not.toMatch(/nothing reads this switch/);
+    expect(prefilterNote({ state: "no_key", fix: "No OpenRouter key: set OPENROUTER_API_KEY.", keySource: null })).toBe("Needs an OpenRouter key: pre-analysis stays off until the Hub instance is configured.");
+    expect(prefilterNote({ state: "ready", fix: null, keySource: "machine" })).toMatch(/^A cheap model reads each new message and the two before it \(never a name or the chat's title\)/);
+    expect(prefilterNote({ state: "fake", fix: null, keySource: null })).toMatch(/local test model; no request leaves this computer/);
+    for (const s of ["ready", "fake", "no_key"] as const) expect(prefilterNote({ state: s, fix: null, keySource: null })).not.toMatch(/nothing reads this switch/);
+    // P144 W1: the Settings note says where the key comes from, never the key.
+    expect(keySourceNote({ state: "ready", fix: null, keySource: "machine" })).toMatch(/^The OpenRouter key is read from this Mac's own key file/);
+    expect(keySourceNote({ state: "fake", fix: null, keySource: null })).toBeNull();
   });
 
   it("P100: a link says what history it loaded, and Create says what it writes to the card", () => {
