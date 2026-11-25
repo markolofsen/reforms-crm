@@ -10,7 +10,7 @@ Shared by `triage-mail` and `bulk-drafts`. Owner rule: every reply is written fo
 | P4 Write | Purpose and tone are the brief. The body states at least one anchor, a concrete item that exists only in this client's thread or profile, and answers what the client asked or fits where the thread stands. | none |
 | P5 Draft | One unsent `draft_write` (hub) on the client's newest message; it adds the marker line (`triage-mail` section 2 step 5). | `draft_write` |
 | P6 Record | `draft_write`'s `record` (or `client_record`) with honest counts (what you opened, not what you meant to). Say "recorded" only on `recorded: true`. | `draft_write` |
-| P7 Profile refresh | Everything this client's messages taught you, on their Notion page: Name (a real name and the company instead of a phone or an address), Email, Phone, chat fields, Relationship, the summary rewritten to stay current, the map, and one dated `## Log` line (`profile.md`). Never invented, never a worse value over a good one. Last. | `notion-update-page` |
+| P7 Profile refresh | Everything this client's messages taught you, on their Notion page: Name (a real name and the company instead of a phone or an address), Email, Phone, chat fields, Relationship, the summary rewritten to stay current, the map, and one dated `## Log` line (`profile.md`). Never invented, never a worse value over a good one. Last in each pass: after every P5 (every reply written), not once at the end of the session. A thread answered three times in one sitting runs P5 then P7 three times. | `notion-update-page` |
 
 The evidence you must be able to state for every draft: messages found and opened (ids), first contact yes or no, profile state, facts used and missing, the anchors, and which opened messages the body relies on.
 
