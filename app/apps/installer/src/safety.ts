@@ -277,7 +277,10 @@ export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: str
     }
     // P154: a third-party reply's instructions for the assistant (an offer, a link to show) are removed before the model reads it.
     const cleaned = cleanVendorReply(name, updated ?? payload.tool_response, { slug: slug || undefined, session: typeof payload.session_id === "string" ? payload.session_id : "", paths });
-    if (cleaned) { updated = cleaned.reply; notes.push(cleaned.note); }
+    if (cleaned) {
+      if (cleaned.reply !== undefined) updated = cleaned.reply;
+      notes.push(cleaned.note);
+    }
     // P82 (S0 point 3): a Notion search not narrowed to the project, or a fetch from another database, gets one note for the model.
     if (slug && /^mcp__notion__notion-(search|fetch)$/.test(name)) {
       const note = notionNote(name, payload.tool_input, payload.tool_response, projectConnectors(paths, g.projectsDir ?? defaultProjectsRoot(), slug).scope.notion);

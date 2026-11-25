@@ -5,7 +5,7 @@ import type { NotionScope } from "./notion-scope";
 // P82: the Notion scope rules live beside these (`notion-scope.ts`); the guard imports them from here, the package's guard door.
 export { collectionIds, hexId, notionNote, notionScopeOf, notionViolations, type NotionRead, type NotionScope } from "./notion-scope";
 // P154: vendor guidance in a third-party MCP reply, removed (or, on an error reply, answered with a note) by the post hooks.
-export { cleanToolReply, GUIDANCE_KEYS, guidanceInError, guidanceNote, serverLabel, vendorTool, type CleanedReply } from "./tool-guidance";
+export { cleanToolReply, GUIDANCE_KEYS, guidanceInError, guidanceNote, replyGuidance, serverLabel, vendorTool, type CleanedReply } from "./tool-guidance";
 
 // P62 K3: the guard's rules for connector calls. These always block, whatever HUB_GUARD says: a connector write leaves the Mac
 // (an invitation, a shared file), and a tool off the allowlist is one the hub never reviewed. The deny rules name the known

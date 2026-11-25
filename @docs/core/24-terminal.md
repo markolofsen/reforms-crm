@@ -145,7 +145,7 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 | `skills.linked` | links in `.claude/skills` (Claude) or the Codex home | prepare |
 | `mode` | Claude's sandbox block; Codex the `hub` profile, network off, `approval_policy = "never"`, no bypass | prepare |
 | `send.pipeline` | the policy file parses (none = drafts only, test recipients) | `hub send policy <slug>` |
-| `guard.hook` | Claude's PreToolUse runs `hub guard`; Codex: skip | prepare |
+| `guard.hook` | Claude's PreToolUse runs `hub guard`; WARN when the session files lack the failure guard `hub guard --post-failure` (P154); Codex: skip | prepare |
 | `log.hooks` | the prompt hook names its CLI (`focus --hook --cli <x>`) and `hub log --hook` is in the session files ([25-agent-log.md](25-agent-log.md)) | prepare |
 
 `--prepare` writes the session files and starts nothing; it does not move the sticky project binding.

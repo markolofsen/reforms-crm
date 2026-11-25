@@ -1,5 +1,5 @@
 import { pathsAt, type HubPaths } from "@hub/config/paths";
-import { cleanToolReply, guidanceInError, guidanceNote, serverLabel, vendorTool } from "@hub/agent/connector-guard";
+import { guidanceInError, guidanceNote, replyGuidance, serverLabel, vendorTool } from "@hub/agent/connector-guard";
 import { recordCleanedReplyAt } from "@hub/db";
 
 // P154: what the post hooks print. One `hookSpecificOutput` per call (verdict 9): the replacement reply, if any, and every note
@@ -24,14 +24,17 @@ function noteForOwner(w: Who, server: string, tool: string): void {
   recordCleanedReplyAt(w.paths.db, { project: w.slug, session: w.session, server, tool, label: serverLabel(server), at: new Date().toISOString() });
 }
 
-/** PostToolUse: the reply without the vendor's guidance and the note, or null when the tool is exempt or nothing was found. */
-export function cleanVendorReply(toolName: string, reply: unknown, w: Who): { reply: unknown; note: string } | null {
+/**
+ * PostToolUse: the reply without the vendor's guidance (absent when none could be removed) and the note, or null when the tool is
+ * exempt or nothing was found. A key left in the text (escaped inside a `body` string) turns the note into "ignore them".
+ */
+export function cleanVendorReply(toolName: string, reply: unknown, w: Who): { reply?: unknown; note: string } | null {
   const v = vendorTool(toolName);
   if (!v) return null;
-  const c = cleanToolReply(reply);
-  if (!c) return null;
+  const g = replyGuidance(reply);
+  if (!g) return null;
   noteForOwner(w, v.server, v.tool);
-  return { reply: c.reply, note: guidanceNote(v.tool, true) };
+  return { ...(g.reply !== undefined ? { reply: g.reply } : {}), note: guidanceNote(v.tool, g.removedAll) };
 }
 
 interface FailurePayload { tool_name?: unknown; error?: unknown; session_id?: unknown }

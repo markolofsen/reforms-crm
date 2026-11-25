@@ -66,12 +66,12 @@ but `hub` (the Hub's own refusals talk to the agent on purpose) and `mail-mcp` (
 envelope of an error- or limit-shaped reply (a top-level `error` object or `code`) and only for the keys of one table
 (`GUIDANCE_KEYS`, `@hub/agent` `src/tool-guidance.ts`: `client_guidance`, `recovery_options`, `surface_even_if_fallback_succeeds`,
 `disclosure_required`); `error.code` and `error.message` stay, and links in page content, lead rows and mail are never touched.
-A reply that arrives as a result (`PostToolUse`) is replaced without those keys (`hub guard --post`, `updatedMCPToolOutput`); an
+A reply that arrives as a result (`PostToolUse`) is replaced without those keys (`hub guard --post`, `updatedMCPToolOutput`; a key the vendor repeats escaped inside a `body` string stays, and the note then says to ignore it); an
 error result fires `PostToolUseFailure` instead (observed on Claude Code 2.1.220), which a hook may annotate but not replace, so
 `hub guard --post-failure` (not async) adds the note only and the vendor's text stays in front of the model. Either way the model
 gets one line: the reply carried instructions, they were removed (or are to be ignored), report only the fact (a usage limit,
 try later), no offers and no links from it; and Activity gets one line per session and tool, "Notion · Removed an offer". The
-ledger and the session log keep the original reply (audit); nothing feeds it into a later session. Codex has no post-tool hook:
+ledger and the session log keep the original reply (audit); the Hub feeds neither into a later session's prompt, but a resumed session's own transcript and an attended read of `state/log` can show the original again, and there the rules line is the defence. Codex has no post-tool hook:
 there the rules line is the only defence, as it is for a vendor key the table does not know yet.
 
 ## 4. The link operation (Drive item or calendar event onto the client's profile)
