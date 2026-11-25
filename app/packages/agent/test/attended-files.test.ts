@@ -62,7 +62,7 @@ describe("P140 K3 the deny list of an owner's session", () => {
 
   it("P159: ssh, scp and rsync run outside Claude's sandbox; the keys stay denied to the agent's own reads", () => {
     const settings = claudeSettings({ paths, projectsDir: projects, slug: "acme", nodeBin: "node" });
-    expect((settings.sandbox as { excludedCommands: string[] }).excludedCommands).toEqual(["ssh *", "scp *", "rsync *"]);
+    expect((settings.sandbox as { excludedCommands: string[] }).excludedCommands).toEqual(["ssh *", "scp *", "rsync *", "git push *", "git -C * push *"]);
     // nothing else leaves the sandbox, and no retry outside it
     expect(settings.sandbox).toMatchObject({ allowUnsandboxedCommands: false });
     const deny = (settings.permissions as { deny: string[] }).deny;

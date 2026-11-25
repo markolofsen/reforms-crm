@@ -22,6 +22,16 @@ const guard = (c: ReturnType<typeof call>, env: Record<string, string> = { HUB_P
   runGuard(JSON.stringify(c), { root, projectsDir: PROJECTS, env });
 
 describe("hub guard", () => {
+  it("P159: git that moves the core's live checkout is refused in every mode, from the hook's cwd or -C; other git passes", () => {
+    const core = pathsAt(tmp()).core;
+    const bash = (command: string, cwd?: string) => runGuard(JSON.stringify({ tool_name: "Bash", tool_input: { command }, ...(cwd ? { cwd } : {}) }), { root: tmp(), projectsDir: PROJECTS, env: {} });
+    const r = bash(`git -C ${core} merge --ff-only dock/fix`);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toMatch(/hub guard \(block\): git merge refused in the core repository \(P159\)/);
+    expect(bash("git reset --hard", core).code).toBe(2);
+    expect(bash(`git -C ${core} log --oneline -1`).code).toBe(0);
+    expect(bash("git status", "/").code).toBe(0);
+  });
   it("allows a call inside the project", () => {
     expect(guard(call("mcp__mail-mcp__find_messages", { account: "owner@acme.example" })).code).toBe(0);
     expect(guard(call("Read", { file_path: "projects/acme-travel/project.md" })).stderr).toBe("");
@@ -178,11 +188,14 @@ describe("generated session files", () => {
   });
   it("every owner session has the OS sandbox: the network open but loopback, no Apple Events, its own guards read-only (P49 S9, 3l)", () => {
     const u = settings as { sandbox: { allowAppleEvents?: unknown; network: { deniedDomains: string[] }; filesystem: { denyWrite: string[] } }; permissions: { deny: string[] } };
-    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, excludedCommands: ["ssh *", "scp *", "rsync *"], network: { allowedDomains: ["*"], allowLocalBinding: true } });
+    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, excludedCommands: ["ssh *", "scp *", "rsync *", "git push *", "git -C * push *"], network: { allowedDomains: ["*"], allowLocalBinding: true } });
     expect(u.sandbox.network.deniedDomains).toEqual(expect.arrayContaining(["localhost", "127.0.0.1", "::1"]));
     expect(u.sandbox.allowAppleEvents).toBeUndefined();
     const dw: string[] = u.sandbox.filesystem.denyWrite;
-    for (const p of ["state/projects", "state/secrets", "state/codex", "config/config.json", "config/mcp.json", "core", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
+    for (const p of ["state/projects", "state/secrets", "state/codex", "config/config.json", "config/mcp.json", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
+    // P159 part 2: the instance's `core` link is not a sandbox entry (the sandbox resolves it, which would close the core's git dir); its Edit rule stays
+    expect(dw).not.toContain(path.join(root, "core"));
+    expect(u.permissions.deny).toContain("Edit(./core/**)");
     expect(dw).not.toContain(path.join(root, "config"));
     // the database stays writable for the hub's own record writers (draft_write, client_record): its Read/Edit rules would become sandbox denials
     expect(u.permissions.deny.some((r: string) => r.includes("./data/"))).toBe(false);

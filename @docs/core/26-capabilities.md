@@ -160,4 +160,15 @@ them: the Bash call starts with the command, with no `cd`, redirect or `$(...)` 
 network inside its sandbox. How each CLI is set up, what was measured and the trade-offs (Claude: the three commands run with full
 access; Codex: the key is readable and loopback is reachable): [24-terminal.md](24-terminal.md), "SSH, always".
 
+## 10. Improving the core (P159 part 2)
+
+The owner, 2026-11-26: «Надо убрать сэндбокс, чтобы наш агент мог спокойно работать с Core Reforms Hub… улучшать общие инструкции,
+скиллы и так далее.» The capabilities line's core part (`coreCapability`, `app/packages/agent/src/connectors.ts`) gives an attended
+session the way: a worktree in `<core>-dock/<topic>` from `origin/main` (`--no-track`), edits there, an explicit-path commit in one
+command ending with its Co-Authored-By line, never `git add -A`, a stash or a force push, a public repo (no client names, emails, ids
+or keys). Claude Code may push a `skills/`/`@docs/` change to main itself (`git -C <worktree> push origin dock/<topic>:main`, the
+command alone); anything else goes as a branch for the coordinator. Codex cannot push (its credential is closed): it commits and
+names the branch. The live checkout stays read-only; who updates it and when sessions see the text, and what was measured:
+[24-terminal.md](24-terminal.md), "Improving the core". The full steps: `skills/README.md`, "Improving the core".
+
 Update this page when the architecture changes.

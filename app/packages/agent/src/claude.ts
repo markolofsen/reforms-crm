@@ -4,6 +4,7 @@ import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { connectorDeniedTools, type AttachedConnector } from "./connectors";
 import { deniedTools, denyRules } from "./deny";
 import { CLAUDE_MODE_ARGS, claudeProtectedPaths, claudeSandbox, ownerSecretReadRules } from "./session";
+import { coreAccess } from "./core-access";
 
 // A Claude Code session of `hub agent`, built without writing (the launcher writes it; the Agent tools check reads it).
 
@@ -46,7 +47,11 @@ export const ADVISOR_RULE =
  */
 export function protectedEditRules(paths: HubPaths): string[] {
   const out: string[] = [];
-  for (const p of claudeProtectedPaths(paths)) {
+  // P159 part 2: Claude turns an Edit deny rule into a sandbox write denial, so the core is denied entry by entry (its git dir
+  // stays writable for worktrees; measured on 2.1.220: one `Edit(//<core>/**)` made `.git/FETCH_HEAD` unwritable).
+  const core = coreAccess(paths.core);
+  const listed = claudeProtectedPaths(paths).flatMap((p) => (p === paths.core ? [...core.checkout, ...core.gitReadOnly] : [p]));
+  for (const p of listed) {
     const rel = path.relative(paths.home, p);
     const spec = rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? `./${rel.split(path.sep).join("/")}` : `/${p}`;
     out.push(`Edit(${spec})`, `Edit(${spec}/**)`);

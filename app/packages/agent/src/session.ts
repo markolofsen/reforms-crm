@@ -82,9 +82,10 @@ export const LOOPBACK_HOSTS: readonly string[] = ["localhost", "*.localhost", "1
 export const SSH_COMMANDS: readonly string[] = ["ssh", "scp", "rsync"];
 /**
  * P159 part 2: `git push` too, outside the sandbox: the GitHub credential (`~/.git-credentials`, the `store` helper) stays
- * unreadable to the session's own commands, and the guard's core rule (`coreGitViolations`) reads every push first.
+ * unreadable to the session's own commands, and the guard's core rule (`coreGitViolations`) reads every push first. `git -C <worktree> push`
+ * too: a `cd` into a folder outside the session's working directories does not persist (measured), so `-C` is how a worktree pushes.
  */
-export const claudeExcludedCommands = (): string[] => [...SSH_COMMANDS.map((c) => `${c} *`), "git push *"];
+export const claudeExcludedCommands = (): string[] => [...SSH_COMMANDS.map((c) => `${c} *`), "git push *", "git -C * push *"];
 
 /**
  * Claude's write rules for the core (P159 part 2, `@hub/agent/core-access`): the main checkout's entries read-only one by one
@@ -93,7 +94,9 @@ export const claudeExcludedCommands = (): string[] => [...SSH_COMMANDS.map((c) =
  */
 export function claudeCoreWrites(paths: HubPaths): { denyWrite: string[]; allowWrite: string[] } {
   const c = coreAccess(paths.core);
-  return { denyWrite: [...c.checkout, ...c.gitReadOnly], allowWrite: [c.gitDir, c.dock] };
+  // The checkout's root, not its `.git`, is the allowed folder: Claude denies `HEAD`, `objects` and `refs` at the top of an
+  // allowed folder (it would look like a bare repository), measured on 2.1.220 ("cannot open '.git/FETCH_HEAD'").
+  return { denyWrite: [...c.checkout, ...c.gitReadOnly], allowWrite: [c.core, c.dock] };
 }
 
 /**
@@ -111,7 +114,9 @@ export function claudeSandbox(paths: HubPaths, home: string = os.homedir()): Rec
     allowUnsandboxedCommands: false,
     excludedCommands: claudeExcludedCommands(),
     network: { allowedDomains: ["*"], deniedDomains: [...LOOPBACK_HOSTS], allowLocalBinding: true },
-    filesystem: { denyWrite: [...claudeProtectedPaths(paths).filter((p) => p !== paths.core), ...core.denyWrite], allowWrite: core.allowWrite, denyRead: [paths.secrets, ...ownerSecretPaths(home)] },
+    // P159 part 2: the core and the instance's `core` link leave the list for the core's own entries; the sandbox resolves a link,
+    // so a denied `core` link would deny the whole checkout, its git dir included (measured on 2.1.220).
+    filesystem: { denyWrite: [...claudeProtectedPaths(paths).filter((p) => p !== paths.core && p !== path.join(paths.home, "core")), ...core.denyWrite], allowWrite: core.allowWrite, denyRead: [paths.secrets, ...ownerSecretPaths(home)] },
   };
 }
 
