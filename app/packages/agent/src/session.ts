@@ -54,11 +54,11 @@ export const claudeProtectedPaths = (paths: HubPaths): string[] => [...new Set([
  * network is open (a Read deny rule and the sandbox's denyRead). A fixed list, no prompts. `~/.zshrc` stays readable (too broad
  * to deny); the session rules say a key is never copied out of it.
  */
-export const OWNER_SECRET_FILES: readonly string[] = [".google-multi-mcp/config.json", ".config/crm/notion.json", ".config/reforms-hub/openrouter-key", ".ssh", ".aws", ".netrc"];
+export const OWNER_SECRET_FILES: readonly string[] = [".google-multi-mcp/config.json", ".config/crm/notion.json", ".config/reforms-hub/openrouter-key", ".ssh", ".aws", ".netrc", ".git-credentials", ".config/gh", ".npmrc", ".docker/config.json"];
 /** The same files as absolute paths under `home` (the sandbox's denyRead). */
 export const ownerSecretPaths = (home: string): string[] => OWNER_SECRET_FILES.map((f) => path.join(home, f));
 /** The Read deny rules of those files (`~/` is the user's home in Claude's rules; a folder is denied with everything under it). */
-const OWNER_SECRET_DIRS = new Set([".ssh", ".aws"]);
+const OWNER_SECRET_DIRS = new Set([".ssh", ".aws", ".config/gh"]);
 export const ownerSecretReadRules = (): string[] => OWNER_SECRET_FILES.flatMap((f) => (OWNER_SECRET_DIRS.has(f) ? [`Read(~/${f})`, `Read(~/${f}/**)`] : [`Read(~/${f})`]));
 
 /**

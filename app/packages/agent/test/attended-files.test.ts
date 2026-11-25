@@ -49,7 +49,7 @@ describe("P140 K3 the deny list of an owner's session", () => {
     for (const p of ["./state/projects/**", "./state/autopilot.json", "./state/secrets/**", "./config/config.json", "./config/mcp.json", "./core/**", "./.claude/**", "./.codex/**", "./run.sh", "./state/log/**", "./.mcp.json"]) expect(deny).toContain(`Edit(${p})`);
     for (const p of ["./config/**", "./.git/**", "./CLAUDE.md", "./AGENTS.md"]) expect(deny).not.toContain(`Edit(${p})`);
     expect(deny.filter((r) => r.startsWith("Read(") && !r.includes("state/projects/") && !r.includes("state/codex/") && !r.startsWith("Read(~/"))).toEqual(["Read(./state/secrets/**)"]);
-    for (const r of ["Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.netrc)", "Read(~/.config/crm/notion.json)", "Read(~/.google-multi-mcp/config.json)", "Read(~/.config/reforms-hub/openrouter-key)"]) expect(deny).toContain(r);
+    for (const r of ["Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.netrc)", "Read(~/.git-credentials)", "Read(~/.config/gh/**)", "Read(~/.config/crm/notion.json)", "Read(~/.google-multi-mcp/config.json)", "Read(~/.config/reforms-hub/openrouter-key)"]) expect(deny).toContain(r);
     expect((settings.sandbox as { filesystem: { denyRead: string[] } }).filesystem.denyRead).toEqual(expect.arrayContaining([path.join(homedir(), ".ssh"), path.join(homedir(), ".netrc")]));
     expect(settings.sandbox).toMatchObject({ network: { allowedDomains: ["*"], allowLocalBinding: true } });
     expect((settings.sandbox as { network: { deniedDomains: string[] } }).network.deniedDomains).toEqual(expect.arrayContaining(["localhost", "*.localhost", "127.0.0.1", "::1", "0.0.0.0", "*.nip.io", "localtest.me"]));
