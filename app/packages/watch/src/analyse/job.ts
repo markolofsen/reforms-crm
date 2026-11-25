@@ -2,13 +2,15 @@ import type { Llm, LlmErrorKind, WindowEntry, WindowItem } from "@hub/llm";
 import type { LensFacets } from "@hub/contract/lens";
 import type { LoadedLens } from "../lens/load";
 import type { NewMoment, WatchMessage, WatchStore } from "../store/repo";
+import { authorKey, scriptAuthors } from "./scripts";
 
 /**
  * The window analysis of one group (P144 W5, verdicts 8 and 13): the lens's window task over the messages the store has not
  * analysed yet, with the overlap before them, then the keep-filter, then one stored window and its moments. Ported from the
  * experiment's `analyse.py`: repeated texts are dropped before windowing, ids are joined in code from `[n]`, an index outside the
- * window or the speaker's own message among the reactors is dropped, and a moment seen twice (same message, same trigger) is
- * kept once. It runs inside the watcher's own poller (after at least 100 new messages, or every 6 hours), never on a timer of
+ * window or the speaker's own message among the reactors is dropped, a moment seen twice (same message, same trigger) is
+ * kept once, and an author who shares a script with others in the group (`facets.scripts`, the experiment's `shill.py`) loses
+ * his moments. It runs inside the watcher's own poller (after at least 100 new messages, or every 6 hours), never on a timer of
  * its own, and the task's budget ($2 a month by default) is checked before every attempt by `@hub/llm`.
  */
 
@@ -24,6 +26,8 @@ export interface GroupAnalysis {
   windows: number;
   failedWindows: number;
   moments: number;
+  /** Authors of the group marked by the lens's script rule (their moments are dropped). */
+  scriptAuthors: number;
   costMicroUsd: number;
   /** Why the run stopped early (the cap or the task budget, no key, the key refused), else null. */
   stopped: LlmErrorKind | null;
@@ -42,11 +46,13 @@ export const kept = (entry: Record<string, unknown>, keep: LensFacets["keep"]): 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const intensityOf = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(1, Math.min(5, Math.round(v))) : 1);
 
-/** One kept entry as a stored moment, or null when the keep-filter drops it. */
-export function momentOf(e: WindowEntry, f: LensFacets, byId: ReadonlyMap<string, WatchMessage>, group: string, windowKey: string): NewMoment | null {
+/** One kept entry as a stored moment, or null when the keep-filter drops it (a failed condition, or a marked script author). */
+export function momentOf(e: WindowEntry, f: LensFacets, byId: ReadonlyMap<string, WatchMessage>, group: string, windowKey: string, scripted: ReadonlySet<string> = new Set()): NewMoment | null {
   if (!kept(e.entry, f.keep)) return null;
   const m = byId.get(e.itemId);
   if (!m) return null;
+  const who = authorKey(m);
+  if (who !== null && scripted.has(who)) return null;
   const reactors = (f.reactors ? (e.refs[f.reactors] ?? []) : []).flatMap((id) => {
     const r = byId.get(id);
     return r ? [r.senderHandle ?? (r.senderId ? `user${r.senderId}` : "someone")] : [];
@@ -76,11 +82,14 @@ export async function analyseGroup(d: { llm: Llm; store: WatchStore; lens: Loade
   const all = d.store.messagesOf(username);
   const done = d.store.windowsLastMessage(username);
   const firstNew = all.findIndex((m) => m.messageId > done);
-  const out: GroupAnalysis = { windows: 0, failedWindows: 0, moments: 0, costMicroUsd: 0, stopped: null };
+  const out: GroupAnalysis = { windows: 0, failedWindows: 0, moments: 0, scriptAuthors: 0, costMicroUsd: 0, stopped: null };
   if (firstNew < 0) {
     d.store.setGroup(username, { newSinceAnalysis: 0, lastAnalysisAt: d.now().toISOString() });
     return out;
   }
+  // The script rule reads every stored message of the group: a template shows across days, not inside one window.
+  const scripted = scriptAuthors(all, d.lens.facets.scripts);
+  out.scriptAuthors = scripted.size;
   const slice = all.slice(Math.max(0, firstNew - overlap));
   const byId = new Map(slice.map((m) => [String(m.messageId), m]));
   const items: WindowItem[] = slice.map((m) => ({ id: String(m.messageId), text: m.text, author: authorOf(m) }));
@@ -95,7 +104,7 @@ export async function analyseGroup(d: { llm: Llm; store: WatchStore; lens: Loade
     const last = byId.get(w.itemIds.at(-1) ?? "");
     if (!first || !last) continue;
     const windowKey = `w${size}o${overlap}:${username}:${first.messageId}-${last.messageId}`;
-    const moments = w.entries.flatMap((e) => momentOf(e, d.lens.facets, byId, username, windowKey) ?? []);
+    const moments = w.entries.flatMap((e) => momentOf(e, d.lens.facets, byId, username, windowKey, scripted) ?? []);
     const topicsField = d.lens.window.topics;
     const moodField = d.lens.window.mood;
     const value: unknown = w.value;

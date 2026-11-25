@@ -50,6 +50,21 @@ describe("the window analysis", () => {
     expect(store.moments({ since }).map((m) => m.messageId).sort((x, y) => x - y)).toEqual([1, 81, 131]);
   });
 
+  it("drops the moments of an author the lens's script rule marks (shill.py), and counts the marked authors", async () => {
+    const store = tempStore();
+    store.ensureGroups(["garden_talk"], now());
+    const template = "so tired of losing on random garden tips";
+    const texts = (k: number): string => (k === 1 || k === 2 ? `${template} ${k}` : `garden message ${k}`);
+    store.addMessages("garden_talk", Array.from({ length: 30 }, (_, i) => ({ messageId: i + 1, senderId: String(600 + i), senderHandle: `@s${i}`, text: texts(i + 1), sentAt: new Date(T0 + i * 60_000).toISOString() })), now());
+    const base = await acmeLens();
+    const lens = { ...base, facets: { ...base.facets, scripts: { rules: [{ words: 6, authors: 2 }], common: ["so", "of", "on"] } } };
+    // [1] and [2] share the template (two authors: both marked); [3] is an ordinary kept moment.
+    const { llm } = fakeLlm(() => ({ content: answer([{ message_index: 1 }, { message_index: 2 }, { message_index: 3 }]), costUsd: 0.0001 }));
+    const a = await analyseGroup({ llm, store, lens, now }, "garden_talk");
+    expect(a).toMatchObject({ windows: 1, moments: 1, scriptAuthors: 2 });
+    expect(store.moments({ since: "2026-11-01T00:00:00.000Z" }).map((m) => m.messageId)).toEqual([3]);
+  });
+
   it("a reached task budget stops the run and leaves the count, so the next due run asks again", async () => {
     const store = tempStore();
     store.ensureGroups(["g1"], now());

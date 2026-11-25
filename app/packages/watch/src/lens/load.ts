@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { lensDataSchema, type LensData, type LensFacets, type LensTask, type LensWindowFacets } from "@hub/contract/lens";
+import { lensDataSchema, scriptsSchema, type LensData, type LensFacets, type LensTask, type LensWindowFacets } from "@hub/contract/lens";
 import { z } from "zod";
 import { createKit, watchTask, type WatchTask } from "./kit";
 
@@ -85,6 +85,7 @@ const Facets = z.strictObject({
   context: z.string().optional(),
   why: z.string().optional(),
   keep: z.array(z.strictObject({ field: z.string(), equals: z.union([z.string(), z.number(), z.boolean()]) })).optional(),
+  scripts: scriptsSchema.optional(),
 });
 const Declaration = z.strictObject({
   id: z.string().regex(/^[a-z][a-z0-9-]{0,31}$/, "a lower-case id"),

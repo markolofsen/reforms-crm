@@ -25,6 +25,13 @@ import { z } from "zod";
 
 const keepSchema = z.strictObject({ field: z.string().min(1), equals: z.union([z.string(), z.number(), z.boolean()]) });
 
+/** The cross-author script rule (`LensScripts`), checked. */
+export const scriptsSchema = z.strictObject({
+  rules: z.array(z.strictObject({ words: z.number().int().min(3).max(12), authors: z.number().int().min(2).max(20) })).min(1).max(5),
+  distinct: z.number().int().min(1).max(12).optional(),
+  common: z.array(z.string().trim().min(1).max(40)).max(2_000),
+});
+
 /** `lens.json`: the editable half of a lens. */
 export const lensDataSchema = z.strictObject({
   /** Bumped when the prompt or the triggers change meaning; stored beside every window read with it. Old windows stay. */
@@ -41,6 +48,8 @@ export const lensDataSchema = z.strictObject({
   /** One more sentence for the model after the triggers' meanings (what goes to `other`, say). */
   triggerNote: z.string().trim().max(1_000).optional(),
   keep: z.array(keepSchema).max(10).optional(),
+  /** Drops the moments of authors who share a script with others in the group (P144 W5): the lens's thresholds and common words. */
+  scripts: scriptsSchema.optional(),
   window: z.strictObject({ size: z.number().int().min(10).max(200), overlap: z.number().int().min(0).max(100) }).optional(),
   /** The task's monthly budget in dollars, inside the instance cap; $2 when left out. */
   budgetUsd: z.number().positive().max(5).optional(),
@@ -80,6 +89,17 @@ export interface LensKeep {
   equals: string | number | boolean;
 }
 
+/**
+ * The cross-author script rule (P144 W5, the experiment's `shill.py`): for each rule, a sequence of `words` words that at least
+ * `authors` different authors of one group used marks every one of them, and their moments are dropped. A sequence counts only
+ * with at least `distinct` words (3 when left out) outside `common`, the lens's very common words in its languages.
+ */
+export interface LensScripts {
+  rules: Array<{ words: number; authors: number }>;
+  distinct?: number;
+  common: string[];
+}
+
 /** Which fields of one moment (an entry of `window.list`) mean what. Every name must be a real field of the entry. */
 export interface LensFacets {
   /** The trigger: an enum field. */
@@ -99,6 +119,8 @@ export interface LensFacets {
   /** Why it fits what the owner offers. */
   why?: string;
   keep?: LensKeep[];
+  /** Authors who post a shared script lose their moments (see {@link LensScripts}). */
+  scripts?: LensScripts;
 }
 
 /** Window-level fields shown on the Watch page: topics (a list of strings) and the mood (a string). */

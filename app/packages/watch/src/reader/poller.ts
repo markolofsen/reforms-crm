@@ -138,7 +138,7 @@ export function createWatcher(d: WatcherDeps): Watcher {
         d.onAnalysed?.(g.username, a);
         if (a.windows > 0) d.onWritten?.();
         // Counts only: never a text, a handle or a quote.
-        log.info("window analysis", { project: d.project, windows: a.windows, failed: a.failedWindows, moments: a.moments, costMicroUsd: a.costMicroUsd, ...(a.stopped ? { stopped: a.stopped } : {}) });
+        log.info("window analysis", { project: d.project, windows: a.windows, failed: a.failedWindows, moments: a.moments, scriptAuthors: a.scriptAuthors, costMicroUsd: a.costMicroUsd, ...(a.stopped ? { stopped: a.stopped } : {}) });
         if (a.stopped) return;
       } catch (e) {
         log.error("the window analysis failed", { project: d.project, ...errFields(e) });

@@ -49,6 +49,7 @@ if (cmd === "import") {
   let windows = 0;
   let failed = 0;
   let moments = 0;
+  let scripted = 0;
   const stops: string[] = [];
   try {
     for (const g of store.groups()) {
@@ -59,6 +60,7 @@ if (cmd === "import") {
       windows += r.windows;
       failed += r.failedWindows;
       moments += r.moments;
+      scripted += r.scriptAuthors;
       if (r.stopped) {
         stops.push(r.stopped);
         break;
@@ -78,6 +80,7 @@ if (cmd === "import") {
     windows,
     failedWindows: failed,
     moments,
+    scriptAuthors: scripted,
     stops,
     attempts: rows.length,
     outcomes: count((r) => r.outcome),
