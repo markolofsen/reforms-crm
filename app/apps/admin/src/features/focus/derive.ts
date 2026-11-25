@@ -14,7 +14,7 @@ export type FocusParts = {
   pointer: { id: string; outcome: PointerOutcome } | null;
 };
 
-/** The record the address itself names: the client of an open conversation (P99), the client Activity is narrowed to (`?client=1`, P73). */
+/** The record the address itself names: the client of an open conversation (P99), the open chat (P143), the client Activity is narrowed to (`?client=1`, P73). */
 function addressSubject(r: Resolved): string | null {
   // P99 verdict 11: a conversation is `client:<id>`; its focus title names the open draft and their newest message, so the agent
   // never loses its anchor (P98 showed it guessing from "Message 10").
@@ -23,6 +23,9 @@ function addressSubject(r: Resolved): string | null {
     const k = parseClientKey(r.params.key);
     return k !== null && "id" in k ? refOf("client", k.id) : null;
   }
+  // P143 L1: an open chat is `chat:<row id>`, so "the chat in focus counts as named" reaches the session (chat 12, 2026-11-25:
+  // the agent saw `this: none` with the conversation open).
+  if (r.route === "messengers.conversation") return refOf("chat", r.params.id);
   if (r.route === "log.list" && r.search.client) return refOf("client", r.search.client);
   return null;
 }

@@ -44,6 +44,9 @@ describe("deriveFocus", () => {
     expect(derive("/acme/mail/c/id-12", "filter=all")).toEqual({ tab: "t1", project: "acme", route: "mail.conversation", title: "Conversation id-12", subject: "client:12", selected: [], view: { filter: "all" }, visible: true });
     expect(derive("/acme/mail/c/id-99", "", { subject: "client:7" })).toMatchObject({ subject: "client:7" });
   });
+  it("P143 L1: an open chat's address names the chat, so the session's `this` is that chat", () => {
+    expect(derive("/acme/messengers/c/12")).toMatchObject({ route: "messengers.conversation", subject: "chat:12" });
+  });
   it("the Mail list: the card on screen, the selection and the search", () => {
     const f = derive("/acme/mail", "q=price", { subject: "client:7", selected: ["client:7", "client:9"] });
     expect(f).toMatchObject({ route: "mail.list", subject: "client:7", selected: ["client:7", "client:9"], view: { q: "price" } });
