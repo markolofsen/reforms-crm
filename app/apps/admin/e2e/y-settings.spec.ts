@@ -85,10 +85,13 @@ test("checks: every rule in view, grouped Blocks Send then Warns, each with its 
   await expect(page).toHaveTitle(`Checks · ${PROJECT} · Hub`);
   await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Checks", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(checksStatus(page)).toHaveText(/^All \d+ on$/);
+  const all = Number((await checksStatus(page).textContent())?.match(/\d+/)?.[0]);
   const table = page.getByRole("table", { name: "Checks before sending" });
   const rules = table.locator("tr[data-rule]");
   const count = await rules.count();
-  expect(count).toBeGreaterThan(10);
+  // The rule set shrinks by decision (P140 removed the follow-up rule, P140 K2 the evidence check): every rule the status counts is a row.
+  expect(count).toBeGreaterThan(0);
+  expect(count).toBe(all);
   await expect(table.getByRole("switch")).toHaveCount(count);
   await expect(table.getByLabel("Risky words, separated by commas")).toBeVisible();
   await expect(table.getByRole("textbox", { name: /Within/ })).toBeVisible();
