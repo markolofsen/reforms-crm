@@ -8,7 +8,7 @@ import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, now, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { recordDraft } from "./drafts-record";
 import { onStepFinished, onStepReopened } from "./enrollments";
-import { followUpNudgeSent, followUpWeWrote } from "./follow-up-hooks";
+import { followUpMailSent } from "./follow-up-hooks";
 import { insertEvent, sessionRun } from "./runs";
 import { bareRef } from "./mail-versions";
 import { teamNoticeOf, type TeamNotice } from "./review";
@@ -372,11 +372,7 @@ export function draftsRepo(db: Db) {
         if (next) logDraftEvent(tx, next, "decision", "Seen in the Sent folder", { action: "sent", via: seen.via, messageId: seen.messageId, at: seen.at });
         // A step marked done earlier has already moved its enrollment; a ready or held one moves now, at the sent date.
         if (next && isOpen(d.status)) onStepFinished(tx, next, seen.at);
-        // P142 verdict 11: our message went out (a stop or hand-over waits again); a nudge draft counts once on the client's plan.
-        if (next) {
-          followUpWeWrote(tx, next.project, next.clientId, seen.at);
-          if (next.followUpN != null) followUpNudgeSent(tx, next.project, next.clientId, { at: seen.at, n: next.followUpN, channel: "mail" });
-        }
+        if (next) followUpMailSent(tx, next, seen.at); // P142 verdict 11
         return next ?? null;
       });
     },

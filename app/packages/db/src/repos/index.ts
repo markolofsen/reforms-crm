@@ -7,7 +7,7 @@ import { clientMergeRepo } from "./client-merge";
 import { conversationsRepo } from "./conversations";
 import { draftsRepo } from "./drafts";
 import { enrollmentsRepo } from "./enrollments";
-import { followUpsRepo } from "./follow-ups";
+import { followUpSweepsRepo, followUpsRepo } from "./follow-ups";
 import { inboxRepo } from "./inbox";
 import { inboundMailRepo } from "./inbound-mail";
 import { knowledgeRepo } from "./knowledge";
@@ -39,7 +39,7 @@ export function createRepos(db: Db) {
     inboundMail: inboundMailRepo(db),
     leadRows: leadRowsRepo(db),
     enrollments: enrollmentsRepo(db),
-    followUps: followUpsRepo(db),
+    followUps: { ...followUpsRepo(db), ...followUpSweepsRepo(db) },
     mailVersions: mailVersionsRepo(db),
     mailWrites: mailWritesRepo(db),
     llmCalls: llmCallsRepo(db),

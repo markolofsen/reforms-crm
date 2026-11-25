@@ -72,6 +72,12 @@ export function followUpNudgeSent(tx: Tx, project: string, clientId: number, o: 
     .run();
 }
 
+/** A Mail draft was seen sent: our message went out (a stop or hand-over waits again), and a nudge draft counts once on its plan. */
+export function followUpMailSent(tx: Tx, d: { project: string; clientId: number; followUpN: number | null }, at: string): void {
+  followUpWeWrote(tx, d.project, d.clientId, at);
+  if (d.followUpN != null) followUpNudgeSent(tx, d.project, d.clientId, { at, n: d.followUpN, channel: "mail" });
+}
+
 /** `last_outbound_at` of a chat moves forward only (ingest's outbound row, the door's send). Returns whether it moved. */
 export function noteChatOutbound(tx: Tx, project: string, channel: MessengerChannel, chatId: string, at: string): boolean {
   return (

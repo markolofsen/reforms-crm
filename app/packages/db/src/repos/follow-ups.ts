@@ -61,6 +61,91 @@ export function decisionSummary(name: string, d: Pick<FollowUpDecisionInput, "de
   return ["Follow-up", name, what, next].filter((x): x is string => !!x).join(" · ");
 }
 
+/** The selector's facts of every live client of the project (verdict 2). Read only: `hub mcp` reads it too. */
+export async function followUpFacts(db: Db, project: string, now: Date): Promise<{ facts: DueFacts[]; unlinkedWroteLast: number }> {
+  const people = db.select().from(clients).where(and(eq(clients.project, project), isNull(clients.mergedInto))).all();
+  const mail = new Map((await conversationsRepo(db).list(project, "all", { limit: 100_000, now, ensure: false })).rows.map((r) => [r.client.id, r]));
+  const dnc = new Set(db.select({ id: marks.clientId }).from(marks).where(and(eq(marks.project, project), eq(marks.mark, "do_not_contact"))).all().map((r) => r.id));
+  const enrolled = new Set(db.select({ id: enrollments.clientId }).from(enrollments).where(and(eq(enrollments.project, project), inArray(enrollments.state, ["active", "paused"]))).all().map((r) => r.id));
+  const plans = new Map(db.select().from(followUps).where(eq(followUps.project, project)).all().map((p) => [p.clientId, p]));
+  const openChat = new Set(db.select({ ch: messengerDrafts.channel, id: messengerDrafts.chatId }).from(messengerDrafts).where(and(eq(messengerDrafts.project, project), eq(messengerDrafts.status, "draft"))).all().map((r) => `${r.ch}:${r.id}`));
+  const cached = db.all<{ channel: string; chat_id: string; last_in: string | null; last_out: string | null }>(
+    sql`select channel, chat_id, max(case when direction = 'in' then sent_at end) as last_in, max(case when direction = 'out' then sent_at end) as last_out from messenger_messages where project = ${project} group by channel, chat_id`,
+  );
+  const cache = new Map(cached.map((r) => [`${r.channel}:${r.chat_id}`, r]));
+  const later = (a: string | null | undefined, b: string | null | undefined) => (!a ? (b ?? null) : !b ? a : a > b ? a : b);
+  const byClient = new Map<number, DueChat[]>();
+  let unlinkedWroteLast = 0;
+  for (const c of db.select().from(messengerChats).where(eq(messengerChats.project, project)).all()) {
+    const k = `${c.channel}:${c.chatId}`;
+    const chat: DueChat = { id: c.id, channel: c.channel, chatId: c.chatId, replyMode: c.replyMode, lastInAt: later(c.lastInboundAt, cache.get(k)?.last_in), lastOutAt: later(c.lastOutboundAt, cache.get(k)?.last_out), openDraft: openChat.has(k) };
+    const client = clientOfChat(db, project, c.channel, c.chatId);
+    if (client === null) {
+      if (chat.lastOutAt && (!chat.lastInAt || chat.lastOutAt > chat.lastInAt)) unlinkedWroteLast++;
+      continue;
+    }
+    byClient.set(client, [...(byClient.get(client) ?? []), chat]);
+  }
+  const out: DueFacts[] = people.map((c) => {
+    const m = mail.get(c.id);
+    const p = plans.get(c.id);
+    return {
+      clientId: c.id,
+      name: c.name,
+      email: c.email,
+      doNotContact: dnc.has(c.id),
+      enrolled: enrolled.has(c.id),
+      mail: m ? { wrote: m.state === "wrote", openDraft: m.state === "draft" || m.state === "hold", theirLastAt: m.theirLastAt, ourLastAt: m.ourLastAt } : null,
+      chats: byClient.get(c.id) ?? [],
+      plan: p ? { state: p.state, nextAt: p.nextAt, nudgesSent: p.nudgesSent } : null,
+    };
+  });
+  return { facts: out, unlinkedWroteLast };
+}
+
+/**
+ * The agent's decision (verdict 9): one row per client, so a rerun the same day replaces it, never stacks. The count is not
+ * moved here (only a sent nudge moves it, verdict 11). One Activity line per call. Returns the row and whether it replaced
+ * a decision of the same day.
+ */
+export function decideFollowUp(db: Db, d: FollowUpDecisionInput, by: "agent" | "owner" = "agent"): { row: FollowUpRow; sameDay: boolean; name: string } {
+  return write(db, (tx) => {
+    const client = tx.select({ id: clients.id, name: clients.name }).from(clients).where(and(eq(clients.project, d.project), eq(clients.id, d.clientId))).get();
+    if (!client) throw new RepoError("not_found", `No client ${d.clientId} in project ${d.project}`);
+    const old = tx.select().from(followUps).where(and(eq(followUps.project, d.project), eq(followUps.clientId, d.clientId))).get();
+    const sameDay = !!old && old.decidedAt.slice(0, 10) === d.at.slice(0, 10);
+    const values = {
+      state: STATE_OF[d.decision],
+      nextAt: d.decision === "nudge" || d.decision === "wait" ? d.nextAt : null,
+      waitingOn: d.waitingOn,
+      reason: d.reason.slice(0, 200),
+      stopReason: d.decision === "stop" ? d.stopReason : null,
+      channel: d.channel ?? old?.channel ?? null,
+      tz: d.tz ?? old?.tz ?? null,
+      line: d.line ? d.line.slice(0, 160) : null,
+      decidedBy: by,
+      decidedAt: d.at,
+      updatedAt: d.at,
+    };
+    const row = old
+      ? tx.update(followUps).set(values).where(eq(followUps.id, old.id)).returning().get()
+      : tx.insert(followUps).values({ project: d.project, clientId: d.clientId, nudgesSent: 0, ...values }).returning().get();
+    if (!row) throw new RepoError("not_found", "The plan could not be written");
+    const runId = sessionRun(tx, { project: d.project, batchKey: d.batchKey ? `follow-up:${d.batchKey}` : `follow-up:${d.at.slice(0, 10)}`, skill: "follow-up-sweep", at: d.at });
+    insertEvent(tx, {
+      project: d.project,
+      runId,
+      at: d.at,
+      kind: d.decision === "hand_over" ? "needs_human" : "decision",
+      tool: "follow_up_plan",
+      summary: decisionSummary(client.name, d),
+      detail: JSON.stringify({ action: by === "owner" ? "follow_up_owner" : ACTION_OF[d.decision], reason: d.reason, skill: "follow-up-sweep", followUp: { decision: d.decision, nextAt: values.nextAt, nudgeN: d.nudgeN, channel: values.channel, line: values.line, by, sameDay } }),
+      clientId: d.clientId,
+    });
+    return { row, sameDay, name: client.name };
+  });
+}
+
 export function followUpsRepo(db: Db) {
   const planOf = (project: string, clientId: number) => db.select().from(followUps).where(and(eq(followUps.project, project), eq(followUps.clientId, clientId))).get() ?? null;
   /** Clients with an open nudge draft (Mail or a messenger draft with `follow_up_n`). */
@@ -73,90 +158,8 @@ export function followUpsRepo(db: Db) {
     const nudgeReady = ready.has(r.clientId);
     return { ...r, nudgeReady, display: followUpDisplay({ state: r.state, nextAt: r.nextAt, nudgeReady }, now) };
   };
-
-  /** The selector's facts of every live client of the project (verdict 2). Read only: `hub mcp` reads it too. */
-  const facts = async (project: string, now: Date): Promise<{ facts: DueFacts[]; unlinkedWroteLast: number }> => {
-    const people = db.select().from(clients).where(and(eq(clients.project, project), isNull(clients.mergedInto))).all();
-    const mail = new Map((await conversationsRepo(db).list(project, "all", { limit: 100_000, now, ensure: false })).rows.map((r) => [r.client.id, r]));
-    const dnc = new Set(db.select({ id: marks.clientId }).from(marks).where(and(eq(marks.project, project), eq(marks.mark, "do_not_contact"))).all().map((r) => r.id));
-    const enrolled = new Set(db.select({ id: enrollments.clientId }).from(enrollments).where(and(eq(enrollments.project, project), inArray(enrollments.state, ["active", "paused"]))).all().map((r) => r.id));
-    const plans = new Map(db.select().from(followUps).where(eq(followUps.project, project)).all().map((p) => [p.clientId, p]));
-    const openChat = new Set(db.select({ ch: messengerDrafts.channel, id: messengerDrafts.chatId }).from(messengerDrafts).where(and(eq(messengerDrafts.project, project), eq(messengerDrafts.status, "draft"))).all().map((r) => `${r.ch}:${r.id}`));
-    const cached = db.all<{ channel: string; chat_id: string; last_in: string | null; last_out: string | null }>(
-      sql`select channel, chat_id, max(case when direction = 'in' then sent_at end) as last_in, max(case when direction = 'out' then sent_at end) as last_out from messenger_messages where project = ${project} group by channel, chat_id`,
-    );
-    const cache = new Map(cached.map((r) => [`${r.channel}:${r.chat_id}`, r]));
-    const later = (a: string | null | undefined, b: string | null | undefined) => (!a ? (b ?? null) : !b ? a : a > b ? a : b);
-    const byClient = new Map<number, DueChat[]>();
-    let unlinkedWroteLast = 0;
-    for (const c of db.select().from(messengerChats).where(eq(messengerChats.project, project)).all()) {
-      const k = `${c.channel}:${c.chatId}`;
-      const chat: DueChat = { id: c.id, channel: c.channel, chatId: c.chatId, replyMode: c.replyMode, lastInAt: later(c.lastInboundAt, cache.get(k)?.last_in), lastOutAt: later(c.lastOutboundAt, cache.get(k)?.last_out), openDraft: openChat.has(k) };
-      const client = clientOfChat(db, project, c.channel, c.chatId);
-      if (client === null) {
-        if (chat.lastOutAt && (!chat.lastInAt || chat.lastOutAt > chat.lastInAt)) unlinkedWroteLast++;
-        continue;
-      }
-      byClient.set(client, [...(byClient.get(client) ?? []), chat]);
-    }
-    const out: DueFacts[] = people.map((c) => {
-      const m = mail.get(c.id);
-      const p = plans.get(c.id);
-      return {
-        clientId: c.id,
-        name: c.name,
-        email: c.email,
-        doNotContact: dnc.has(c.id),
-        enrolled: enrolled.has(c.id),
-        mail: m ? { wrote: m.state === "wrote", openDraft: m.state === "draft" || m.state === "hold", theirLastAt: m.theirLastAt, ourLastAt: m.ourLastAt } : null,
-        chats: byClient.get(c.id) ?? [],
-        plan: p ? { state: p.state, nextAt: p.nextAt, nudgesSent: p.nudgesSent } : null,
-      };
-    });
-    return { facts: out, unlinkedWroteLast };
-  };
-
-  /**
-   * The agent's decision (verdict 9): one row per client, so a rerun the same day replaces it, never stacks. The count is not
-   * moved here (only a sent nudge moves it, verdict 11). One Activity line per call. Returns the row and whether it replaced
-   * a decision of the same day.
-   */
-const decide = async (d: FollowUpDecisionInput, by: "agent" | "owner" = "agent"): Promise<{ row: FollowUpRow; sameDay: boolean; name: string }> =>
-    write(db, (tx) => {
-      const client = tx.select({ id: clients.id, name: clients.name }).from(clients).where(and(eq(clients.project, d.project), eq(clients.id, d.clientId))).get();
-      if (!client) throw new RepoError("not_found", `No client ${d.clientId} in project ${d.project}`);
-      const old = tx.select().from(followUps).where(and(eq(followUps.project, d.project), eq(followUps.clientId, d.clientId))).get();
-      const sameDay = !!old && old.decidedAt.slice(0, 10) === d.at.slice(0, 10);
-      const values = {
-        state: STATE_OF[d.decision],
-        nextAt: d.decision === "nudge" || d.decision === "wait" ? d.nextAt : null,
-        waitingOn: d.waitingOn,
-        reason: d.reason.slice(0, 200),
-        stopReason: d.decision === "stop" ? d.stopReason : null,
-        channel: d.channel ?? old?.channel ?? null,
-        tz: d.tz ?? old?.tz ?? null,
-        line: d.line ? d.line.slice(0, 160) : null,
-        decidedBy: by,
-        decidedAt: d.at,
-        updatedAt: d.at,
-      };
-      const row = old
-        ? tx.update(followUps).set(values).where(eq(followUps.id, old.id)).returning().get()
-        : tx.insert(followUps).values({ project: d.project, clientId: d.clientId, nudgesSent: 0, ...values }).returning().get();
-      if (!row) throw new RepoError("not_found", "The plan could not be written");
-      const runId = sessionRun(tx, { project: d.project, batchKey: d.batchKey ? `follow-up:${d.batchKey}` : `follow-up:${d.at.slice(0, 10)}`, skill: "follow-up-sweep", at: d.at });
-      insertEvent(tx, {
-        project: d.project,
-        runId,
-        at: d.at,
-        kind: d.decision === "hand_over" ? "needs_human" : "decision",
-        tool: "follow_up_plan",
-        summary: decisionSummary(client.name, d),
-        detail: JSON.stringify({ action: by === "owner" ? "follow_up_owner" : ACTION_OF[d.decision], reason: d.reason, skill: "follow-up-sweep", followUp: { decision: d.decision, nextAt: values.nextAt, nudgeN: d.nudgeN, channel: values.channel, line: values.line, by, sameDay } }),
-        clientId: d.clientId,
-      });
-      return { row, sameDay, name: client.name };
-    });
+  const facts = (project: string, now: Date) => followUpFacts(db, project, now);
+  const decide = async (d: FollowUpDecisionInput, by: "agent" | "owner" = "agent") => decideFollowUp(db, d, by);
 
   return {
     facts,
@@ -241,6 +244,12 @@ const decide = async (d: FollowUpDecisionInput, by: "agent" | "owner" = "agent")
         .all();
       return { today: rows.filter((r) => r.at >= since).length, inARow: rows.filter((r) => !chat.lastInAt || r.at > chat.lastInAt).length };
     },
+  };
+}
+
+/** The sweeps (verdicts 10 and 19): one row each, so the day's turns and "last swept" survive a restart. */
+export function followUpSweepsRepo(db: Db) {
+  return {
     async startSweep(project: string, trigger: FollowUpTrigger, at: string): Promise<FollowUpSweepRow> {
       const row = db.insert(followUpSweeps).values({ project, trigger, startedAt: at }).returning().get();
       if (!row) throw new RepoError("not_found", "The sweep could not be recorded");

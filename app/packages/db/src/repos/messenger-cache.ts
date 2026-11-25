@@ -31,7 +31,8 @@ function noteFact(tx: WriteTx, project: string, channel: MessengerChannel, chatI
     ...(f.jid ? { jid: f.jid } : {}),
   };
   if (!changes.length) return followed;
-  return followed || tx.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId), or(...changes))).run().changes > 0;
+  const moved = tx.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId), or(...changes))).run().changes > 0;
+  return moved || followed;
 }
 
 /**
