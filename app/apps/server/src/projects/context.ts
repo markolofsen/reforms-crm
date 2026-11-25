@@ -22,4 +22,6 @@ export type ProjectsContext = {
   leadPass?: LeadPassRuntime;
   /** The admin's port: the follow-up writes take its exact Origin. */
   adminPort?: number;
+  /** P147 F3: the agent send token (decision 0046); `hub mcp`'s `lead_pass_start` presents it to start a pass from the dock. */
+  agentToken?: string;
 };

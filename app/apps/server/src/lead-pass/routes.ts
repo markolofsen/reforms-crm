@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { leadPageParam, leadPassDto, leadRedoneDto, runLeadPassBody } from "@hub/contract/lead-pass";
 import { slugParam } from "@hub/contract/requests";
 import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE } from "@hub/config/lead-pass";
+import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
 import { gateRefusal } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import type { ProjectsContext } from "../projects/context";
@@ -64,6 +65,18 @@ export function leadPassRoutes(ctx: ProjectsContext) {
       const sch = ctx.leadPass?.schedule;
       if (!sch) return c.json({ error: "This server has no lead pass model: nothing runs here.", code: "wrong_state" as const }, 409);
       const r = await sch.runNow(slug);
+      if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
+      return c.json({ ok: true as const, joined: r.joined }, 202);
+    })
+    // F3 of 3d: `hub mcp`'s `lead_pass_start` (the dock's "process the leads"), a loopback call with the agent send token (decision
+    // 0046), never the admin's Origin. It starts the same pass as the button (trigger dock, the same 3 a day) and answers at once.
+    .post("/api/projects/:slug/lead-pass/agent-run", v("param", slugParam), async (c) => {
+      if (!ctx.agentToken || !tokenMatches(c.req.header(AGENT_SEND_HEADER), ctx.agentToken)) return c.json({ error: "Refused: only the hub's own MCP server may ask this.", code: "forbidden" as const }, 403);
+      const { slug } = c.req.valid("param");
+      if (!(await known(slug))) return notFound(c, "project");
+      const sch = ctx.leadPass?.schedule;
+      if (!sch) return c.json({ error: "This server has no lead pass model: nothing runs here.", code: "wrong_state" as const }, 409);
+      const r = await sch.runNow(slug, "dock");
       if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
       return c.json({ ok: true as const, joined: r.joined }, 202);
     })

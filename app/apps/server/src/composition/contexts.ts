@@ -88,7 +88,7 @@ export function contexts(rt: Runtime): Contexts {
   return {
     overview: { health, dataVersion: rt.dataVersion, now, overview, scheme },
     live: optional("live", rt.live),
-    projects: { repos, root: projectsDir, projects, now, ...optional("policyDir", rt.policyDir), ...optional("timeZone", rt.timeZone), ...optional("links", rt.projectLinks?.reader ? { reader: rt.projectLinks.reader } : undefined), ...optional("followUps", rt.followUps), ...optional("leadPass", rt.leadPass), adminPort },
+    projects: { repos, root: projectsDir, projects, now, ...optional("policyDir", rt.policyDir), ...optional("timeZone", rt.timeZone), ...optional("links", rt.projectLinks?.reader ? { reader: rt.projectLinks.reader } : undefined), ...optional("followUps", rt.followUps), ...optional("leadPass", rt.leadPass), ...optional("agentToken", sender?.agent?.token), adminPort },
     instance: {
       now,
       adminPort,

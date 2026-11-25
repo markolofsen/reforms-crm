@@ -6,6 +6,7 @@ import type { Brand, ProjectConfig } from "@hub/projects/model";
 import type { DraftWriter } from "@hub/mail-app/writer/types";
 import type { WithRepos } from "../mail/write-log";
 import type { ChatSortPort } from "../messenger/chat-sort-port";
+import type { LeadPassPort } from "../lead-pass/port";
 import type { AgentSendPort } from "../messenger/send-tool";
 import type { DraftRecordEnv } from "../records/draft";
 import { ToolError } from "./result";
@@ -88,6 +89,8 @@ export interface HubMcpEnv {
   agentSend?: AgentSendPort;
   /** P128 X5: the server's unlinked chats and the agent's proposed hides (loopback, the agent token); absent, both tools refuse `unavailable`. */
   chatSort?: ChatSortPort;
+  /** P147 F3: starts the server's lead pass from an attended session (`lead_pass_start`); absent in every background run. */
+  leadPassRun?: LeadPassPort;
   /**
    * P129 A3 (decision 0045 point 10): where `draft_write` records a first draft and `client_record` a client handled without
    * one: the database, the project folders, the send policy and the ledger. Absent: both refuse `unavailable`.

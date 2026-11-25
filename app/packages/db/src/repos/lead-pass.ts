@@ -37,6 +37,9 @@ export function dueLeads<R extends Pick<LeadRow, "receivedAt" | "passDecision" |
   return rows.filter((r) => r.open && r.receivedAt >= from && r.passDecision === null).sort((a, b) => b.receivedAt.localeCompare(a.receivedAt) || b.id - a.id);
 }
 
+/** F2 of 3d: the owner's review click (or the send) has acted on this decision; only Redo clears it now. */
+export const leadDecisionApplied = (r: Pick<LeadRow, "passExcludedAt" | "dismissedReason" | "convertedAt">): boolean => r.passExcludedAt !== null || r.dismissedReason !== null || r.convertedAt !== null;
+
 /**
  * P147 E4 (decision 0055 point 8): one person, one reply. Of the rows of one person (`others`: the rows sharing an email,
  * the account email or the phone), the newest gets the decision and the draft; this row is `not_now` "same person as" the
@@ -144,14 +147,21 @@ export function leadPassRepo(db: Db) {
     },
 
     /**
-     * `lead_decide` (verdict 2): writes the decision once per lead page. It does not require the lead to be open (its own draft just
-     * closed it). A second decision is refused with the first one's (`decided`), never overwritten. One Activity line.
+     * `lead_decide` (verdict 2, F2 of 3d): writes the decision of one lead page. It does not require the lead to be open (its own
+     * draft just closed it). A decision may be changed until the owner's review click has applied it (excluded, dismissed as spam or
+     * not now, or converted at the send): then it is refused with the first one's (`already`). A change moves the old decision's
+     * count off its pass. One Activity line each.
      */
-    async decide(d: LeadDecisionInput): Promise<{ row: LeadRow; already: boolean }> {
+    async decide(d: LeadDecisionInput): Promise<{ row: LeadRow; already: boolean; changed: LeadPassDecision | null }> {
       return write(db, (tx) => {
         const r = tx.select().from(leadRows).where(and(eq(leadRows.project, d.project), eq(leadRows.pageId, norm(d.pageId)))).get();
         if (!r) throw new RepoError("not_found", `No lead ${d.pageId} in project ${d.project}`);
-        if (r.passDecision) return { row: r, already: true };
+        if (r.passDecision && leadDecisionApplied(r)) return { row: r, already: true, changed: null };
+        const changed = r.passDecision ?? null;
+        if (changed && r.passId !== null) {
+          const col = leadPasses[COUNT_KEY[changed]];
+          tx.update(leadPasses).set({ [COUNT_KEY[changed]]: sql`max(0, ${col} - 1)` }).where(eq(leadPasses.id, r.passId)).run();
+        }
         const reason = d.reason.replace(/\s+/g, " ").trim().slice(0, LEAD_PASS_REASON_MAX);
         const row = tx
           .update(leadRows)
@@ -172,7 +182,7 @@ export function leadPassRepo(db: Db) {
           detail: JSON.stringify({ action: `lead_${d.decision}`, reason, skill: LEAD_PASS_SKILL, lead: { pageId: row.pageId, decision: d.decision, passId: d.passId } }),
           clientId: client,
         });
-        return { row, already: false };
+        return { row, already: false, changed };
       });
     },
 

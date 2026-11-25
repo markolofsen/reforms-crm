@@ -57,6 +57,7 @@ export function leadPassSchedule(d: LeadScheduleDeps) {
     running.set(slug, p);
     return p;
   };
+  const nowRuns = async (slug: string) => (await passesToday(slug)).filter((s) => s.trigger === "button" || (s.trigger === "dock" && s.turns + s.listed > 0)).length;
   const ranToday = async (slug: string) => (await passesToday(slug)).some((s) => s.trigger === "schedule" || s.trigger === "catch_up");
 
   const tick = async (): Promise<void> => {
@@ -86,16 +87,19 @@ export function leadPassSchedule(d: LeadScheduleDeps) {
       loop();
     },
     tick,
-    /** Run lead pass now (the owner's button): joins a running pass; refused after 3 a day. */
-    async runNow(slug: string): Promise<{ joined: boolean; pass: Promise<LeadPassRow | null> } | { refused: string }> {
+    /**
+     * Run lead pass now (the owner's button, or `lead_pass_start` from the dock, trigger `dock`, F3 of 3d): joins a running pass;
+     * the two share 3 a day. The dock's own attended decisions are `dock` rows too, but with no turns: they do not count here.
+     */
+    async runNow(slug: string, trigger: "button" | "dock" = "button"): Promise<{ joined: boolean; pass: Promise<LeadPassRow | null> } | { refused: string }> {
       const cur = running.get(slug);
       if (cur) return { joined: true, pass: cur };
-      if ((await passesToday(slug)).filter((s) => s.trigger === "button").length >= LEAD_PASS_RUN_NOW_PER_DAY) return { refused: `Run lead pass now runs at most ${LEAD_PASS_RUN_NOW_PER_DAY} times a day` };
-      return { joined: false, pass: start(slug, "button") };
+      if ((await nowRuns(slug)) >= LEAD_PASS_RUN_NOW_PER_DAY) return { refused: `Run lead pass now runs at most ${LEAD_PASS_RUN_NOW_PER_DAY} times a day` };
+      return { joined: false, pass: start(slug, trigger) };
     },
     isRunning: (slug: string) => running.has(slug),
     async runNowOff(slug: string): Promise<string | null> {
-      return (await passesToday(slug)).filter((s) => s.trigger === "button").length >= LEAD_PASS_RUN_NOW_PER_DAY ? `used ${LEAD_PASS_RUN_NOW_PER_DAY} of ${LEAD_PASS_RUN_NOW_PER_DAY} today` : null;
+      return (await nowRuns(slug)) >= LEAD_PASS_RUN_NOW_PER_DAY ? `used ${LEAD_PASS_RUN_NOW_PER_DAY} of ${LEAD_PASS_RUN_NOW_PER_DAY} today` : null;
     },
     /** The next scheduled pass after now (the sweep's wait not counted), or null when the project's pass is off. */
     async next(slug: string, s: Pick<LeadPassSettings, "schedule" | "at">): Promise<string | null> {

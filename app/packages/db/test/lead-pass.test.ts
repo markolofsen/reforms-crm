@@ -40,12 +40,19 @@ describe("leadPass.due (verdict 3)", () => {
     expect(due.total).toBe(2);
   });
 
-  it("a decided lead is not listed again (idempotent); Redo lists it again", async () => {
+  it("a decided lead is not listed again; a decision changes until the owner applied it (F2); Redo lists it again", async () => {
     await repos.leadRows.sync([lead(A)], NOW);
-    expect((await repos.leadPass.decide({ project: "p", pageId: A, decision: "hand_over", reason: "Enterprise volume", passId: null, at: NOW.toISOString() })).already).toBe(false);
+    const pass = await repos.leadPass.startPass("p", "dock", NOW.toISOString());
+    await repos.leadPass.finishPass(pass.id, { handedOver: 1 });
+    expect((await repos.leadPass.decide({ project: "p", pageId: A, decision: "hand_over", reason: "Enterprise volume", passId: pass.id, at: NOW.toISOString() })).already).toBe(false);
     expect((await repos.leadPass.due("p", FROM)).total).toBe(0);
-    const again = await repos.leadPass.decide({ project: "p", pageId: A, decision: "spam", reason: "x", passId: null, at: NOW.toISOString() });
-    expect(again).toMatchObject({ already: true, row: { passDecision: "hand_over" } });
+    const changed = await repos.leadPass.decide({ project: "p", pageId: A, decision: "spam", reason: "a link shortener", passId: pass.id, at: NOW.toISOString() });
+    expect(changed).toMatchObject({ already: false, changed: "hand_over", row: { passDecision: "spam" } });
+    expect((await repos.leadPass.pass("p", pass.id))?.handedOver).toBe(0);
+    await repos.leadRows.dismiss("p", A, "spam", NOW);
+    const again = await repos.leadPass.decide({ project: "p", pageId: A, decision: "reply", reason: "x", passId: null, at: NOW.toISOString() });
+    expect(again).toMatchObject({ already: true, row: { passDecision: "spam" } });
+    await repos.leadRows.undismiss("p", A);
     expect(await repos.leadPass.redo("p", A)).toBe(true);
     expect((await repos.leadPass.due("p", FROM)).rows.map((r) => r.pageId)).toEqual([A]);
   });

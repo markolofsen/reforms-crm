@@ -74,7 +74,10 @@ describe("a lead turn's hub mcp (verdict 5)", () => {
     const r = await call("lead_decide", { lead: B, decision: "hand_over", reason: "possible match: Ann Corp" });
     expect(r.isError).toBe(false);
     expect(r.json).toMatchObject({ decision: "hand_over", next: "Stop here: the decision is recorded. Write nothing else." });
-    expect((await call("lead_decide", { lead: B, decision: "spam", reason: "again" })).json.error).toBe("lead_decided");
+    // F2 of 3d: changed until the owner applied it, then refused.
+    expect((await call("lead_decide", { lead: B, decision: "spam", reason: "again, a test form" })).json).toMatchObject({ decision: "spam", changed: "hand_over" });
+    await repos.leadRows.dismiss("acme", B, "spam");
+    expect((await call("lead_decide", { lead: B, decision: "not_now", reason: "again" })).json.error).toBe("lead_decided");
   });
 
   it("a client decision on an exact address keeps the matched client (D3)", async () => {
@@ -101,6 +104,24 @@ describe("a lead turn's hub mcp (verdict 5)", () => {
 });
 
 describe("the attended pass", () => {
+  it("F1: client answered in a channel needs that client's live conversation there, and no draft is asked for", async () => {
+    const { call } = await connect();
+    const none = await call("lead_decide", { lead: B, decision: "client", reason: "answered in whatsapp", client: ann, answered_in: "whatsapp" });
+    expect(none.json.error).toBe("invalid");
+    await repos.messengers.addIdentifier("acme", ann, "whatsapp", "4915112345678");
+    const r = await call("lead_decide", { lead: B, decision: "client", reason: "answered in whatsapp", client: ann, answered_in: "whatsapp" });
+    expect(r.json).toMatchObject({ decision: "client", client: ann, hint: null });
+    expect((await repos.leadRows.get("acme", B))?.passClientId).toBe(ann);
+  });
+
+  it("F3: lead_pass_start starts the server pass through its port; without one it is unavailable", async () => {
+    const runs: string[] = [];
+    const { call } = await connect({ leadPassRun: { run: async (slug) => (runs.push(slug), { ok: true, joined: false }) } });
+    expect((await call("lead_pass_start", {})).json).toMatchObject({ started: true, joined: false });
+    expect(runs).toEqual(["acme"]);
+    expect((await (await connect()).call("lead_pass_start", {})).json.error).toBe("unavailable");
+  });
+
   it("leads_open lists the open leads with no decision; an attended decision is one dock pass row", async () => {
     const { call } = await connect({ projectConfig: () => ({ leads: { windowDays: 14 } }) as never });
     const open = await call("leads_open", {});

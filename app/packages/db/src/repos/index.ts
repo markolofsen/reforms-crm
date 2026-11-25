@@ -78,7 +78,7 @@ export type { InboundItem, InboundKnown, InboundRow, InboundWhy, NewInbound } fr
 export { PREVIEW_CHARS } from "./inbound-mail";
 export type { LeadItem, LeadRow, NewLead } from "./lead-rows";
 export { LEAD_PREVIEW_CHARS } from "./lead-rows";
-export { dueLeads, samePersonAs, samePersonReason, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./lead-pass";
+export { dueLeads, leadDecisionApplied, samePersonAs, samePersonReason, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./lead-pass";
 export type { FollowUpDecisionInput, FollowUpItem, FollowUpRow, FollowUpSweepRow } from "./follow-ups";
 export { decisionSummary } from "./follow-ups";
 export type { DueChat, DueClient, DueFacts, NotDue } from "./follow-up-due";
