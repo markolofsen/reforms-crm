@@ -2,11 +2,15 @@ import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { messengerChats, messengerMessages, type MessengerChannel } from "../schema";
 import { write, type WriteTx } from "../tx";
+import { clientOfChat, followUpClientWrote, followUpWeWrote, noteChatOutbound } from "./follow-up-hooks";
 
 /** What is known of a chat when its row is made or refreshed (decision 0049 point 6, P141 U3): never a text. */
 export type KnownChat = { title?: string | null; forceTitle?: boolean; autolinked?: string | null; username?: string | null; phone?: string | null; profileName?: string | null };
-/** What ingest observed of a chat (decision 0049): the newest inbound message's time, the account that read it, its WhatsApp address. */
-export type ChatFact = { inboundAt?: string | null; account?: string | null; jid?: string | null };
+/**
+ * What ingest observed of a chat (decision 0049): the newest inbound message's time, the account that read it, its WhatsApp address;
+ * P142: the newest outbound message's time (the owner's phone, the bot's echo), the mirror of `last_inbound_at`.
+ */
+export type ChatFact = { inboundAt?: string | null; account?: string | null; jid?: string | null; outboundAt?: string | null };
 
 type MessengerMessage = typeof messengerMessages.$inferSelect;
 
@@ -15,6 +19,7 @@ type MessengerMessage = typeof messengerMessages.$inferSelect;
  * value changes: an UPDATE that matches fires the `live_*` trigger, and a refill that brought nothing new must not wake the admin.
  */
 function noteFact(tx: WriteTx, project: string, channel: MessengerChannel, chatId: string, f: ChatFact): boolean {
+  const followed = noteFollowUp(tx, project, channel, chatId, f);
   const changes = [
     ...(f.inboundAt ? [sql`(${messengerChats.lastInboundAt} is null or ${messengerChats.lastInboundAt} < ${f.inboundAt})`] : []),
     ...(f.account ? [sql`${messengerChats.account} is not ${f.account}`] : []),
@@ -25,8 +30,22 @@ function noteFact(tx: WriteTx, project: string, channel: MessengerChannel, chatI
     ...(f.account ? { account: f.account } : {}),
     ...(f.jid ? { jid: f.jid } : {}),
   };
-  if (!changes.length) return false;
-  return tx.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId), or(...changes))).run().changes > 0;
+  if (!changes.length) return followed;
+  return followed || tx.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId), or(...changes))).run().changes > 0;
+}
+
+/**
+ * P142 verdict 11: a linked chat's client wrote (the plan resets to answered) or we wrote (a stop or hand-over waits again), and the
+ * chat's `last_outbound_at` moves forward. Each hook anchors on the plan's own decision time, so a refill of old rows changes nothing.
+ */
+function noteFollowUp(tx: WriteTx, project: string, channel: MessengerChannel, chatId: string, f: ChatFact): boolean {
+  const out = f.outboundAt ? noteChatOutbound(tx, project, channel, chatId, f.outboundAt) : false;
+  if (!f.inboundAt && !out) return out;
+  const client = clientOfChat(tx, project, channel, chatId);
+  if (client === null) return out;
+  if (f.inboundAt) followUpClientWrote(tx, project, client, f.inboundAt);
+  if (out && f.outboundAt) followUpWeWrote(tx, project, client, f.outboundAt);
+  return out;
 }
 
 /**

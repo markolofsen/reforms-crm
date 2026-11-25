@@ -7,6 +7,7 @@ import { clientMergeRepo } from "./client-merge";
 import { conversationsRepo } from "./conversations";
 import { draftsRepo } from "./drafts";
 import { enrollmentsRepo } from "./enrollments";
+import { followUpsRepo } from "./follow-ups";
 import { inboxRepo } from "./inbox";
 import { inboundMailRepo } from "./inbound-mail";
 import { knowledgeRepo } from "./knowledge";
@@ -38,6 +39,7 @@ export function createRepos(db: Db) {
     inboundMail: inboundMailRepo(db),
     leadRows: leadRowsRepo(db),
     enrollments: enrollmentsRepo(db),
+    followUps: followUpsRepo(db),
     mailVersions: mailVersionsRepo(db),
     mailWrites: mailWritesRepo(db),
     llmCalls: llmCallsRepo(db),
@@ -74,6 +76,10 @@ export type { InboundItem, InboundKnown, InboundRow, InboundWhy, NewInbound } fr
 export { PREVIEW_CHARS } from "./inbound-mail";
 export type { LeadItem, LeadRow, NewLead } from "./lead-rows";
 export { LEAD_PREVIEW_CHARS } from "./lead-rows";
+export type { FollowUpDecisionInput, FollowUpItem, FollowUpRow, FollowUpSweepRow } from "./follow-ups";
+export { decisionSummary } from "./follow-ups";
+export type { DueChat, DueClient, DueFacts, NotDue } from "./follow-up-due";
+export { dueClients, judgeDue } from "./follow-up-due";
 export type { MessengerUsage, NewMessengerSend, NewSend, SendRow } from "./sends";
 export { usageRefusal } from "./sends";
 export type { Adoption, MailVersionRow, MailVersionSource, MailWriteRow, NewMailVersion, NewMailWrite, ThreadDraft } from "./mail-versions";

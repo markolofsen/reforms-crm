@@ -10,6 +10,7 @@ export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rena
 export { dataVersion, isBusy } from "./tx";
 export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";
 export { RepoError, type RepoErrorCode } from "./errors";
+export { decisionSummary, dueClients, judgeDue, type DueChat, type DueClient, type DueFacts, type FollowUpDecisionInput, type FollowUpItem, type FollowUpRow, type FollowUpSweepRow, type NotDue } from "./repos";
 export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, isDoneThrough, rulesOf, senderName, shellHashOf, startsWithWrite, teamNoticeOf, textKey, usageRefusal, versionHashOf, withoutLeadingBlankLines, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export { answeringDraft, PREVIEW_CHARS } from "./repos/inbound-mail";

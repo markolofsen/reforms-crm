@@ -173,6 +173,8 @@ async function deliver(deps: MessengerDoorDeps, auth: SendAuthorization, row: Se
     await confirmDraft(repos, auth, { at });
     const receipt = await sendConfirmed({ repos, adapter, ...(deps.now ? { now: deps.now } : {}) }, auth);
     await repos.sends.markSent(row.id, receipt.remoteMessageId);
+    // P142 verdict 11: the chat's `last_outbound_at`, a reopened plan and a nudge's count; bookkeeping, never a reason to fail the send.
+    await repos.followUps.messengerSent(auth.project, auth.draftId, at).catch((e: unknown) => log.error("messenger door: the follow-up record failed; the message was sent", { project: auth.project, messengerDraft: auth.draftId, ...errFields(e) }));
     log.info("messenger door: sent", { project: auth.project, messengerDraft: auth.draftId, actor: actorOf(auth.authority), channel: auth.channel, account: auth.account, send: row.id });
     return { sendId: row.id };
   } catch (e) {

@@ -138,10 +138,10 @@ export function messengerChatsRepo(db: Db) {
         .where(msgsOf(project, channel, chatId))
         .get();
       // Decision 0049 (P141 W4): the chat row's `last_inbound_at` outlives the cache, so a client who wrote 31 days ago still wrote.
-      const fact = db.select({ at: messengerChats.lastInboundAt }).from(messengerChats).where(key(project, channel, chatId)).get()?.at ?? null;
-      const cached = r?.lastInAt ?? null;
-      const lastInAt = !fact ? cached : !cached ? fact : fact > cached ? fact : cached;
-      return { inbound: Number(r?.inbound ?? 0), lastInAt, lastOutAt: r?.lastOutAt ?? null };
+      // P142: `last_outbound_at` is its mirror, so "we wrote last" outlives the cache too.
+      const fact = db.select({ at: messengerChats.lastInboundAt, out: messengerChats.lastOutboundAt }).from(messengerChats).where(key(project, channel, chatId)).get();
+      const later = (a: string | null | undefined, b: string | null | undefined) => (!a ? (b ?? null) : !b ? a : a > b ? a : b);
+      return { inbound: Number(r?.inbound ?? 0), lastInAt: later(fact?.at, r?.lastInAt), lastOutAt: later(fact?.out, r?.lastOutAt) };
     },
 
     /** P102: every stored message of the chat, either side: what Unlink would delete, said in its sentence. */

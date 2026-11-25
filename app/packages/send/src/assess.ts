@@ -82,6 +82,8 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   if (!auto && !draft.checked) reasons.push("the draft is not Checked (accepted) yet");
   // P47 decision 5: a follow-up step is never sent by the hub, in any mode (reason `sequence-step`): the owner sends it from Mail.
   if (draft.enrollmentId != null) reasons.push("sequence-step: a follow-up step is sent by you from Mail, never by the hub");
+  // P142 verdict 7 (decision 0050 point 5): a follow-up nudge of the sweep is never sent by autosend; the owner's own Send sends it.
+  if (auto && draft.followUpN != null) reasons.push("follow-up-nudge: a follow-up nudge is sent by your click, never by autosend");
   if (draft.injectionSuspected) reasons.push("the mail it answers was flagged injection_suspected: never sent by the hub");
   if (client.marks.includes("do_not_contact")) reasons.push("the client is marked do_not_contact");
 

@@ -74,7 +74,7 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
   const wrote = new Map<string, boolean>();
   const dropped = new Map<string, Dropped>();
   const chats = new Map<string, StoredChat>();
-  const facts = new Map<string, { channel: MessengerChannel; chatId: string; inboundAt: string | null; account: string; jid: string | null }>();
+  const facts = new Map<string, { channel: MessengerChannel; chatId: string; inboundAt: string | null; outboundAt: string | null; account: string; jid: string | null }>();
   let stored = 0;
   let duplicates = 0;
   let edited = 0;
@@ -139,11 +139,11 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
       continue;
     }
     {
-      const f = facts.get(key) ?? { channel: m.channel, chatId: m.chatId, inboundAt: null, account: m.account, jid: null };
+      const f = facts.get(key) ?? { channel: m.channel, chatId: m.chatId, inboundAt: null, outboundAt: null, account: m.account, jid: null };
       if ((m.direction ?? "in") === "in") {
         if (!f.inboundAt || m.sentAt > f.inboundAt) f.inboundAt = m.sentAt;
         f.account = m.account;
-      }
+      } else if (!f.outboundAt || m.sentAt > f.outboundAt) f.outboundAt = m.sentAt; // P142: "we wrote last" outlives the cache
       if (m.chatJid) f.jid = m.chatJid;
       facts.set(key, f);
     }
@@ -175,6 +175,6 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
       chats.set(key, c);
     } else duplicates++;
   }
-  for (const f of facts.values()) await messengers.noteChatFact(deps.project, f.channel, f.chatId, { inboundAt: f.inboundAt, account: f.account, jid: f.jid });
+  for (const f of facts.values()) await messengers.noteChatFact(deps.project, f.channel, f.chatId, { inboundAt: f.inboundAt, outboundAt: f.outboundAt, account: f.account, jid: f.jid });
   return { stored, chats: [...chats.values()], duplicates, dropped: [...dropped.values()], edited };
 }

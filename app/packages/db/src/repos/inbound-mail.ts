@@ -3,6 +3,7 @@ import type { Db } from "../client";
 import { write } from "../tx";
 import { clients, drafts, inboundMail, inboxRows, mailVersions, marks, sendLog } from "../schema";
 import { bareRef } from "./mail-versions";
+import { clientOfEmail, followUpClientWrote } from "./follow-up-hooks";
 
 // The Mail reader's rows (P96 S1, migration 0031). The server reads INBOX read-only and keeps one row per message it judged
 // a client's; this repo stores them and answers the Inbox view. A row is "open" while no draft of that client was recorded
@@ -126,6 +127,9 @@ export function inboundMailRepo(db: Db) {
             })
             .run();
           added++;
+          // P142 verdict 11: a message the reader keeps from a client of the project resets its follow-up plan (when newer than the decision).
+          const client = clientOfEmail(tx, r.project, r.email);
+          if (client !== null) followUpClientWrote(tx, r.project, client, r.receivedAt);
         }
         return added;
       });

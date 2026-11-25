@@ -59,7 +59,8 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v.trim()
 const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : null);
 
 /** The client decisions a session records, in the owner's words. */
-const OUTCOME: Record<string, ActivityOutcome> = { drafted: "drafted", create: "drafted", update: "updated", skipped: "skipped", escalated: "escalated", injection_suspected: "flagged", linked: "linked" };
+// P142: a follow-up decision is a line of its own kind; a nudge counts with the drafts, a wait or a stop with the skips (a hand-over is `needs_human`).
+const OUTCOME: Record<string, ActivityOutcome> = { drafted: "drafted", create: "drafted", update: "updated", skipped: "skipped", escalated: "escalated", injection_suspected: "flagged", linked: "linked", follow_up_nudge: "drafted", follow_up_wait: "skipped", follow_up_stop: "skipped", follow_up_owner: "updated" };
 
 /** The outcome of an event, or null for one that is not a client decision. A draft line with no action is a draft made. */
 export function outcomeOf(kind: string, d: Detail): ActivityOutcome | null {
