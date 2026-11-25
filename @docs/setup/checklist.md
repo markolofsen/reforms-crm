@@ -124,6 +124,9 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **Clients carry the client map's date** (`notion.client-map`)
   - Proves: Each project's Clients database (project.md, `clients`) has the property "Map updated" of type date. Read only: one GET per project. WARN when there is no token to read with, or the name is taken by another type.
   - `hub install` fixes it: Adds the date property "Map updated" to each Clients database that lacks it (one PATCH of the data source; no other property is touched, nothing is deleted). The integration needs Update content.
+- [ ] **Clients carry the follow-up properties** (`notion.follow-ups`)
+  - Proves: Each project's Clients database (project.md, `clients`) has "Next follow-up" (date), "Follow-up status" (select), "Follow-ups sent" (number) and "Waiting on" (select). Read only: one GET per project. WARN when there is no token to read with, or a name is taken by another type.
+  - `hub install` fixes it: Adds the missing ones to each Clients database (one PATCH of the data source; the selects with their options; no other property is touched, the CRM's Follow-up on and Waiting since stay the CRM's, nothing is deleted). The integration needs Update content.
 - [ ] **Live property descriptions match the pack** (`notion.descriptions`)
   - Proves: Each project database that has descriptions in the pack (`schema/<db>.json`, `description`) holds the same text live. Read only: one GET per database. WARN when there is no token to read with.
   - `hub install` fixes it: Sets the pack's description on each property that differs: one PATCH per data source, a select's options sent back exactly as Notion holds them (no option, colour or type changes), nothing deleted. The integration needs Update content.

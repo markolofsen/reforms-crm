@@ -9,7 +9,7 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 ## Databases
 
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
-- [Clients](#clients) (`clients`, 44 fields)
+- [Clients](#clients) (`clients`, 48 fields)
 - [Deals](#deals) (`deals`, 45 fields)
 - [Documents](#documents) (`documents`, 18 fields)
 - [Expenses](#expenses) (`expenses`, 19 fields)
@@ -74,6 +74,10 @@ Pack file: `schema/clients.json`.
 | Last two-way contact | date | CRM |  |
 | Last sent at | date | Hub | Description: "Written by the Hub when a reply to this client is sent (its send button or Sent detection). Do not edit." With Last sent by: who of the team last wrote to the client (P89, decision 0043). Not Last outbound, which is the CRM sync's. Flags: optional. |
 | Last sent by | text | Hub | Description: "Written by the Hub: the name of the team member whose Hub sent the last reply (their setup name). Do not edit." Project setting notion.stamp_sends (on by default) switches the write (P89). Flags: optional. |
+| Next follow-up | date | Hub | P142 (decision 0050): the day the follow-up sweep looks at this client again; emptied when the client answers. Added by `hub install --only notion.follow-ups`. Not Follow-up on, which is the CRM sync's. Flags: optional. |
+| Follow-up status | select | Hub | Options: Waiting, Nudge ready, Stopped, Handed over, Answered. P142: the follow-up plan's state (a select: the API cannot create a Status). A dated line per decision is appended under the page's "Follow-ups" heading. Flags: optional. |
+| Follow-ups sent | number | Hub | P142: nudges sent since the client last wrote; back to 0 when they answer. Flags: optional. |
+| Waiting on | select | Hub | Options: Them, Us. P142: who owes the next message, the agent's reading. Not Waiting since, which is the CRM sync's. Flags: optional. |
 | Synced at | date | CRM |  |
 | Created | created_time | CRM |  |
 | CRM id | text | CRM |  |

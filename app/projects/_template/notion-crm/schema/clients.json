@@ -162,6 +162,41 @@
    "optional": true,
    "note": "Description: \"Written by the Hub: the name of the team member whose Hub sent the last reply (their setup name). Do not edit.\" Project setting notion.stamp_sends (on by default) switches the write (P89)."
   },
+  "Next follow-up": {
+   "type": "date",
+   "writer": "Hub",
+   "optional": true,
+   "note": "P142 (decision 0050): the day the follow-up sweep looks at this client again; emptied when the client answers. Added by `hub install --only notion.follow-ups`. Not Follow-up on, which is the CRM sync's."
+  },
+  "Follow-up status": {
+   "type": "select",
+   "options": [
+    "Waiting",
+    "Nudge ready",
+    "Stopped",
+    "Handed over",
+    "Answered"
+   ],
+   "writer": "Hub",
+   "optional": true,
+   "note": "P142: the follow-up plan's state (a select: the API cannot create a Status). A dated line per decision is appended under the page's \"Follow-ups\" heading."
+  },
+  "Follow-ups sent": {
+   "type": "number",
+   "writer": "Hub",
+   "optional": true,
+   "note": "P142: nudges sent since the client last wrote; back to 0 when they answer."
+  },
+  "Waiting on": {
+   "type": "select",
+   "options": [
+    "Them",
+    "Us"
+   ],
+   "writer": "Hub",
+   "optional": true,
+   "note": "P142: who owes the next message, the agent's reading. Not Waiting since, which is the CRM sync's."
+  },
   "Synced at": {
    "type": "date",
    "writer": "CRM"

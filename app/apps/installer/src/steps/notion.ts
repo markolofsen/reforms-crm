@@ -2,6 +2,7 @@ import { projectStore } from "@hub/projects/store";
 import { readJson, type McpFile } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
 import { addMapField, mapFieldRows } from "../notion-map-field";
+import { addFollowUpFields, followUpFieldRows } from "../notion-follow-up-fields";
 import { descriptionRows, syncDescriptions } from "../notion-descriptions";
 import path from "node:path";
 import type { Step } from "../types";
@@ -68,6 +69,23 @@ export const notionSteps: Step[] = [
     },
     async apply(ctx) {
       return addMapField(ctx, await mapFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
+    },
+  },
+  {
+    id: "notion.follow-ups", group: "Notion", title: "Clients carry the follow-up properties",
+    why: "P142 (decision 0050): the daily follow-up sweep copies each client's plan to their Clients page: the dates and states as four Hub-owned properties (Next follow-up, Follow-up status, Follow-ups sent, Waiting on) and one dated line under \"Follow-ups\". A database without them still gets the line; only the properties are skipped.",
+    verifies: "Each project's Clients database (project.md, `clients`) has \"Next follow-up\" (date), \"Follow-up status\" (select), \"Follow-ups sent\" (number) and \"Waiting on\" (select). Read only: one GET per project. WARN when there is no token to read with, or a name is taken by another type.",
+    does: "Adds the missing ones to each Clients database (one PATCH of the data source; the selects with their options; no other property is touched, the CRM's Follow-up on and Waiting since stay the CRM's, nothing is deleted). The integration needs Update content.",
+    async check(ctx) {
+      const rows = await followUpFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list());
+      if (!rows.length) return pass("no project lists a Clients database");
+      const missing = rows.filter((r) => r.state === "missing");
+      if (missing.length) return fail(`${missing.map((r) => r.detail).join("; ")}: \`hub install --only notion.follow-ups\` adds them`);
+      const other = rows.filter((r) => r.state !== "ok");
+      return other.length ? warn(other.map((r) => r.detail).join("; ")) : pass(`${rows.length} Clients database(s) have the follow-up properties`);
+    },
+    async apply(ctx) {
+      return addFollowUpFields(ctx, await followUpFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
     },
   },
   {
