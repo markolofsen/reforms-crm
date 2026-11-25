@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/hero.webp" width="900" alt="An octopus-like AI agent sorts incoming mail and chat messages into finished reply drafts, while a person's hand presses the single send key">
+</p>
+
 # reforms-hub: an agent-first mail and CRM workflow
 
 > This repository is the **core**: universal code, skills and docs, free of any owner's data. One owner's projects live in an
