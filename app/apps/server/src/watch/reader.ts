@@ -1,5 +1,5 @@
 import type { MtPublic } from "@hub/messengers";
-import { FloodWaitError, type PublicReader } from "@hub/watch/reader";
+import { FloodWaitError, PeerUnknownError, type PublicReader } from "@hub/watch/reader";
 
 /**
  * The watcher's `PublicReader` over the user-account supervisor's connection (P144 W4, verdict 10): the account's own session,
@@ -20,6 +20,9 @@ const floodOr = (e: unknown): unknown => {
   const r = rpcOf(e);
   return /FLOOD_WAIT|FLOOD_PREMIUM_WAIT/.test(r.text) ? new FloodWaitError(r.seconds ?? 60) : e;
 };
+
+/** mtcute's local refusal of a peer its session cache does not hold (after a restart), and Telegram's for a stale access hash. */
+const PEER_UNKNOWN = /not found in local cache|PEER_ID_INVALID|CHANNEL_INVALID/;
 
 const MEMBERS_ONLY = /CHANNEL_PRIVATE|CHAT_FORBIDDEN|CHANNEL_PUBLIC_GROUP_NA/;
 const ADMIN_ONLY = /CHAT_ADMIN_REQUIRED/;
@@ -42,6 +45,7 @@ export function publicReaderOf(mt: MtPublic): PublicReader {
         const r = rpcOf(e);
         if (MEMBERS_ONLY.test(r.text)) return { ok: false, reason: "join_required" };
         if (ADMIN_ONLY.test(r.text)) return { ok: false, reason: "private" };
+        if (PEER_UNKNOWN.test(r.text)) throw new PeerUnknownError(peer.peerId);
         throw floodOr(e);
       }
     },
@@ -50,6 +54,7 @@ export function publicReaderOf(mt: MtPublic): PublicReader {
         return await mt.join(Number(peer.peerId));
       } catch (e) {
         if (/INVITE_REQUEST_SENT/.test(rpcOf(e).text)) return "pending";
+        if (PEER_UNKNOWN.test(rpcOf(e).text)) throw new PeerUnknownError(peer.peerId);
         throw floodOr(e);
       }
     },

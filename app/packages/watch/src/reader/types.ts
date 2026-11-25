@@ -45,6 +45,17 @@ export class FloodWaitError extends Error {
   }
 }
 
+/**
+ * The client does not know a stored peer any more: its access hash lives in the session's own peer cache, which does not
+ * survive a restart (saas, 2026-11-25: "Peer -100… is not found in local cache"). The watcher resolves the username again.
+ */
+export class PeerUnknownError extends Error {
+  constructor(readonly peerId: string) {
+    super(`the account's client does not know peer ${peerId} (resolve the username again)`);
+    this.name = "PeerUnknownError";
+  }
+}
+
 /** What the watcher knows of the owner's own Telegram work: while it is busy, a watcher call waits (verdict 11). */
 export interface OwnerActivity {
   /** Private-chat reads, the autopilot, a send or the restart catch-up in flight on the account. */

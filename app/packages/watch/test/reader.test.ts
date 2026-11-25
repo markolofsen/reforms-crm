@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WatchConfig } from "../src/config";
 import { createWatchQueue, HISTORY_GAP_MS, RESOLVES_PER_DAY, WatchBudgetSpent, WatchParked } from "../src/reader/queue";
-import { createWatcher, FloodWaitError, type PublicPeer, type PublicReader } from "../src/reader/poller";
+import { BACKOFF_BASE_MS, createWatcher, FloodWaitError, PeerUnknownError, type PublicPeer, type PublicReader } from "../src/reader/poller";
 import { acmeLens, answer, fakeLlm, tempStore } from "./support";
 
 // P144 W4 with fakes only: no Telegram call is made by any test. The reader has three methods and no write; the queue keeps the
@@ -15,6 +15,35 @@ function clock(start = Date.parse("2026-11-20T10:00:00Z")) {
 }
 
 const idle = { busy: () => false };
+
+/**
+ * A client that forgets peers the way mtcute's session cache does across a restart: a peer is known only after this client
+ * resolved it. `fail` makes every history read fail locally (no network answer), as a closed socket would.
+ */
+function forgetfulReader(o: { fail?: string } = {}) {
+  const calls: string[] = [];
+  const known = new Set<string>();
+  const reader: PublicReader = {
+    async resolve(username) {
+      calls.push(`resolve ${username}`);
+      const peerId = `-100${username.length}`;
+      known.add(peerId);
+      return { peerId, title: username.toUpperCase() };
+    },
+    async history(peer, q) {
+      calls.push(`history ${peer.title} ${q.minId}`);
+      if (o.fail) throw new Error(o.fail);
+      if (!known.has(peer.peerId)) throw new PeerUnknownError(peer.peerId);
+      return { ok: true, messages: [{ id: q.minId + 1, senderId: "7", senderHandle: null, text: "public text", sentAt: "2026-11-20T09:00:00.000Z" }] };
+    },
+    async join(peer) {
+      calls.push(`join ${peer.title}`);
+      if (!known.has(peer.peerId)) throw new PeerUnknownError(peer.peerId);
+      return "joined";
+    },
+  };
+  return { reader, calls };
+}
 
 /** A fake reader over invented groups; every call is recorded. */
 function fakeReader(o: { joinRequired?: string[]; flood?: number; messages?: number } = {}) {
@@ -158,4 +187,73 @@ describe("the watcher", () => {
     expect(store.moments({}).map((m) => m.messageId)).toEqual([1]);
     expect(store.group("garden_talk")?.newSinceAnalysis).toBe(0);
   });
+
+  it("after a restart, a stored peer the client forgot is resolved again (one of the day's resolves) and read", async () => {
+    const c = clock();
+    const store = tempStore();
+    const { llm } = fakeLlm(() => ({ content: answer([{ message_index: 1 }]) }));
+    const lens = await acmeLens();
+    const start = (reader: PublicReader) => {
+      const queue = createWatchQueue({ owner: idle, clock: c });
+      return { queue, w: createWatcher({ project: "acme", config: config(["garden_talk"]), lens, store, llm, reader: () => reader, queue, now: () => new Date(c.now()) }) };
+    };
+    const before = forgetfulReader();
+    await start(before.reader).w.tick();
+    expect(before.calls).toEqual(["resolve garden_talk", "history GARDEN_TALK 0"]);
+    // The restart: a new client with an empty peer cache, the same store with the peer id.
+    c.advance(5 * 60_000);
+    const after = forgetfulReader();
+    const { queue, w } = start(after.reader);
+    await w.tick();
+    expect(after.calls).toEqual(["history GARDEN_TALK 1", "resolve garden_talk", "history GARDEN_TALK 1"]);
+    expect(store.group("garden_talk")).toMatchObject({ access: "open", lastMessageId: 2, parkedUntil: null });
+    expect(queue.resolvesLeft()).toBe(RESOLVES_PER_DAY - 1);
+    // Read again next time with no resolve.
+    c.advance(5 * 60_000);
+    await w.tick();
+    expect(after.calls.slice(3)).toEqual(["history GARDEN_TALK 2"]);
+  });
+
+  it("Join after a restart resolves the forgotten peer once, then joins", async () => {
+    const forgot = forgetfulReader();
+    const { store, w } = await setup({ reader: forgot.reader, on: false, groups: ["garden_talk"] });
+    store.setGroup("garden_talk", { peerId: "-10011", title: "GARDEN_TALK", access: "join_required" });
+    expect(await w.join("garden_talk")).toEqual({ ok: true, access: "joined" });
+    expect(forgot.calls).toEqual(["join GARDEN_TALK", "resolve garden_talk", "join GARDEN_TALK"]);
+  });
+
+  it("a failing read backs the group off (5 min, then twice as long), says so on its row, and a good read clears it", async () => {
+    const broken = forgetfulReader({ fail: "socket closed" });
+    let reader: PublicReader = broken.reader;
+    const c = clock();
+    const store = tempStore();
+    const { llm } = fakeLlm(() => ({ content: answer([{ message_index: 1 }]) }));
+    const queue = createWatchQueue({ owner: idle, clock: c });
+    const w = createWatcher({ project: "acme", config: config(["garden_talk"]), lens: await acmeLens(), store, llm, reader: () => reader, queue, now: () => new Date(c.now()) });
+    await w.tick();
+    expect(broken.calls).toEqual(["resolve garden_talk", "history GARDEN_TALK 0"]);
+    expect(store.group("garden_talk")?.parkReason).toMatch(/could not be read \(socket closed\)/);
+    // Ticks every 30 s within the wait make no call.
+    for (let k = 0; k < 9; k++) {
+      c.advance(30_000);
+      await w.tick();
+    }
+    expect(broken.calls).toHaveLength(2);
+    c.advance(BACKOFF_BASE_MS);
+    await w.tick();
+    expect(broken.calls).toHaveLength(3);
+    // The second failure waits twice as long.
+    c.advance(BACKOFF_BASE_MS + 1_000);
+    await w.tick();
+    expect(broken.calls).toHaveLength(3);
+    c.advance(BACKOFF_BASE_MS);
+    await w.tick();
+    expect(broken.calls).toHaveLength(4);
+    // The client works again: the read lands and the wait is cleared.
+    reader = forgetfulReader().reader;
+    c.advance(4 * BACKOFF_BASE_MS + 1_000);
+    await w.tick();
+    expect(store.group("garden_talk")).toMatchObject({ access: "open", parkedUntil: null, parkReason: null });
+  });
 });
+

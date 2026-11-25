@@ -69,7 +69,8 @@ export async function watchBody(ctx: WatchContext, p: Extract<WatchProject, { st
         username: g.username,
         title: row?.title ?? null,
         access,
-        accessLine: ACCESS_WORDS[access],
+        // A group backed off after a failed read says why and when it is tried again (P144, saas 2026-11-25).
+        accessLine: row?.parkedUntil && Date.parse(row.parkedUntil) > now ? `${ACCESS_WORDS[access]}; ${row.parkReason ?? "could not be read"}, next try ${row.parkedUntil.slice(11, 16)} UTC` : ACCESS_WORDS[access],
         perDay: g.days > 0 ? Math.round((g.messages / g.days) * 10) / 10 : 0,
         density: g.messages > 0 ? Math.round((g.moments / g.messages) * 1000) / 10 : 0,
         moments: g.moments,

@@ -5,7 +5,7 @@ import type { WatchConfig } from "../config";
 import type { LoadedLens } from "../lens/load";
 import type { WatchStore } from "../store/repo";
 import { WatchBudgetSpent, WatchParked, type WatchQueue } from "./queue";
-import { FloodWaitError, type PublicMessage, type PublicPeer, type PublicReader } from "./types";
+import { FloodWaitError, PeerUnknownError, type PublicMessage, type PublicPeer, type PublicReader } from "./types";
 
 /**
  * One project's watcher (P144 W4 and W5): a tick polls each group whose time has come (every `poll_minutes`; the queue's 3-second gap
@@ -16,7 +16,7 @@ import { FloodWaitError, type PublicMessage, type PublicPeer, type PublicReader 
  */
 
 export { createWatchQueue, type WatchQueue } from "./queue";
-export { FloodWaitError, type OwnerActivity, type PublicMessage, type PublicPeer, type PublicReader } from "./types";
+export { FloodWaitError, PeerUnknownError, type OwnerActivity, type PublicMessage, type PublicPeer, type PublicReader } from "./types";
 
 /** Messages per history pull. */
 export const PULL_LIMIT = 100;
@@ -53,6 +53,11 @@ export interface WatcherDeps {
 
 const peerOf = (g: { peerId: string | null; title: string | null }): PublicPeer | null => (g.peerId ? { peerId: g.peerId, title: g.title } : null);
 
+/** A group whose read fails (not a FLOOD_WAIT) waits 5 min, then twice as long each time, at most 6 h; a good read clears it. */
+export const BACKOFF_BASE_MS = 5 * 60_000;
+export const BACKOFF_MAX_MS = 6 * 3_600_000;
+export const backoffMs = (failures: number): number => Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1));
+
 export function createWatcher(d: WatcherDeps): Watcher {
   const now = d.now ?? (() => new Date());
   const log = ops("watch");
@@ -64,21 +69,38 @@ export function createWatcher(d: WatcherDeps): Watcher {
   // The queue spaces history pulls 3 s apart, so the groups' poll times stay staggered by themselves.
   const pollDue = (lastPolledAt: string | null): boolean => lastPolledAt === null || now().getTime() - Date.parse(lastPolledAt) >= d.config.pollMinutes * 60_000;
 
+  // Failures in a row per group (memory only; the wait itself is the row's `parkedUntil`, so a restart keeps it).
+  const failures = new Map<string, number>();
+
+  /** The username's peer from Telegram (one of the day's resolves), stored on the row; null when no public group has it. */
+  const resolvePeer = async (reader: PublicReader, username: string): Promise<PublicPeer | null> => {
+    const found = await d.queue.run("resolve", () => reader.resolve(username));
+    if (!found) {
+      d.store.setGroup(username, { access: "refused", parkReason: "no public group or channel has this username", lastPolledAt: now().toISOString() });
+      return null;
+    }
+    d.store.setGroup(username, { peerId: found.peerId, title: found.title });
+    return found;
+  };
+
   const pollOne = async (reader: PublicReader, username: string): Promise<void> => {
     const g = d.store.group(username);
     if (!g || g.access === "join_required" || g.access === "pending" || g.access === "refused") return;
-    let peer = peerOf(g);
-    if (!peer) {
-      const found = await d.queue.run("resolve", () => reader.resolve(username));
-      if (!found) {
-        d.store.setGroup(username, { access: "refused", parkReason: "no public group or channel has this username", lastPolledAt: now().toISOString() });
-        return;
-      }
-      peer = found;
-      d.store.setGroup(username, { peerId: found.peerId, title: found.title });
+    const peer = peerOf(g) ?? (await resolvePeer(reader, username));
+    if (!peer) return;
+    const pull = (p: PublicPeer) => d.queue.run("history", () => reader.history(p, { minId: g.lastMessageId, limit: PULL_LIMIT }));
+    let read;
+    try {
+      read = await pull(peer);
+    } catch (e) {
+      // The stored peer outlived the client's peer cache (a restart): resolve the username once more and read again. A second
+      // refusal is a failure of the group (backed off below), never a loop.
+      if (!(e instanceof PeerUnknownError)) throw e;
+      log.info("a stored group peer is unknown to the client: resolving its username again", { project: d.project });
+      const again = await resolvePeer(reader, username);
+      if (!again) return;
+      read = await pull(again);
     }
-    const target = peer;
-    const read = await d.queue.run("history", () => reader.history(target, { minId: g.lastMessageId, limit: PULL_LIMIT }));
     if (!read.ok) {
       d.store.setGroup(username, { access: read.reason === "join_required" ? "join_required" : "refused", parkReason: read.reason === "private" ? "the group is private" : null, lastPolledAt: now().toISOString() });
       d.onWritten?.();
@@ -121,15 +143,27 @@ export function createWatcher(d: WatcherDeps): Watcher {
         const groups = d.store.groups().filter((g) => d.config.groups.includes(g.username));
         for (const g of groups) {
           if (!pollDue(g.lastPolledAt)) continue;
+          if (g.parkedUntil !== null && Date.parse(g.parkedUntil) > now().getTime()) continue;
           try {
             await pollOne(reader, g.username);
+            if (failures.delete(g.username) || g.parkedUntil !== null) {
+              d.store.setGroup(g.username, { parkedUntil: null });
+              d.onWritten?.();
+            }
           } catch (e) {
             if (e instanceof WatchParked || e instanceof FloodWaitError) {
               log.warn("the watcher is parked: Telegram asked the account to wait", { project: d.project, until: d.queue.parkedUntil() });
               break;
             }
             if (e instanceof WatchBudgetSpent) continue;
-            log.warn("a public group could not be read", { project: d.project, ...errFields(e) });
+            // Any other failure (a local client error included) backs this group off, said on its Groups row.
+            const n = (failures.get(g.username) ?? 0) + 1;
+            failures.set(g.username, n);
+            const until = new Date(now().getTime() + backoffMs(n)).toISOString();
+            const why = (e instanceof Error ? e.message : String(e)).replace(/-?\d{6,}/g, "…").slice(0, 120);
+            d.store.setGroup(g.username, { parkedUntil: until, parkReason: `could not be read (${why})` });
+            d.onWritten?.();
+            log.warn("a public group could not be read: it waits before the next try", { project: d.project, failures: n, until, ...errFields(e) });
           }
         }
       }
@@ -150,7 +184,16 @@ export function createWatcher(d: WatcherDeps): Watcher {
       const peer = peerOf(g);
       if (!peer) return { ok: false, reason: "The group has not been resolved yet; it is read on the next poll." };
       try {
-        const access = await d.queue.run("join", () => reader.join(peer));
+        const ask = (p: PublicPeer) => d.queue.run("join", () => reader.join(p));
+        let access;
+        try {
+          access = await ask(peer);
+        } catch (e) {
+          if (!(e instanceof PeerUnknownError)) throw e;
+          const again = await resolvePeer(reader, username);
+          if (!again) return { ok: false, reason: "No public group or channel has this username any more." };
+          access = await ask(again);
+        }
         d.store.setGroup(username, { access, parkReason: null, lastPolledAt: null });
         d.onWritten?.();
         return { ok: true, access };
