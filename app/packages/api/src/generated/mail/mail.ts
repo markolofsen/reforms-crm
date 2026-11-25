@@ -26,6 +26,8 @@ import type {
   Drafts,
   EnrollmentChanged,
   Enrollments,
+  FollowUpChanged,
+  FollowUps,
   GetBatchParams,
   GetClientHistoryParams,
   GetClientTimelineParams,
@@ -52,7 +54,10 @@ import type {
   ManualReplyBody,
   NotByEmail,
   Ok,
+  RunFollowUps,
+  RunFollowUpsBody,
   Sequences,
+  SetFollowUpBody,
   StatusBody,
   StopEnrollmentBody,
   StuckClients,
@@ -239,6 +244,161 @@ export const stopEnrollment = async (slug: string,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(stopEnrollmentBody)
+  }
+);}
+
+
+export type listFollowUpsResponse200 = {
+  data: FollowUps
+  status: 200
+}
+
+export type listFollowUpsResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type listFollowUpsResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type listFollowUpsResponseSuccess = (listFollowUpsResponse200) & {
+  headers: Headers;
+};
+export type listFollowUpsResponseError = (listFollowUpsResponse404 | listFollowUpsResponse503) & {
+  headers: Headers;
+};
+
+export type listFollowUpsResponse = (listFollowUpsResponseSuccess | listFollowUpsResponseError)
+
+export const getListFollowUpsUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/follow-ups`
+}
+
+/**
+ * @summary List the project's follow-up plans and its sweep
+ */
+export const listFollowUps = async (slug: string, options?: Parameters<typeof hubMutator>[1]): Promise<listFollowUpsResponse> => {
+
+  return hubMutator<listFollowUpsResponse>(getListFollowUpsUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type runFollowUpsResponse202 = {
+  data: RunFollowUps
+  status: 202
+}
+
+export type runFollowUpsResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type runFollowUpsResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type runFollowUpsResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type runFollowUpsResponseSuccess = (runFollowUpsResponse202) & {
+  headers: Headers;
+};
+export type runFollowUpsResponseError = (runFollowUpsResponse403 | runFollowUpsResponse404 | runFollowUpsResponse409) & {
+  headers: Headers;
+};
+
+export type runFollowUpsResponse = (runFollowUpsResponseSuccess | runFollowUpsResponseError)
+
+export const getRunFollowUpsUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/follow-ups/sweep`
+}
+
+/**
+ * @summary Run the project's follow-up sweep now
+ */
+export const runFollowUps = async (slug: string,
+    runFollowUpsBody: RunFollowUpsBody, options?: Parameters<typeof hubMutator>[1]): Promise<runFollowUpsResponse> => {
+
+  return hubMutator<runFollowUpsResponse>(getRunFollowUpsUrl(slug),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(runFollowUpsBody)
+  }
+);}
+
+
+export type setFollowUpResponse200 = {
+  data: FollowUpChanged
+  status: 200
+}
+
+export type setFollowUpResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type setFollowUpResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type setFollowUpResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type setFollowUpResponseSuccess = (setFollowUpResponse200) & {
+  headers: Headers;
+};
+export type setFollowUpResponseError = (setFollowUpResponse400 | setFollowUpResponse403 | setFollowUpResponse404) & {
+  headers: Headers;
+};
+
+export type setFollowUpResponse = (setFollowUpResponseSuccess | setFollowUpResponseError)
+
+export const getSetFollowUpUrl = (slug: string,
+    clientId: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/follow-ups/${encodeURIComponent(String(clientId))}`
+}
+
+/**
+ * @summary Change the date of, stop or resume one follow-up plan
+ */
+export const setFollowUp = async (slug: string,
+    clientId: number,
+    setFollowUpBody: SetFollowUpBody, options?: Parameters<typeof hubMutator>[1]): Promise<setFollowUpResponse> => {
+
+  return hubMutator<setFollowUpResponse>(getSetFollowUpUrl(slug,clientId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(setFollowUpBody)
   }
 );}
 
