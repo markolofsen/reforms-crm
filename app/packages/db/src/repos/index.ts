@@ -12,6 +12,7 @@ import { inboxRepo } from "./inbox";
 import { inboundMailRepo } from "./inbound-mail";
 import { knowledgeRepo } from "./knowledge";
 import { leadRowsRepo } from "./lead-rows";
+import { leadPassRepo } from "./lead-pass";
 import { llmCallsRepo } from "./llm-calls";
 import { mailVersionsRepo, mailWritesRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
@@ -38,6 +39,7 @@ export function createRepos(db: Db) {
     inbox: inboxRepo(db),
     inboundMail: inboundMailRepo(db),
     leadRows: leadRowsRepo(db),
+    leadPass: leadPassRepo(db),
     enrollments: enrollmentsRepo(db),
     followUps: { ...followUpsRepo(db), ...followUpSweepsRepo(db) },
     mailVersions: mailVersionsRepo(db),
@@ -76,6 +78,7 @@ export type { InboundItem, InboundKnown, InboundRow, InboundWhy, NewInbound } fr
 export { PREVIEW_CHARS } from "./inbound-mail";
 export type { LeadItem, LeadRow, NewLead } from "./lead-rows";
 export { LEAD_PREVIEW_CHARS } from "./lead-rows";
+export { dueLeads, type LeadDecisionInput, type LeadPassItem, type LeadPassRow } from "./lead-pass";
 export type { FollowUpDecisionInput, FollowUpItem, FollowUpRow, FollowUpSweepRow } from "./follow-ups";
 export { decisionSummary } from "./follow-ups";
 export type { DueChat, DueClient, DueFacts, NotDue } from "./follow-up-due";

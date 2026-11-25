@@ -70,6 +70,8 @@ export type RecordDraftInput = {
   brand?: string | null;
   /** The admin's manual composer may create a new thread without an agent owner request. */
   manual?: boolean;
+  /** P147 (decision 0055): a lead pass draft: it joins the day's lead batch and is stamped on its lead row, in this transaction. */
+  leadPass?: { pageId: string; passId: number | null; day: string } | null;
 };
 
 /** created: new row; updated: same `mailRef` as the open draft; replaced: another open draft was skipped first; unchanged: this `mailRef` is already a finished draft. */

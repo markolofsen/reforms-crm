@@ -172,12 +172,14 @@ export const AUDIENCE_LABELS: Record<Audience, string> = {
 };
 export const DEFAULT_SILENT_DAYS = 14;
 
-export const BATCH_INTENTS = ["follow_up", "notice", "custom"] as const;
+/** P147 (decision 0055): `lead_reply` is the daily lead pass's batch, reviewed on one screen with every draft's full text. */
+export const BATCH_INTENTS = ["follow_up", "notice", "custom", "lead_reply"] as const;
 export type BatchIntent = (typeof BATCH_INTENTS)[number];
 export const INTENT_LABELS: Record<BatchIntent, string> = {
   follow_up: "Follow-up to silent clients",
   notice: "Notice to a segment",
   custom: "Other",
+  lead_reply: "First replies to leads",
 };
 
 /** `queued`: waiting for the agent's drafts. `ready`: the drafts exist. `failed`: the agent stopped early. */

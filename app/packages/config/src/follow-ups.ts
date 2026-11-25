@@ -3,6 +3,7 @@
 // The plan is the agent's notes (verdict 3): nothing here refuses a draft or a send because of a plan; only the mechanical limits
 // of verdicts 8 and 19 are numbers.
 import { AUTOPILOT_CHAT_ENV } from "./autopilot";
+import { LEAD_PAGE_ENV } from "./lead-pass";
 
 /** A plan's stored state (verdict 10). "Ready" (an open nudge draft) and "due" (waiting, its date passed) are derived, never stored. */
 export const FOLLOW_UP_STATES = ["waiting", "stopped", "handed_over", "answered"] as const;
@@ -86,12 +87,12 @@ export const FOLLOW_UP_SKILL = "follow-up-sweep";
 export const FOLLOW_UP_CLIENT_ENV = "HUB_FOLLOWUP_CLIENT";
 
 /**
- * Whether this process belongs to a background run the Hub started itself (an autopilot turn, a follow-up sweep turn): the
- * runner sets one of the two variables on the turn's `hub mcp`. The only source of "unattended" (decisions 0046, 0048, 0050):
+ * Whether this process belongs to a background run the Hub started itself (an autopilot turn, a follow-up sweep turn, a lead
+ * pass turn, decision 0055): the runner sets one of the three variables on the turn's `hub mcp`. The only source of "unattended" (decisions 0046, 0048, 0050):
  * every other session was started by the owner (the dock, a terminal, a resumed session) and is attended, whatever its
  * permission mode. A background run never sends on the agent's call.
  */
-export const backgroundRunOf = (env: Readonly<Record<string, string | undefined>>): boolean => !!(env[AUTOPILOT_CHAT_ENV]?.trim() || env[FOLLOW_UP_CLIENT_ENV]?.trim());
+export const backgroundRunOf = (env: Readonly<Record<string, string | undefined>>): boolean => !!(env[AUTOPILOT_CHAT_ENV]?.trim() || env[FOLLOW_UP_CLIENT_ENV]?.trim() || env[LEAD_PAGE_ENV]?.trim());
 /** The `messenger_drafts.created_by` of a sweep turn's draft, and the reason the autopilot authority carries for a nudge. */
 export const FOLLOW_UP_DRAFT_AUTHOR = "follow_up";
 export const FOLLOW_UP_SEND_REASON = "nudge";

@@ -10,6 +10,7 @@ import { onClientWrote } from "./enrollments";
 import { upsertInbox } from "./inbox";
 import { insertEvent, sessionRun } from "./runs";
 import { bareRef } from "./mail-versions";
+import { joinLeadBatch, stampLeadDraft } from "./lead-pass";
 import type { RecordDraftInput, RecordDraftResult } from "./drafts";
 
 // P126 DB1: the one writer of a draft a session made outside a batch, and the helpers only it uses.
@@ -134,7 +135,11 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
       ...(input.batchKey !== undefined || runKey ? { batchKey: runKey } : {}),
     };
     // P85: a campaign (`bulk-drafts`, one `batchKey`) is one batch in Drafts; joined only by a draft that is written.
-    const inBatch = (): { batchId?: number } => (input.skill === BULK_SKILL && runKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.context), title: titleOf(input.context), at }) } : {});
+    const lead = input.leadPass ?? null;
+    // P147 verdict 6: a lead pass draft joins the day's lead batch (one review a day), whatever run wrote it.
+    const inBatch = (): { batchId?: number } =>
+      lead ? { batchId: joinLeadBatch(tx, { project: input.project, day: lead.day, clientId: client.id, runId, at }) } : input.skill === BULK_SKILL && runKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.context), title: titleOf(input.context), at }) } : {};
+    const stamp = (draftId: number) => (lead ? stampLeadDraft(tx, { project: input.project, pageId: lead.pageId, passId: lead.passId, draftId }) : undefined);
     const flagged = input.injectionSuspected === true;
     const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
     // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.
@@ -159,6 +164,7 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
       tx.update(drafts).set({ ...fields, ...inBatch(), ...(flagged ? { injectionSuspected: true } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, open.id)).run();
       log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
       linkVersions(open.id);
+      stamp(open.id);
       return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, recorded: true, ...stopped };
     }
     if (open && seq) throw new RepoError("wrong_state", "This client has an open draft: a follow-up step is not recorded over it");
@@ -176,6 +182,7 @@ export async function recordDraft(db: Db, input: RecordDraftInput): Promise<Reco
       .get();
     log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef, ...(ownerRequest ? { ownerRequest } : {}) });
     linkVersions(d.id);
+    stamp(d.id);
     return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), recorded: true, ...stopped };
   });
 }

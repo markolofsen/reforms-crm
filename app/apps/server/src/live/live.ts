@@ -32,6 +32,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   knowledge_docs: "knowledge",
   // P97 S2: the Leads reader stored or closed a lead, or the owner pressed Not now or Spam: the Inbox's Leads group and the status line move.
   lead_rows: "inbox",
+  // P147: a lead pass row moved: the Leads views, their banner and Overview's line (the same topic as the lead rows).
+  lead_passes: "inbox",
   // P78: the ledger moves only the Overview's LLM part; `health` is the topic whose keys hold Overview and its parts.
   llm_calls: "health",
   // P65: a version row is written exactly when the Hub wrote or moved a Mail draft, so the open card reads Mail again.

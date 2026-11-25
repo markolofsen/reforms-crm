@@ -46,6 +46,8 @@ export const drafts = sqliteTable(
     checked: integer("checked", { mode: "boolean" }).notNull().default(false),
     // Hash of the Mail draft the person had read when they ticked Checked (P27 M2.4): Send refuses when Mail no longer matches.
     checkedHash: text("checked_hash"),
+    /** P147 D10 (migration 0047): the hash of the text the lead review served, set by the server at that read; the review's ticket makes it `checked_hash`. */
+    servedHash: text("served_hash"),
     prevStatus: text("prev_status").$type<DraftStatus>(),
     prevChecked: integer("prev_checked", { mode: "boolean" }),
     actedAt: text("acted_at"),

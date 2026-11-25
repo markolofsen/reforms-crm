@@ -14,6 +14,7 @@
     "./chat-rules": "./src/chat-rules.ts",
     "./autopilot": "./src/autopilot.ts",
     "./follow-ups": "./src/follow-ups.ts",
+    "./lead-pass": "./src/lead-pass.ts",
     "./llm": "./src/llm.ts",
     "./person": "./src/person.ts",
     "./profile": "./src/profile.ts",

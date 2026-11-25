@@ -3,6 +3,8 @@ import { index, integer, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } 
 import type { EnrollmentState, FinishReason, InboxAction, InboxKind, NotionKind } from "@hub/config";
 import { clients } from "./clients";
 import { drafts } from "./drafts";
+import { leadPasses } from "./lead-pass";
+import type { LeadPassDecision } from "@hub/config/lead-pass";
 
 // Follow-up sequences (P47, `@docs/core/23-sequences.md`). One row per time the owner enrolled a client in a project's sequence.
 // `step` is the NEXT step to draft; `schedule` is the copy of the file's waits taken at enrolment (JSON {delays, businessDays}),
@@ -131,6 +133,16 @@ export const leadRows = sqliteTable(
     convertNote: text("convert_note"),
     readAt: text("read_at").notNull(),
     storedAt: text("stored_at").notNull(),
+    // P147 (decision 0055, migration 0047): the daily lead pass's decision on this request (verdict 2), the agent's notes. The
+    // draft it wrote (`pass_draft_id`, stamped by the record of that draft), the client it matched by the exact reply address
+    // (`pass_client_id`, D3: the send converts onto that card), and the owner's untick in the review (`pass_excluded_at`, D7).
+    passDecision: text("pass_decision").$type<LeadPassDecision>(),
+    passReason: text("pass_reason"),
+    passAt: text("pass_at"),
+    passId: integer("pass_id").references((): AnySQLiteColumn => leadPasses.id, { onDelete: "set null" }),
+    passDraftId: integer("pass_draft_id").references((): AnySQLiteColumn => drafts.id, { onDelete: "set null" }),
+    passClientId: integer("pass_client_id").references((): AnySQLiteColumn => clients.id, { onDelete: "set null" }),
+    passExcludedAt: text("pass_excluded_at"),
   },
-  (t) => [uniqueIndex("lead_rows_project_page").on(t.project, t.pageId), index("lead_rows_project_email").on(t.project, t.email)],
+  (t) => [uniqueIndex("lead_rows_project_page").on(t.project, t.pageId), index("lead_rows_project_email").on(t.project, t.email), index("lead_rows_project_pass").on(t.project, t.passDecision)],
 );

@@ -1,7 +1,8 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { write } from "../tx";
-import { leadRows, type LeadDismissReason } from "../schema";
+import { drafts, leadRows, type LeadDismissReason } from "../schema";
+import { leadPassDisplay } from "@hub/config/lead-pass";
 
 // The Leads reader's rows (P97 S2, decision 0044, migration 0033). The server reads the project's Notion Leads data source with
 // the hub token and keeps one row per page received in the project's window (`leads.window_days`); this repo stores them and
@@ -37,18 +38,25 @@ const fact = (v: string | null | undefined): string | null => (v?.trim() ? v.tri
 
 export const LEAD_PREVIEW_CHARS = 120;
 /** P134 verdict 7: the views of Mail ▸ Leads (the contract's `LEAD_VIEWS`). */
-export type LeadsView = "new" | "not_now" | "spam" | "replied";
+/** P147 verdict 15: New splits into New and Drafted (a drafted lead no longer just disappears), and For you holds the hand-overs. */
+export type LeadsView = "new" | "drafted" | "for_you" | "not_now" | "spam" | "replied";
 export type LeadsCounts = Record<LeadsView, number>;
 
 /**
  * The view a lead row is in, or null (a lead its Status closed in Notion, or a draft to it is the work): New while open and in
  * the window; Replied once a first send converted it; Spam and Not now the owner's asides (a Spam Status set in Notion too).
  */
-export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | "notionStatus">, open: boolean, inWindow: boolean): LeadsView | null {
+export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | "notionStatus" | "passDecision" | "passDraftId" | "passExcludedAt">, open: boolean, inWindow: boolean, draftStatus: string | null = null): LeadsView | null {
   if (r.convertedAt) return "replied";
   if (r.dismissedReason === "spam" || r.notionStatus === "Spam") return "spam";
   if (r.dismissedReason === "not_now") return "not_now";
-  return open && inWindow ? "new" : null;
+  if (!inWindow) return null;
+  // P147: a lead the pass decided is Drafted (a draft, its gone draft, a proposal, an untick) or For you, open or not.
+  const d = leadPassDisplay({ ...r, draftStatus });
+  if (d === "for_you") return "for_you";
+  if (d === "drafted" || d === "draft_gone" || d === "proposed" || d === "excluded") return "drafted";
+  if (d === "sent") return "replied";
+  return open ? "new" : null;
 }
 
 /** One row per person (their newest request first), how many requests share the address. Rows come newest first. */
@@ -93,8 +101,11 @@ export function leadRowsRepo(db: Db) {
       .where(eq(leadRows.project, project))
       .orderBy(sql`${leadRows.receivedAt} desc`, sql`${leadRows.id} desc`)
       .all();
-    const of = (v: LeadsView) => byPerson(all.filter((r) => leadViewOf(r.row, r.open === 1, r.row.receivedAt >= from) === v).map((r) => r.row));
-    const counts: LeadsCounts = { new: of("new").length, not_now: of("not_now").length, spam: of("spam").length, replied: of("replied").length };
+    const draftIds = all.flatMap((r) => (r.row.passDraftId !== null ? [r.row.passDraftId] : []));
+    const status = new Map(draftIds.length ? db.select({ id: drafts.id, status: drafts.status }).from(drafts).where(inArray(drafts.id, draftIds)).all().map((d) => [d.id, d.status]) : []);
+    const viewOf = (r: (typeof all)[number]) => leadViewOf(r.row, r.open === 1, r.row.receivedAt >= from, r.row.passDraftId !== null ? (status.get(r.row.passDraftId) ?? null) : null);
+    const of = (v: LeadsView) => byPerson(all.filter((r) => viewOf(r) === v).map((r) => r.row));
+    const counts: LeadsCounts = { new: of("new").length, drafted: of("drafted").length, for_you: of("for_you").length, not_now: of("not_now").length, spam: of("spam").length, replied: of("replied").length };
     const inView = of(view);
     const n = new Map<string, number>();
     for (const r of inView) if (r.brand) n.set(r.brand, (n.get(r.brand) ?? 0) + 1);
