@@ -1,3 +1,4 @@
+import type { BugReportInput, BugReportResult } from "@hub/notion/bug-reports";
 import type { LinkFetch } from "../link/fetch";
 import type { Repos } from "@hub/db";
 import type { Brand, ProjectConfig } from "@hub/projects/model";
@@ -115,6 +116,13 @@ export interface HubMcpEnv {
    * its state is what `follow_up_plan` answers. Absent: the plan stays in the Hub.
    */
   syncFollowUp?: (slug: string, f: FollowUpSync) => Promise<{ state: string }>;
+  /**
+   * P145 B3 (decision 0054): files one bug report in the project's Bug reports database (search, append or create). Never throws;
+   * its state is what `bug_report` answers. Absent: the tool refuses `unavailable`.
+   */
+  fileBugReport?: (slug: string, i: BugReportInput) => Promise<BugReportResult>;
+  /** The admin's origin (`http://127.0.0.1:<port>`), for a report's Source link; absent or null: no link. */
+  adminOrigin?: () => string | null;
 }
 
 /** What the Notion copy of a plan needs (F7). */

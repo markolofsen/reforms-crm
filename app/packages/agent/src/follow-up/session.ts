@@ -9,7 +9,7 @@ import { PROJECT_CAPABILITY_ENV } from "../mcp/binding";
 import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../mcp/server";
 
 // One follow-up sweep turn's Claude Code files and flags (decision 0050 point 3, P142 verdict 5), built without spawning: the A0
-// rules of the autopilot turn (`../autopilot/session.ts`) with the eight client-bound tools of `FOLLOW_UP_HUB_TOOLS`. No built-in
+// rules of the autopilot turn (`../autopilot/session.ts`) with the nine client-bound tools of `FOLLOW_UP_HUB_TOOLS`. No built-in
 // tool, no hooks, no session file; the turn's reach is its own `hub mcp`, bound to the project and to one client.
 
 /** The hub tools of a sweep turn as Claude names them. */

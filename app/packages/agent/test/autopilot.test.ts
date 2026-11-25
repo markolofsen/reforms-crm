@@ -67,14 +67,14 @@ describe("the turn's files and flags (A0 rules 1, 2, 3, 6)", () => {
     expect(args.filter((a) => a.startsWith("Autopilot turn"))).toEqual([]);
   });
 
-  it("the denied list is every hub tool but the six, the attended send included; the two lists cover every hub tool", () => {
+  it("the denied list is every hub tool but the seven, the attended send included; the two lists cover every hub tool", () => {
     const denied = autopilotDisallowed();
     expect(denied).toContain("mcp__hub__messenger_send");
     expect(denied).toContain("mcp__hub__client_map");
     for (const t of AUTOPILOT_ALLOWED) expect(denied).not.toContain(t);
     const hub = [...HUB_MCP_TOOLS, ...HUB_MCP_ATTENDED_TOOLS].map((t) => `mcp__hub__${t}`);
     expect(hub.filter((t) => !denied.includes(t)).sort()).toEqual([...AUTOPILOT_ALLOWED].sort());
-    expect(AUTOPILOT_HUB_TOOLS).toEqual(["messenger_history", "client_show", "knowledge_search", "knowledge_get", "messenger_draft_write", "conversation_done"]);
+    expect(AUTOPILOT_HUB_TOOLS).toEqual(["messenger_history", "client_show", "knowledge_search", "knowledge_get", "messenger_draft_write", "conversation_done", "bug_report"]);
   });
 
   it("settings: no hooks, the advisor off, the five pre-approved; the MCP file binds the project and the chat", () => {

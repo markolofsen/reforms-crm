@@ -36,7 +36,8 @@ describe("the tool registry", () => {
     // P129 A3: client_record writes one Inbox row (no draft, no mail text) with the draft effect, since it writes as the session.
     // P135: client_map writes the client's map (Hub state and the client's Notion block), never a draft or a send.
     // P142: follow_up_plan writes the sweep's plan of one client (the agent's notes), never a draft or a send.
-    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["client_map", "client_record", "draft_write", "follow_up_plan", "messenger_draft_write"]);
+    // P145 B3: bug_report writes the project's Bug reports in Notion (a report, never a draft or a send).
+    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["bug_report", "client_map", "client_record", "draft_write", "follow_up_plan", "messenger_draft_write"]);
     expect(annotationsOf("read")).toMatchObject({ readOnlyHint: true });
     for (const e of ["pointer", "draft", "send"] as const) expect(annotationsOf(e).readOnlyHint).toBe(false);
   });

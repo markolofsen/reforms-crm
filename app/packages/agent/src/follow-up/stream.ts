@@ -2,7 +2,7 @@ import { AUTOPILOT_VERDICTS } from "@hub/config/autopilot";
 import { FOLLOW_UP_DECISIONS, type FollowUpDecision } from "@hub/config/follow-ups";
 
 // The `stream-json --verbose` output of one sweep turn (P142 F4), read line by line, pure. What the runner needs from it: the init
-// event (the hub server connected and exactly the eight tools), the turn's own `follow_up_plan` call that the hub answered, the
+// event (the hub server connected and exactly the nine tools), the turn's own `follow_up_plan` call that the hub answered, the
 // `messenger_draft_write` call with `follow_up` the hub answered with a draft id (its text, `send_after` and autopilot's verdict),
 // and the result event. A send is decided on what this stream carried, never on a row read back (decision 0048 point 2).
 

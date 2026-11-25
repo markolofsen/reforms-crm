@@ -80,6 +80,9 @@ export const REFUSAL_CODES = [
   "not_in_notion",
   // P142: a follow-up turn's hub mcp serves one client (verdict 5)
   "followup_other_client",
+  // P145 B3: bug_report found several open reports of the area, or the project has no Bug reports database
+  "bug_report_several",
+  "no_bug_database",
 ] as const;
 
 export type RefusalCode = (typeof REFUSAL_CODES)[number];
@@ -134,6 +137,8 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   record_invalid: { retry: "now", next: "Fix the record as the message says and call once more; the draft in Mail is kept and adopted, not written twice." },
   recipient_not_allowed: { retry: "no", next: `${ONE_LINE} that draft.recipients does not permit this address; nothing was written. He changes it himself: hub send policy set <slug> draft.recipients any.` },
   record_failed: { retry: "no", next: `${ONE_LINE} that the draft is in Mail but the Hub could not record it (the message says why).` },
+  bug_report_several: { retry: "now", next: "Name the report it repeats: call bug_report again with into set to one of the page ids the message lists." },
+  no_bug_database: { retry: "after_owner", next: `${ONE_LINE} that the project has no Bug reports database yet; the reply still acknowledges the report.`, fix: { line: "Create the Bug reports database: hub install --only notion.bug-reports.", place: "the dock" } },
   map_invalid: { retry: "now", next: "Redraw the whole map so the line the message names passes (the shape rules are in client_map's map field), then call once more." },
   map_why_missing: { retry: "now", next: "Call once more with why: one short reason per node the message names (removed or renamed), or keep those nodes." },
   empty_query: { retry: "now", next: "Search with the client's own words (letters, not only punctuation)." },

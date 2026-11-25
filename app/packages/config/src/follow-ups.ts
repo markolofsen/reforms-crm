@@ -96,8 +96,8 @@ export const backgroundRunOf = (env: Readonly<Record<string, string | undefined>
 export const FOLLOW_UP_DRAFT_AUTHOR = "follow_up";
 export const FOLLOW_UP_SEND_REASON = "nudge";
 
-/** The eight hub tools of a turn (verdict 5), each bound to the turn's client; nothing else (no built-in, no mail-mcp, no Notion). */
-export const FOLLOW_UP_HUB_TOOLS = ["client_show", "client_map", "message_show", "knowledge_search", "knowledge_get", "draft_write", "messenger_draft_write", "follow_up_plan"] as const;
+/** The nine hub tools of a turn (verdict 5; P145 B3 added `bug_report`), each bound to the turn's client; nothing else (no built-in, no mail-mcp, no Notion connector). */
+export const FOLLOW_UP_HUB_TOOLS = ["client_show", "client_map", "message_show", "knowledge_search", "knowledge_get", "draft_write", "messenger_draft_write", "follow_up_plan", "bug_report"] as const;
 
 /** The Hub-owned Notion properties of verdict 12 (`schema/clients.json`, writer Hub; the installer step `notion.follow-ups`). */
 export const FOLLOW_UP_NOTION = { next: "Next follow-up", status: "Follow-up status", sent: "Follow-ups sent", waitingOn: "Waiting on" } as const;

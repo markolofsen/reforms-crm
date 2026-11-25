@@ -16,7 +16,8 @@ visible to the Notion workspace; who can open the Drive item stays as it was.
    - **A folder** (`application/vnd.google-apps.folder`) → the Clients page's `Drive folder` (url). Empty: write it. The same URL: nothing to do.
      A different URL already there: show both and write only after his "да".
    - **A file** → one row in the project's Documents database: `Document` = the file's name, `Document link` = its URL, `Type` = the type he
-     names, else `Other`, `Clients` = the client. A row with that `Document link` already exists: add the client to its `Clients` if missing,
+     names, else `Other`, the client in Documents' relation to Clients (found by its target, the project's `clients` data source,
+     not by name: a CRM may call it `People`), and the client's project in `Projects` when the database has it. A row with that `Document link` already exists: add the client to its `Clients` if missing,
      never a second row. One file per row; a folder is never a Documents row.
    - **A calendar event** (the calendar connector's `get_event`, or a hold the `calendar` skill just created) → append one dated line to the
      client's page body: `Next call: <date> <time> <zone>, <event url>`. A Tasks row (`Due`, `Client`, `Doc link`) only when he asks.

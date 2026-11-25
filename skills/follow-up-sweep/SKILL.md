@@ -1,7 +1,7 @@
 ---
 name: follow-up-sweep
 description: Use when a project's silent clients (we wrote last, they have not answered) need a decision each: nudge with one new follow-up draft, wait until a date, stop, or hand to the owner, each recorded with follow_up_plan and one dated line on the profile. Runs in a session the owner starts, and as the system prompt of the Hub server's daily sweep turn (one client per turn). Never sends and never writes first; unlike sequence-drafts, which drafts the fixed steps of a sequence the owner enrolled, the cadence here is the agent's judgement.
-allowed-tools: Read mcp__hub__focus mcp__hub__project_show mcp__hub__follow_ups_due mcp__hub__follow_up_plan mcp__hub__client_show mcp__hub__client_map mcp__hub__message_show mcp__hub__mail_list mcp__hub__messenger_history mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__hub__draft_write mcp__hub__messenger_draft_write mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content
+allowed-tools: Read mcp__hub__focus mcp__hub__project_show mcp__hub__follow_ups_due mcp__hub__follow_up_plan mcp__hub__client_show mcp__hub__client_map mcp__hub__message_show mcp__hub__mail_list mcp__hub__messenger_history mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__hub__draft_write mcp__hub__messenger_draft_write mcp__hub__bug_report mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content
 ---
 
 # Follow-up sweep (silent clients: nudge, wait, stop or hand over)
@@ -22,7 +22,7 @@ Decision 0050 (P142). A client got our message and has not answered. For each on
 
 ## 2. Decide (in this order)
 1. **Who owes the next step.** If it is us (a promised file, quote, answer, call): `hand_over`, `waiting_on: us`, the reason names what we owe. Never nudge a client who waits for us.
-2. **Money, terms, a complaint, a legal or personal matter, or a chat in `on_request`**: `hand_over`.
+2. **Money, terms, a complaint, a legal or personal matter, or a chat in `on_request`**: `hand_over`. A bug report the client made that nobody filed (the product does something wrong, with an example; P145): `bug_report` once with the conversation, `message`, `area`, the symptom, their words and their evidence, never a cause; then `hand_over`, reason `bug report`. No nudge promises a fix or a date.
 3. **Their words:** "I'll get back to you next week" → `wait` until the day after that date; out of office, holiday, travel → `wait` until their return; "not now", "budget next quarter" → `wait` until then, with the reason; "no", "not interested", "remove me" → `stop` (`not_interested`, or `do_not_contact` for "remove me").
 4. **The count:** the plan's `nudgesSent` and the nudges you see in the history (the owner's own from his phone count too: pass the true `nudge_n`). After the third without an answer: `stop`, `no_answer`.
 5. **Timing.** Cadence as guidance: the 1st nudge 2 business days after our last message, the 2nd 5 days after that, the 3rd (a polite close that leaves the door open) 10 days after that, then stop. A hot stage (they asked for a price, a trial runs): 1, 3, 7. A cold enquiry: 3, 7, then stop. Messengers run shorter than Mail (1, 3, 7). Too early → `wait` until the day it is due.

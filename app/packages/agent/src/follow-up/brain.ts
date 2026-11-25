@@ -13,7 +13,7 @@ import { FOLLOW_UP_ALLOWED, followUpArgs, followUpDir, followUpMcp, followUpProm
 import { sweepStream } from "./stream";
 
 // The follow-up sweep's brain (decision 0050 point 3, P142 F4): `claudeBrain`'s second turn kind. One headless `claude -p` per
-// client on the owner's Claude sign-in, the A0 rules of autopilot's turn, bound to one client with eight tools. It answers what
+// client on the owner's Claude sign-in, the A0 rules of autopilot's turn, bound to one client with nine tools. It answers what
 // the turn's own `follow_up_plan` and nudge draft calls wrote; it holds no send. The sweep's signal aborts it (the 120 s wall
 // clock): SIGTERM, then SIGKILL, its hub MCP child with it.
 

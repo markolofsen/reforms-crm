@@ -23,7 +23,7 @@ A chat in reply mode `off` is left out; `on_request` is listed and the agent han
 
 The sweep runs one headless `claude -p` turn per listed client through P139's runner (`claudeBrain`, the `follow_up` kind): the same spawn rules as autopilot, its system prompt the skill's text, `HUB_PROJECT` plus `HUB_FOLLOWUP_CLIENT` (the `clients` row id) binding its `hub mcp`. The server **prefetches** the client's last 30 messages (Mail through the conversation reader, chats through the cache), the plan and its last lines, our last message's Mail ids and whether a chat is on autopilot, and puts them into the prompt as data, so the turn needs no Mail reader.
 
-The turn has exactly eight hub tools, each bound to that client (refusal `followup_other_client`): `client_show`, `client_map`, `message_show`, `knowledge_search`, `knowledge_get`, `draft_write`, `messenger_draft_write`, `follow_up_plan`. No built-in tool, no mail-mcp, no Notion server, no send tool. `--max-turns 12` and a 120 s wall clock. `packages/agent/test/deny-modes.test.ts` pins the list.
+The turn has exactly nine hub tools, each bound to that client (refusal `followup_other_client`): `client_show`, `client_map`, `message_show`, `knowledge_search`, `knowledge_get`, `draft_write`, `messenger_draft_write`, `follow_up_plan`, `bug_report` (P145: a silent client's last message may be a bug report; section "Bug reports" below). No built-in tool, no mail-mcp, no Notion server, no send tool. `--max-turns 12` and a 120 s wall clock. `packages/agent/test/deny-modes.test.ts` pins the list.
 
 ## The decision and the plan
 

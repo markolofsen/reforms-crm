@@ -14,13 +14,13 @@ import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../mcp/server";
 //   1. the child gets `USER`, `HOME` and `PATH` (the keychain item of the plan sign-in is found by user name), never an empty env;
 //   2. `MCP_CONNECTION_NONBLOCKING=false` (print mode otherwise starts with `hub: pending`) and the advisor tool off;
 //   3. `--tools ""` (no built-in tool: no Bash, Read, Write or WebFetch) plus `--disallowedTools` for every hub tool outside the
-//      six (`--allowedTools` only pre-approves, it does not restrict);
+//      seven (`--allowedTools` only pre-approves, it does not restrict);
 //   4. `stream-json --verbose`, so the brain reads the `init` event first (`brain.ts` checks it);
 //   5. the result is judged by `is_error` (`brain.ts`);
 //   6. `--no-session-persistence`: no session file in `~/.claude/projects`.
 // No hooks run (`disableAllHooks`): the hub's prompt hook would log the turn's prompt as the owner's words (decision 0046 reads
 // them), and the owner's personal hooks are not the turn's. No shell exists, so there is no sandbox to set: the turn's reach is
-// the six bound tools of its own `hub mcp` (verdict 28 as built).
+// the seven bound tools of its own `hub mcp` (verdict 28 as built; P145 added `bug_report`).
 
 /** The hub tools of a turn as Claude names them. */
 export const AUTOPILOT_ALLOWED: readonly string[] = AUTOPILOT_HUB_TOOLS.map((t) => `mcp__hub__${t}`);
@@ -35,7 +35,7 @@ export const autopilotDisallowed = (): string[] => {
 /** Where one chat's turn files live: `state/projects/<slug>/autopilot/<chat row id>/` (per chat: the pool runs two at once). */
 export const autopilotDir = (paths: Pick<HubPaths, "stateProjects">, project: string, chat: number): string => path.join(paths.stateProjects, project, "autopilot", String(chat));
 
-/** The turn's settings file: the model, the advisor off, no hooks, no memory file of the folders above, the six tools pre-approved. */
+/** The turn's settings file: the model, the advisor off, no hooks, no memory file of the folders above, the seven tools pre-approved. */
 export function autopilotSettings(dir: string, home: string): Record<string, unknown> {
   return {
     model: AUTOPILOT_MODEL,
