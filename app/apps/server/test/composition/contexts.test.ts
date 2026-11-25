@@ -14,7 +14,7 @@ const walk = (d: string): string[] => readdirSync(d).flatMap((n) => (statSync(jo
 describe("P126 S1: one runtime, one context per domain", () => {
   it("cuts every domain's context from one runtime, with one admin port", () => {
     const ctx = contexts(testRuntime(repos));
-    expect(Object.keys(ctx).sort()).toEqual(["agent", "instance", "live", "local", "mail", "messengers", "overview", "projects", "send", "terminal"]);
+    expect(Object.keys(ctx).sort()).toEqual(["agent", "instance", "live", "local", "mail", "messengers", "overview", "projects", "send", "terminal", "watch"]);
     for (const c of [ctx.agent, ctx.instance, ctx.local, ctx.messengers, ctx.terminal]) expect(c.adminPort).toBe(ADMIN_PORT);
     expect(ctx.mail.sender).toBeUndefined();
     expect(ctx.send.messengers).toBeUndefined();

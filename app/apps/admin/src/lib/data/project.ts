@@ -13,6 +13,7 @@ import { knowledgeApi } from "@/lib/api/project/knowledge";
 import { projectSettingsApi } from "@/lib/api/project/settings";
 import { sendApi } from "@/lib/api/send";
 import { followUpsApi } from "@/lib/api/project/follow-ups";
+import { watchApi } from "@/lib/api/project/watch";
 import { keys } from "@/lib/cache/keys";
 import { useCommand } from "@/lib/cache/topics";
 import type { CommandEvents } from "./instance";
@@ -140,3 +141,12 @@ export const useRunFollowUps = (project: string) => useCommand({ project, touche
 /** The owner's move on one plan: a new date, Stop or Resume (Undo of a Stop is Resume). */
 export const useSetFollowUp = (project: string, on: CommandEvents<Awaited<ReturnType<typeof followUpsApi.set>>> = {}) =>
   useCommand({ project, touches: ["follow-ups"], run: (v: { clientId: number; body: SetFollowUpBody }) => followUpsApi.set(project, v.clientId, v.body), onSuccess: on.onSuccess, onError: on.onError });
+
+/** P144: the projects that watch public groups (the nav shows Watch only when one does), one project's Watch page, and Join. */
+export const useWatchProjects = () => useQuery({ queryKey: keys.watchProjects(), queryFn: () => watchApi.projects(), staleTime: 60_000 });
+
+export const useWatch = (project: string, days: number, trigger: string | null, group: string | null) =>
+  useQuery({ queryKey: keys.watch(project, days, trigger, group), queryFn: () => watchApi.get(project, { days, trigger, group }), placeholderData: keepPreviousData });
+
+/** Join one public group on the owner's click (the only write of the section): the server asks Telegram, nothing is posted. */
+export const useJoinWatchGroup = (project: string) => useCommand({ project, touches: ["watch"], run: (username: string) => watchApi.join(project, username) });

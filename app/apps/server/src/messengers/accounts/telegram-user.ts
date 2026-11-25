@@ -102,7 +102,15 @@ function counted(client: MtClient, slot: Slot): MtClient {
       slot.busy -= 1;
     }
   };
-  return { ...client, dialogs: track(client.dialogs.bind(client)), history: track(client.history.bind(client)), sendText: track(client.sendText.bind(client)), typing: track(client.typing.bind(client)) };
+  const wrapped: Partial<Record<PropertyKey, unknown>> = { dialogs: track(client.dialogs.bind(client)), history: track(client.history.bind(client)), sendText: track(client.sendText.bind(client)), typing: track(client.typing.bind(client)) };
+  // A proxy, not a spread: a client may be a class instance whose other methods (listen, close) live on its prototype and use `this`.
+  return new Proxy(client, {
+    get(target, key) {
+      if (key in wrapped) return wrapped[key];
+      const v: unknown = Reflect.get(target, key, target);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
 }
 
 export interface TelegramUserHandle {

@@ -8,8 +8,8 @@ import { SectionNav, type SectionNavItem } from "@hub/ui/product/shell/section-n
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { ApiFailure, isNotFound, sentence } from "@/lib/api/client";
-import { useJoinWatchGroup, useWatch } from "@/lib/data/watch";
-import { anchorProps, webLink } from "@/lib/external";
+import { useJoinWatchGroup, useWatch } from "@/lib/data/project";
+import { OpenLinkButton } from "@/components/links/open-link";
 import { formatDay, formatTime, plural } from "@/lib/format";
 import { dest, type Dest } from "@/routes/paths";
 import { WATCH_DAYS } from "@/routes/search";
@@ -135,7 +135,6 @@ function Moments({ d, q }: { d: WatchDto; q: Q }) {
       ) : (
         <ul className="flex flex-col">
           {d.moments.map((m) => {
-            const link = webLink(m.link);
             return (
               <li className="flex flex-col gap-1 border-b py-3" key={`${m.group}-${m.messageId}-${m.trigger}`}>
                 <span className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
@@ -145,7 +144,7 @@ function Moments({ d, q }: { d: WatchDto; q: Q }) {
                   {m.author && <span>{m.author}</span>}
                   {m.reactors > 0 && <span>{plural(m.reactors, "reply", "replies")} around it</span>}
                   <span>{formatTime(m.at)}</span>
-                  {link && <a {...anchorProps(link)}>Open in Telegram</a>}
+                  <OpenLinkButton to={m.link} />
                 </span>
                 <q className="text-sm">{m.quote}</q>
                 {m.why && <span className="text-muted-foreground text-xs">{m.why}</span>}
@@ -194,7 +193,7 @@ function People({ d }: { d: WatchDto }) {
 
 function Groups({ d, q, project }: { d: WatchDto; q: Q; project: string }) {
   const join = useJoinWatchGroup(project);
-  if (d.groups.length === 0) return <EmptyState title="No group listed">The groups are the list in the project's watch.md.</EmptyState>;
+  if (d.groups.length === 0) return <EmptyState title="No group listed">The groups are the list in the project&apos;s watch.md.</EmptyState>;
   return (
     <div className="flex flex-col gap-3">
       {join.error !== null && <p className="text-destructive-foreground text-sm">{sentence(join.error)}</p>}

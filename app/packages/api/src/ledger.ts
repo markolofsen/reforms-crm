@@ -53,7 +53,7 @@ export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
   "lib/api/instance.ts": ["openLocal"],
   "lib/api/terminal.ts": ["createTerminalTicket", "postFocus"],
   // P144: Join asks Telegram to add the owner's account to one public group, on his click only.
-  "lib/api/watch.ts": ["joinWatchGroup"],
+  "lib/api/project/watch.ts": ["joinWatchGroup"],
 };
 
 export const generatedOperations = (): readonly GeneratedOperation[] => Object.values(GENERATED_OPERATIONS).flat();

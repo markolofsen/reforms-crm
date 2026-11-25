@@ -106,7 +106,7 @@ export function prefilterNote(p: PreanalysisDto): string {
 export const KEY_SOURCE_WORDS: Record<NonNullable<PreanalysisDto["keySource"]>, string> = {
   env: "the OPENROUTER_API_KEY variable of the server's environment",
   machine: "this Mac's own key file, shared by every Hub instance on it (~/.config/reforms-hub/openrouter-key)",
-  instance: "this instance's key file (state/secrets/openrouter-key)",
+  instance: "this instance's key file (openrouter-key in the instance's secrets folder)",
 };
 
 /** The one line that says where the OpenRouter key comes from; null when no key is read (none, or the local test model). */

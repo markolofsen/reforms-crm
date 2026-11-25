@@ -31,3 +31,5 @@ The list's `account` is `default` (the first connected Telegram user account) or
 
 - Shill detection (the experiment's `shill.py`).
 - A second source in Watch (P79's found posts).
+
+Update this page when the architecture changes.

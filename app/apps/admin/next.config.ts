@@ -9,7 +9,7 @@ const API = `http://${HOST}:${process.env.HUB_PORT ?? SERVER_PORT}`;
 const root = process.env.HUB_NEXT_ROOT;
 
 /** The first segments of the scoped routes (`SCOPED_HEADS` of `src/routes/table.ts`; `test/proxy.test.ts` holds them equal). */
-export const BARE_HEADS = "mail|messengers|log|knowledge|settings";
+export const BARE_HEADS = "mail|messengers|watch|log|knowledge|settings";
 
 const config: NextConfig = {
   typedRoutes: true,

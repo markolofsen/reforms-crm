@@ -67,7 +67,7 @@ const RUN = /(\S)\1{3,}|([^\w\s]{2})\2{2,}/gu;
 
 /** One message as the model sees it. */
 export const renderLine = (n: number, item: WindowItem, maxChars: number): string =>
-  `[${n}] ${item.author ?? "someone"}: ${item.text.slice(0, maxChars).replace(/\s*\n\s*/g, " ").replace(RUN, (m) => m.slice(0, 3))}`;
+  `[${n}] ${item.author ?? "someone"}: ${Array.from(item.text).slice(0, maxChars).join("").replace(/\s+/g, " ").trim().replace(RUN, (_m: string, one: string | undefined, pair: string | undefined) => (one ? one.repeat(3) : `${pair ?? ""}${pair ?? ""}`))}`;
 
 /** The text with repeats dropped (first kept), compared trimmed and case-folded. */
 export function dedupeItems(items: readonly WindowItem[]): WindowItem[] {
@@ -87,7 +87,9 @@ export function cutWindows(n: number, size: number, overlap: number): Array<{ fr
   const out: Array<{ from: number; to: number }> = [];
   for (let start = 0; start < Math.max(1, n - overlap); start += step) {
     const to = Math.min(n, start + size) - 1;
-    if (to - start + 1 >= least) out.push({ from: start, to });
+    // The first window needs `least` messages; a later one is kept when it reaches past the one before (the tail is analysed, not lost).
+    const prev = out.at(-1);
+    if (prev ? to > prev.to : to - start + 1 >= least) out.push({ from: start, to });
   }
   return out;
 }

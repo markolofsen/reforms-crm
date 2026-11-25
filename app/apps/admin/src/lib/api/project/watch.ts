@@ -1,6 +1,6 @@
 import { getWatch, joinWatchGroup, listWatchProjects } from "@hub/api";
 import { watchDto, watchJoinDto, watchProjectsDto } from "@hub/contract/watch";
-import { readGenerated } from "./client";
+import { readGenerated } from "../client";
 
 /**
  * Watch (P144, decision 0052): what the public groups a project watches talk about, read from the project's watch store.
