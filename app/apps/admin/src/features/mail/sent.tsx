@@ -12,6 +12,7 @@ import { useProjectScope } from "@/hooks/use-project";
 import { useSends } from "@/lib/data/project";
 import { useLeadPass } from "@/lib/data/inbound";
 import { SendingPanel } from "@/features/mail/ready/sending-line";
+import { SendReadyProvider, useSendReady } from "@/features/mail/ready/send-ready";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 
@@ -64,15 +65,30 @@ function SentRow({ r }: { r: SendRowDto }) {
   );
 }
 
+/** The run on top of Sent, with Send again: the sheet with only the drafts that did not go out (the owner's click). */
+function RunPanel({ project, batchId }: { project: string; batchId: number }) {
+  const ready = useSendReady();
+  return <SendingPanel batchId={batchId} onSendAgain={ready ? (ids) => ready.open(ids) : undefined} project={project} />;
+}
+
 /** The Sent page, mounted by `mail/sent/page.tsx`. */
 export function SentScreen() {
+  const { project } = useProjectScope();
+  return (
+    <SendReadyProvider project={project}>
+      <SentBody />
+    </SendReadyProvider>
+  );
+}
+
+function SentBody() {
   const { project } = useProjectScope();
   const q = useSends(project);
   const batchId = useLeadPass(project).data?.review.batchId ?? null;
   return (
     <Page label="Sent" title="Sent">
       {/* P147 3m item 5: the run of today's replies, on top while it goes (it only shows: nothing here sends). */}
-      {batchId !== null && <SendingPanel batchId={batchId} project={project} />}
+      {batchId !== null && <RunPanel batchId={batchId} project={project} />}
       <QueryView loading={<ListSkeleton label="Reading the sends" />} query={q} what="the sends">
         {(d) => {
           const rows = sentRows(d.sends);

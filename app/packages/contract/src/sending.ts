@@ -63,7 +63,14 @@ export const batchRunDto = z.object({
   items: z.array(z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), status: z.enum(BATCH_ITEM_STATUSES), reasons: z.array(z.string()), sendId: z.number().nullable(), at: z.string().nullable() })),
 });
 export type BatchRunDto = z.infer<typeof batchRunDto>;
-export const batchRunStateDto = z.object({ run: batchRunDto.nullable() });
+/**
+ * The batch's confirmed drafts that did not go out (owner 2026-11-25), read from the database, so a restart keeps them: Checked and
+ * still waiting while no run goes. `reason` is the last run's word for it while the server remembers that run, else "confirmed,
+ * not sent yet". Sending them again is the owner's click (the sheet with only these), never an automatic resume.
+ */
+export const batchNotSentDto = z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), reason: z.string() });
+export const batchRunStateDto = z.object({ run: batchRunDto.nullable(), notSent: z.array(batchNotSentDto).default([]) });
+export type BatchRunStateDto = z.infer<typeof batchRunStateDto>;
 export const sendCancelledDto = z.object({ ok: z.literal(true), sendId: z.number() });
 export const stopDto = z.object({ ok: z.literal(true), cancelled: z.number(), stopped: z.array(z.string()) });
 

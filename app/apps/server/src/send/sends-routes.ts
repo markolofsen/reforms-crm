@@ -3,7 +3,7 @@ import { assess } from "@hub/send/assess";
 import { BATCH_LIMITS, batchTicketKey, planBatch, type BatchLimits } from "@hub/send/batch";
 import { sendDraft } from "@hub/send/deliver";
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
-import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
+import { batchRunStateDto, type BatchRunDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger";
 import { gateRefusal, ticketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
@@ -101,6 +101,18 @@ export function sendRoutes(services: SendContext) {
   const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
   const limits = sender ? limitsOf(sender) : BATCH_LIMITS;
   const runs = sender?.batchRuns ?? batchRuns({ limits });
+  // Owner 2026-11-25: what a run confirmed and did not send, from the database (Checked, still waiting), so it outlives a restart.
+  // Nothing while a run goes (its own rows say it). Never resumed: the owner's Send again is a new click through the sheet.
+  const notSentOf = async (slug: string, id: number, run: BatchRunDto | null) => {
+    if (run?.state === "running") return [];
+    const said = new Map((run?.items ?? []).filter((i) => i.status !== "sent").map((i) => [i.draftId, i.reasons[0]] as const));
+    return (await repos.batches.drafts(slug, id, "checked")).map((d) => ({
+      draftId: d.id,
+      name: d.client.name || d.client.email,
+      to: [d.toAddr || d.client.email].filter(Boolean),
+      reason: said.get(d.id) ?? "confirmed, not sent yet",
+    }));
+  };
   const forbidden = (c: Context, why: string) => c.json({ error: `Not sent: ${why}.`, code: "forbidden" as const }, 403);
   /** `*` is every project. */
   const scope = (slug: string) => (slug === "*" ? undefined : slug);
@@ -160,13 +172,15 @@ export function sendRoutes(services: SendContext) {
     })
     .get("/api/projects/:slug/batches/:id/send", v("param", batchSendParam), async (c) => {
       const { slug, id } = c.req.valid("param");
-      return c.json(batchRunStateDto.parse({ run: runs.get(slug, id) }));
+      const run = runs.get(slug, id);
+      return c.json(batchRunStateDto.parse({ run, notSent: await notSentOf(slug, id, run) }));
     })
     // Stop only ever removes work: the mail being sent finishes, the drafts not yet tried stay Checked.
     .post("/api/projects/:slug/batches/:id/send/stop", v("param", batchSendParam), async (c) => {
       const { slug, id } = c.req.valid("param");
       runs.stop(slug, id);
-      return c.json(batchRunStateDto.parse({ run: runs.get(slug, id) }));
+      const run = runs.get(slug, id);
+      return c.json(batchRunStateDto.parse({ run, notSent: await notSentOf(slug, id, run) }));
     })
     // P71 M4: one messenger draft. The dry run answers what would go out, or every refusal in words; the apply needs the ticket.
     .post("/api/projects/:slug/messengers/drafts/:id/send", v("param", sendParam), v("json", messengerSendBody), async (c) => {

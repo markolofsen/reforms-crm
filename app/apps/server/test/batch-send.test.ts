@@ -145,7 +145,26 @@ describe("a batch run", () => {
     expect(rows).toHaveLength(3);
     expect(rows.every((r) => r.actor === BATCH_SEND_ACTOR && r.mode === "manual" && r.status === "sent")).toBe(true);
     // The first mail waits for nothing; each next one waits the spacing from the last attempt.
-    expect(c.waits).toEqual([20_000, 20_000]);
+    expect(c.waits).toEqual([20_250, 20_250]);
+  });
+
+  it("waits out its own spacing when a wait ends early, and never refuses its own item for it (batch run, 2026-11-25)", async () => {
+    const { batchId } = await campaign(2);
+    const plan = await planBatch(deps, "acme", batchId);
+    let clock = Date.parse("2026-11-20T10:00:00Z");
+    const c = control();
+    const timed: SendDeps = { ...deps, now: () => new Date(clock) };
+    const wait = c.wait;
+    let first = true;
+    c.wait = async (ms) => {
+      await wait(ms);
+      // The first wait ends 1.5 s short (a send row stamped after its mail left reads the same way): the door would say "wait 1 s".
+      clock += first ? ms - 1_500 : ms;
+      first = false;
+    };
+    const out = await runBatch(timed, { project: "acme", batchId, items: plan?.items ?? [], limits: { dailyCap: 50, spacingSeconds: 20 }, control: c });
+    expect(out.map((o) => o.status)).toEqual(["sent", "sent"]);
+    expect(c.waits).toEqual([20_250, 1_500]);
   });
 
   it("does not send a draft changed in Mail after the confirmation, nor one Unchecked since; a refusal stops nothing else, and the last mail's failure is recorded", async () => {
@@ -191,6 +210,16 @@ describe("the batch send routes", () => {
     const res = await appWith().request("http://127.0.0.1:4317/api/batches?project=acme");
     expect(res.status).toBe(200);
     expect(((await res.json()) as { batches: Array<{ id: number; audience: string }> }).batches).toEqual([expect.objectContaining({ id: batchId, audience: "agent" })]);
+  });
+
+  it("a confirmed draft that did not go out is read from the database, so it stays after a restart; nothing resumes (owner 2026-11-25)", async () => {
+    const { batchId, ids } = await campaign(2);
+    // A fresh server (no run in its memory): both Checked drafts wait, and reading them sends nothing.
+    const s = (await (await appWith().request(url(batchId))).json()) as { run: null; notSent: Array<{ draftId: number; name: string; reason: string }> };
+    expect(s.run).toBeNull();
+    expect(s.notSent.map((x) => x.draftId).sort((a, b) => a - b)).toEqual([...ids].sort((a, b) => a - b));
+    expect(s.notSent[0]?.reason).toBe("confirmed, not sent yet");
+    expect(mailer.sent).toEqual([]);
   });
 
   it("the dry run sends nothing; the apply needs the ticket minted for exactly the confirmed drafts and hashes", async () => {

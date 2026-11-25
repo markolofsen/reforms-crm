@@ -105,6 +105,10 @@ const parsed = (line: string): { sendId?: number; refused?: string[]; error?: st
   }
 };
 
+/** The run waits out the spacing this many times at most (each read of the log again), with this margin past the stated time. */
+const SPACING_TRIES = 5;
+const SPACING_MARGIN_MS = 250;
+
 /**
  * One run, item by item, in the order confirmed. Before each mail: Stop of this run, the batch cap and the spacing (from
  * `send_log`, so two runs share them), the draft still in this batch, then the door itself (`sendDraft`: `assess` again,
@@ -131,18 +135,27 @@ export async function runBatch(deps: SendDeps, o: { project: string; batchId: nu
       for (let j = k; j < o.items.length; j++) set(j, { status: "refused", reasons: [`the batch cap is reached: ${u.sentLastDay} of ${limits.dailyCap} batch mails in the last 24 hours`] });
       break;
     }
-    if (u.lastAttemptAt) {
-      const ms = new Date(u.lastAttemptAt).getTime() + limits.spacingSeconds * 1000 - new Date(now()).getTime();
-      if (ms > 0) await o.control.wait(ms);
+    // The spacing is the run's own pace, never a refusal: it waits until the log allows the next mail (a timer that fires a few
+    // ms early, or a send row stamped after its mail left, read again and waited out), so the run never refuses its own item.
+    let paced = true;
+    for (let tries = 0; tries < SPACING_TRIES; tries++) {
+      const last = (await deps.repos.sends.actorUsage(o.project, BATCH_SEND_ACTOR, now())).lastAttemptAt;
+      const ms = last ? new Date(last).getTime() + limits.spacingSeconds * 1000 - new Date(now()).getTime() : 0;
+      if (ms <= 0) break;
+      await o.control.wait(ms + SPACING_MARGIN_MS);
       if (o.control.stopped()) {
-        k--;
-        continue;
+        paced = false;
+        break;
       }
-      const still = usageRefusal(await deps.repos.sends.actorUsage(o.project, BATCH_SEND_ACTOR, now()), limits, now());
-      if (still) {
-        set(k, { status: "refused", reasons: [still] });
-        continue;
-      }
+    }
+    if (!paced) {
+      k--;
+      continue;
+    }
+    const still = usageRefusal(await deps.repos.sends.actorUsage(o.project, BATCH_SEND_ACTOR, now()), { dailyCap: limits.dailyCap, spacingSeconds: 0 }, now());
+    if (still) {
+      set(k, { status: "refused", reasons: [still] });
+      continue;
     }
     const d = await deps.repos.drafts.get(item.draftId);
     if (!d || d.project !== o.project || d.batchId !== o.batchId) {

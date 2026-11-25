@@ -137,6 +137,7 @@ export * from './batchesBatchesItemIntent';
 export * from './batchesBatchesItemRun';
 export * from './batchesBatchesItemStatus';
 export * from './batchRunState';
+export * from './batchRunStateNotSentItem';
 export * from './batchRunStateRun';
 export * from './batchRunStateRunItemsItem';
 export * from './batchRunStateRunItemsItemStatus';

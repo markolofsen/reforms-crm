@@ -22747,10 +22747,42 @@
                 "type": "null"
               }
             ]
+          },
+          "notSent": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "draftId": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "draftId",
+                "name",
+                "to",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
-          "run"
+          "run",
+          "notSent"
         ],
         "additionalProperties": false
       },
@@ -23056,10 +23088,42 @@
                     "type": "null"
                   }
                 ]
+              },
+              "notSent": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "draftId": {
+                      "type": "number"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "draftId",
+                    "name",
+                    "to",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
-              "run"
+              "run",
+              "notSent"
             ],
             "additionalProperties": false
           }
@@ -23084,7 +23148,8 @@
                   "type": "string",
                   "enum": [
                     "lead",
-                    "mail"
+                    "mail",
+                    "fixed"
                   ]
                 },
                 "newSender": {

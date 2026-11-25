@@ -53,4 +53,10 @@ export type BatchSendOutcome = {
   at: string | null;
 })[];
 } | null;
+  notSent: {
+  draftId: number;
+  name: string;
+  to: string[];
+  reason: string;
+}[];
 };
