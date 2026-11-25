@@ -2,7 +2,7 @@ import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 
 // The one permission mode of a hub agent session (P49 section 5A; owner 2026-11-25: no friction, no switch), both CLIs: no
-// prompts, and the OS sandbox is on by itself: no loopback or other network from commands, no Apple Events, and the files
+// prompts, and the OS sandbox is on by itself: no network from commands (loopback included), no Apple Events, and the files
 // below are read-only. MCP connectors run in the CLI process, outside the sandbox, unchanged. Bypass without the sandbox does
 // not exist. The mode says nothing about who is there: a session the owner started is attended, a background run the Hub
 // started is not (`backgroundRunOf` of `@hub/config/follow-ups`).
@@ -13,10 +13,13 @@ export const MEASURED_VERSIONS: Record<AgentCli, string> = { claude: "2.1.220", 
 export const CLI_LABELS: Record<AgentCli, string> = { claude: "Claude Code", codex: "Codex" };
 
 /**
- * What a session may not write, absolute paths: the send policy and the generated session files
- * (`state/projects`), secrets, the Codex homes, the instance config (allow-list, switches), the core, the instance's
- * own launcher, Claude's project settings, the MCP file the session config is built from, and the git folder (hooks).
- * The project folder, the evidence ledger and the database stay writable: `hub sequences enrol|judge` write there (P129 A9 moves them into `hub mcp`; then the database folder becomes read-only).
+ * What an owner's session may not write, absolute paths (3l, owner 2026-11-25: "По умолчанию агенты получают полный доступ…
+ * Захуя запрещать-то?"): only what holds the agent's own permissions and guards, so it cannot unlock itself. That is the session
+ * files and the send policy (`state/projects`), the autopilot switch, secrets, the Codex homes, the core (the guard, the deny rules
+ * and the send door are its code) with the instance's launcher, Claude's and Codex's project settings, and the MCP files a session's
+ * servers come from, plus the instance config file (its allow-list). Everything else is writable: the rest of `config/`,
+ * project.md, knowledge, the instance's own git and memory files, the database folder. Background runs never use this list:
+ * each builds its own tight profile.
  */
 export function protectedPaths(paths: HubPaths): string[] {
   const home = paths.home;
@@ -26,7 +29,8 @@ export function protectedPaths(paths: HubPaths): string[] {
     paths.autopilot,
     paths.secrets,
     paths.codexHomes,
-    paths.configDir,
+    paths.configFile,
+    path.join(paths.configDir, "mcp.json"),
     paths.core,
     path.join(home, "core"),
     path.join(home, "run.sh"),
@@ -34,9 +38,6 @@ export function protectedPaths(paths: HubPaths): string[] {
     // Codex reads project hooks from here; `hub agent` runs Codex with hook trust bypassed for its own generated hook (P51).
     path.join(home, ".codex"),
     paths.mcpFile,
-    path.join(home, ".git"),
-    path.join(home, "CLAUDE.md"),
-    path.join(home, "AGENTS.md"),
   ])];
 }
 
@@ -48,9 +49,10 @@ export function protectedPaths(paths: HubPaths): string[] {
 export const claudeProtectedPaths = (paths: HubPaths): string[] => [...new Set([...protectedPaths(paths), paths.log])];
 
 /**
- * Claude Code's `sandbox` block of every session. `failIfUnavailable`: no sandbox, no session (never a silent
- * unsandboxed run). No network allowlist: a command reaches no host, loopback included (the send route); the MCP
- * servers are the CLI's own calls. Apple Events stay off (no `osascript` to Mail).
+ * Claude Code's `sandbox` block of an owner's session. `failIfUnavailable`: no sandbox, no session (never a silent unsandboxed
+ * run). No network from commands, loopback included: the Hub's admin routes (the review's ticket, the batch run) trust a
+ * same-site request, and a name denylist cannot keep loopback out (a DNS name that resolves to 127.0.0.1 passes it), so 3l's open
+ * network waits for a door that does not trust loopback. Apple Events stay off. The MCP servers are the CLI's own calls.
  */
 export function claudeSandbox(paths: HubPaths): Record<string, unknown> {
   return {
@@ -73,4 +75,4 @@ export const CODEX_BYPASS = "--dangerously-bypass-approvals-and-sandbox";
 export const CODEX_MODE_ARGS: readonly string[] = ["-a", "never"];
 
 /** The one sentence the launcher and the terminal tab show for the mode. */
-export const MODE_LINE = "no prompts, OS sandbox on (no network or Apple Events from commands; policy, config and core read-only)";
+export const MODE_LINE = "no prompts, OS sandbox on (no network or Apple Events from commands; secrets, the send policy, the guards and the core read-only)";

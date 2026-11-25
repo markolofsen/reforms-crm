@@ -176,12 +176,13 @@ describe("generated session files", () => {
   it("an unbound session writes to _unbound", () => {
     expect(existsSync(writeSessionFiles(root, PROJECTS, undefined).settings)).toBe(true);
   });
-  it("every session has the OS sandbox with no network, no Apple Events and the policy read-only (P49 S9)", () => {
+  it("every owner session has the OS sandbox: no network, no Apple Events, its own guards read-only (P49 S9, 3l)", () => {
     const u = settings as { sandbox: { allowAppleEvents?: unknown; filesystem: { denyWrite: string[] } }; permissions: { deny: string[] } };
     expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, network: { allowedDomains: [], allowLocalBinding: false } });
     expect(u.sandbox.allowAppleEvents).toBeUndefined();
     const dw: string[] = u.sandbox.filesystem.denyWrite;
-    for (const p of ["state/projects", "state/secrets", "state/codex", "config", "core", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
+    for (const p of ["state/projects", "state/secrets", "state/codex", "config/config.json", "config/mcp.json", "core", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
+    expect(dw).not.toContain(path.join(root, "config"));
     // the database stays writable for the hub's own record writers (draft_write, client_record): its Read/Edit rules would become sandbox denials
     expect(u.permissions.deny.some((r: string) => r.includes("./data/"))).toBe(false);
     expect(u.permissions.deny).toContain("Bash(*hub send*)");

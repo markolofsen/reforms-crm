@@ -43,10 +43,13 @@ describe("P140 K3 the deny list of an owner's session", () => {
     expect(r).toContain("Bash(*state/secrets*)");
   });
 
-  it("claudeSettings: the protected paths stay Edit-denied (core, config, the send policy, autopilot, .claude, .git, run.sh, CLAUDE.md, the log), the sandbox is on", () => {
+  it("claudeSettings (3l): only the agent's own permissions, guards and the core stay Edit-denied; config, git and memory files are writable", () => {
     const settings = claudeSettings({ paths, projectsDir: projects, slug: "acme", nodeBin: "node" });
     const deny = (settings.permissions as { deny: string[] }).deny;
-    for (const p of ["./state/projects/**", "./state/autopilot.json", "./config/**", "./core/**", "./.claude/**", "./.git/**", "./run.sh", "./CLAUDE.md", "./AGENTS.md", "./state/log/**", "./.mcp.json"]) expect(deny).toContain(`Edit(${p})`);
+    for (const p of ["./state/projects/**", "./state/autopilot.json", "./state/secrets/**", "./config/config.json", "./config/mcp.json", "./core/**", "./.claude/**", "./.codex/**", "./run.sh", "./state/log/**", "./.mcp.json"]) expect(deny).toContain(`Edit(${p})`);
+    for (const p of ["./config/**", "./.git/**", "./CLAUDE.md", "./AGENTS.md"]) expect(deny).not.toContain(`Edit(${p})`);
+    expect(deny.filter((r) => r.startsWith("Read(") && !r.includes("state/projects/") && !r.includes("state/codex/"))).toEqual(["Read(./state/secrets/**)"]);
+    expect(settings.sandbox).toMatchObject({ network: { allowedDomains: [], allowLocalBinding: false } });
     expect(deny).not.toContain("Read(./projects/beta/**)");
     expect(deny).not.toContain("Edit(./projects/beta/**)");
     // The database folder is the sandbox's (left out of the rules: they would become sandbox denials for the record writers).

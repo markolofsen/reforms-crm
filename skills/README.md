@@ -93,7 +93,7 @@ The owner: «даже не своего проекта, а вообще прос
 | Ops log: what failed underneath | `state/log/ops-<YYYY-MM-DD>.jsonl`, or `hub logs` (`@docs/core/28-ops-log.md`) | read |
 | Agent session log: what a session did | `state/log/<slug>/<YYYY-MM-DD>.jsonl`, or `hub log` (`@docs/core/25-agent-log.md`) | read |
 | Session ledger: the Notion pages and messenger chats a session read (the Notion and chat guards use it) | `state/evidence/<slug>/<session id>.jsonl` | read |
-| Instance config | `config/` | read |
+| Instance config | `config/` | read; edit (not `config.json` or `config/mcp.json`) |
 
 **Reading an entry.** Its front matter says whether it may be stated: `use: STATE`, `approved: true` and `valid_until` not past; `MARKER` is background. In a `knowledge.scope by-brand` project read its `brands:` too: an entry may be quoted to a client only when it lists that client's brand (the brand of the mail, from `message_show`) or `ANY`; `ANY` is shared by every brand.
 
@@ -109,7 +109,7 @@ The owner: «даже не своего проекта, а вообще прос
 - **Sending:** stays through the door only (`draft_write` for Mail drafts, the owner's Send, `messenger_send` on his word), so every message to a client passes the door's checks.
 - **Background runs (autopilot, the sweep):** stay tool-only (`knowledge_search`, `knowledge_get` and the other hub tools), because nobody watches them and the tools are what check the project and the brand. The autopilot (decision 0048, P139) has no file tools; the follow-up sweep turn has none either.
 
-**Code today** (P140 K3, `app/packages/agent/src/deny.ts`): an attended session reads and edits `projects/**`, other projects included (`hub guard` flags an Edit, a Write or a command in another project's folder, never a read); it reads the database folder and other tabs' drops but does not edit them; it never edits `config/`, the core, `.claude/`, the send policy or the log, and never reads secrets or another project's session config. An unattended session keeps the strict list. A refusal is reported in one line, never worked around (code decides over these rules).
+**Code today** (P140 K3; 3l, owner 2026-11-25: «По умолчанию агенты получают полный доступ… Захуя запрещать-то?»; `app/packages/agent/src/session.ts`, `deny.ts`): an attended session reads and edits `projects/**`, other projects included (`hub guard` flags an Edit, a Write or a command in another project's folder, never a read), and the rest of the instance: `config/` but its `config.json` (the allow-list) and `mcp.json`, the instance's git and memory files, the database folder. Its commands still reach no network (loopback included) until the Hub's send door stops trusting loopback (plan P147 3l). It never edits what holds its own permissions and guards (the session settings and send policy in `state/projects`, `state/autopilot.json`, `.claude/`, `.codex/`, `.mcp.json`), the core or the log, and never reads secrets or another project's session config. A background run keeps its own strict profile. A refusal is reported in one line, never worked around (code decides over these rules).
 
 ## Report (every run skill, this order, Russian)
 1. **Table**, one row per client: `# | клиент | класс | действие | черновик | запись | основа`. `основа` = what the draft rests on ("6 пис., профиль, 2 факта"; "нет данных" when nothing was read). Действие is one of `drafted`, `skipped:<code>`, `injection_suspected`, `noted`, `escalated`.
