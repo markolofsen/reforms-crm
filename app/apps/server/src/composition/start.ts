@@ -16,7 +16,7 @@ import { start as startAgent } from "../agent/start";
 import { start as startInstance } from "../instance/start";
 import { startKnowledgeIndex } from "../knowledge/start";
 import { followUpBrainOf, startFollowUps } from "../follow-ups/start";
-import { leadPassBrainOf, startLeadPass } from "../lead-pass/start";
+import { leadPassBrainOf, startLeadPass } from "../passes/start";
 import { messengerPolicy } from "../send/messenger-policy";
 
 /** A started runtime and what only the process needs from it: the terminal's upgrade and one stop for every domain. */

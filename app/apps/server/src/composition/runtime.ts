@@ -18,7 +18,7 @@ import type { ProjectAutolink } from "../messengers/autolink/setup";
 import type { Preanalysis } from "../messengers/preanalysis";
 import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import type { FollowUpsRuntime } from "../follow-ups/start";
-import type { LeadPassRuntime } from "../lead-pass/start";
+import type { LeadPassRuntime } from "../passes/start";
 import type { AgentToolsService } from "../agent/tools";
 import type { FocusStore } from "../agent/focus";
 import type { ConnectionsService } from "../instance/connections";

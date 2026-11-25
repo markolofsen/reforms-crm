@@ -15,7 +15,7 @@ import { sendDraft } from "@hub/send/deliver";
 import { replyAddressOf } from "@hub/notion";
 import { testApp } from "../support/runtime";
 import { batchRuns } from "../../src/send/batch-door";
-import { mechanical } from "../../src/lead-pass/pass";
+import { mechanical } from "../../src/passes/pass";
 import type { LeadsHandle } from "../../src/clients/leads-reader";
 
 // P147 L5 (decision 0055 points 2 and 6, D4, D10) and section 3c (E3, E4): the lead review and its one click, the batch run that

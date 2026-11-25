@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LeadPassBrain } from "@hub/config/lead-pass";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { afterSweep, leadPassSchedule, type LeadPassSettings } from "../../src/lead-pass/schedule";
+import { afterSweep, leadPassSchedule, type LeadPassSettings } from "../../src/passes/schedule";
 import type { Clock } from "../../src/messengers/autopilot/scheduler";
 
 // P147 L4: the lead pass's timer on a fake clock (the Mac's local day), a fake brain, nothing spawned or sent. D8: it starts

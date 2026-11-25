@@ -2,7 +2,7 @@ import type { Repos } from "@hub/db";
 import type { ProjectStore } from "@hub/projects/store";
 import type { ProjectLinksOptions } from "./links";
 import type { FollowUpsRuntime } from "../follow-ups/start";
-import type { LeadPassRuntime } from "../lead-pass/start";
+import type { LeadPassRuntime } from "../passes/start";
 
 /** The projects domain's context (P126 S1): the catalog, a project's page, its Quick Links, sequences and knowledge. */
 export type ProjectsContext = {

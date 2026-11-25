@@ -8,7 +8,7 @@ import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messen
 import { gateRefusal, ticketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import { batchRuns } from "./batch-door";
-import { leadReviewRoutes } from "../lead-pass/review-routes";
+import { leadReviewRoutes } from "../passes/review-routes";
 import { applyMessenger, assessMessenger } from "@hub/messengers/door";
 import { messengerPolicy } from "./messenger-policy";
 import { ops } from "@hub/log/ops";

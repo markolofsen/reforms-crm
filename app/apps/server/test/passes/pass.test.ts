@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LeadPassBrain, LeadPassTurn } from "@hub/config/lead-pass";
 import { fakeLeadPassBrain } from "@hub/agent/lead-pass";
 import { createRepos, openDb, type DbHandle, type NewLead, type Repos } from "@hub/db";
-import { runPass } from "../../src/lead-pass/pass";
+import { runPass } from "../../src/passes/pass";
 
 // P147 L4: one pass on the fake brain (no model, no Mail): the list, the day's lead batch, the re-check before each turn, the
 // budgets and three failures in a row.

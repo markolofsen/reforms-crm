@@ -6,7 +6,7 @@ import { projectLinksRoutes } from "./links-routes";
 import { sequenceRoutes } from "./sequences-routes";
 import { knowledgeRoutes } from "./knowledge-routes";
 import { followUpRoutes } from "../follow-ups/routes";
-import { leadPassRoutes } from "../lead-pass/routes";
+import { leadPassRoutes } from "../passes/routes";
 
 /** Every Projects route over its one context (P126 S1). */
 export const routes = (ctx: ProjectsContext) =>
