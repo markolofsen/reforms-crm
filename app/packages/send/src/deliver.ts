@@ -1,5 +1,6 @@
 import { RepoError, type SendRow } from "@hub/db";
 import type { MailDraft } from "@hub/mail-app/drafts";
+import { MailNotAnswering } from "@hub/mail-app/osa";
 import { bareId } from "@hub/mail-app/records";
 import { assess, type SendDeps, type SendMode } from "./assess";
 import { trashThread } from "./find";
@@ -64,6 +65,9 @@ async function transmit(deps: SendDeps, row: SendRow, o: DeliverInput): Promise<
   try {
     sent = await deps.mailer.send(m, o.mailRef ?? null);
   } catch (e) {
+    // P147 D4 (decision 0055 point 6): Mail did not answer in time, so whether it sent is unknown. The row stays `sending`:
+    // `assess` refuses a second send of this draft, a Resume skips it, and Overview says to look in Mail's Sent folder.
+    if (e instanceof MailNotAnswering) return { code: 1, line: line({ ok: false, draftId: o.draftId, sendId: row.id, unknown: true, error: `unknown: Mail did not answer (${e.message}); send ${row.id} stays "sending": look in Mail's Sent folder before sending it again` }) };
     await deps.repos.sends.markFailed(row.id, (e as Error).message);
     return { code: 1, line: line({ ok: false, draftId: o.draftId, sendId: row.id, error: `not sent: ${(e as Error).message}` }) };
   }

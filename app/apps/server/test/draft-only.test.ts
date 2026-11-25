@@ -68,6 +68,8 @@ describe("no route sends", () => {
     // P85b: a batch run sends through `runBatch` (which calls `sendDraft`), started only by the batch door the send route holds.
     expect(src.filter((f) => /\brunBatch\(/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/batch-door.ts"]);
     expect(src.filter((f) => /\bbatchRuns\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/batch-door.ts", "send/sends-routes.ts"]);
+    // P147 L5 (decision 0055 point 2): the lead review only reads, ticks Checked and mints the batch ticket; its run is the batch door above.
+    expect(/\b(runBatch|sendDraft|deliver|batchRuns)\b/.test(readFileSync(join(dir, "lead-pass/review-routes.ts"), "utf8"))).toBe(false);
     // A messenger send: only the door mints the human actor's send, only the send routes call the door, only send/messenger-senders.ts hands the
     // account's send (`TelegramUserHandle.sender`, `WhatsAppHandle.sender` since P71 M5) to them.
     // Decision 0048 (P139 A4): the autopilot's send is the one other caller, with the `autopilot` authority only; decision 0050

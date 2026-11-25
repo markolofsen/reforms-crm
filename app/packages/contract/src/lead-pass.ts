@@ -74,6 +74,8 @@ export const leadReviewRowDto = z.object({
   pageId: z.string(),
   name: z.string(),
   email: z.string().nullable(),
+  /** E3: which address the reply goes to and why ("the email typed on the form", "… mistyped domain …: the account email instead"). */
+  replyWhy: z.string(),
   brand: z.string().nullable(),
   receivedAt: z.string(),
   request: z.string(),
@@ -108,7 +110,8 @@ export type LeadReviewDto = z.infer<typeof leadReviewDto>;
 /** The click's answer: the run's ticket (P85b's batch run takes it), what goes out, what is held, and the applied proposals. */
 export const leadReviewTicketDto = z.object({
   ticket: z.string().nullable(),
-  items: z.array(z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string() })),
+  /** Exactly what P85b's apply takes with the ticket: each draft and the hash of the text the review served. */
+  items: z.array(z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), hash: z.string() })),
   held: z.array(z.object({ draftId: z.number(), name: z.string(), reasons: z.array(z.string()) })),
   applied: z.object({ spam: z.number(), notNow: z.number(), excluded: z.number(), notion: z.array(z.string()) }),
 });

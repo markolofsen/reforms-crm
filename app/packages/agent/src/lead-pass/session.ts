@@ -91,6 +91,6 @@ export function leadPassPrompt(t: LeadPassTurn): string {
     "----- DATA -----",
     t.context,
     "----- END DATA -----",
-    "Follow the lead-pass rules of your system prompt: at most one draft (draft_write kind new to the lead's reply address), then exactly one lead_decide, then stop.",
+    "Follow the lead-pass rules of your system prompt: at most one draft (draft_write kind new with lead: its page id and no `to`: the Hub fills the address), then exactly one lead_decide, then stop.",
   ].join("\n");
 }

@@ -3,6 +3,8 @@ import { LEAD_PASS_DECISIONS, LEAD_PASS_DRAFTED, LEAD_PASS_REASON_MAX } from "@h
 import { defineTool } from "../define";
 import { boundLead, ownLeadClient } from "../ports";
 import { cut, ToolError } from "../result";
+import { samePersonAs, samePersonReason } from "@hub/db";
+import { replyAddressOf } from "@hub/notion";
 
 // P147 L2 (decision 0055): the lead pass's two tools. `leads_open` reads the server's mechanical list of open leads with no
 // decision (verdict 3), for an attended pass in the dock; `lead_decide` writes the agent's decision for one lead (verdict 2). The
@@ -16,7 +18,7 @@ export const leadsOpenTool = defineTool({
   name: "leads_open",
   title: "The open leads of this project",
   description:
-    "The Hub's list of this project's open leads (rows of Notion Leads, Status New, not dismissed, no reply drafted) with no pass decision yet, newest first: page id, name, reply address, brand, when, the 120-character request, site, country, segment, volume, whether a Clients card exists and the client whose email matches exactly. all: true also lists those older than the window. Leads are not unlinked chats. Decide each with lead_decide.",
+    "The Hub's list of this project's open leads (its lead rows, the same rows Mail ▸ Leads shows; never the lead notices in Mail) with no pass decision yet, newest first: page id, name, the reply address the Hub chose and why (reply_to null: no usable address, hand_over), same_as (an older request of a person with a newer row: not_now with that reason), brand, when, the 120-character request, site, country, segment, volume, whether a Clients card exists and the client whose email matches exactly. all: true also lists those older than the window. Leads are not unlinked chats. Decide each with lead_decide.",
   input: z.object({ all: z.boolean().optional().describe("also the leads older than leads.window_days (the owner asked for the old ones)"), limit: z.number().int().positive().max(100).optional().describe("at most this many (default 30)") }),
   output: z.object({
     project: z.string(),
@@ -26,6 +28,9 @@ export const leadsOpenTool = defineTool({
         page: z.string(),
         name: z.string(),
         email: z.string().nullable(),
+        reply_to: z.string().nullable(),
+        reply_why: z.string(),
+        same_as: z.string().nullable(),
         brand: z.string().nullable(),
         received_at: z.string(),
         request: z.string(),
@@ -50,8 +55,11 @@ export const leadsOpenTool = defineTool({
     const due = await repos.leadPass.due(slug, from, limit ?? 30);
     const leads = [];
     for (const r of due.rows) {
-      const client = r.email ? await repos.clients.findByIdentity(slug, "email", r.email) : undefined;
-      leads.push({ page: r.pageId, name: cut(r.name), email: r.email, brand: r.brand, received_at: r.receivedAt, request: cut(r.preview, 120), site: r.site, country: r.country, segment: r.segment, volume: r.volume, has_card: r.hasClient, client: client ?? null });
+      // E3: the address the reply goes to; E4: an older request of a person with a newer row.
+      const to = replyAddressOf(r);
+      const newer = samePersonAs(r, await repos.leadPass.earlier(slug, r.pageId, 20));
+      const client = to.address ? await repos.clients.findByIdentity(slug, "email", to.address) : undefined;
+      leads.push({ page: r.pageId, name: cut(r.name), email: r.email, reply_to: to.address, reply_why: to.why, same_as: newer ? samePersonReason(newer) : null, brand: r.brand, received_at: r.receivedAt, request: cut(r.preview, 120), site: r.site, country: r.country, segment: r.segment, volume: r.volume, has_card: r.hasClient, client: client ?? null });
     }
     return {
       project: slug,
@@ -86,9 +94,10 @@ export const leadDecideTool = defineTool({
     if (!lead) throw new ToolError("not_found", `No lead ${i.lead} in project ${slug} (leads_open lists them).`);
     if (lead.passDecision) throw new ToolError("lead_decided", `Lead ${lead.name} was decided already: ${lead.passDecision} (${lead.passReason ?? "no reason"}). Nothing was written.`, { decision: lead.passDecision });
     // D2: `client` only on an exact match of the reply address; any other likeness is the owner's.
-    const client = lead.email ? ((await ctx.repos.clients.findByIdentity(slug, "email", lead.email)) ?? null) : null;
+    const to = replyAddressOf(lead).address;
+    const client = to ? ((await ctx.repos.clients.findByIdentity(slug, "email", to)) ?? null) : null;
     if (i.decision === "client") {
-      if (client === null) throw new ToolError("invalid", `No client's email is exactly ${lead.email ?? "this lead's (it has none)"}: decide reply, or hand_over with "possible match: <who>". Nothing was written.`);
+      if (client === null) throw new ToolError("invalid", `No client's email is exactly ${to ?? "this lead's (it has no usable address)"}: decide reply, or hand_over with "possible match: <who>". Nothing was written.`);
       await ownLeadClient(ctx, slug, client);
     }
     const at = ctx.now().toISOString();

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { InboundListLeadsRowsItemFacts } from './inboundListLeadsRowsItemFacts';
+import type { InboundListLeadsRowsItemPass } from './inboundListLeadsRowsItemPass';
 
 export type InboundListLeadsRowsItem = {
   pageId: string;
@@ -24,4 +25,5 @@ export type InboundListLeadsRowsItem = {
      */
   requests: number;
   facts: InboundListLeadsRowsItemFacts;
+  pass: InboundListLeadsRowsItemPass;
 };

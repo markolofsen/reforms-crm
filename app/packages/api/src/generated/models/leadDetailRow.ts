@@ -7,6 +7,7 @@
  */
 import type { LeadDetailRowDismissedReason } from './leadDetailRowDismissedReason';
 import type { LeadDetailRowFacts } from './leadDetailRowFacts';
+import type { LeadDetailRowPass } from './leadDetailRowPass';
 
 export type LeadDetailRow = {
   pageId: string;
@@ -25,6 +26,7 @@ export type LeadDetailRow = {
      */
   requests: number;
   facts: LeadDetailRowFacts;
+  pass: LeadDetailRowPass;
   open: boolean;
   /** @nullable */
   notionStatus: string | null;

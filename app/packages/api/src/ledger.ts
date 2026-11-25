@@ -26,7 +26,7 @@ export const GENERATED_OPERATIONS = {
     "listMessengerChats", "getMessengerConversation", "createMessengerDraft", "editMessengerDraft", "skipMessengerDraft", "restoreMessengerDraft", "prepareMessengerReply", "setMessengerChatRules", "markMessengerChatDone", "undoMessengerChatDone",
     "createAutopilotTicket", "getAutopilot", "setAutopilot", "getProjectAutopilot", "setProjectAutopilot",
   ],
-  send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "listSends", "cancelSend", "stopSends", "resumeSends"],
+  send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "getLeadReview", "confirmLeadReview", "listSends", "cancelSend", "stopSends", "resumeSends"],
   agent: ["getAgentFeed", "getAgentTools", "refreshAgentTools", "postFocus", "getPointer"],
   terminal: ["getTerminal", "createTerminalSession", "ensureTerminalSession", "dropTerminalFiles", "closeTerminalSession", "createTerminalTicket"],
 } as const;
@@ -43,7 +43,7 @@ export const URL_HELPERS: Readonly<Partial<Record<GeneratedOperation, { file: st
 
 /** The doors by the facade that may import them (an operation listed under two files may be imported by both, by no other) (send-boundary and generated-api-clients rule 12). */
 export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
-  "lib/api/send.ts": ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "cancelSend", "stopSends", "resumeSends"],
+  "lib/api/send.ts": ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "confirmLeadReview", "cancelSend", "stopSends", "resumeSends"],
   "lib/api/messengers/send.ts": ["createSendTicket", "sendMessengerDraft"],
   "lib/api/connections.ts": ["setConnectionSecret", "removeConnectionSecret"],
   "lib/api/messengers/telegram-user.ts": ["startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser"],

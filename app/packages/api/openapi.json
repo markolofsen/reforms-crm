@@ -1122,6 +1122,140 @@
         }
       }
     },
+    "/api/projects/{slug}/lead-pass": {
+      "get": {
+        "operationId": "getLeadPass",
+        "summary": "The project's lead pass: today's decisions, the last pass, the next, the review",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The project's lead pass: today's decisions, the last pass, the next, the review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadPass"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "runLeadPass",
+        "summary": "Run the project's lead pass now",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunLeadPassBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Run the project's lead pass now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunLeadPass"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/leads/{pageId}/redo": {
+      "post": {
+        "operationId": "redoLead",
+        "summary": "Clear one lead's pass decision so the next pass decides it again",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "pageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F-]{32,36}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clear one lead's pass decision so the next pass decides it again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadRedone"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/drafts": {
       "get": {
         "operationId": "listDrafts",
@@ -3235,6 +3369,8 @@
               "type": "string",
               "enum": [
                 "new",
+                "drafted",
+                "for_you",
                 "not_now",
                 "spam",
                 "replied"
@@ -5790,6 +5926,120 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BatchSendOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/lead-review/{batchId}": {
+      "get": {
+        "operationId": "getLeadReview",
+        "summary": "Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs",
+        "tags": [
+          "sending"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadReview"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/lead-review/{batchId}/ticket": {
+      "post": {
+        "operationId": "confirmLeadReview",
+        "summary": "The owner's one click: Checked on the ticked drafts, the untick and the proposals applied, the batch ticket",
+        "tags": [
+          "sending"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadReviewTicketBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The owner's one click: Checked on the ticked drafts, the untick and the proposals applied, the batch ticket",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadReviewTicket"
                 }
               }
             }
@@ -11229,6 +11479,247 @@
         ],
         "additionalProperties": false
       },
+      "LeadPass": {
+        "type": "object",
+        "properties": {
+          "today": {
+            "type": "object",
+            "properties": {
+              "drafted": {
+                "type": "number"
+              },
+              "spam": {
+                "type": "number"
+              },
+              "notNow": {
+                "type": "number"
+              },
+              "forYou": {
+                "type": "number"
+              },
+              "sent": {
+                "type": "number"
+              },
+              "excluded": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "drafted",
+              "spam",
+              "notNow",
+              "forYou",
+              "sent",
+              "excluded"
+            ],
+            "additionalProperties": false
+          },
+          "pass": {
+            "type": "object",
+            "properties": {
+              "schedule": {
+                "type": "string",
+                "enum": [
+                  "daily",
+                  "off"
+                ]
+              },
+              "at": {
+                "type": "string"
+              },
+              "last": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "number"
+                      },
+                      "trigger": {
+                        "type": "string",
+                        "enum": [
+                          "schedule",
+                          "button",
+                          "catch_up",
+                          "dock"
+                        ]
+                      },
+                      "startedAt": {
+                        "type": "string"
+                      },
+                      "finishedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "listed": {
+                        "type": "number"
+                      },
+                      "turns": {
+                        "type": "number"
+                      },
+                      "replied": {
+                        "type": "number"
+                      },
+                      "clients": {
+                        "type": "number"
+                      },
+                      "spam": {
+                        "type": "number"
+                      },
+                      "notNow": {
+                        "type": "number"
+                      },
+                      "handedOver": {
+                        "type": "number"
+                      },
+                      "failed": {
+                        "type": "number"
+                      },
+                      "skipped": {
+                        "type": "number"
+                      },
+                      "batchId": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "error": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "trigger",
+                      "startedAt",
+                      "finishedAt",
+                      "listed",
+                      "turns",
+                      "replied",
+                      "clients",
+                      "spam",
+                      "notNow",
+                      "handedOver",
+                      "failed",
+                      "skipped",
+                      "batchId",
+                      "error"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "next": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "runNowOff": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stopped": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "schedule",
+              "at",
+              "last",
+              "next",
+              "running",
+              "runNowOff",
+              "stopped"
+            ],
+            "additionalProperties": false
+          },
+          "review": {
+            "type": "object",
+            "properties": {
+              "batchId": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "drafts": {
+                "type": "number"
+              },
+              "proposals": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "batchId",
+              "drafts",
+              "proposals"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "today",
+          "pass",
+          "review"
+        ],
+        "additionalProperties": false
+      },
+      "RunLeadPassBody": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "RunLeadPass": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "joined": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "joined"
+        ],
+        "additionalProperties": false
+      },
+      "LeadRedone": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "pageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "pageId"
+        ],
+        "additionalProperties": false
+      },
       "Drafts": {
         "type": "object",
         "properties": {
@@ -12187,7 +12678,8 @@
                   "enum": [
                     "follow_up",
                     "notice",
-                    "custom"
+                    "custom",
+                    "lead_reply"
                   ]
                 },
                 "status": {
@@ -12366,7 +12858,8 @@
                 "enum": [
                   "follow_up",
                   "notice",
-                  "custom"
+                  "custom",
+                  "lead_reply"
                 ]
               },
               "status": {
@@ -16491,6 +16984,66 @@
                         "volume"
                       ],
                       "additionalProperties": false
+                    },
+                    "pass": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "decision": {
+                              "type": "string",
+                              "enum": [
+                                "reply",
+                                "client",
+                                "spam",
+                                "not_now",
+                                "hand_over"
+                              ]
+                            },
+                            "reason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "at": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "draftId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "excludedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "decision",
+                            "reason",
+                            "at",
+                            "draftId",
+                            "excludedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -16502,7 +17055,8 @@
                     "receivedAt",
                     "preview",
                     "requests",
-                    "facts"
+                    "facts",
+                    "pass"
                   ],
                   "additionalProperties": false
                 }
@@ -16961,6 +17515,66 @@
                     "volume"
                   ],
                   "additionalProperties": false
+                },
+                "pass": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "decision": {
+                          "type": "string",
+                          "enum": [
+                            "reply",
+                            "client",
+                            "spam",
+                            "not_now",
+                            "hand_over"
+                          ]
+                        },
+                        "reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "draftId": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "excludedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "decision",
+                        "reason",
+                        "at",
+                        "draftId",
+                        "excludedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -16972,7 +17586,8 @@
                 "receivedAt",
                 "preview",
                 "requests",
-                "facts"
+                "facts",
+                "pass"
               ],
               "additionalProperties": false
             }
@@ -17002,6 +17617,16 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "drafted": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "for_you": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "not_now": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -17020,6 +17645,8 @@
             },
             "required": [
               "new",
+              "drafted",
+              "for_you",
               "not_now",
               "spam",
               "replied"
@@ -17173,6 +17800,66 @@
                 ],
                 "additionalProperties": false
               },
+              "pass": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "decision": {
+                        "type": "string",
+                        "enum": [
+                          "reply",
+                          "client",
+                          "spam",
+                          "not_now",
+                          "hand_over"
+                        ]
+                      },
+                      "reason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "draftId": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "excludedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "decision",
+                      "reason",
+                      "at",
+                      "draftId",
+                      "excludedAt"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "open": {
                 "type": "boolean"
               },
@@ -17231,6 +17918,7 @@
               "preview",
               "requests",
               "facts",
+              "pass",
               "open",
               "notionStatus",
               "dismissedAt",
@@ -22162,6 +22850,433 @@
             "additionalProperties": false
           }
         ]
+      },
+      "LeadReview": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pageId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "replyWhy": {
+                  "type": "string"
+                },
+                "brand": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "receivedAt": {
+                  "type": "string"
+                },
+                "request": {
+                  "type": "string"
+                },
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "reply",
+                    "client",
+                    "spam",
+                    "not_now",
+                    "hand_over"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "display": {
+                  "type": "string",
+                  "enum": [
+                    "new",
+                    "drafted",
+                    "draft_gone",
+                    "proposed",
+                    "for_you",
+                    "excluded",
+                    "sent",
+                    "spam",
+                    "not_now"
+                  ]
+                },
+                "draftId": {
+                  "type": "number"
+                },
+                "mail": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "cc": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "subject": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to",
+                        "cc",
+                        "subject",
+                        "body"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "held": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "ticked": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "pageId",
+                "name",
+                "email",
+                "replyWhy",
+                "brand",
+                "receivedAt",
+                "request",
+                "decision",
+                "reason",
+                "display",
+                "draftId",
+                "mail",
+                "held",
+                "ticked"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "proposals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pageId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "site": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "request": {
+                  "type": "string"
+                },
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "spam",
+                    "not_now"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "pageId",
+                "name",
+                "email",
+                "site",
+                "request",
+                "decision",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "handOvers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pageId": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "request": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "pageId",
+                "name",
+                "email",
+                "request",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "cap": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": "number"
+              },
+              "used": {
+                "type": "number"
+              },
+              "room": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "limit",
+              "used",
+              "room"
+            ],
+            "additionalProperties": false
+          },
+          "spacingSeconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "batchId",
+          "name",
+          "rows",
+          "proposals",
+          "handOvers",
+          "cap",
+          "spacingSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "LeadReviewTicketBody": {
+        "type": "object",
+        "properties": {
+          "send": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "exclude": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "proposals": {
+            "default": [],
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pageId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-fA-F-]{32,36}$"
+                },
+                "decision": {
+                  "type": "string",
+                  "enum": [
+                    "spam",
+                    "not_now"
+                  ]
+                }
+              },
+              "required": [
+                "pageId",
+                "decision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "send"
+        ],
+        "additionalProperties": false
+      },
+      "LeadReviewTicket": {
+        "type": "object",
+        "properties": {
+          "ticket": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "draftId": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "hash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "draftId",
+                "name",
+                "to",
+                "subject",
+                "hash"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "held": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "draftId": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "draftId",
+                "name",
+                "reasons"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "applied": {
+            "type": "object",
+            "properties": {
+              "spam": {
+                "type": "number"
+              },
+              "notNow": {
+                "type": "number"
+              },
+              "excluded": {
+                "type": "number"
+              },
+              "notion": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "spam",
+              "notNow",
+              "excluded",
+              "notion"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ticket",
+          "items",
+          "held",
+          "applied"
+        ],
+        "additionalProperties": false
       },
       "Sends": {
         "type": "object",

@@ -149,6 +149,12 @@ describe("decision 0048: an autopilot turn has no send tool (P139 A3, verdict 28
 });
 
 describe("decision 0055: a lead pass turn has no send tool (P147 verdict 16)", () => {
+  it("E1: the Workflow tool is denied in every Hub session, the owner's and the background's", () => {
+    expect(deniedTools("owner")).toContain("Workflow");
+    expect(deniedTools("background")).toContain("Workflow");
+    expect(leadPassDisallowed()).toContain("Workflow");
+  });
+
   it("its hub mcp registers exactly verdict 5's six lead-bound tools, none send-like, attended port or not", async () => {
     const server = createHubMcpServer(createRepos(h.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), leadPage: "a".repeat(32), leadPass: 1, agentSend: async () => ({ ok: false, status: 409, reason: "no_owner_word", error: "Not sent.", next: "Ask." }) });
     const [a, b] = InMemoryTransport.createLinkedPair();

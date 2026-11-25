@@ -1,4 +1,5 @@
 import type { BugReportInput, BugReportResult } from "@hub/notion/bug-reports";
+import { replyAddressOf } from "@hub/notion";
 import type { LinkFetch } from "../link/fetch";
 import type { Repos } from "@hub/db";
 import type { Brand, ProjectConfig } from "@hub/projects/model";
@@ -202,8 +203,9 @@ export async function boundLead(ctx: Pick<ToolCtx, "repos" | "env">, slug: strin
 export async function ownLeadClient(ctx: Pick<ToolCtx, "repos" | "env">, slug: string, cid: number | null | undefined): Promise<void> {
   if (ctx.env.leadPage === undefined) return;
   const lead = await boundLead(ctx, slug);
-  const own = lead.email ? await ctx.repos.clients.findByIdentity(slug, "email", lead.email) : undefined;
-  if (own === undefined || cid !== own) throw new ToolError("lead_other", `This lead turn reads only the client whose email is ${lead.email ?? "the lead's (none)"}: another match is the owner's to judge (hand_over, "possible match").`);
+  const to = replyAddressOf(lead).address; // E3: the address the reply goes to is the one that identifies the client
+  const own = to ? await ctx.repos.clients.findByIdentity(slug, "email", to) : undefined;
+  if (own === undefined || cid !== own) throw new ToolError("lead_other", `This lead turn reads only the client whose email is ${to ?? "the lead's (none)"}: another match is the owner's to judge (hand_over, "possible match").`);
 }
 
 export function toolCtx(repos: Repos, env: HubMcpEnv): ToolCtx {

@@ -4,6 +4,9 @@
 // where the schema has them) and adds the lead's project to a card it links (P145, decision 0053: added, never removed). Never an
 // intake field, never Owner, Next step or Notes, never a delete. Like `stamp.ts` there is no generic page update here. A refusal
 // never reaches the send: the caller stores the note for the owner and logs one line.
+// P147 (decision 0055 point 5, verdict 8): the profile fill at the send. A card it creates also gets Company, Site, Country,
+// Segment and Volume from the lead where the schema has them; a card it links gets only the empty ones of those, never
+// overwritten (`fillProfile`, the one narrow write). A lead the pass matched to a client (`card`, D3) is linked to that card.
 import notionhq from "@notionhq/client";
 import { optionForKey, projectsWithKey } from "@hub/projects/brands";
 import { notionSdkLog } from "./sdk-log";
@@ -25,6 +28,8 @@ export interface LeadWriter {
   retrievePage?(pageId: string): Promise<PageObject>;
   /** `Projects` of one Clients card: exactly these options (the card's own plus one; decision 0053 point 4). */
   setProjects?(pageId: string, property: string, options: readonly string[]): Promise<void>;
+  /** P147: the empty profile properties of one Clients card (Company, Site, Country, Segment, Volume), exactly these values. */
+  fillProfile?(pageId: string, properties: Record<string, unknown>): Promise<void>;
 }
 
 export function createLeadWriter(token: string, options: { fetch?: typeof fetch } = {}): LeadWriter {
@@ -45,6 +50,10 @@ export function createLeadWriter(token: string, options: { fetch?: typeof fetch 
     },
     async setProjects(pageId, property, options) {
       await client.pages.update({ page_id: pageId, properties: { [property]: { multi_select: options.map((name) => ({ name })) } } as never });
+    },
+    async fillProfile(pageId, properties) {
+      const names = Object.keys(properties).filter((n) => (PROFILE_FIELDS as readonly string[]).includes(n) || n === "Website");
+      if (names.length) await client.pages.update({ page_id: pageId, properties: Object.fromEntries(names.map((n) => [n, properties[n]])) as never });
     },
   };
 }
@@ -105,6 +114,80 @@ export interface ConvertInput {
   brand?: string | null;
   /** What the Hub stored about the lead (used when the writer cannot read the page itself). */
   stored?: { hasClient: boolean; status: string | null };
+  /** P147 verdict 8: the lead's profile facts for the card (create: all the schema has; link: the empty ones only). */
+  profile?: LeadProfile | null;
+  /** P147 D3: the Clients card of the client the pass matched by the exact reply address; linked instead of a lookup. */
+  card?: string | null;
+}
+
+/** P147: the five profile facts of a lead the send writes on its Clients card. */
+export interface LeadProfile {
+  company: string | null;
+  site: string | null;
+  country: string | null;
+  segment: string | null;
+  volume: string | null;
+}
+export const PROFILE_FIELDS = ["Company", "Site", "Country", "Segment", "Volume"] as const;
+
+/** One profile value in the property's own type; a select takes only an option that exists (never a new one); else null. Pure. */
+function profileValue(c: PropertyConfig | undefined, value: string | null): unknown {
+  const v = value?.trim();
+  if (!c || !v) return null;
+  if (c.type === "rich_text") return { rich_text: [{ type: "text", text: { content: v.slice(0, 500) } }] };
+  if (c.type === "url") return /^https?:\/\//i.test(v) ? { url: v.slice(0, 500) } : { url: `https://${v.slice(0, 490)}` };
+  if (c.type === "select") {
+    const name = optionNames(c).find((o) => o.toLowerCase() === v.toLowerCase());
+    return name ? { select: { name } } : null;
+  }
+  if (c.type === "multi_select") {
+    const name = optionNames(c).find((o) => o.toLowerCase() === v.toLowerCase());
+    return name ? { multi_select: [{ name }] } : null;
+  }
+  return null;
+}
+
+/** The profile properties the Clients schema has for these facts (Site, else Website), each in its own type. Pure. */
+export function profileProperties(ds: DataSourceInfo, p: LeadProfile): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const put = (name: string, value: string | null) => {
+    const v = profileValue(ds.properties[name], value);
+    if (v !== null) out[name] = v;
+  };
+  put("Company", p.company);
+  if (ds.properties["Site"]) put("Site", p.site);
+  else put("Website", p.site);
+  put("Country", p.country);
+  put("Segment", p.segment);
+  put("Volume", p.volume);
+  return out;
+}
+
+/** Whether one property of a page holds nothing (an empty text, url, select or multi-select). */
+const emptyOn = (page: PageObject, name: string): boolean => {
+  const p = page.properties[name] as Record<string, unknown> | undefined;
+  if (!p) return true;
+  const v = p[p.type as string];
+  if (v === null || v === undefined || v === "") return true;
+  return Array.isArray(v) && v.length === 0;
+};
+
+/** P147 verdict 8: on a card the Hub linked, fill only the empty profile properties. A 403 is a note; null when done or nothing to do. */
+export async function fillEmptyProfile(deps: { reader: NotionReader; writer: LeadWriter }, o: { clientsDataSource: string; pageId: string; profile: LeadProfile }): Promise<string | null> {
+  if (!deps.writer.retrievePage || !deps.writer.fillProfile) return null;
+  const ds = await deps.reader.retrieveDataSource(o.clientsDataSource);
+  const want = profileProperties(ds, o.profile);
+  if (!Object.keys(want).length) return null;
+  const page = await deps.writer.retrievePage(o.pageId);
+  const empty = Object.fromEntries(Object.entries(want).filter(([n]) => emptyOn(page, n)));
+  if (!Object.keys(empty).length) return null;
+  try {
+    await deps.writer.fillProfile(o.pageId, empty);
+    return null;
+  } catch (e) {
+    if (!refused(e)) throw e;
+    return "Notion did not let the Hub fill the client's empty profile fields: give the hub integration Update content";
+  }
 }
 
 export type ConvertOutcome = {
@@ -119,7 +202,7 @@ export type ConvertOutcome = {
 const titleOf = (ds: DataSourceInfo): string | null => Object.entries(ds.properties).find(([, c]) => c.type === "title")?.[0] ?? null;
 
 /** The properties of a new Clients page: only those the data source has, with their own types (verdict 5 case d). Pure. */
-export function newClientProperties(ds: DataSourceInfo, l: { name: string; email?: string | null; phone?: string | null; brand?: string | null }): Record<string, unknown> | null {
+export function newClientProperties(ds: DataSourceInfo, l: { name: string; email?: string | null; phone?: string | null; brand?: string | null; profile?: LeadProfile | null }): Record<string, unknown> | null {
   const title = titleOf(ds);
   if (!title) return null;
   // P141 C3: a chat-only client has no Email; its title is the caller's (a real name, else the channel placeholder), never empty.
@@ -132,6 +215,8 @@ export function newClientProperties(ds: DataSourceInfo, l: { name: string; email
   const projects = ds.properties[PROJECTS];
   const known = l.brand && projects?.type === "multi_select" ? optionForKey(optionNames(projects), l.brand) : null;
   if (known) props[PROJECTS] = { multi_select: [{ name: known }] };
+  // P147 verdict 8: the lead's profile facts the schema has (never the title, Email, Phone or Relationship written above).
+  if (l.profile) for (const [n, v] of Object.entries(profileProperties(ds, l.profile))) if (!(n in props)) props[n] = v;
   return props;
 }
 
@@ -151,10 +236,14 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
   const hasClient = lead ? lead.hasClient : (o.stored?.hasClient ?? false);
   const status = lead ? lead.status : ((o.stored?.status ?? null) as string | null);
 
+  // P147 verdict 8: the form's Company (read from the page when it can be) completes the stored facts.
+  const companyOf = (p: PageObject | null) => ((p?.properties["Company"]?.rich_text as Array<{ plain_text?: string }> | undefined) ?? []).map((t) => t.plain_text ?? "").join("").trim() || null;
+  const profile = o.profile ? { ...o.profile, company: o.profile.company ?? companyOf(page) } : null;
   let clientPageId: string | null = linkedId;
   let card: ConvertOutcome["card"] = "already_linked";
   if (!hasClient) {
-    const pages = await findClientPages(deps.reader, o.clientsDataSource, o.email);
+    // P147 D3: the pass matched this lead to a client by the exact reply address: that client's card, never a duplicate.
+    const pages = o.card ? [{ id: o.card }] : await findClientPages(deps.reader, o.clientsDataSource, o.email);
     if (pages.length > 1) {
       card = "several";
       notes.push(`${pages.length} Clients cards have ${o.email}: link the right one to the lead in Notion`);
@@ -163,7 +252,7 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
       card = target ? "linked" : "created";
       if (!target) {
         const clientsDs = await deps.reader.retrieveDataSource(o.clientsDataSource);
-        const props = newClientProperties(clientsDs, { name: o.name, email: o.email, phone: o.phone ?? null, brand: o.brand ?? null });
+        const props = newClientProperties(clientsDs, { name: o.name, email: o.email, phone: o.phone ?? null, brand: o.brand ?? null, profile });
         if (!props) {
           card = "not_created";
           notes.push("the Clients database has no title property: the Hub cannot create a card");
@@ -195,6 +284,10 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
 
   if (clientPageId && (card === "already_linked" || card === "linked") && o.brand) {
     const note = await addProjectToCard(deps, { clientsDataSource: o.clientsDataSource, pageId: clientPageId, project: o.brand });
+    if (note) notes.push(note);
+  }
+  if (clientPageId && (card === "already_linked" || card === "linked") && profile) {
+    const note = await fillEmptyProfile(deps, { clientsDataSource: o.clientsDataSource, pageId: clientPageId, profile });
     if (note) notes.push(note);
   }
 

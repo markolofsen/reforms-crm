@@ -1,4 +1,5 @@
 import type { LeadPassBrain, LeadPassTurn, LeadPassTurnResult } from "@hub/config/lead-pass";
+import { replyAddressOf } from "@hub/notion";
 import { leadPassRequest } from "@hub/config/lead-pass";
 import type { Repos } from "@hub/db";
 
@@ -28,9 +29,10 @@ export function fakeLeadPassBrain(d: FakeLeadPassDeps): LeadPassBrain {
         await d.repos.leadPass.decide({ project: t.project, pageId: t.pageId, decision, reason, passId: t.passId, at });
         return { kind: "decided", decision, costUsd: 0 };
       };
-      if (!lead.email) return decide("hand_over", "no mail address: a phone or Telegram only");
+      const to = replyAddressOf(lead).address;
+      if (!to) return decide("hand_over", "no mail address: a phone or Telegram only");
       if (lead.site && JUNK.test(lead.site)) return decide("spam", `the site is ${lead.site}`);
-      await d.repos.drafts.record({ project: t.project, email: lead.email, name: lead.name, subject: `Your ${lead.brand ?? "API"} request`, mailRef: null, newThread: true, ownerRequest: leadPassRequest(at.slice(0, 10), lead.pageId), skill: "lead-pass", excerpt: "Thank you for your request.", brand: lead.brand, leadPass: { pageId: lead.pageId, passId: t.passId, day: at.slice(0, 10) } });
+      await d.repos.drafts.record({ project: t.project, email: to, name: lead.name, subject: `Your ${lead.brand ?? "API"} request`, mailRef: null, newThread: true, ownerRequest: leadPassRequest(at.slice(0, 10), lead.pageId), skill: "lead-pass", excerpt: "Thank you for your request.", brand: lead.brand, leadPass: { pageId: lead.pageId, passId: t.passId, day: at.slice(0, 10) } });
       return decide("reply", "a prospect: the fake brain answers every lead with a mail address");
     },
   };

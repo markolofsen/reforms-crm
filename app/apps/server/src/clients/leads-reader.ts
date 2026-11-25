@@ -275,7 +275,11 @@ export async function convertSentLead(c: ConvertEnv, n: { project: string; to: r
       return { state: "noted", note };
     }
     const deps = c.clients?.(token) ?? { reader: createNotionReader(token), writer: createLeadWriter(token) };
-    const r = await convertLead(deps, { leadsDataSource: leads, clientsDataSource: clients, leadPageId: lead.pageId, email, name: lead.name, brand: lead.brand, stored: { hasClient: lead.hasClient, status: lead.notionStatus } });
+    // P147 D3: a lead the pass decided `client` (an exact address match) is linked to that client's own card, never a lookup.
+    const card = lead.passClientId ? await c.repos.clients.notionPageOf(n.project, lead.passClientId) : null;
+    // P147 verdict 8: the profile facts of the form go on the card (a new one: all; a linked one: the empty ones only).
+    const profile = { company: null, site: lead.site, country: lead.country, segment: lead.segment, volume: lead.volume };
+    const r = await convertLead(deps, { leadsDataSource: leads, clientsDataSource: clients, leadPageId: lead.pageId, email, name: lead.name, brand: lead.brand, stored: { hasClient: lead.hasClient, status: lead.notionStatus }, profile, card });
     await c.repos.leadRows.markConverted(n.project, ids, { clientPageId: r.clientPageId, note: r.note }, now);
     if (r.status === "in_progress") await c.repos.leadRows.setStatus(n.project, [lead.pageId], "In progress");
     (r.note ? log.warn : log.info)(r.note ? "lead converted at the send, with a note for the owner" : "lead converted at the send (Clients card, In progress)", { project: n.project, draft: n.draftId, card: r.card, status: r.status, ...(r.note ? { detail: r.note } : {}) });

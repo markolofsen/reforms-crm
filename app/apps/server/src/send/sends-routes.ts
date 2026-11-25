@@ -8,6 +8,7 @@ import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messen
 import { gateRefusal, ticketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import { batchRuns } from "./batch-door";
+import { leadReviewRoutes } from "../lead-pass/review-routes";
 import { applyMessenger, assessMessenger } from "@hub/messengers/door";
 import { messengerPolicy } from "./messenger-policy";
 import { ops } from "@hub/log/ops";
@@ -106,6 +107,8 @@ export function sendRoutes(services: SendContext) {
 
   return new Hono()
     .route("/", agentSendRoute(services))
+    // P147 L5 (decision 0055 point 2): the lead review and its one click, minting from this store; the run is the batch apply below.
+    .route("/", leadReviewRoutes({ repos, deps, tickets, limits, adminPort: sender?.adminPort, projectsDir: sender?.projectsDir, leads: services.leads }))
     // P49 S12: the admin page fetches one ticket per apply. Only the admin's exact origin, from a same-origin fetch, gets one.
     .post("/api/sends/tickets", v("json", sendTicketBody), async (c) => {
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);

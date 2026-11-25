@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findLeadByEmail } from "../src/client-lookup";
 import { contactChannelOf, parseLeadDetail } from "../src/leads";
-import { convertLead, newClientProperties, writeLeadStatus, type LeadWriter } from "../src/lead-convert";
+import { convertLead, newClientProperties, profileProperties, writeLeadStatus, type LeadWriter } from "../src/lead-convert";
 import type { DataSourceInfo, NotionReader, PageObject, PropertyConfig } from "../src/types";
 
 // P97 (decision 0044): the lead's reply address, and the Hub's writes on leads at the first reply sent and on Spam.
@@ -131,5 +131,46 @@ describe("convertLead at the first reply sent (verdict 5)", () => {
   it("the new card carries only the properties the Clients schema has", () => {
     const bare: DataSourceInfo = { id: "c", title: "Clients", properties: { Title: { type: "title" } } };
     expect(newClientProperties(bare, { name: "", email: "a@x.test", phone: "+1", brand: "carapis" })).toEqual({ Title: { title: [{ type: "text", text: { content: "a@x.test" } }] } });
+  });
+});
+
+describe("the profile fill at the send (P147 verdict 8, decision 0055 point 5) and the pass's matched card (D3)", () => {
+  const PROFILED: Record<string, PropertyConfig> = { ...CLIENTS, Company: { type: "rich_text" }, Site: { type: "url" }, Country: { type: "select", select: opts("Germany", "Brazil") }, Segment: { type: "select", select: opts("Dealer", "Marketplace") }, Volume: { type: "rich_text" } };
+  const profile = { company: "KodaCar Ltda", site: "kodacar.example", country: "brazil", segment: "Startup", volume: "5k calls" };
+  const withProfile = (o: { leads: PageObject[]; clients: PageObject[] }) => {
+    const f = fake(o);
+    const calls = f.calls;
+    const reader: NotionReader = { ...f.reader, retrieveDataSource: async (id) => ({ id, title: id, properties: id === "leads" ? LEADS : PROFILED }) };
+    const writer: LeadWriter = { ...f.writer, fillProfile: async (...a) => void calls.push(["profile", ...a]) };
+    return { reader, writer, calls };
+  };
+
+  it("maps each fact to its property type; a select takes only an option that exists, never a new one", () => {
+    expect(profileProperties({ id: "c", title: "c", properties: PROFILED }, profile)).toEqual({
+      Company: { rich_text: [{ type: "text", text: { content: "KodaCar Ltda" } }] },
+      Site: { url: "https://kodacar.example" },
+      Country: { select: { name: "Brazil" } },
+      Volume: { rich_text: [{ type: "text", text: { content: "5k calls" } }] },
+    });
+  });
+
+  it("a card the Hub creates gets the profile; a card it links gets only its empty fields, never an overwrite", async () => {
+    const created = withProfile({ leads: [lead("L1")], clients: [] });
+    await convertLead(created, { ...input, profile });
+    expect(created.calls[0]?.[0]).toBe("create");
+    expect(created.calls[0]?.[2]).toMatchObject({ Company: expect.anything(), Site: { url: "https://kodacar.example" }, Country: { select: { name: "Brazil" } } });
+    const filled: PageObject = { ...card("c1", "koboriubiratan@gmail.com", ["carapis"]), properties: { ...card("c1", "koboriubiratan@gmail.com", ["carapis"]).properties, Company: rt("Kept Name"), Site: { type: "url", url: null } } };
+    const linked = withProfile({ leads: [lead("L1")], clients: [filled] });
+    await convertLead(linked, { ...input, profile });
+    const fill = linked.calls.find((c) => c[0] === "profile");
+    expect(fill?.[1]).toBe("c1");
+    expect(Object.keys(fill?.[2] as object).sort()).toEqual(["Country", "Site", "Volume"]);
+  });
+
+  it("D3: a lead the pass matched to a client is linked to that client's card, with no lookup and no duplicate", async () => {
+    const f = withProfile({ leads: [lead("L1")], clients: [card("c1", "koboriubiratan@gmail.com"), card("c2", "koboriubiratan@gmail.com")] });
+    const r = await convertLead(f, { ...input, card: "c2" });
+    expect(r).toMatchObject({ clientPageId: "c2", card: "linked" });
+    expect(f.calls.some((c) => c[0] === "create")).toBe(false);
   });
 });

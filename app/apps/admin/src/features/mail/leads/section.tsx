@@ -22,7 +22,7 @@ import { LeadCard } from "./lead-card";
 import { LeadRows, LeadsReadLine } from "./rows";
 import { useLeadsSeen } from "./use-seen";
 
-const EMPTY: Record<LeadView, string> = { new: "No new lead", not_now: "Nothing put aside", spam: "No spam", replied: "No lead answered yet" };
+const EMPTY: Record<LeadView, string> = { new: "No new lead", drafted: "No drafted reply waiting", for_you: "Nothing waits for you", not_now: "Nothing put aside", spam: "No spam", replied: "No lead answered yet" };
 
 /**
  * P138 verdict 7: the views of Leads as one segmented control in the list header (New, Not now, Spam, Replied with their counts),

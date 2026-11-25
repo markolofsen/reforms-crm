@@ -7,6 +7,7 @@ import type { LogEvent } from "@hub/log/event";
 import type { MessengerSenders } from "@hub/messengers/door";
 import type { TicketStore } from "../http/admin-gate";
 import type { BatchRuns } from "./batch-door";
+import type { LeadsHandle } from "../clients/leads-reader";
 
 /** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
 export interface SenderOptions {
@@ -48,4 +49,6 @@ export type SendContext = {
   repos: Repos;
   sender?: SenderOptions;
   messengers?: MessengerSenders;
+  /** P147 L5: the Leads reader, for the lead review's ticked Spam proposals (written in Notion). */
+  leads?: LeadsHandle;
 };

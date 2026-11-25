@@ -106,8 +106,8 @@ const parsed = (line: string): { sendId?: number; refused?: string[]; error?: st
 /**
  * One run, item by item, in the order confirmed. Before each mail: Stop of this run, the batch cap and the spacing (from
  * `send_log`, so two runs share them), the draft still in this batch, then the door itself (`sendDraft`: `assess` again,
- * Stop sending, do not contact, test-recipient mode, Checked bound to the text) and the hash the person confirmed. A refusal or a
- * failure is recorded and the run goes on; nothing is retried. Returns every outcome.
+ * Stop sending, do not contact, test-recipient mode, Checked bound to the text) and the hash the person confirmed. A refusal is
+ * recorded and the run goes on; a transport failure stops it (P147); nothing is retried. Returns every outcome.
  */
 export async function runBatch(deps: SendDeps, o: { project: string; batchId: number; items: readonly Pick<BatchItem, "draftId" | "to" | "subject" | "hash">[]; limits?: BatchLimits; control: RunControl }): Promise<BatchOutcome[]> {
   const limits = o.limits ?? BATCH_LIMITS;
@@ -162,7 +162,16 @@ export async function runBatch(deps: SendDeps, o: { project: string; batchId: nu
     const p = parsed(r.line);
     if (r.code === 0) set(k, { status: "sent", sendId: p.sendId ?? null });
     else if (r.code === 2) set(k, { status: "refused", reasons: p.refused ?? [p.error ?? "refused"] });
-    else set(k, { status: "failed", reasons: [p.error ?? "the send failed"], sendId: p.sendId ?? null });
+    else {
+      // P147 verdict 7 (decision 0055 point 6): a transport failure (Mail broken or not answering) stops the run. The rest are
+      // left untouched as `stopped`; a refusal of one draft (code 2) goes on. Resume sends the rest; an unknown one is refused by
+      // `assess` (its row stays `sending`), so it is never sent twice.
+      const reason = p.error ?? "the send failed";
+      set(k, { status: "failed", reasons: [reason], sendId: p.sendId ?? null });
+      const sent = out.filter((x) => x.status === "sent").length;
+      for (let j = k + 1; j < o.items.length; j++) set(j, { status: "stopped", reasons: [`Stopped after ${sent} of ${o.items.length}: ${reason}; Resume`] });
+      break;
+    }
   }
   return out;
 }

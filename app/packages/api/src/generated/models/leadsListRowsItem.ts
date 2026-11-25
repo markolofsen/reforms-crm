@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { LeadsListRowsItemFacts } from './leadsListRowsItemFacts';
+import type { LeadsListRowsItemPass } from './leadsListRowsItemPass';
 
 export type LeadsListRowsItem = {
   pageId: string;
@@ -24,4 +25,5 @@ export type LeadsListRowsItem = {
      */
   requests: number;
   facts: LeadsListRowsItemFacts;
+  pass: LeadsListRowsItemPass;
 };

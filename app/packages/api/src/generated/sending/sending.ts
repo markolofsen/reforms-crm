@@ -12,6 +12,9 @@ import type {
   BatchSendOutcome,
   BatchTicketBody,
   CancelSendParams,
+  LeadReview,
+  LeadReviewTicket,
+  LeadReviewTicketBody,
   MailSendOutcome,
   MessengerSendBody,
   MessengerSendOutcome,
@@ -389,6 +392,115 @@ export const runBatchSend = async (slug: string,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(batchSendBody)
+  }
+);}
+
+
+export type getLeadReviewResponse200 = {
+  data: LeadReview
+  status: 200
+}
+
+export type getLeadReviewResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getLeadReviewResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type getLeadReviewResponseSuccess = (getLeadReviewResponse200) & {
+  headers: Headers;
+};
+export type getLeadReviewResponseError = (getLeadReviewResponse404 | getLeadReviewResponse409) & {
+  headers: Headers;
+};
+
+export type getLeadReviewResponse = (getLeadReviewResponseSuccess | getLeadReviewResponseError)
+
+export const getGetLeadReviewUrl = (slug: string,
+    batchId: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/lead-review/${encodeURIComponent(String(batchId))}`
+}
+
+/**
+ * @summary Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs
+ */
+export const getLeadReview = async (slug: string,
+    batchId: number, options?: Parameters<typeof hubMutator>[1]): Promise<getLeadReviewResponse> => {
+
+  return hubMutator<getLeadReviewResponse>(getGetLeadReviewUrl(slug,batchId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type confirmLeadReviewResponse200 = {
+  data: LeadReviewTicket
+  status: 200
+}
+
+export type confirmLeadReviewResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type confirmLeadReviewResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type confirmLeadReviewResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type confirmLeadReviewResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type confirmLeadReviewResponseSuccess = (confirmLeadReviewResponse200) & {
+  headers: Headers;
+};
+export type confirmLeadReviewResponseError = (confirmLeadReviewResponse400 | confirmLeadReviewResponse403 | confirmLeadReviewResponse404 | confirmLeadReviewResponse409) & {
+  headers: Headers;
+};
+
+export type confirmLeadReviewResponse = (confirmLeadReviewResponseSuccess | confirmLeadReviewResponseError)
+
+export const getConfirmLeadReviewUrl = (slug: string,
+    batchId: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/lead-review/${encodeURIComponent(String(batchId))}/ticket`
+}
+
+/**
+ * @summary The owner's one click: Checked on the ticked drafts, the untick and the proposals applied, the batch ticket
+ */
+export const confirmLeadReview = async (slug: string,
+    batchId: number,
+    leadReviewTicketBody: LeadReviewTicketBody, options?: Parameters<typeof hubMutator>[1]): Promise<confirmLeadReviewResponse> => {
+
+  return hubMutator<confirmLeadReviewResponse>(getConfirmLeadReviewUrl(slug,batchId),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(leadReviewTicketBody)
   }
 );}
 

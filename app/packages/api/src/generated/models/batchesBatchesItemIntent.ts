@@ -13,4 +13,5 @@ export const BatchesBatchesItemIntent = {
   follow_up: 'follow_up',
   notice: 'notice',
   custom: 'custom',
+  lead_reply: 'lead_reply',
 } as const;

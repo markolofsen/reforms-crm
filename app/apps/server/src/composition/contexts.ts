@@ -112,7 +112,7 @@ export function contexts(rt: Runtime): Contexts {
       ...optional("refillWhatsApp", rt.messengers.whatsapp?.refill.bind(rt.messengers.whatsapp)),
       ...optional("directory", directory),
     },
-    send: { repos, ...optional("sender", sender), ...optional("messengers", rt.messengers.senders) },
+    send: { repos, ...optional("sender", sender), ...optional("messengers", rt.messengers.senders), ...optional("leads", rt.mail.leads) },
     agent: { repos, now, adminPort, ...optional("tools", tools), ...optional("focus", rt.agent.focus), ...optional("pointerFile", rt.agent.pointerFile), ...optional("log", rt.agent.log) },
     terminal: { adminPort, ...optional("terminal", rt.terminal) },
     local: { adminPort, ...optional("local", local) },

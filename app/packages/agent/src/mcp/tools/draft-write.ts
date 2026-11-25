@@ -13,6 +13,7 @@ import { isRefusalCode } from "../refusals";
 import { ToolError } from "../result";
 import { boundLead, ownFollowUpClient, type ToolCtx } from "../ports";
 import { LEAD_PASS_SKILL, leadPassRequest } from "@hub/config/lead-pass";
+import { replyAddressOf } from "@hub/notion";
 import { displayNameFor } from "@hub/projects/brands";
 
 // P52 (decision 0030): the one Mail write of `hub mcp`, an unsent draft in Mail's Drafts with Mail in the background
@@ -47,7 +48,8 @@ export const draftWriteTool = defineTool({
     kind: z.enum(["revise", "reply", "new"]).describe("revise a hub draft, reply to one message, or a new thread"),
     draft: z.number().int().positive().optional().describe("revise: the hub draft's id (focus or draft_show)"),
     message: message.optional().describe("reply: the message answered"),
-    to: z.string().optional().describe("new: the client's address (Notion Clients or Leads)"),
+    to: z.string().optional().describe("new: the client's address (Notion Clients); for a lead pass `lead` instead"),
+    lead: z.string().trim().regex(/^[0-9a-fA-F-]{32,36}$/).optional().describe("new, a lead: its Notion page id (leads_open); the Hub fills `to` from the lead row, never your text"),
     subject: z.string().optional().describe("new: the subject"),
     account: z.string().optional().describe("new: the project's Mail account to write from (default the first)"),
     from: z.string().optional().describe("new: a project address to write from (default mail.sender)"),
@@ -60,11 +62,14 @@ export const draftWriteTool = defineTool({
   }),
   output: draftWriteOutput,
   effect: "draft",
-  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other"],
+  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other", "address_not_on_lead"],
   handler: async (ctx, raw) => {
     // P147 verdict 5: a lead turn writes one new thread to its lead's reply address, with the server's owner_request (never the model's).
+    // E2: in any session, `lead` names the lead and the server fills `to` from its row; a `to` that is not that address is refused.
     const leadTurn = ctx.env.leadPage !== undefined ? await leadTurnOf(ctx, raw) : null;
-    const given = leadTurn ? { ...raw, owner_request: leadTurn.ownerRequest } : raw;
+    const dockTo = !leadTurn && raw.lead ? await leadAddressOf(ctx, raw) : null;
+    const { lead: _lead, ...rest } = raw;
+    const given = leadTurn ? { ...rest, to: leadTurn.to, owner_request: leadTurn.ownerRequest } : dockTo ? { ...rest, to: dockTo.to } : rest;
     const parsed = draftWriteCall.safeParse(Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined)));
     if (!parsed.success) throw new ToolError("invalid", `${parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}. Nothing was written.`);
     const call = parsed.data;
@@ -78,7 +83,7 @@ export const draftWriteTool = defineTool({
       if (call.kind === "revise") return await afterWrite(s, await reviseHubDraft(s, call.draft, call.content), { draft: call.draft, content: call.content, to: undefined, owner_request: call.owner_request, reason: call.reason });
       if (call.kind === "new") {
         await ownClientEmail(s, call.to);
-        const leadPass = leadTurn?.leadPass ?? (await dockLead(s, call.to, call.record.skill));
+        const leadPass = leadTurn?.leadPass ?? (dockTo ? { pageId: dockTo.pageId, passId: null, day: s.ctx.now().toISOString().slice(0, 10) } : await dockLead(s, call.to, call.record.skill));
         await precheckRecord(s, call.to, call.record);
         const w = await writeNewThread(s, { to: call.to, subject: call.subject, content: call.content, owner_request: call.owner_request, account: call.account, from: call.from, brand: call.brand });
         const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, leadPass }, v);
@@ -101,15 +106,35 @@ export const draftWriteTool = defineTool({
 
 type LeadPassRef = { pageId: string; passId: number | null; day: string };
 
+/**
+ * P147 E2 and E3: the address a draft to this lead goes to, from the row (`replyAddressOf`), never from the model's text. A `to`
+ * that is given must be that address (`address_not_on_lead`); a lead with no usable address is refused with its reason.
+ */
+function leadAddress(lead: { pageId: string; name: string; email: string | null; accountEmail: string | null }, raw: { kind: string; to?: string | undefined }, code: "lead_other" | "address_not_on_lead"): string {
+  if (raw.kind !== "new") throw new ToolError(code, "A draft to a lead is one new thread: kind new, lead: <its page id>. Nothing was written.");
+  const a = replyAddressOf(lead);
+  if (!a.address) throw new ToolError("address_not_on_lead", `Lead ${lead.name} has ${a.why}: decide hand_over. Nothing was written.`);
+  const to = (raw.to ?? "").trim().toLowerCase();
+  if (to && to !== a.address) throw new ToolError("address_not_on_lead", `A draft to lead ${lead.name} goes to ${a.address} (${a.why}), never ${to.slice(0, 120)}: leave \`to\` out. Nothing was written.`);
+  return a.address;
+}
+
 /** P147 verdict 5: a lead turn's call is a new thread to the lead's reply address; the record joins the turn's pass and batch. */
-async function leadTurnOf(ctx: ToolCtx, raw: { kind: string; to?: string | undefined }): Promise<{ ownerRequest: string; leadPass: LeadPassRef }> {
+async function leadTurnOf(ctx: ToolCtx, raw: { kind: string; to?: string | undefined; lead?: string | undefined }): Promise<{ to: string; ownerRequest: string; leadPass: LeadPassRef }> {
   const slug = ctx.project();
   const lead = await boundLead(ctx, slug);
-  if (raw.kind !== "new") throw new ToolError("lead_other", "This lead turn writes one draft: kind new, to the lead's reply address. Nothing was written.");
-  if (!lead.email) throw new ToolError("lead_other", "This lead has no reply address (a phone or Telegram only): decide hand_over. Nothing was written.");
-  if ((raw.to ?? "").trim().toLowerCase() !== lead.email) throw new ToolError("lead_other", `This lead turn writes only to ${lead.email}, the lead's reply address. Nothing was written.`);
+  if (raw.lead && raw.lead.replace(/-/g, "").toLowerCase() !== lead.pageId) throw new ToolError("lead_other", `This lead turn serves lead ${lead.pageId} only. Nothing was written.`);
+  const to = leadAddress(lead, raw, "lead_other");
   const day = ctx.now().toISOString().slice(0, 10);
-  return { ownerRequest: leadPassRequest(day, lead.pageId), leadPass: { pageId: lead.pageId, passId: ctx.env.leadPass ?? null, day } };
+  return { to, ownerRequest: leadPassRequest(day, lead.pageId), leadPass: { pageId: lead.pageId, passId: ctx.env.leadPass ?? null, day } };
+}
+
+/** P147 E2: an attended call that names `lead`: the lead row's address, and the draft joins the day's lead batch when not converted. */
+async function leadAddressOf(ctx: ToolCtx, raw: { kind: string; to?: string | undefined; lead?: string | undefined }): Promise<{ to: string; pageId: string } | null> {
+  const lead = await ctx.repos.leadRows.get(ctx.project(), (raw.lead ?? "").replace(/-/g, "").toLowerCase());
+  if (!lead) throw new ToolError("not_found", `No lead ${raw.lead} in project ${ctx.project()} (leads_open lists them). Nothing was written.`);
+  const to = leadAddress(lead, raw, "address_not_on_lead");
+  return { to, pageId: lead.pageId };
 }
 
 /** P147: an attended pass's draft (record.skill lead-pass) to a lead not yet converted joins the day's lead batch too. */

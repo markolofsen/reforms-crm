@@ -87,6 +87,8 @@ export const REFUSAL_CODES = [
   "lead_other",
   "lead_decided",
   "is_lead",
+  // P147 E2: a draft to a lead goes to the address the server takes from the lead row (`replyAddressOf`), never another
+  "address_not_on_lead",
 ] as const;
 
 export type RefusalCode = (typeof REFUSAL_CODES)[number];
@@ -170,6 +172,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   followup_other_client: { retry: "now", next: "This follow-up turn serves one client: use its id, its threads and its chats only (the prompt names them)." },
   lead_other: { retry: "now", next: "This lead turn serves one lead: its reply address and its one matched client only (the prompt names them)." },
   lead_decided: { retry: "no", next: "This lead already has a decision: say it in one line; the owner's Redo on its card clears it." },
+  address_not_on_lead: { retry: "now", next: "Call draft_write again with lead: <its page id> and no `to`: the Hub fills the lead's address. No usable address: decide hand_over." },
   is_lead: { retry: "no", next: "Write the first reply as a new-thread draft; the card is made when the owner sends it from Mail ▸ Leads ▸ Review." },
   not_in_notion: { retry: "now", next: "Find the client with client_create's lookup (by email or phone), or create one from this chat with client_create." },
 };

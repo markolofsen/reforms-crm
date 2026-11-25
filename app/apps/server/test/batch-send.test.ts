@@ -148,7 +148,7 @@ describe("a batch run", () => {
     expect(c.waits).toEqual([20_000, 20_000]);
   });
 
-  it("does not send a draft changed in Mail after the confirmation, nor one Unchecked since; a failure stops nothing else", async () => {
+  it("does not send a draft changed in Mail after the confirmation, nor one Unchecked since; a refusal stops nothing else, and the last mail's failure is recorded", async () => {
     const { batchId, ids } = await campaign(3);
     const plan = await planBatch(deps, "acme", batchId);
     mailer.drafts = mailer.drafts.map((m) => (m.to[0] === "c1@example.com" ? { ...m, body: `${m.body}\nP.S. changed` } : m));

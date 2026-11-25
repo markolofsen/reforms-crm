@@ -88,7 +88,15 @@ describe("a lead turn's hub mcp (verdict 5)", () => {
   it("draft_write in a lead turn writes only a new thread to the lead's reply address", async () => {
     const { call } = await connect({ leadPage: B, leadPass: 1 });
     expect((await call("draft_write", { kind: "reply", message: { inbound: 1 }, content: "Hi" })).json.error).toBe("lead_other");
-    expect((await call("draft_write", { kind: "new", to: "other@example.test", subject: "Hi", content: "Hi", owner_request: "x" })).json.error).toBe("lead_other");
+    expect((await call("draft_write", { kind: "new", to: "other@example.test", subject: "Hi", content: "Hi", owner_request: "x" })).json.error).toBe("address_not_on_lead");
+    expect((await call("draft_write", { kind: "new", lead: A, subject: "Hi", content: "Hi" })).json.error).toBe("lead_other");
+  });
+
+  it("E2: an attended draft_write with lead takes its address from the row and refuses any other to", async () => {
+    const { call } = await connect();
+    const r = await call("draft_write", { kind: "new", lead: B, to: "carapisofficial@gmail.com", subject: "Hi", content: "Hi", owner_request: "x" });
+    expect(r.json.error).toBe("address_not_on_lead");
+    expect(String(r.json.message)).toContain("new@example.test");
   });
 });
 

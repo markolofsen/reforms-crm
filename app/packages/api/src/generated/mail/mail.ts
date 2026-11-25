@@ -42,6 +42,8 @@ import type {
   Inbox,
   LeadAction,
   LeadDetail,
+  LeadPass,
+  LeadRedone,
   LeadsList,
   ListBatchesParams,
   ListConversationsParams,
@@ -56,6 +58,8 @@ import type {
   Ok,
   RunFollowUps,
   RunFollowUpsBody,
+  RunLeadPass,
+  RunLeadPassBody,
   Sequences,
   SetFollowUpBody,
   StatusBody,
@@ -399,6 +403,150 @@ export const setFollowUp = async (slug: string,
     method: 'PUT',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(setFollowUpBody)
+  }
+);}
+
+
+export type getLeadPassResponse200 = {
+  data: LeadPass
+  status: 200
+}
+
+export type getLeadPassResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getLeadPassResponseSuccess = (getLeadPassResponse200) & {
+  headers: Headers;
+};
+export type getLeadPassResponseError = (getLeadPassResponse404) & {
+  headers: Headers;
+};
+
+export type getLeadPassResponse = (getLeadPassResponseSuccess | getLeadPassResponseError)
+
+export const getGetLeadPassUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/lead-pass`
+}
+
+/**
+ * @summary The project's lead pass: today's decisions, the last pass, the next, the review
+ */
+export const getLeadPass = async (slug: string, options?: Parameters<typeof hubMutator>[1]): Promise<getLeadPassResponse> => {
+
+  return hubMutator<getLeadPassResponse>(getGetLeadPassUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type runLeadPassResponse202 = {
+  data: RunLeadPass
+  status: 202
+}
+
+export type runLeadPassResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type runLeadPassResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type runLeadPassResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type runLeadPassResponseSuccess = (runLeadPassResponse202) & {
+  headers: Headers;
+};
+export type runLeadPassResponseError = (runLeadPassResponse403 | runLeadPassResponse404 | runLeadPassResponse409) & {
+  headers: Headers;
+};
+
+export type runLeadPassResponse = (runLeadPassResponseSuccess | runLeadPassResponseError)
+
+export const getRunLeadPassUrl = (slug: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/lead-pass`
+}
+
+/**
+ * @summary Run the project's lead pass now
+ */
+export const runLeadPass = async (slug: string,
+    runLeadPassBody: RunLeadPassBody, options?: Parameters<typeof hubMutator>[1]): Promise<runLeadPassResponse> => {
+
+  return hubMutator<runLeadPassResponse>(getRunLeadPassUrl(slug),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(runLeadPassBody)
+  }
+);}
+
+
+export type redoLeadResponse200 = {
+  data: LeadRedone
+  status: 200
+}
+
+export type redoLeadResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type redoLeadResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type redoLeadResponseSuccess = (redoLeadResponse200) & {
+  headers: Headers;
+};
+export type redoLeadResponseError = (redoLeadResponse403 | redoLeadResponse404) & {
+  headers: Headers;
+};
+
+export type redoLeadResponse = (redoLeadResponseSuccess | redoLeadResponseError)
+
+export const getRedoLeadUrl = (slug: string,
+    pageId: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/leads/${encodeURIComponent(String(pageId))}/redo`
+}
+
+/**
+ * @summary Clear one lead's pass decision so the next pass decides it again
+ */
+export const redoLead = async (slug: string,
+    pageId: string, options?: Parameters<typeof hubMutator>[1]): Promise<redoLeadResponse> => {
+
+  return hubMutator<redoLeadResponse>(getRedoLeadUrl(slug,pageId),
+  {
+    ...options,
+    method: 'POST'
+
+
   }
 );}
 
