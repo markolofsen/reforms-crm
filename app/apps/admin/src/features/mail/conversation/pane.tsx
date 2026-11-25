@@ -65,13 +65,13 @@ export function useMoveToast(project: string) {
 function ReplyStart({ project, row, onWrite }: { project: string; row: ConversationRow; onWrite: () => void }) {
   const prepare = usePrepare(project);
   const dismiss = useDismiss(project);
+  const move = useMoveToast(project);
   const write = (label: string) => (
     <ActionButton data-testid="write-myself" onClick={onWrite} size="s" variant="quiet">
       {label}
     </ActionButton>
   );
   if (row.state !== "wrote") return <DraftActionRow ariaLabel="Write" start={write("Write again")} testId="reply-start" />;
-  const move = useMoveToast(project);
   const junk = row.junk !== null && row.inboundId !== null;
   const agentSaysNo = row.agent !== null && row.inboundId !== null;
   const moveButton = (to: "junk" | "trash", primary: boolean) =>
