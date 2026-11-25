@@ -36,12 +36,12 @@ Pack file: `schema/bug-reports.json`.
 | Evidence | text | agent | Description: "One line per URL, id or screenshot reference the client gave. Only what the client sent or the agent saw." |
 | Kind | select | agent | Description: "Product: our product misbehaves. Knowledge gap: a client asked what the knowledge base does not answer (or only in general). Workflow: the agent could not resolve something itself (a refusal with no path, a lead it could not classify, a missing or contradictory record). Empty is Product." Options: Product, Knowledge gap, Workflow. P147 3g. The open-report search keys on Kind plus Area, so a recurring gap is one row with many Clients. |
 | Area | select | agent | Description: "<kind>: <name>, lower case (parser: <source>, site: <domain>, api, admin; for a Knowledge gap the topic, knowledge: <topic>; for Workflow the step, workflow: <tool or step>). An option is reused when its normalised form matches." The open-report search keys on Area and Projects. |
-| Status | select | people | Description: "The agent sets New only; people move it on. A select, not a Status: the API cannot create a Status." Options: New, Triaged, In progress, Fixed, Won't fix, Duplicate. Fixed with an empty Client told makes the follow-up sweep propose a "fixed" message (B4, after P142). |
+| Status | select | people | Description: "The agent sets New only; people move it on. A select, not a Status: the API cannot create a Status." Options: New, Triaged, In progress, Fixed, Won't fix, Duplicate. Fixed with an empty Client told makes the next follow-up sweep draft a short "fixed, please check" note for each linked client (P145 B4); Client told is written once every one of them was told. |
 | Severity | select | people | Description: "Set by people at triage; empty until then. The agent never writes it." Options: Critical, High, Normal, Low. |
 | Duplicate of | relation to bug-reports | people | Description: "The report this one repeats (Status Duplicate)." |
 | Reported at | date | agent | Description: "When the first report's message was sent." |
 | Last reported | date | agent | Description: "When the latest report was appended." |
-| Client told | date | Hub | Description: "When the clients were told it is fixed: set by the Hub at the send of the "fixed" message. Do not edit." |
+| Client told | date | Hub | Description: "When the clients were told it is fixed: set by the Hub at the send of the "fixed" message. Do not edit." Written once every linked client the sweep noted was told, with the last send's time. |
 | Fix link | url | people | Description: "The commit, pull request or task that fixed it." |
 | Notes | text | people | Description: "People's notes, the cause among them. The agent never writes here." |
 

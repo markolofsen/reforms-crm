@@ -86,6 +86,8 @@ export function apiServer(s: Stack) {
       HUB_AUTOPILOT_BRAIN: "fake",
       // P142: the follow-up sweep's brain is the scripted fake too (no model); the server refuses it without HUB_DB.
       HUB_FOLLOWUP_BRAIN: "fake",
+      // P147: the lead and mail passes' brain is the scripted fake too (no model); the server refuses it without HUB_DB.
+      HUB_LEAD_BRAIN: "fake",
     },
     url: `http://127.0.0.1:${s.apiPort}/api/health`,
     reuseExistingServer: false,

@@ -22,7 +22,7 @@ describe("select all (3m item 4)", () => {
 });
 
 describe("Send all ready (3m item 5)", () => {
-  const d = review([row(1), row(2, { mail: { to: ["a@x.test"], subject: "s", body: "Price: [Owner: the price]" } }), row(3, { kind: "mail", newSender: true, ticked: false }), row(4, { held: ["outside the send window"], ticked: false }), row(5, { kind: "mail" })], [proposal(1, "spam"), proposal(2, "no_reply", "mail")]);
+  const d = review([row(1), row(2, { mail: { from: "", to: ["a@x.test"], cc: [], subject: "s", body: "Price: [Owner: the price]" } }), row(3, { kind: "mail", newSender: true, ticked: false }), row(4, { held: ["outside the send window"], ticked: false }), row(5, { kind: "mail" })], [proposal(1, "spam"), proposal(2, "no_reply", "mail")]);
 
   it("counts only the replies that go now: no placeholder, nothing held, not a new sender", () => {
     expect(readyRows(d).map((r) => r.draftId)).toEqual([1, 5]);
