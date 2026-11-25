@@ -49,7 +49,8 @@ describe("P140 K3 the deny list of an owner's session", () => {
     for (const p of ["./state/projects/**", "./state/autopilot.json", "./state/secrets/**", "./config/config.json", "./config/mcp.json", "./core/**", "./.claude/**", "./.codex/**", "./run.sh", "./state/log/**", "./.mcp.json"]) expect(deny).toContain(`Edit(${p})`);
     for (const p of ["./config/**", "./.git/**", "./CLAUDE.md", "./AGENTS.md"]) expect(deny).not.toContain(`Edit(${p})`);
     expect(deny.filter((r) => r.startsWith("Read(") && !r.includes("state/projects/") && !r.includes("state/codex/"))).toEqual(["Read(./state/secrets/**)"]);
-    expect(settings.sandbox).toMatchObject({ network: { allowedDomains: [], allowLocalBinding: false } });
+    expect(settings.sandbox).toMatchObject({ network: { allowedDomains: ["*"], allowLocalBinding: true } });
+    expect((settings.sandbox as { network: { deniedDomains: string[] } }).network.deniedDomains).toEqual(expect.arrayContaining(["localhost", "*.localhost", "127.0.0.1", "::1", "0.0.0.0", "*.nip.io", "localtest.me"]));
     expect(deny).not.toContain("Read(./projects/beta/**)");
     expect(deny).not.toContain("Edit(./projects/beta/**)");
     // The database folder is the sandbox's (left out of the rules: they would become sandbox denials for the record writers).

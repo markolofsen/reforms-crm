@@ -25,7 +25,7 @@ One permission mode, no switch (owner 2026-11-25: no friction):
 | | Every session |
 |---|---|
 | Prompts | none (Claude `--dangerously-skip-permissions`, Codex `-a never` with the hub's writing tools approved by name) |
-| OS sandbox | on: Claude's `sandbox` settings block (`enabled`, `failIfUnavailable`, `allowUnsandboxedCommands: false`, no allowed domain, no local binding, `denyWrite` on the protected paths); Codex: the `hub` permissions profile |
+| OS sandbox | on: Claude's `sandbox` settings block (`enabled`, `failIfUnavailable`, `allowUnsandboxedCommands: false`, every domain allowed but loopback and the names known to resolve to it (`LOOPBACK_HOSTS`, 3l), local binding allowed, `denyWrite` on the protected paths); Codex: the `hub` permissions profile |
 | Network from commands | off (no loopback: the send route and the API are out of reach) |
 | MCP servers (mail-mcp, Notion, hub) | work unchanged: the CLI calls them outside the sandbox |
 | Send tools off, strict MCP, deny rules, guard hook (Claude) or forbidden rules (Codex) | yes |
@@ -39,7 +39,7 @@ Never: Codex `--dangerously-bypass-approvals-and-sandbox` or `--yolo` (`codexArg
 
 **Codex** has no strict-MCP flag, so each project gets its own `CODEX_HOME`: `state/codex/<slug>/` with `config.toml` (the hub's MCP servers only, `disabled_tools` per server, the `hub` profile: `":root" = "read"`, `":workspace_roots" = "write"`, the protected paths `"read"`, secrets and other projects' session files under `state/projects/<other>` and Codex homes (P112 S3) `"none"`, other projects' folders and the other tabs' drops `"read"` (P140 K3), network `enabled = false`, the Notion server's `enabled_tools` = the allow-list (P112 S3: Notion is default-deny); the project trusted; the owner's `model` and `model_reasoning_effort` carried), `rules/hub.rules` (`hub send`, the API and loopback as `forbidden` prefixes), `skills/` (links to the core skills) and `auth.json` (a link to the owner's, never a copy). A remote MCP server that needs OAuth (Notion) signs in once per `CODEX_HOME`.
 
-Measured on Claude Code 2.1.220 and Codex 0.146.0 (2026-11-18), in the sandboxed mode, in a scratch instance: a decimal-IP `curl` to the send route exits 7 in both; `osascript` to Mail fails in both; `echo >>` the policy file is refused by the OS in both; Claude's Edit and Codex's `apply_patch` on it are refused; `draft_write`'s record works. Another CLI version is a WARN in Agent tools: rerun those checks.
+Since 3l (P147, 2026-11-25) Claude's commands reach every host but `LOOPBACK_HOSTS`; the proxy normalises IP spellings before the deny, so a decimal IP to loopback stays refused (from the code, not yet re-measured), but another name that resolves to 127.0.0.1 reaches the admin (the owner's decision). Measured on Claude Code 2.1.220 and Codex 0.146.0 (2026-11-18), in the sandboxed mode, in a scratch instance: a decimal-IP `curl` to the send route exits 7 in both; `osascript` to Mail fails in both; `echo >>` the policy file is refused by the OS in both; Claude's Edit and Codex's `apply_patch` on it are refused; `draft_write`'s record works. Another CLI version is a WARN in Agent tools: rerun those checks.
 
 ### The third kind: an autopilot turn (decision 0048, P139 A3)
 

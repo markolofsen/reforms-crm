@@ -176,9 +176,10 @@ describe("generated session files", () => {
   it("an unbound session writes to _unbound", () => {
     expect(existsSync(writeSessionFiles(root, PROJECTS, undefined).settings)).toBe(true);
   });
-  it("every owner session has the OS sandbox: no network, no Apple Events, its own guards read-only (P49 S9, 3l)", () => {
-    const u = settings as { sandbox: { allowAppleEvents?: unknown; filesystem: { denyWrite: string[] } }; permissions: { deny: string[] } };
-    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, network: { allowedDomains: [], allowLocalBinding: false } });
+  it("every owner session has the OS sandbox: the network open but loopback, no Apple Events, its own guards read-only (P49 S9, 3l)", () => {
+    const u = settings as { sandbox: { allowAppleEvents?: unknown; network: { deniedDomains: string[] }; filesystem: { denyWrite: string[] } }; permissions: { deny: string[] } };
+    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, network: { allowedDomains: ["*"], allowLocalBinding: true } });
+    expect(u.sandbox.network.deniedDomains).toEqual(expect.arrayContaining(["localhost", "127.0.0.1", "::1"]));
     expect(u.sandbox.allowAppleEvents).toBeUndefined();
     const dw: string[] = u.sandbox.filesystem.denyWrite;
     for (const p of ["state/projects", "state/secrets", "state/codex", "config/config.json", "config/mcp.json", "core", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
