@@ -58,8 +58,9 @@ Calendar and Drive connectors its project attaches in `project.md`, and the owne
 never invites, shares or deletes. Codex sessions get no Google connectors: [core/26-capabilities.md](core/26-capabilities.md).
 
 **The browser.** The browser is the owner's own, as he set it up: Claude Code starts with `--chrome` (his Claude in Chrome extension), and Codex
-uses the extension he linked. The Hub adds no browser and the guard does not narrow it. The capabilities line says mail and messenger messages
-never go out through it. Through it an agent can also act on the admin's own tab: [core/26-capabilities.md](core/26-capabilities.md), section 8.
+uses the extension he linked. The Hub adds no browser and the guard does not narrow it. The capabilities line tells an attended agent to
+use it by default to study a site (a new tab for an outside one, his tab when he points at a page; fetch when the extension is not
+connected), and says mail and messenger messages never go out through it. Through it an agent can also act on the admin's own tab: [core/26-capabilities.md](core/26-capabilities.md), section 8.
 
 **The agent log.** Every prompt, answer, tool call, wait on the owner and guard event of a session is written per project under `state/log/`,
 from the CLIs' own hooks. It records and never decides. `hub log` reads it; the terminal strip's dot and the tones read its tail: [core/25-agent-log.md](core/25-agent-log.md). What failed underneath (a messenger's disconnect, Mail, Notion, the send door, the server) is the ops log, one redacted line each, read by `hub logs` and Overview's Recent errors: [core/28-ops-log.md](core/28-ops-log.md).

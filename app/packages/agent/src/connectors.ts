@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import type { ProjectConfig } from "@hub/projects/model";
+import { CLAUDE_CHROME_SERVER } from "./claude";
 import { notionCapability, type NotionScope } from "./notion-scope";
 
 // P62: connectors, the Google services a project's sessions may reach beside mail-mcp and Notion. A connector is a Google-hosted
@@ -140,11 +141,14 @@ export const connectorDeniedTools = (attached: readonly Pick<AttachedConnector, 
   attached.flatMap((c) => KINDS[c.kind].tools.filter((t) => !KINDS[c.kind].allowed.includes(t)).map((t) => `mcp__${c.name}__${t}`));
 
 /**
- * The browser part of the capabilities line (decision 0040 as amended 2026-11-20): the Hub ships no browser; the agent may use the
- * owner's own, as he set it up (his Chrome extension linked to Claude Code or Codex), and it is never a send path.
+ * The browser part of the capabilities line (decision 0040 as amended 2026-11-20; owner 2026-11-26: use it, actively): the Hub
+ * ships no browser; the agent studies sites in the owner's own Chrome, linked to its CLI, and it is never a send path. Claude Code
+ * names its tools (`--chrome` adds `claude-in-chrome`); Codex's extension tools are not named (not read from a Codex session).
  */
-export const BROWSER_CAPABILITY =
-  "browser: the owner's own browser, as he set it up (his Chrome extension for this CLI; the Hub adds none), for reading the web and Notion pages; mail and messenger messages go only through the hub's drafts and its send door, never through the browser";
+export function browserCapability(cli: AgentCli): string {
+  const tools = cli === "claude" ? `Claude in Chrome (\`mcp__${CLAUDE_CHROME_SERVER}__*\`; if they are deferred, load them in one ToolSearch call)` : "your CLI's own Chrome extension tools (load them first if they are not loaded yet)";
+  return `browser: the owner's own browser, as he set it up (his Chrome, linked to this CLI and signed in as him; the Hub adds none): use it by default to study any site, ours, a client's or a competitor's, above all when a plain fetch is blocked, empty, needs JavaScript or his sign-in, through ${tools}, in a new tab for an outside site and in his tab when he points at a page; if the extension is not connected, say so and fall back to fetch. Never submit a lead form; mail and messenger messages go only through the hub's drafts and its send door, never through the browser`;
+}
 
 /**
  * The capabilities line of a bound session (K4), appended after the project's identity: what this session can reach, built from
@@ -164,6 +168,6 @@ export function sessionCapabilities(slug: string, attached: readonly AttachedCon
     parts.push(cal.length ? `calendar: ${cal.map(who).join(", ")}, read, and holds with no guests on the first (skill calendar)` : "calendar: none attached (Apple Calendar is not reachable from a hub session)");
     parts.push(drive.length ? `drive: ${drive.map(who).join(", ")}, search, read and link onto the client's Notion profile only; never share, copy, create or trash` : "drive: none attached");
   }
-  parts.push(BROWSER_CAPABILITY); // decision 0040 as amended: his browser, the Hub's send door
+  parts.push(browserCapability(cli)); // decision 0040 as amended: his browser, the Hub's send door
   return `Project ${slug}'s capabilities (generated from project.md and the instance's connectors; how to use them: @docs/core/26-capabilities.md): ${parts.join("; ")}. A service listed as none is not reachable here: say so, never look for another way.`;
 }

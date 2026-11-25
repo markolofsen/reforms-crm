@@ -133,13 +133,19 @@ describe("the capabilities line", () => {
     expect(sessionCapabilities("realty", [], "claude")).toContain("calendar: none attached");
     expect(sessionCapabilities("realty", [att("gcal-hello", "calendar")], "codex")).toMatch(/not in Codex sessions/);
   });
-  it("names the owner's own browser and the send door, the same for both CLIs (decision 0040 as amended)", () => {
+  it("names the owner's own browser, to use by default, and the send door, for both CLIs (decision 0040 as amended; owner 2026-11-26)", () => {
     for (const cli of ["claude", "codex"] as const) {
       const l = sessionCapabilities("realty", [], cli);
       expect(l).toContain("browser: the owner's own browser, as he set it up");
+      expect(l).toContain("use it by default to study any site");
+      expect(l).toContain("fall back to fetch");
+      expect(l).toContain("Never submit a lead form");
       expect(l).toContain("mail and messenger messages go only through the hub's drafts and its send door");
-      expect(l).not.toMatch(/playwright/i);
+      expect(l).not.toMatch(/playwright|read only, no|no purchases/i);
     }
+    // Claude Code names its extension's tools (`--chrome`); Codex's are not named (never read from a Codex session).
+    expect(sessionCapabilities("realty", [], "claude")).toContain("`mcp__claude-in-chrome__*`; if they are deferred, load them in one ToolSearch call");
+    expect(sessionCapabilities("realty", [], "codex")).not.toContain("mcp__");
   });
 });
 
