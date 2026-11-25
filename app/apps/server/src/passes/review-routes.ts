@@ -83,84 +83,7 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       const batch = await leadBatch(slug, batchId);
       if (!batch) return notFound(c, "batch");
       const at = deps.now?.() ?? new Date();
-      const rows = [];
-      for (const r of await repos.leadPass.ofBatch(slug, batchId)) {
-        if (r.passDraftId === null || !picked(r.passDraftId)) continue;
-        const a = await read(r.passDraftId);
-        const held = a.held;
-        const excluded = r.display === "excluded";
-        const to = replyAddressOf(r);
-        const language = languageLine((await repos.drafts.get(r.passDraftId))?.context ?? null);
-        rows.push({
-          pageId: r.pageId,
-          name: r.name,
-          email: r.email,
-          replyWhy: to.why,
-          language,
-          brand: r.brand,
-          receivedAt: r.receivedAt,
-          request: r.preview,
-          decision: r.passDecision ?? "reply",
-          reason: r.passReason,
-          display: r.display,
-          draftId: r.passDraftId,
-          mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
-          held,
-          // 3i P2: a needs-input draft is shown For you; once its marker is filled (nothing held) it ticks like any other.
-          ticked: held.length === 0 && !excluded && a.mail !== null && (r.display === "drafted" || r.display === "for_you"),
-        });
-      }
-      // P147 3h: the mail pass's replies, grouped after the leads; a first reply to a new sender opens unticked.
-      for (const m of await repos.mailPass.ofBatch(slug, batchId)) {
-        if (m.passDraftId === null || !picked(m.passDraftId)) continue;
-        const a = await read(m.passDraftId);
-        const held = a.held;
-        const display = m.display === "dismissed" ? ("excluded" as const) : m.display === "new" ? ("drafted" as const) : m.display;
-        rows.push({
-          kind: "mail" as const,
-          newSender: m.newSender,
-          pageId: String(m.id),
-          name: m.name || m.email,
-          email: m.email,
-          replyWhy: "the sender's address",
-          language: languageLine((await repos.drafts.get(m.passDraftId))?.context ?? null),
-          brand: null,
-          receivedAt: m.receivedAt,
-          request: m.preview,
-          decision: m.passDecision ?? "reply",
-          reason: m.passReason,
-          display,
-          draftId: m.passDraftId,
-          mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
-          held,
-          ticked: !m.newSender && held.length === 0 && a.mail !== null && (display === "drafted" || display === "for_you"),
-        });
-      }
-      // P145 B4: the fixed bugs' notes the follow-up sweep added to this list; they tick like any ready reply.
-      for (const n of await repos.bugNotes.ofBatch(slug, batchId)) {
-        if (n.draftId === null || !picked(n.draftId)) continue;
-        const a = await read(n.draftId);
-        const d = await repos.drafts.get(n.draftId);
-        const client = await repos.clients.get(slug, n.clientId);
-        rows.push({
-          kind: "fixed" as const,
-          pageId: n.reportPageId,
-          name: client?.name || client?.email || `client ${n.clientId}`,
-          email: client?.email ?? null,
-          replyWhy: "the client's address",
-          language: languageLine(d?.context ?? null),
-          brand: null,
-          receivedAt: n.draftedAt ?? n.createdAt,
-          request: "A bug they reported is fixed: a short note asking them to check",
-          decision: "reply" as const,
-          reason: null,
-          display: "drafted" as const,
-          draftId: n.draftId,
-          mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
-          held: a.held,
-          ticked: a.held.length === 0 && a.mail !== null && n.toldAt === null,
-        });
-      }
+      const rows = await reviewRows(repos, slug, batchId, read, picked);
       const decided = await repos.leadPass.decided(slug, windowFrom(slug, at));
       const mailDecided = await repos.mailPass.decided(slug, windowFrom(slug, at));
       const proposals = [
@@ -273,6 +196,91 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       if (!j.ok) return c.json({ error: j.error, code: j.code }, j.code === "not_found" ? 404 : 409);
       return c.json({ ok: true as const, closed: j.closed.length });
     });
+}
+
+type ReviewRead = (draftId: number) => Promise<{ mail: { sender: string | null; to: string[]; cc: string[]; subject: string; body: string } | null; held: string[] }>;
+
+/** The review's rows: the lead pass's replies, the mail pass's (P147 3h), then the fixed bugs' notes (P145 B4). */
+async function reviewRows(repos: Repos, slug: string, batchId: number, read: ReviewRead, picked: (id: number) => boolean) {
+  const rows = [];
+  for (const r of await repos.leadPass.ofBatch(slug, batchId)) {
+    if (r.passDraftId === null || !picked(r.passDraftId)) continue;
+    const a = await read(r.passDraftId);
+    const held = a.held;
+    const excluded = r.display === "excluded";
+    const to = replyAddressOf(r);
+    const language = languageLine((await repos.drafts.get(r.passDraftId))?.context ?? null);
+    rows.push({
+      pageId: r.pageId,
+      name: r.name,
+      email: r.email,
+      replyWhy: to.why,
+      language,
+      brand: r.brand,
+      receivedAt: r.receivedAt,
+      request: r.preview,
+      decision: r.passDecision ?? "reply",
+      reason: r.passReason,
+      display: r.display,
+      draftId: r.passDraftId,
+      mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+      held,
+      // 3i P2: a needs-input draft is shown For you; once its marker is filled (nothing held) it ticks like any other.
+      ticked: held.length === 0 && !excluded && a.mail !== null && (r.display === "drafted" || r.display === "for_you"),
+    });
+  }
+  // P147 3h: the mail pass's replies, grouped after the leads; a first reply to a new sender opens unticked.
+  for (const m of await repos.mailPass.ofBatch(slug, batchId)) {
+    if (m.passDraftId === null || !picked(m.passDraftId)) continue;
+    const a = await read(m.passDraftId);
+    const held = a.held;
+    const display = m.display === "dismissed" ? ("excluded" as const) : m.display === "new" ? ("drafted" as const) : m.display;
+    rows.push({
+      kind: "mail" as const,
+      newSender: m.newSender,
+      pageId: String(m.id),
+      name: m.name || m.email,
+      email: m.email,
+      replyWhy: "the sender's address",
+      language: languageLine((await repos.drafts.get(m.passDraftId))?.context ?? null),
+      brand: null,
+      receivedAt: m.receivedAt,
+      request: m.preview,
+      decision: m.passDecision ?? "reply",
+      reason: m.passReason,
+      display,
+      draftId: m.passDraftId,
+      mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+      held,
+      ticked: !m.newSender && held.length === 0 && a.mail !== null && (display === "drafted" || display === "for_you"),
+    });
+  }
+  // P145 B4: the fixed bugs' notes the follow-up sweep added to this list; they tick like any ready reply.
+  for (const n of await repos.bugNotes.ofBatch(slug, batchId)) {
+    if (n.draftId === null || !picked(n.draftId)) continue;
+    const a = await read(n.draftId);
+    const d = await repos.drafts.get(n.draftId);
+    const client = await repos.clients.get(slug, n.clientId);
+    rows.push({
+      kind: "fixed" as const,
+      pageId: n.reportPageId,
+      name: client?.name || client?.email || `client ${n.clientId}`,
+      email: client?.email ?? null,
+      replyWhy: "the client's address",
+      language: languageLine(d?.context ?? null),
+      brand: null,
+      receivedAt: n.draftedAt ?? n.createdAt,
+      request: "A bug they reported is fixed: a short note asking them to check",
+      decision: "reply" as const,
+      reason: null,
+      display: "drafted" as const,
+      draftId: n.draftId,
+      mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+      held: a.held,
+      ticked: a.held.length === 0 && a.mail !== null && n.toldAt === null,
+    });
+  }
+  return rows;
 }
 
 const LANGUAGE_NAMES = new Intl.DisplayNames(["en"], { type: "language" });

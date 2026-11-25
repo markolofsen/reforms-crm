@@ -1,3 +1,4 @@
+import type { Repos } from "@hub/db";
 import { z } from "zod";
 import { LEAD_PASS_DECISIONS, LEAD_PASS_DRAFTED, LEAD_PASS_REASON_MAX } from "@hub/config/lead-pass";
 import { defineTool, unavailableAnswer } from "../define";
@@ -139,7 +140,7 @@ export const leadDecideTool = defineTool({
 });
 
 /** F1 of 3d: whether this client already has a conversation in the channel: a linked chat's identifier, or a mail we sent. */
-async function liveIn(ctx: { repos: import("@hub/db").Repos }, slug: string, client: number, channel: (typeof ANSWERED_IN)[number]): Promise<boolean> {
+async function liveIn(ctx: { repos: Repos }, slug: string, client: number, channel: (typeof ANSWERED_IN)[number]): Promise<boolean> {
   if (channel === "mail") return (await ctx.repos.drafts.ofClient(slug, client)).some((d) => d.status === "sent");
   return (await ctx.repos.messengers.identifiersOf(slug, client)).some((x) => x.kind === channel);
 }

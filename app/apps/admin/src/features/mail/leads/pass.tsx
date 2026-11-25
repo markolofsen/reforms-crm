@@ -19,9 +19,12 @@ import { formatTime } from "@/lib/format";
 
 type Pass = NonNullable<LeadRowDto["pass"]>;
 
+const isLeadDecision = (d: string): d is LeadPassDecision => d in LEAD_PASS_DECISION_LABELS;
+const decisionLabel = (d: string): string => (isLeadDecision(d) ? LEAD_PASS_DECISION_LABELS[d] : d);
+
 /** The chip of a row's decision: what the pass decided, Excluded once the owner unticked it. */
 export function passChipText(p: Pass): string {
-  return p.excludedAt ? "Excluded" : LEAD_PASS_DECISION_LABELS[p.decision as LeadPassDecision];
+  return p.excludedAt ? "Excluded" : decisionLabel(p.decision);
 }
 
 /** The pass line: "Lead pass 09:32 · 4 drafted · 2 proposed · 1 for you · next 26 Nov 09:30", or why it is off or stopped. */

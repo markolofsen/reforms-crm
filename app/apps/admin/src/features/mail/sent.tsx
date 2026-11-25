@@ -4,6 +4,7 @@ import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { clientKey } from "@hub/contract/client-key";
 import type { SendRowDto } from "@hub/contract/sending";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
@@ -37,7 +38,7 @@ function SentRow({ r }: { r: SendRowDto }) {
   const [open, setOpen] = useState(false);
   return (
     <li className="flex flex-col gap-2 py-3" data-testid="sent-row">
-      <button aria-expanded={open} className="flex min-w-0 items-start gap-2 text-start" onClick={() => setOpen((v) => !v)} type="button">
+      <ActionButton aria-expanded={open} className="size-auto min-w-0 items-start justify-start gap-2 whitespace-normal px-0 py-0 text-start font-normal" onClick={() => setOpen((v) => !v)} size="s" variant="quiet">
         {open ? <ChevronDownIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> : <ChevronRightIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
@@ -46,7 +47,7 @@ function SentRow({ r }: { r: SendRowDto }) {
           </span>
           <span className="truncate text-sm">{r.subject}</span>
         </span>
-      </button>
+      </ActionButton>
       {open && (
         <div className="ms-6 flex flex-col gap-2">
           <p className="measure whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-sm">{r.body}</p>

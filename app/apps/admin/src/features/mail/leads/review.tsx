@@ -144,7 +144,7 @@ export function ReadyList({ project, d, only = null, onSent, verifying = null }:
       <li className="flex flex-col gap-2 py-2" data-testid="review-row" key={row.draftId}>
         <div className="flex min-w-0 items-start gap-3">
           <Checkbox aria-label={`Send the reply to ${row.name}`} checked={ticks.has(row.draftId)} className="mt-0.5" disabled={!canSend(row) || confirm.isPending} onCheckedChange={(on) => setTicks((t) => flip(t, row.draftId, on === true))} />
-          <button aria-expanded={expanded} className="flex min-w-0 flex-1 items-start gap-1 text-start" onClick={() => setOpen((s) => flip(s, row.draftId, !s.has(row.draftId)))} type="button">
+          <ActionButton aria-expanded={expanded} className="size-auto min-w-0 flex-1 items-start justify-start gap-1 whitespace-normal px-0 py-0 text-start font-normal" onClick={() => setOpen((s) => flip(s, row.draftId, !s.has(row.draftId)))} size="s" variant="quiet">
             {expanded ? <ChevronDownIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> : <ChevronRightIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-sm">
@@ -154,7 +154,7 @@ export function ReadyList({ project, d, only = null, onSent, verifying = null }:
               <span className="truncate text-sm">{row.mail?.subject ?? ""}</span>
               {!expanded && <span className="truncate text-muted-foreground text-xs">{firstLine(row.mail?.body ?? "")}</span>}
             </span>
-          </button>
+          </ActionButton>
         </div>
         {expanded && (
           <div className="ms-7 flex flex-col gap-2">
