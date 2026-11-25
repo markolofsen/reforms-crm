@@ -6,7 +6,7 @@ import { Input } from "@hub/ui/input";
 import { Popover, PopoverClose, PopoverDescription, PopoverPopup, PopoverTitle } from "@hub/ui/popover";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Field } from "@hub/ui/product/field";
-import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { useSetFollowUp } from "@/lib/data/project";
@@ -30,7 +30,7 @@ export function useFollowUpMoves(project: string) {
     stop: (r: FollowUpDto) =>
       set.mutate(
         { clientId: r.clientId, body: { action: "stop" } },
-        { onSuccess: () => toastManager.add({ title: `Follow-ups stopped for ${r.name}`, type: "success", actionProps: { children: "Undo", onClick: () => resume(r) } }) },
+        { onSuccess: () => actionToast({ title: `Follow-ups stopped for ${r.name}`, type: "success", action: { label: "Undo", run: () => resume(r) } }) },
       ),
     resume,
   };

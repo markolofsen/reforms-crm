@@ -10,6 +10,7 @@ import { ConversationBackButton, ConversationFrame, ConversationHeader, Conversa
 import type { ConversationScrollState } from "@hub/ui/product/conversation/scroll";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { ConversationHeaderActions } from "@/components/conversation/header-actions";
 import { RefreshConversation } from "./refresh";
 import { ClientMapLine } from "@/components/conversation/client-map";
@@ -33,10 +34,10 @@ import { History } from "./history";
 function useDismiss(project: string) {
   const { dismiss, undo } = useDismissInbound(project, {
     onSuccess: (r) =>
-      toastManager.add({
+      actionToast({
         title: "No reply needed",
         type: "success",
-        actionProps: { children: "Undo", onClick: () => void undo(r.ids).catch((e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
+        action: { label: "Undo", run: () => void undo(r.ids).catch((e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
       }),
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),
   });

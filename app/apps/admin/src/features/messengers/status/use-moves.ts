@@ -1,5 +1,6 @@
 import type { AutolinkLinkedDto } from "@hub/contract/messengers";
 import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { sentence } from "@/lib/api/client";
 import { useChatMoveCommands } from "@/lib/data/messengers";
 import { linkedLine, movedLine } from "../labels";
@@ -14,11 +15,11 @@ export function useChatMoves(project: string) {
   const fail = (e: unknown) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" });
   /** The toast after a link or a Create and link: what was loaded, what was written to Notion, and the way back. */
   const announce = (res: AutolinkLinkedDto, c: { channel: "telegram_user" | "whatsapp"; chatId: string }) => {
-    toastManager.add({
+    actionToast({
       title: linkedLine(res),
       ...(res.notion ? { description: res.notion } : {}),
       type: res.importError ? "warning" : "success",
-      actionProps: { children: "Unlink again", onClick: () => void m.unlinkAgain(c).catch(fail) },
+      action: { label: "Unlink again", run: () => void m.unlinkAgain(c).catch(fail) },
     });
     return m.refresh();
   };
@@ -28,11 +29,11 @@ export function useChatMoves(project: string) {
     onLinked: (res, v) => void announce(res, v),
     onChanged: (r, v) => {
       const draft = r.skippedDraftId !== null ? ` The draft for ${r.fromName} was skipped; Undo brings it back.` : "";
-      toastManager.add({
+      actionToast({
         title: movedLine({ name: v.name, to: r.toName }),
         description: `Its messages stayed with the chat.${draft}${r.notion ? ` ${r.notion}.` : ""}`,
         type: "success",
-        actionProps: { children: "Undo", onClick: () => m.undoChange.mutate({ id: v.id, clientId: r.fromClientId, draftId: r.skippedDraftId }) },
+        action: { label: "Undo", run: () => m.undoChange.mutate({ id: v.id, clientId: r.fromClientId, draftId: r.skippedDraftId }) },
       });
     },
   });

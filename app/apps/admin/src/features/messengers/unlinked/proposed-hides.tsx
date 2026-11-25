@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { HideProposalDto } from "@hub/contract/messengers";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ReviewDialog } from "@hub/ui/product/conversation/review-dialog";
-import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { sentence } from "@/lib/api/client";
 import { useHideCommands, useProposalDrop } from "@/lib/data/messengers";
 
@@ -34,10 +34,10 @@ export function ProposedHides({ project, proposals }: { project: string; proposa
     }
     if (done.length === 0) return;
     if (done.length === proposals.length) setOpen(false);
-    toastManager.add({
+    actionToast({
       title: `Hid ${plural(done.length)}: not clients`,
       type: "success",
-      actionProps: { children: "Undo", onClick: () => void Promise.all(done.map((p) => c.unhide.mutateAsync({ channel: p.channel, chatId: p.chatId, title: p.title }))) },
+      action: { label: "Undo", run: () => void Promise.all(done.map((p) => c.unhide.mutateAsync({ channel: p.channel, chatId: p.chatId, title: p.title }))) },
     });
   };
   return (

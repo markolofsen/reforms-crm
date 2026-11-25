@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { sentence } from "@/lib/api/client";
 import { useMessengerDraftCommands } from "@/lib/data/messengers";
 
@@ -20,7 +20,7 @@ export function useChatActions(project: string, activeChatId: number | null = nu
     onError: (e) => setFailure({ chat: activeChatId, message: sentence(e) }),
     onSkipped: (v) => {
       setLastSkipped(v);
-      toastManager.add({ title: `Skipped the draft for ${v.name}`, type: "success", actionProps: { children: "Undo", onClick: () => restore.mutate(v.id) } });
+      actionToast({ title: `Skipped the draft for ${v.name}`, type: "success", action: { label: "Undo", run: () => restore.mutate(v.id) } });
     },
   });
   const pending = edit.isPending || skip.isPending || restore.isPending;

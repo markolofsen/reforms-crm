@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { Mark, SettableStatus, Tone } from "@hub/config";
-import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { useDraftCommands, useStopStepFollowUps } from "@/lib/data/drafts";
@@ -57,7 +57,7 @@ export function useReviewActions(project: string) {
       const say = STATUS_TOAST[s];
       if (!say) return;
       last.current = { draft: d, at: clock() };
-      if (!opts.quiet) toastManager.add({ title: say(firstName(d)), type: "success", actionProps: { children: "Undo", onClick: () => undoNow(d) } });
+      if (!opts.quiet) actionToast({ title: say(firstName(d)), type: "success", action: { label: "Undo", run: () => undoNow(d) } });
     },
     setTone: (d: ReviewDraft, t: Tone) => tone.mutate({ id: d.id, tone: t }),
     undo: undoNow,

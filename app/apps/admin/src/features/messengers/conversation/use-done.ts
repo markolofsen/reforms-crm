@@ -1,4 +1,5 @@
 import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { sentence } from "@/lib/api/client";
 import { useChatDone } from "@/lib/data/messengers";
 import { doneToast } from "../labels";
@@ -10,10 +11,10 @@ import { doneToast } from "../labels";
 export function useDoneChat(project: string) {
   const { done, undo } = useChatDone(project, {
     onDone: (v) =>
-      toastManager.add({
+      actionToast({
         title: doneToast(v.name),
         type: "success",
-        actionProps: { children: "Undo", onClick: () => undo.mutate(v.id) },
+        action: { label: "Undo", run: () => undo.mutate(v.id) },
       }),
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),
   });

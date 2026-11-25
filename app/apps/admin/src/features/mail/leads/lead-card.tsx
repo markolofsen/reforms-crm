@@ -8,6 +8,7 @@ import { notionPageDestination } from "@hub/contract/local";
 import { Menu, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { AppLink } from "@/components/app-link";
 import { OpenLinkButton, OpenLinkItem } from "@/components/links/open-link";
 import { EmptyState, QueryView } from "@/components/state-views";
@@ -28,11 +29,11 @@ function useLeadAction(project: string, pageId: string, onDone: () => void) {
   const { act, undo } = useLeadCommand(project, pageId, {
     onSuccess: ([a, r]) => {
       onDone();
-      toastManager.add({
+      actionToast({
         title: DONE[a],
         ...(r.note ? { description: r.note } : {}),
         type: r.notion === "refused" ? "warning" : "success",
-        actionProps: { children: "Undo", onClick: () => void undo().catch((e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
+        action: { label: "Undo", run: () => void undo().catch((e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
       });
     },
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),

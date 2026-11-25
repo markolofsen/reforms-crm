@@ -5,7 +5,7 @@ import { MARK_LABELS, type Mark } from "@hub/config";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Menu, MenuCheckboxItem, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { Popover, PopoverClose, PopoverDescription, PopoverPopup, PopoverTitle } from "@hub/ui/popover";
-import { toastManager } from "@hub/ui/toast";
+import { actionToast } from "@hub/ui/product/action-toast";
 import { chatDestinations } from "@/components/conversation/header-actions";
 import { OpenLinkItem } from "@/components/links/open-link";
 import { notionOf } from "@/lib/notion";
@@ -24,10 +24,10 @@ export function ClientMenu({ d, actions, contact = null }: { d: ReviewDraft; act
   const change = (mark: Mark, on: boolean) => {
     const next = on ? [...marks, mark] : marks.filter((m) => m !== mark);
     actions.setMarks(d.clientId, next);
-    toastManager.add({
+    actionToast({
       title: on ? `Marked ${MARK_LABELS[mark]}` : `${MARK_LABELS[mark]} turned off`,
       type: "success",
-      actionProps: { children: "Undo", onClick: () => actions.setMarks(d.clientId, marks) },
+      action: { label: "Undo", run: () => actions.setMarks(d.clientId, marks) },
     });
   };
   const notion = notionOf(d);

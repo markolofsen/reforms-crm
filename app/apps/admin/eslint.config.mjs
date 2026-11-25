@@ -48,6 +48,8 @@ const SERVER_SUBPATHS = { group: SERVER_PACKAGES.map((p) => `@hub/${p}/*`), mess
 
 // "use server" is banned everywhere in src (the package holds the same ban in packages/ui/eslint.config.mjs).
 const USE_SERVER = { selector: "Literal[value='use server']", message: "No Server Actions (decision 0015): every write goes through the Hono API." };
+// A toast's action closes its toast (Base UI's does not, and the coss copy is not hand-edited): only actionToast builds one.
+const TOAST_ACTION = { selector: "Property[key.name='actionProps']", message: "Add a toast with an action through actionToast (@hub/ui/product/action-toast): it closes the toast when the action runs." };
 
 export default tseslint.config(
   { ignores: ["*.d.mts", ".next", ".next-e2e", ".next-build-check", "next-env.d.ts", "test-results", "playwright-report", "node_modules"] },
@@ -75,7 +77,7 @@ export default tseslint.config(
           { object: "Date", property: "now", message: "Inject a clock; render stays deterministic (rules: ui-specifications 2)." },
           { object: "Math", property: "random", message: "No randomness in render (rules: ui-specifications 2)." },
         ],
-        "no-restricted-syntax": [...MARKUP, ...URLS, USE_SERVER],
+        "no-restricted-syntax": [...MARKUP, ...URLS, USE_SERVER, TOAST_ACTION],
         "no-restricted-imports": [{ paths: [...BASE_IMPORTS.paths, ...NEXT_NAV, ...SERVER_SIDE, BUTTON], patterns: [...BASE_IMPORTS.patterns, SERVER_SUBPATHS] }],
       }),
     },
