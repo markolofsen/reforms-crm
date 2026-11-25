@@ -5,11 +5,13 @@ import { useProjectFacts } from "@/lib/data/project";
 import { SettingsGroup } from "../group";
 import { FilterRow, FiltersLine } from "./filters";
 import { MailAccounts } from "./mail-accounts";
+import { BookingLinks } from "./booking";
 
 /**
  * Settings ▸ Mail (P70): which mail the agent reads. The project's accounts as Apple Mail knows them (read only; a missing one is
  * fixed in Mail), then its filters (read only; the phrase that changes them is shown under the row, P75). No sentence of its own: the table's words and the filters'
- * line already say where it stands, and a sentence would repeat them (`admin-principles.md` rule 10).
+ * line already say where it stands, and a sentence would repeat them (`admin-principles.md` rule 10). P155: then the booking
+ * links the agent offers (read only).
  */
 export function MailPane({ project }: { project: string }) {
   const conn = useConnections();
@@ -28,6 +30,11 @@ export function MailPane({ project }: { project: string }) {
       >
         {(f) => <ul aria-label="Mail filters" className="flex flex-col divide-y border-y"><FiltersLine f={f.filters} /></ul>}
       </QueryView>
+      <SettingsGroup id="booking" title="Booking">
+        <QueryView loading={<Skeleton aria-label="Loading the booking links" className="h-16 w-full rounded-xl" role="status" />} query={facts} what="the booking links">
+          {(f) => <BookingLinks booking={f.booking} />}
+        </QueryView>
+      </SettingsGroup>
     </>
   );
 }

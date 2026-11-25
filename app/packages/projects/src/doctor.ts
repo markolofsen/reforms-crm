@@ -13,6 +13,8 @@ import { loadSequences } from "@hub/sequences/load";
 import { duplicateClaims, duplicateDomains } from "./registry";
 import type { LoadedProject } from "./store";
 import { policyProblems } from "./send-policy";
+import { bookingChecks, type BookingProbe } from "./booking-doctor";
+export type { BookingProbe } from "./booking-doctor";
 
 /** `warn`: a gap that a `draft` project may still have (it becomes `fail` once the project is `active`). */
 export type CheckOutcome = "pass" | "warn" | "fail" | "skipped";
@@ -41,6 +43,8 @@ export interface DoctorInput {
    * integration's capabilities, so a missing Insert content is known only from the first refused create.
    */
   leadWrites?: { note: string; at: string } | null;
+  /** P155: one GET of a booking link (the installer's); undefined, the link rows say "not checked here". */
+  bookingProbe?: (url: string) => Promise<BookingProbe>;
 }
 
 const skip = (name: string, why: string): Check => ({ name, outcome: "skipped", detail: why });
@@ -108,7 +112,7 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
       ? { name: "no domain claimed twice", outcome: "fail", detail: domainClaims.map((d) => `${d.address} also listed by ${d.projects.filter((s) => s !== p.slug).join(", ")}`).join("; ") }
       : { name: "no domain claimed twice", outcome: "pass", detail: `${c.mail.domains.length} domain(s)` },
   );
-  checks.push(...brandChecks(project), ...knowledgeBrandChecks(project));
+  checks.push(...brandChecks(project), ...knowledgeBrandChecks(project), ...(await bookingChecks(c, input.bookingProbe)));
 
   if (c.status === "active") {
     checks.push(

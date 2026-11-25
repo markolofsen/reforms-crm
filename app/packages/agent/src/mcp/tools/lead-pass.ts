@@ -6,6 +6,15 @@ import { boundLead, ownLeadClient } from "../ports";
 import { cut, ToolError } from "../result";
 import { leadDecisionApplied, samePersonAs, samePersonReason } from "@hub/db";
 import { FREE_MAIL, replyAddressOf } from "@hub/notion";
+import { bookingLinkOf, brandForKey, type BookingConfig } from "@hub/projects/brands";
+
+/** P155: a lead's link: its brand row's (a lead of another project's brand gets none), or the project's when it has no ## Brands. */
+const leadBooking = (cfg: Partial<BookingConfig> | undefined, brand: string | null): string | null => {
+  if (!cfg?.booking || !cfg.brands) return null;
+  const c = { booking: cfg.booking, brands: cfg.brands };
+  const row = brandForKey(c.brands, brand);
+  return row || c.brands.length === 0 ? bookingLinkOf(c, row?.name ?? null).url : null;
+};
 
 // P147 L2 (decision 0055): the lead pass's two tools. `leads_open` reads the server's mechanical list of open leads with no
 // decision (verdict 3), for an attended pass in the dock; `lead_decide` writes the agent's decision for one lead (verdict 2). The
@@ -35,6 +44,7 @@ export const leadsOpenTool = defineTool({
         reply_why: z.string(),
         same_as: z.string().nullable(),
         brand: z.string().nullable(),
+        booking: z.string().nullable().describe("P155: the booking link a first reply to this lead may carry, literally, where a call helps (null: none)"),
         received_at: z.string(),
         request: z.string(),
         site: z.string().nullable(),
@@ -53,7 +63,8 @@ export const leadsOpenTool = defineTool({
   handler: async ({ repos, env, project, now }, { all, limit }) => {
     const slug = project();
     const at = now();
-    const days = env.projectConfig?.(slug).leads.windowDays ?? 14;
+    const cfg = env.projectConfig?.(slug);
+    const days = cfg?.leads.windowDays ?? 14;
     const from = all ? "" : new Date(at.getTime() - days * DAY_MS).toISOString();
     const due = await repos.leadPass.due(slug, from, limit ?? 30);
     const leads = [];
@@ -64,7 +75,7 @@ export const leadsOpenTool = defineTool({
       const dom = to.address ? to.address.slice(to.address.lastIndexOf("@") + 1) : "";
       const company = !person && dom && !FREE_MAIL.has(dom) ? samePersonAs(r, await repos.leadPass.sameDomain(slug, r.pageId, dom)) : null;
       const client = to.address ? await repos.clients.findByIdentity(slug, "email", to.address) : undefined;
-      leads.push({ page: r.pageId, name: cut(r.name), email: r.email, reply_to: to.address, reply_why: to.why, same_as: person ? samePersonReason(person) : company ? samePersonReason(company, "company") : null, brand: r.brand, received_at: r.receivedAt, request: cut(r.preview, 120), site: r.site, country: r.country, segment: r.segment, volume: r.volume, has_card: r.hasClient, client: client ?? null });
+      leads.push({ page: r.pageId, name: cut(r.name), email: r.email, reply_to: to.address, reply_why: to.why, same_as: person ? samePersonReason(person) : company ? samePersonReason(company, "company") : null, brand: r.brand, booking: leadBooking(cfg, r.brand), received_at: r.receivedAt, request: cut(r.preview, 120), site: r.site, country: r.country, segment: r.segment, volume: r.volume, has_card: r.hasClient, client: client ?? null });
     }
     return {
       project: slug,

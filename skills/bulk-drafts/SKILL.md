@@ -30,6 +30,7 @@ and the run as one session in Activity.
    and company instead of an address, Email, stage, the summary rewritten, a dated `## Log` line) goes on their page.
 4. **One draft per client**, never a sign-off of yours (the hub signs): where it goes (a reply to the newest message, a new
    thread, a Notion lead), reruns, a teammate's reply, and the record: `references/where-to-write.md`.
+   The first message of an outreach offers the booking link (P155, `skills/README.md` rule 19): `message_show.booking.url` for a reply, `project_show` brands[].booking for a new thread; once, the URL exactly as given.
 5. **KB gaps** across the batch (`kb-gaps.md` sections 2 and 3); the same missing fact for several clients is one
    `repeated-question` gap. Any: write `projects/<slug>/reports/kb/YYYY-MM-DD-bulk.md` (inside `reports/` only; nothing to Notion).
 6. **Report** in the format of `skills/README.md` ("Report"), with the `основа` column. Above 5 clients use the subagent rule of

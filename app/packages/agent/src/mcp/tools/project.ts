@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { bookingLinkOf } from "@hub/projects/brands";
 import { kindOf } from "@hub/projects/kinds";
 import { ProjectLink } from "@hub/projects/model";
 import { notionScopeOf, projectNotion } from "../../notion-scope";
@@ -24,7 +25,8 @@ export const projectShowTool = defineTool({
     kind: z.string(),
     status: z.string(),
     mail: z.object({ accounts: z.array(z.string()), addresses: z.array(z.string()), domains: z.array(z.string()), sender: z.string().nullable() }),
-    brands: z.array(z.object({ name: z.string(), receivesAt: z.array(z.string()), signed: z.boolean() })),
+    brands: z.array(z.object({ name: z.string(), receivesAt: z.array(z.string()), signed: z.boolean(), booking: z.string().nullable() })),
+    booking: z.object({ url: z.string().nullable(), unresolved: z.string().nullable() }).describe("P155: the project's booking link (url) and what a thread of no resolved brand gets; each brand's own is brands[].booking. A thread's own link comes from message_show or messenger_history (once per thread)."),
     languages: z.array(z.string()),
     signoff: z.string(),
     tone: z.string().nullable(),
@@ -54,7 +56,8 @@ export const projectShowTool = defineTool({
       kind: c.kind,
       status: c.status,
       mail: { accounts: c.mail.accounts, addresses: [...new Set([...c.mail.addresses, ...c.mail.aliases])], domains: c.mail.domains, sender: c.mail.sender },
-      brands: c.brands.map((b) => ({ name: b.name, receivesAt: b.receivesAt, signed: b.signature.length > 0 })),
+      brands: c.brands.map((b) => ({ name: b.name, receivesAt: b.receivesAt, signed: b.signature.length > 0, booking: bookingLinkOf(c, b.name).url })),
+      booking: { url: bookingLinkOf({ booking: c.booking, brands: [] }, null).url, unresolved: c.brands.length ? bookingLinkOf(c, null).url : null },
       languages: c.languages,
       signoff: c.signoff,
       tone: c.tone,

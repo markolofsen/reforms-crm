@@ -2,7 +2,9 @@ import { z } from "zod";
 import { DRAFT_STATUSES, MARKS } from "@hub/config";
 import { CONVERSATION_STATES, CONVERSATION_VIEWS } from "@hub/contract/conversations";
 import { answeringDraft } from "@hub/db";
-import { displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brands";
+import { bookingFor, bookingLinks, bookingOffers, displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brands";
+import { bookingOut, mailText } from "../../drafts/booking";
+import { threadBrand } from "../../drafts/sign";
 import { defineTool } from "../define";
 import { configOf, ownFollowUpClient, ownLeadClient, ownMailClient } from "../ports";
 import { cut, ToolError } from "../result";
@@ -74,6 +76,7 @@ export const messageShowTool = defineTool({
     brandDisplayName: z.string().nullable(),
     brandReason: z.string(),
     signature: z.enum(["placeholder", "signed", "none"]),
+    booking: z.object({ url: z.string().nullable(), alreadyOffered: z.boolean(), reason: z.string() }).describe("P155: the booking link a reply in this thread may carry (url, literally, in one short sentence before the signature, where a call helps; null: none), and why. skills/README.md rule 19."),
     answer: draftLine.nullable(),
     client: z.object({ id: z.number() }).nullable(),
     drafts: z.array(draftLine),
@@ -109,7 +112,10 @@ export const messageShowTool = defineTool({
     const answer = row ? answeringDraft(row, drafts) : messageId ? ((await repos.drafts.byMailRef(slug, messageId)).find((d) => d.status === "ready" || d.status === "hold") ?? null) : null;
     const cfg = configOf(pm);
     const list: HeaderAddresses[] = headersFromText(raw);
-    const r = resolveBrand(list, cfg);
+    // P155 trap 1: the brand the reply will be signed with (the thread's earlier send, the lead's), so its booking link is the one the write accepts.
+    const r = raw ? ((await threadBrand({ repos }, slug, raw, cfg, messageId)) ?? resolveBrand(list, cfg)) : resolveBrand(list, cfg);
+    const thread = bookingLinks(cfg).length && where && env.drafts ? await mailText(env.drafts, where) : null;
+    const booking = bookingOut(bookingFor(cfg, r.brand, bookingOffers([thread], cfg), { followUp: env.followUpClient !== undefined }));
     const sig = signatureFor(cfg, r);
     const ids = where ? { account: where.account, mailbox_path: where.mailboxPath, message_id: where.messageId } : null;
     const replyTo = row ? { inbound: row.id } : ids;
@@ -127,6 +133,7 @@ export const messageShowTool = defineTool({
       brandDisplayName: displayNameFor(cfg, r.brand),
       brandReason: raw ? r.reason : "the message's headers could not be read (Mail closed, or the message moved)",
       signature: sig.placeholder ? ("placeholder" as const) : sig.lines.length ? ("signed" as const) : ("none" as const),
+      booking,
       answer: answer ? { id: answer.id, status: answer.status, subject: cut(answer.subject), createdAt: answer.createdAt } : null,
       client: clientId === undefined ? null : { id: clientId },
       drafts: drafts.slice(0, 10).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })),

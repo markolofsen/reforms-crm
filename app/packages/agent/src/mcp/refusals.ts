@@ -26,6 +26,8 @@ export const REFUSAL_CODES = [
   "unknown_ref",
   // draft_write and the Mail writer
   "own_signoff",
+  // P155: draft_write and messenger_draft_write
+  "booking_link_mismatch",
   "empty",
   "mail_not_running",
   "mail_not_allowed",
@@ -124,6 +126,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   upstream: { retry: "no", next: `${ONE_LINE} which service failed (the message names it).` },
   not_looking: { retry: "no", next: "Say it in words: the owner is not looking at this project's admin." },
   unknown_ref: { retry: "now", next: "Use a ref that focus gives." },
+  booking_link_mismatch: { retry: "now", next: "Remove that booking link, or put in the one link the refusal names, word for word (the hub's resolver chose it for this thread's brand; once per thread, one repeat in a follow-up), and call again." },
   own_signoff: { retry: "now", next: "Remove your closing from the body and call draft_write once more: the hub signs. A language project.md has no sign-off for: pass your sign-off and team line as `signoff` with `language` (P147 3f)." },
   empty: { retry: "now", next: "Give the reply's text." },
   mail_not_running: { retry: "after_owner", next: "Ask the owner to open Mail (it may stay in the background), then call once more. The Hub does not open Mail itself: that sends its Outbox.", fix: { line: "Open Mail; it may stay in the background.", place: "Mail" } },

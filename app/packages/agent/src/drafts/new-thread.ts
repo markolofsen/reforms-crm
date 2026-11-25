@@ -4,6 +4,7 @@ import { normalizeAddress } from "@hub/projects/parse";
 import { writeLogOf } from "../mail";
 import type { NotionClientCheck } from "../mcp/ports";
 import { ToolError } from "../mcp/result";
+import { mailBookingGuard } from "./booking";
 import { landingWrite, pendingVersion } from "./guards";
 import { writeFirstMailDraft } from "./write";
 import type { DraftScope, Pending, Written } from "./sign";
@@ -16,6 +17,8 @@ export interface NewThreadArgs {
   account: string | undefined;
   from: string | undefined;
   brand: string | undefined;
+  /** P155: a follow-up nudge may repeat the booking link once. */
+  followUp?: boolean;
 }
 
 /** P85b: a brand-new thread to a client the project never wrote to and who never wrote, on the owner's words only. */
@@ -54,6 +57,8 @@ export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<W
   if (a.from !== undefined && !s.isOurs(a.from)) throw new ToolError("not_this_project", `${a.from} is not one of project ${slug}'s own addresses: a new message goes from the project's sender or a brand address.`);
   const sender = a.from ?? mail.sender ?? null;
   const { body, ...how } = s.signFrom(sender ?? acc, a.content, brandName ?? null);
+  // P155 verdict 8: a new thread answers nothing, so nothing was offered in it; the brand's link (or none) is the one it may carry.
+  await mailBookingGuard(s, a.content, how.brand, null, { followUp: a.followUp === true });
   const r = await writeFirstMailDraft({
     writer,
     mail,

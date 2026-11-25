@@ -5,6 +5,7 @@ import path from "node:path";
 import { makeCtx, type Ctx } from "../context";
 import { mcpCall } from "../mcp-probe";
 import { notionCheck } from "../notion-check";
+import { probeBookingLink } from "../booking-probe";
 import { selectSteps, STEPS } from "../steps/index";
 import type { Step } from "../types";
 
@@ -36,6 +37,7 @@ export async function mailAccounts(ctx: Ctx): Promise<string[] | undefined> {
 // the session reads Notion through its own connector. A project with its own `notion.token_file` is still checked.
 export const projectOptions = () => ({
   mailAccounts: () => mailAccounts(ctxOf()),
+  bookingProbe: (url: string) => probeBookingLink(url),
   notionCheck: async (p: Parameters<typeof notionCheck>[1]) => {
     const ctx = ctxOf();
     const { tokenFile } = p.parsed.config.notion;

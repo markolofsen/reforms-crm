@@ -31,6 +31,16 @@ export const projectOverviewDto = z.object({
     examples: z.array(z.string()),
   }),
   filters: section({ rules: z.number(), whitelist: z.number(), issues: z.array(z.string()) }),
+  /**
+   * P155: the booking links as project.md sets them (read only here; written with `hub project setup --booking` / `--brand-booking`
+   * or in project.md). `setting` is the Settings value as written (a URL, `none`, or null); each brand's `cell` its Booking cell and
+   * `url` the link its threads get (its own, else the project's, else null).
+   */
+  booking: section({
+    setting: z.string().nullable(),
+    url: z.string().nullable(),
+    brands: z.array(z.object({ brand: z.string(), cell: z.string().nullable(), url: z.string().nullable() })),
+  }).optional(),
 });
 export type ProjectOverviewDto = z.infer<typeof projectOverviewDto>;
 

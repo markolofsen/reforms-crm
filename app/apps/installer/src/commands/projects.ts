@@ -61,13 +61,15 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
     });
   project
     .command("setup")
-    .description("Answer the open questions of a project: tone, signoff, languages. Flags write directly; without flags a terminal asks for what is still empty (Enter skips).")
+    .description("Answer the open questions of a project: tone, signoff, languages, booking link. Flags write directly; without flags a terminal asks for what is still empty (Enter skips).")
     .argument("<slug>")
     .option("--tone <text>", "how replies sound, one line")
     .option("--signoff <text>", "sign-off line of every draft (the same for all brands); with a ## Brands table the brand's Signature follows it")
     .option("--brand <brand=receives>", "add or update a ## Brands row: <Brand>=<addresses and domains, comma separated>; repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--brand-signature <brand=text>", "the Signature of a brand row, lines separated by <br>: Carapis=\"Carapis team<br>carapis.com\"; repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--brand-display-name <brand=name>", "the visible From name of a brand row; the technical sender address is unchanged; repeatable", (v: string, a: string[] = []) => [...a, v])
+    .option("--booking <url>", "the project's booking link for a call (booking.url): one https URL, or none")
+    .option("--brand-booking <brand=url>", "the Booking of a brand row: an https URL, none, or empty (the project's booking.url); repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--languages <tags>", "BCP-47 tags, comma separated")
     .action(async (slug: string, opts: SetupFlags) => {
       let rl: ReadlineInterface | undefined;

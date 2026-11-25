@@ -84,6 +84,17 @@ export async function replyBrand(raw: string | null, cfg: Parameters<typeof reso
   return headers;
 }
 
+/**
+ * P155 trap 1: the brand `draft_write` will sign a reply to this message with, for a reader (`message_show`) to hand over the
+ * same brand's booking link: our own sent message's brand (P87), else {@link replyBrand}.
+ */
+export async function threadBrand(ctx: Pick<ToolCtx, "repos">, slug: string, raw: string | null, cfg: Parameters<typeof resolveBrand>[1], messageId: string | null): Promise<BrandResolution | null> {
+  const ours = messageId ? await ctx.repos.drafts.bySentMessageId(slug, messageId).catch(() => null) : null;
+  const row = ours?.brand ? brandForKey(cfg.brands, ours.brand) : null;
+  if (ours && row) return { wroteTo: ours.wroteTo ?? null, brand: row.name, via: "address", reason: `the thread's earlier draft ${ours.id} was ${row.name}'s` };
+  return replyBrand(raw, cfg, { bySent: (ref) => ctx.repos.drafts.bySentMessageId(slug, ref), leadBrand: async (email) => (await ctx.repos.leadRows.ofEmail(slug, email)).find((l) => l.brand)?.brand ?? null });
+}
+
 /** P147 3f G2: `own` is the agent's sign-off and team line in the client's language, used only where the project has none in it. */
 export function draftScope(ctx: ToolCtx, slug: string, writer: DraftWriter, mail: ProjectMail, own?: OwnSignoff | null): DraftScope {
   const cfg = configOf(mail);

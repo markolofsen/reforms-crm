@@ -5,6 +5,7 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { ProjectOverviewBooking } from './projectOverviewBooking';
 import type { ProjectOverviewFilters } from './projectOverviewFilters';
 import type { ProjectOverviewKnowledge } from './projectOverviewKnowledge';
 import type { ProjectOverviewMessengerPolicy } from './projectOverviewMessengerPolicy';
@@ -17,4 +18,5 @@ export interface ProjectOverview {
   messengerPolicy?: ProjectOverviewMessengerPolicy;
   knowledge: ProjectOverviewKnowledge;
   filters: ProjectOverviewFilters;
+  booking?: ProjectOverviewBooking;
 }

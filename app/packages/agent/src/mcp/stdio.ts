@@ -82,7 +82,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   if (behind > 0) ops("agent").warn("hub mcp opened a database behind this core: every tool refuses with db_behind until the Hub server restarts and migrates", { pending: behind });
   const projectMail = (slug: string) => {
     const c = projectStore({ projects: paths.projects }).config(slug);
-    return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers };
+    return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers, booking: c.booking.url };
   };
   // P129 verdict 5: what `project_show` returns a slice of, with the send policy applied (read per call: it may change).
   const projectConfig = (slug: string) => projectStore({ projects: paths.projects, stateProjects: paths.stateProjects }).config(slug);

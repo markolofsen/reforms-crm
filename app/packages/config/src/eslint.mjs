@@ -17,7 +17,6 @@ export const FILE_RATCHET = {
   "apps/storybook/src/stories/conversation-frame.stories.tsx": 337,
   "apps/server/src/messengers/autolink/autolink.ts": 325,
   "packages/projects/src/parse.ts": 304,
-  "packages/projects/src/commands.ts": 302,
 };
 
 // The same for functions over FUNCTION_LINE_CAP: `"<file>": <longest function's lines>`. Filled once by the first full lint run

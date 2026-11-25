@@ -7,6 +7,7 @@ import { AUTOLINK_MODES, KNOWLEDGE_SCOPES, SEND_MODES, STAMP_MODES, STATUSES } f
 import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
 import { FOLLOW_UP_AT, FOLLOW_UP_SCHEDULES } from "@hub/config/follow-ups";
 import { LEAD_PASS_AT, LEAD_PASS_SCHEDULES } from "@hub/config/lead-pass";
+import { bookingValueIssue } from "./brands/booking";
 import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
@@ -74,6 +75,7 @@ export const FIELDS: Record<string, FieldDef> = {
   "mail.pass_at": { path: "mail.passAt", schema: check((v) => LEAD_PASS_AT.test(v), (v) => `expected HH:MM, got "${v}"`), doc: "P147 3h: the mail pass's time of day on this Mac's clock, HH:MM (default 10:00); it waits for that day's lead pass to finish." },
   "mail.pass_window_days": { path: "mail.passWindowDays", schema: check((v) => /^[1-9]\d?$/.test(v) && Number(v) <= 60, (v) => `expected 1 to 60 days, got "${v}"`).transform(Number), doc: "P147 3h: the mail pass reads the open inbound threads of the last this many days (default 3)." },
   "notion.token_file": { path: "notion.tokenFile", schema: check((v) => /^[A-Za-z0-9._-]+$/.test(v), () => "expected a file name (no path, no value of a secret)"), doc: "File name in state/secrets/ holding the Notion token." },
+  "booking.url": { path: "booking.url", schema: z.string().superRefine((v, ctx) => { const problem = bookingValueIssue(v); if (problem) ctx.addIssue({ code: "custom", message: problem }); }).transform((v) => v.trim()), doc: "P155: the project's booking link (Calendly, Cal.com, a Google appointment page), one https URL, or none; a ## Brands row's Booking overrides it per brand. The agent offers it once per thread where a call helps (skills/README.md, rule 19); a public URL." },
   "calendar.name": { path: "calendar.name", schema: oneLine, doc: "Calendar the calendar skill writes holds into." },
   "calendar.id": { path: "calendar.id", schema: oneLine, doc: "Calendar id when the name is not enough; with calendar.connector, the Google calendar id holds go to (default: the connector's primary calendar)." },
   "calendar.timezone": { path: "calendar.timezone", schema: check(isTimezone, (v) => `"${v}" is not an IANA timezone`), doc: "IANA timezone of the calendar." },

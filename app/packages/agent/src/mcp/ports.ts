@@ -21,6 +21,8 @@ export interface ProjectMail {
   identity?: { addresses: string[]; domains: string[]; signoff: string; brands: Brand[]; languages: string[] };
   /** Project-level Messenger defaults; per-chat non-null values override language/instruction. */
   messengers?: { language: string | null; instruction: string | null };
+  /** P155: the project's `booking.url` (an https URL, `none`, or null); each brand's own is on its `## Brands` row. */
+  booking?: string | null;
 }
 
 /** What the hub stores when its writer revised an open hub draft (coordinator 2026-11-19: no separate record step). */
@@ -250,9 +252,9 @@ export function toolCtx(repos: Repos, env: HubMcpEnv): ToolCtx {
 }
 
 /** The slice of the project's config that `resolveBrand` and `signatureFor` read. */
-export function configOf(m: ProjectMail): { mail: { accounts: string[]; addresses: string[]; domains: string[] }; signoff: string; brands: Brand[]; languages: string[] } {
+export function configOf(m: ProjectMail): { mail: { accounts: string[]; addresses: string[]; domains: string[] }; signoff: string; brands: Brand[]; languages: string[]; booking: { url: string | null } } {
   const id = m.identity ?? { addresses: [], domains: [], signoff: "", brands: [], languages: ["en"] };
-  return { mail: { accounts: m.accounts, addresses: id.addresses, domains: id.domains }, signoff: id.signoff, brands: id.brands, languages: id.languages };
+  return { mail: { accounts: m.accounts, addresses: id.addresses, domains: id.domains }, signoff: id.signoff, brands: id.brands, languages: id.languages, booking: { url: m.booking ?? null } };
 }
 
 export const json = <T>(s: string | null | undefined, fallback: T): T => {

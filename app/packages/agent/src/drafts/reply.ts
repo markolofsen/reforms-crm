@@ -3,6 +3,7 @@ import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types
 import { writeLogOf } from "../mail";
 import { ToolError } from "../mcp/result";
 import { adoptLate } from "./adopt";
+import { mailBookingGuard } from "./booking";
 import { landingWrite, pendingVersion } from "./guards";
 import { writeFirstMailDraft } from "./write";
 import type { DraftScope, Pending, Written } from "./sign";
@@ -13,6 +14,8 @@ export interface ReplyArgs {
   message_id: number;
   content: string;
   owner_request: string | undefined;
+  /** P155: a follow-up nudge may repeat the booking link once. */
+  followUp?: boolean;
 }
 
 /** The Message-ID of the message a reply answers. P87: a hub draft id passed as message_id (the walkthrough's first try) is
@@ -52,6 +55,8 @@ export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Writte
   const ours = await ctx.repos.drafts.bySentMessageId(slug, mailRef);
   const ourThread = ours?.brand ? { brand: ours.brand, wroteTo: ours.wroteTo ?? null, draftId: ours.id } : undefined;
   const signed = s.sign ? await s.sign(inbound, a.content, ourThread) : null;
+  // P155 verdict 8: a booking link this thread may not carry is refused before Mail is asked.
+  await mailBookingGuard(s, a.content, signed?.brand ?? null, inbound, { followUp: a.followUp === true });
   const how = signed ? (({ body: _body, ...rest }) => rest)(signed) : null;
   const r = await writeFirstMailDraft({
     writer,

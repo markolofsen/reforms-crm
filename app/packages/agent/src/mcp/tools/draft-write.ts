@@ -64,7 +64,7 @@ export const draftWriteTool = defineTool({
   }),
   output: draftWriteOutput,
   effect: "draft",
-  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other", "address_not_on_lead", "mail_other"],
+  refusals: ["unavailable", "not_found", "not_this_project", "own_signoff", "booking_link_mismatch", "empty", "mail_not_running", "mail_not_allowed", "content_refused", "mail_slow", "already_sent", "draft_finished", "already_drafted", "no_recipient", "no_message", "no_account", "no_thread", "mail_error", "has_thread", "do_not_contact", "wrong_message_id", "not_a_client", "notion_unavailable", "owner_request_needed", "owner_words_not_found", "record_invalid", "recipient_not_allowed", "busy", "record_failed", "followup_other_client", "lead_other", "address_not_on_lead", "mail_other"],
   handler: async (ctx, raw) => {
     // P147 verdict 5: a lead turn writes one new thread to its lead's reply address, with the server's owner_request (never the model's).
     // E2: in any session, `lead` names the lead and the server fills `to` from its row; a `to` that is not that address is refused.
@@ -93,7 +93,7 @@ export const draftWriteTool = defineTool({
         await ownClientEmail(s, call.to);
         const leadPass = leadTurn?.leadPass ?? (dockTo ? { pageId: dockTo.pageId, passId: null, day: s.ctx.now().toISOString().slice(0, 10) } : await dockLead(s, call.to, call.record.skill));
         await precheckRecord(s, call.to, call.record);
-        const w = await writeNewThread(s, { to: call.to, subject: call.subject, content: call.content, owner_request: call.owner_request, account: call.account, from: call.from, brand: call.brand });
+        const w = await writeNewThread(s, { to: call.to, subject: call.subject, content: call.content, owner_request: call.owner_request, account: call.account, from: call.from, brand: call.brand, followUp: call.follow_up !== undefined });
         const first = (v: VersionBrand) => recordFirst(s, { email: call.to.trim().toLowerCase(), subject: call.subject, mailRef: null }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, leadPass }, v);
         return "pending" in w ? await adopted(s, w, first) : await afterWrite(s, w, { draft: undefined, content: call.content, to: call.to, owner_request: call.owner_request, reason: undefined }, first);
       }
@@ -101,7 +101,7 @@ export const draftWriteTool = defineTool({
       const email = await clientOfReply(s, inbound);
       await ownClientEmail(s, email);
       await precheckRecord(s, email, call.record);
-      const w = await writeNewReply(s, { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId, content: call.content, owner_request: call.owner_request });
+      const w = await writeNewReply(s, { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId, content: call.content, owner_request: call.owner_request, followUp: call.follow_up !== undefined });
       const first = (subject: string, mailRef: string) => (v: VersionBrand) => recordFirst(s, { email, subject, mailRef }, { owner_request: call.owner_request, record: call.record, followUpN: call.follow_up?.n ?? null, ...(mailTurn ? { mailPass: mailTurn.mailPass } : {}), ...(s.ctx.env.bugNote !== undefined ? { bugNote: { noteId: s.ctx.env.bugNote, day: s.ctx.now().toISOString().slice(0, 10) } } : {}) }, v);
       return "pending" in w ? await adopted(s, w, first(await replySubjectOf(s, inbound), w.mailRef)) : await afterWrite(s, w, { draft: undefined, content: call.content, to: undefined, owner_request: call.owner_request, reason: undefined }, first(w.r.subject, w.mailRef));
     } catch (e) {

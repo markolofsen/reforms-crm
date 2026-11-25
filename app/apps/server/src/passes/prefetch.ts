@@ -2,6 +2,7 @@ import { LEAD_PASS_PREFETCH_EARLIER, LEAD_PASS_DECISION_LABELS } from "@hub/conf
 import type { LeadRow, Repos } from "@hub/db";
 import { FREE_MAIL, replyAddressOf, type LeadDetail } from "@hub/notion";
 import type { ProjectConfig } from "@hub/projects/model";
+import { bookingFor } from "@hub/projects/brands";
 import { leadNotes } from "../mail/lead-notes";
 
 // The prefetch of one lead turn (decision 0055, P147 verdict 5): the lead's Notion page (every intake field), the Hub's checks
@@ -16,6 +17,10 @@ export interface LeadPrefetchDeps {
   /** The Notion Relationship of the Clients card with this email, as the server's directory holds it (D1), else null. */
   relationship?: ((slug: string, email: string) => string | null) | undefined;
 }
+
+/** P155: the booking line of a turn's data block (the lead pass's and the sweep's): the link to use literally, or none. */
+export const bookingLine = (v: { url: string | null; reason: string }): string =>
+  v.url ? `Booking link: ${v.url} (${v.reason}). Where a call helps, end the reply with one short sentence offering it, in the client's language, the URL exactly as written here (skills/README.md rule 19).` : `Booking link: none for this message (${v.reason}): offer no booking link.`;
 
 const cut = (s: string | null | undefined, n: number) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 
@@ -40,6 +45,8 @@ export async function leadPrefetch(d: LeadPrefetchDeps, slug: string, row: LeadR
       : `Lead ${row.pageId}: ${cut(row.name, 120)}. Reply address: none, ${to.why}: decide hand_over, reason "no usable address".`,
     `Received ${row.receivedAt}. Notion Status: ${row.notionStatus ?? "empty (New)"}.`,
     brand ? `Brand: ${brand} (a ## Brands row of project ${slug}: sign and answer as it).` : row.brand ? `Brand: "${cut(row.brand, 60)}" is not a ## Brands row of project ${slug}: decide hand_over, reason "belongs to <the project of ${cut(row.brand, 60)}>". Never answer it from this project's knowledge.` : `Brand: none resolved: decide hand_over, reason "no brand".`,
+    // P155 verdict 7: the lead pass's channel is this block; a first reply answers nothing, so nothing was offered yet.
+    ...(cfg && brand ? [bookingLine(bookingFor(cfg, brand, 0))] : []),
     `Form facts: site ${row.site ?? "none"}, country ${row.country ?? "?"}, segment ${row.segment ?? "?"}, volume ${row.volume ?? "?"}.`,
     lead ? `Company: ${cut(lead.company, 120) || "not given"}. Contact: ${lead.otherContact ?? lead.replyTo ?? "?"}${lead.phone ? `; phone ${lead.phone}` : ""}.` : `The page was not read (${"note" in read ? read.note : "?"}): the request is the 120-character preview below.`,
     ...(lead ? ["The form, every field:", ...lead.sheet.fields.map((f) => `- ${f.label}: ${cut(f.value, 400)}`), ...(lead.message ? [`Message: ${cut(lead.message, 1_500)}`] : [])] : [`Request: ${cut(row.preview, 120)}`]),

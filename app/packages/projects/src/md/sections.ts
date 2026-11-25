@@ -1,6 +1,6 @@
 // P126 P2: the sections of project.md as specs. One row per section says its heading, its columns and how many of
 // them are required; a column past `required` is trailing and optional, so a table written before that column existed
-// still parses (the five-column Brands of an older core is the six-column table without Display name). The readers
+// still parses (the five-column Brands of an older core is the seven-column table without Display name and Booking). The readers
 // (parse.ts, brands, the writer) take their headers, column counts and table messages from here; each section's row
 // rules stay with its reader.
 import type { Issue, IssueCode } from "./issues";
@@ -32,7 +32,7 @@ export type SectionSpec = TableSpec | ListSpec;
 export const SECTIONS = {
   settings: { kind: "table", title: "Settings", columns: ["Field", "Value", "Answered", "By"], required: 4, code: "bad_table" },
   answers: { kind: "table", title: "Answers", columns: ["Date", "Field", "Question", "Answer"], required: 4, code: "bad_table", headerOptional: true },
-  brands: { kind: "table", title: "Brands", columns: ["Brand", "Receives at", "Signature", "Answered", "By", "Display name"], required: 5, code: "bad_table", field: "brands" },
+  brands: { kind: "table", title: "Brands", columns: ["Brand", "Receives at", "Signature", "Answered", "By", "Display name", "Booking"], required: 5, code: "bad_table", field: "brands" },
   links: { kind: "table", title: "Links", columns: ["Group", "Label", "Target", "Under", "Answered", "By"], required: 6, code: "bad_link", field: "links" },
   databases: { kind: "list", title: "Notion databases" },
 } as const satisfies Record<string, SectionSpec>;

@@ -49,7 +49,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 
 1. `# <name>`: one heading; the notion parser takes it as the display name. A short paragraph under it: what the project is.
 2. `## Settings`: the table below, columns `Field | Value | Answered | By`. `Answered` is an ISO date. `By` is `owner` (answered by the owner), `default` (the agent applied the default, owner did not object), or `agent` (derived from a system, e.g. `list_accounts`). A row exists only once the field is decided; a missing optional row means "default applies, never asked". Lists are comma-separated. Empty value is written as an empty cell.
-3. `## Brands` (optional, P60): one row per product the project answers for, columns `Brand | Receives at | Signature | Answered | By`, with an optional trailing `Display name` column (section 3C). Absent: the project has one brand and its drafts end with `signoff` alone.
+3. `## Brands` (optional, P60): one row per product the project answers for, columns `Brand | Receives at | Signature | Answered | By`, with the optional trailing `Display name` and `Booking` columns (section 3C). Absent: the project has one brand and its drafts end with `signoff` alone.
 4. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `tasks`, `documents` are the core databases of the Notion pack (conversation reports are `documents` of Type Report; there is no `reports` database, decision 0022); `bug-reports` (P145, decision 0054: required by no kind, made by `hub install --only notion.bug-reports`), `deals`, `organizations`, `open-loops` (the legacy module `sales-legacy`, never written by the Hub), `business-contacts`, `expenses`, `payments` are optional. Which ones a project deploys is its kind's `notionModules`, and which ones it must list is the kind's `required` (section 3A: `clients`, plus `leads` for `sales-pipeline`). An old `reports` or `knowledge` entry is read and ignored.
 5. `## Links` (optional, P101): table `Group | Label | Target | Under | Answered | By`; a target is `notion:<database role>`, `notion:<32 hex page id>` or an `https://` URL. `Under` nests one level in the same group. The Hub resolves Notion roles through the project's existing data-source ids and opens them through the P61 `notion.openPage` action (its web page; P131: the Notion app opens it when this Mac has it, else the browser); it never reads page prose or writes from this menu. An absent table means an empty menu and keeps legacy project files valid.
 6. `## Answers`: append-only log, columns `Date | Field | Question | Answer`.
@@ -88,6 +88,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `notion.teamspace_id` | Notion teamspace id (UUID) | no | none | `project-setup` (from `notion-get-teams`), the session's capabilities line and the guard (P82) | the id of that teamspace: a page may be created at its root, and the capabilities line names the teamspace only once it is set; stored normalised |
 | `notion.parent_page` | Notion page id (UUID) | no | none | deploy skill | the page the deploy skill creates databases under (a scratch page or a project root page); wins over `notion.teamspace`; stored normalised |
 | `notion.token_file` | file name | no | `notion-token` | `@hub/notion`, MCP config | file under `state/secrets/` holding that workspace's token; never the value |
+| `booking.url` | https URL or `none` | no | none | the hub MCP tools, the lead pass and sweep prefetch, `draft_write` and `messenger_draft_write` (P155) | the project's booking link for a call (Calendly, Cal.com, a Google appointment page); a brand's `Booking` cell overrides it; the agent offers it once per thread where a call helps (`skills/README.md` rule 19), a wrong or repeated link is refused at the write (`booking_link_mismatch`); a public URL, so core code and docs use made-up ones |
 | `calendar.name` | text | no | none | `calendar` skill | name of the calendar that holds are written to; absent: the skill reports `no-calendar`, never guesses |
 | `calendar.id` | text | no | none | `calendar` skill | calendar id when two calendars share a name; with `calendar.connector`, the Google calendar id holds go to |
 | `calendar.timezone` | IANA tz | no | `timezone` | `calendar` skill | zone of the owner's working hours |
@@ -200,16 +201,17 @@ Which Mailer the server uses is decided once at start by `HUB_MAILER`. Unset: Ma
 ```markdown
 ## Brands
 
-| Brand | Receives at | Signature | Answered | By | Display name |
-|---|---|---|---|---|---|
-| Acme Travel | acme.example, hello@acme.example | Acme Travel team<br>acme.example | 2026-11-14 | owner | Acme Travel |
-| Acme Villas | villas.example | Acme Villas team<br>villas.example | 2026-11-14 | owner | Acme Villas |
+| Brand | Receives at | Signature | Answered | By | Display name | Booking |
+|---|---|---|---|---|---|---|
+| Acme Travel | acme.example, hello@acme.example | Acme Travel team<br>acme.example | 2026-11-14 | owner | Acme Travel | https://cal.example.test/acme-travel/30min |
+| Acme Villas | villas.example | Acme Villas team<br>villas.example | 2026-11-14 | owner | Acme Villas | |
 ```
 
 - `Receives at`: addresses and domains, comma separated. An address must be one of the project's accounts, `mail.addresses` or `mail.aliases`, or sit on one of its `mail.domains`; a domain must be on `mail.domains`. No address or domain in two rows; brand names are unique (case-insensitive). The parser (`parseBrands`, `packages/projects/src/brands/table.ts`) refuses anything else as an error.
 - `Signature`: the lines that sign a draft of this brand, `<br>` between lines. Empty = not answered yet.
 - `Display name`: the optional visible name in the `From` header. The writer composes `Display name <technical address>` while keeping the address selected by P58 and the send gate. Empty or absent preserves Mail's current account name, so legacy five-column tables and single-brand projects are unchanged. Control characters, angle brackets and names over 120 characters are refused.
-- Writer: `hub project setup --brand`, `--brand-signature` and optional `--brand-display-name` (or `applyBrandRow` / `writeBrandRow`), through the parser's own check.
+- `Booking` (P155): the brand's booking link (one https URL), `none` (this brand never offers one), or empty (the project's `booking.url`). A thread whose brand is not resolved (many messenger chats) gets the one link every brand shares, or none when they differ (`bookingLinkOf`, `packages/projects/src/brands/booking.ts`). A table without the column reads as empty; the writer adds the column when a value needs it.
+- Writer: `hub project setup --brand`, `--brand-signature`, optional `--brand-display-name` and `--brand-booking` (`--booking` for `booking.url`) (or `applyBrandRow` / `writeBrandRow`), through the parser's own check.
 
 **Which brand a message is (`resolveBrand`, pure).** Step 1, the address they wrote to (`wroteTo`): walk `X-Gm-Original-To`, `X-Original-To`, `X-Forwarded-For` (every entry), `X-Forwarded-To`, `Delivered-To`, `To`, `Cc`; the first address that is the project's own and **not** one of its account addresses wins; only if there is none, the first account address. A forward names the account in `Delivered-To` and `X-Forwarded-To`, so reading those first would make every forwarded mail the account's. Step 2: the row that lists `wroteTo` exactly, else the row that lists its domain, else no brand, with the reason. Never a default brand. Who a reply goes **from** is a separate rule (P58), not this one.
 

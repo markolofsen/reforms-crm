@@ -1,6 +1,9 @@
 import { FOLLOW_UP_PREFETCH_MESSAGES } from "@hub/config/follow-ups";
 import type { DueClient, Repos } from "@hub/db";
 import type { ProjectConfig } from "@hub/projects/model";
+import { clientBrand } from "@hub/agent/drafts/booking";
+import { bookingFor, bookingOffers } from "@hub/projects/brands";
+import { bookingLine } from "../passes/prefetch";
 import type { ConversationMail } from "../mail/context";
 import { LABEL_MAILBOXES } from "../mail/inbound";
 
@@ -54,6 +57,9 @@ export async function prefetch(d: PrefetchDeps, slug: string, c: DueClient): Pro
   const lines = await d.repos.followUps.lines(slug, c.clientId);
   const client = await d.repos.clients.get(slug, c.clientId);
   const notion = d.notionFacts?.(slug, { email: c.email ?? client?.email ?? null, pageId: null }) ?? [];
+  // P155 verdict 3: offered already in what WE wrote (mail and chats): a nudge may repeat the link once, never more.
+  const cfg = d.project(slug);
+  const booking = cfg ? bookingFor(cfg, await clientBrand(d.repos, slug, c.clientId, cfg), bookingOffers([...mail.lines, ...chats].filter((l) => l.who === "us").map((l) => l.text), cfg), { followUp: true }) : null;
   const out = [
     `Client ${c.clientId}: ${cut(c.name, 120)}${c.email ? ` <${c.email}>` : ""}.`,
     `Our last message: ${c.ourLastAt} on ${c.lastChannel}. Their last: ${c.theirLastAt ?? "never"}.`,
@@ -62,6 +68,7 @@ export async function prefetch(d: PrefetchDeps, slug: string, c: DueClient): Pro
     plan ? `The plan: ${plan.state}, next ${plan.nextAt ?? "none"}, ${plan.nudgesSent} nudge(s) sent${plan.lastNudgeAt ? `, the last ${plan.lastNudgeAt}` : ""}, waiting on ${plan.waitingOn ?? "?"}, by ${plan.decidedBy}: ${plan.reason ?? ""}.` : "No plan yet: this is the first sweep for this client.",
     ...(lines.length ? ["Earlier decisions:", ...lines.map((l) => `- ${l.at.slice(0, 10)} ${l.line ?? l.summary}`)] : []),
     ...(notion.length ? ["Notion card:", ...notion.map((n) => `- ${n}`)] : []),
+    ...(booking ? [bookingLine(booking)] : []),
     `The history, oldest first (${all.length} message${all.length === 1 ? "" : "s"}):`,
     ...all.map((l) => `[${l.at}] ${l.who === "us" ? "WE" : "THEY"} via ${l.via}: ${l.text}`),
   ];

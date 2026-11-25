@@ -7,12 +7,14 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
 import { doctorFailed, doctorProject, formatChecks } from "./doctor";
+import type { BookingProbe } from "./booking-doctor";
 import { formatIssue } from "./md/issues";
 import { KINDS } from "./kinds";
 import { projectJson, writeProjectJson } from "./generated";
 import { renameProject } from "./rename";
 import { ProjectError } from "./md/issues";
-import { writeBrandRow, writeSetting } from "./write";
+import { writeBrandRow, writeSetting, type BrandRowInput } from "./write";
+import type { Brand } from "./schema";
 import { splitSignature } from "./brands";
 import { proposeAddresses, type RoutingSnapshot } from "./addresses";
 import { agentIndex, loadWorkflows, workflowErrors } from "./workflows";
@@ -35,6 +37,8 @@ export interface ProjectCommandOptions {
   mailAccounts?: () => Promise<string[] | undefined>;
   /** Reads every listed database of the project (`notion-dump check`). */
   notionCheck?: (p: LoadedProject) => Promise<{ ok: boolean; detail: string; skipped?: boolean }>;
+  /** P155: one GET of a booking link for the doctor's booking rows (the installer's `probeBookingLink`). */
+  bookingProbe?: (url: string) => Promise<BookingProbe>;
   /** Mail accounts the per-run MCP allow-list admits for the project. */
   mcpMailAccounts?: (slug: string) => string[] | undefined;
 }
@@ -155,6 +159,7 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
       ...(registered ? { knowledgeDocs: await repos.knowledge.count(slug) } : {}),
       knowledgeFiles: countMarkdown(join(project.folder, "knowledge")),
       ...(mcp ? { mcpMailAccounts: mcp } : {}),
+      ...(o.bookingProbe ? { bookingProbe: o.bookingProbe } : {}),
     });
     out(formatChecks(checks));
     return doctorFailed(checks) ? 1 : 0;
@@ -163,7 +168,7 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
   }
 }
 
-export interface SetupFlags { tone?: string; signoff?: string; languages?: string; /** `<Brand>=<addresses and domains>` (P60): adds or updates a `## Brands` row. */ brand?: string[]; /** `<Brand>=<line><br><line>` (P60): the Signature of an existing brand row. */ brandSignature?: string[]; /** `<Brand>=<visible From name>` (P107): optional name shown before the technical sender address. */ brandDisplayName?: string[] }
+export interface SetupFlags { tone?: string; signoff?: string; languages?: string; /** `<Brand>=<addresses and domains>` (P60): adds or updates a `## Brands` row. */ brand?: string[]; /** `<Brand>=<line><br><line>` (P60): the Signature of an existing brand row. */ brandSignature?: string[]; /** `<Brand>=<visible From name>` (P107): optional name shown before the technical sender address. */ brandDisplayName?: string[]; /** P155: the project's booking link (`booking.url`), an https URL or `none`. */ booking?: string; /** P155: `<Brand>=<https URL or none or empty>`: the Booking of an existing brand row. */ brandBooking?: string[] }
 
 const pair = (v: string): [string, string] | null => {
   const i = v.indexOf("=");
@@ -187,6 +192,8 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
     { field: "tone", flag: flags.tone, current: c.tone, question: "How should replies sound (one line)?", suggestion: kind?.defaults.toneHint },
     { field: "signoff", flag: flags.signoff, current: c.signoff, question: "Sign-off line of drafts (for example: Best, <name>)?", suggestion: undefined },
     { field: "languages", flag: flags.languages, current: "set", question: "", suggestion: undefined }, // languages has a default: only a flag changes it
+    // P155 verdict 10: one skippable question; per brand with --brand-booking.
+    { field: "booking.url", flag: flags.booking, current: c.booking.url, question: "Booking link for a call (Calendly, Cal.com, a Google appointment page), or none? Per brand: --brand-booking <Brand>=<url>.", suggestion: undefined },
   ];
   let wrote = 0;
   for (const item of plan) {
@@ -211,7 +218,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
     if (!p) { out(`error brand: expected <Brand>=<addresses and domains>, got "${raw}"`); return 1; }
     const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
     try {
-      writeBrandRow(before.folder, slug, { name: old?.name ?? p[0], receivesAt: p[1].split(",").map((x) => x.trim()).filter(Boolean), signature: old?.signature ?? [], displayName: old?.displayName, by: "owner" });
+      writeBrandRow(before.folder, slug, { name: old?.name ?? p[0], receivesAt: p[1].split(",").map((x) => x.trim()).filter(Boolean), signature: old?.signature ?? [], displayName: old?.displayName, booking: old?.booking ?? null, by: "owner" });
       out(`brand ${p[0]} receives at ${p[1]}`);
       wrote++;
     } catch (e) {
@@ -219,32 +226,26 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
       throw e;
     }
   }
-  for (const raw of flags.brandSignature ?? []) {
-    const p = pair(raw);
-    if (!p) { out(`error brand-signature: expected <Brand>=<line><br><line>, got "${raw}"`); return 1; }
-    const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
-    if (!old) { out(`error brand-signature: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
-    try {
-      writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: splitSignature(p[1].replace(/\\n/g, "<br>")), displayName: old.displayName, by: "owner" });
-      out(`brand ${old.name} signs with ${splitSignature(p[1].replace(/\\n/g, "<br>")).join(" / ")}`);
-      wrote++;
-    } catch (e) {
-      if (e instanceof ProjectError) { out(`error brand-signature ${p[0]}: ${e.message}`); return 1; }
-      throw e;
-    }
-  }
-  for (const raw of flags.brandDisplayName ?? []) {
-    const p = pair(raw);
-    if (!p) { out(`error brand-display-name: expected <Brand>=<display name>, got "${raw}"`); return 1; }
-    const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
-    if (!old) { out(`error brand-display-name: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
-    try {
-      writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: old.signature, displayName: p[1], by: "owner" });
-      out(`brand ${old.name} displays as ${p[1]}`);
-      wrote++;
-    } catch (e) {
-      if (e instanceof ProjectError) { out(`error brand-display-name ${p[0]}: ${e.message}`); return 1; }
-      throw e;
+  // One existing brand row's cell per flag (P60 signature, P107 display name, P155 booking); the other cells are kept.
+  const edits: Array<{ flag: string; raws: string[] | undefined; shape: string; set: (old: Brand, v: string) => Partial<BrandRowInput>; say: (old: Brand, v: string) => string }> = [
+    { flag: "brand-signature", raws: flags.brandSignature, shape: "<line><br><line>", set: (_, v) => ({ signature: splitSignature(v.replace(/\\n/g, "<br>")) }), say: (o, v) => `brand ${o.name} signs with ${splitSignature(v.replace(/\\n/g, "<br>")).join(" / ")}` },
+    { flag: "brand-display-name", raws: flags.brandDisplayName, shape: "<display name>", set: (_, v) => ({ displayName: v }), say: (o, v) => `brand ${o.name} displays as ${v}` },
+    { flag: "brand-booking", raws: flags.brandBooking, shape: "<https URL, none or empty>", set: (_, v) => ({ booking: v || null }), say: (o, v) => (v ? `brand ${o.name} books with ${v}` : `brand ${o.name} books with the project's booking.url`) },
+  ];
+  for (const e of edits) {
+    for (const raw of e.raws ?? []) {
+      const p = pair(raw);
+      if (!p) { out(`error ${e.flag}: expected <Brand>=${e.shape}, got "${raw}"`); return 1; }
+      const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+      if (!old) { out(`error ${e.flag}: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
+      try {
+        writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: old.signature, displayName: old.displayName, booking: old.booking ?? null, by: "owner", ...e.set(old, p[1]) });
+        out(e.say(old, p[1]));
+        wrote++;
+      } catch (err) {
+        if (err instanceof ProjectError) { out(`error ${e.flag} ${p[0]}: ${err.message}`); return 1; }
+        throw err;
+      }
     }
   }
   const after = projectStore({ projects: root }).file(slug);

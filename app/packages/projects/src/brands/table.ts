@@ -3,10 +3,11 @@ import type { Brand } from "../schema";
 import { isOwnAddress, type OwnMail } from "../addresses";
 import { headerLine, SECTIONS, type SpecRow } from "../md/sections";
 import { EMAIL, isIsoDate, normalizeAddress } from "../values";
+import { bookingCell, bookingValueIssue } from "./booking";
 
 export type BrandIssue = { severity: "error" | "warning"; code: "bad_table" | "duplicate_row" | "bad_value" | "bad_date" | "bad_by"; line: number; field: "brands"; message: string };
 
-/** The header line the writer puts down: every column of the Brands spec (P126 P2: Display name is optional on read). */
+/** The header line the writer puts down: every column of the Brands spec (P126 P2: Display name, P155: Booking, optional on read). */
 export const BRANDS_HEADER = headerLine(SECTIONS.brands);
 const BYS = ["owner", "default", "agent"] as const;
 const DOMAIN = /^(?=.{1,253}$)([a-z0-9-]+\.)+[a-z]{2,}$/i;
@@ -45,7 +46,7 @@ export function parseBrands(rows: readonly SpecRow[], m: OwnMail): { brands: Bra
   const claimed = new Map<string, string>();
   for (const r of rows) {
     const line = r.line;
-    const [name = "", receives = "", signature = "", answered = "", by = "", displayName = ""] = r.cells;
+    const [name = "", receives = "", signature = "", answered = "", by = "", displayName = "", booking = ""] = r.cells;
     if (!name) {
       err(line, "bad_value", "a Brands row has no Brand name");
       continue;
@@ -82,9 +83,13 @@ export function parseBrands(rows: readonly SpecRow[], m: OwnMail): { brands: Bra
       const problem = displayNameIssue(normalizedName);
       if (problem) err(line, "bad_value", `display name of brand ${name}: ${problem}`);
     }
+    // P155: the brand's booking link, `none`, or empty (the project's booking.url).
+    const bookingValue = bookingCell(booking);
+    const bookingProblem = bookingValue === null ? null : bookingValueIssue(bookingValue);
+    if (bookingProblem) err(line, "bad_value", `Booking of brand ${name}: ${bookingProblem}`);
     if (!isIsoDate(answered)) err(line, "bad_date", `Answered "${answered}" of brand ${name} is not an ISO date (YYYY-MM-DD)`);
     if (!(BYS as readonly string[]).includes(by)) err(line, "bad_by", `By "${by}" of brand ${name} must be one of ${BYS.join(", ")}`);
-    brands.push({ name, receivesAt, signature: splitSignature(signature), displayName: normalizedName, answered, by: (BYS as readonly string[]).includes(by) ? (by as Brand["by"]) : "owner" });
+    brands.push({ name, receivesAt, signature: splitSignature(signature), displayName: normalizedName, booking: bookingProblem ? null : bookingValue, answered, by: (BYS as readonly string[]).includes(by) ? (by as Brand["by"]) : "owner" });
   }
   return { brands, issues };
 }

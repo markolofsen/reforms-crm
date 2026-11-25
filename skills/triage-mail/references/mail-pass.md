@@ -22,6 +22,7 @@ Decision 0055 point 9 (P147 3h). The Hub server's daily mail pass gives you **on
 
 ## 3. The reply
 - In the client's language (`profile.md` 3c), as the brand the mail reached, answering their actual question from the knowledge base.
+- The booking link (`skills/README.md` rule 19, P155): `message_show.booking.url` where a call helps (price, a demo, a custom setup, they ask to talk, a thread gone back and forth twice); null: none. Never in a bug-report answer or a one-line confirmation.
 - Ask once for what is missing, inside the real reply (`profile.md` 3a).
 - Prefer a reply that needs no owner input: say "we'll confirm X and come back to you", or ask the one clarifying question. Use `[Owner: …]` only for a fact only the owner can give (a price, a commitment, a date), and then the reason starts "needs your input".
 - The Hub signs; never write your own sign-off (`signoff` for another language).

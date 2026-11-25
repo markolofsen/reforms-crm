@@ -59,6 +59,8 @@ export const Brand = z.object({
   signature: z.array(z.string()).default([]),
   /** Optional visible From name. Empty/absent keeps Mail's account name for backward compatibility. */
   displayName: z.string().trim().nullable().optional(),
+  /** P155: the brand's booking link (one https URL), `none` (this brand never offers one), or null: the project's `booking.url`. */
+  booking: z.string().nullable().optional(),
   answered: z.string().default(""),
   by: z.enum(BYS).default("owner"),
 });
@@ -129,6 +131,11 @@ export const ProjectBase = z.object({
   leads: z
     .object({ noticeSenders: z.array(z.string()).default([]), windowDays: z.number().int().positive().max(365).default(14), pass: z.enum(LEAD_PASS_SCHEDULES).default(LEAD_PASS_DEFAULT_SCHEDULE), passAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default(LEAD_PASS_DEFAULT_AT) })
     .default({ noticeSenders: [], windowDays: 14, pass: LEAD_PASS_DEFAULT_SCHEDULE, passAt: LEAD_PASS_DEFAULT_AT }),
+  /**
+   * P155: `url`, the project's default booking link (Calendly, Cal.com, a Google appointment page): one https URL, `none` (never
+   * offer one), or null (not set: none). A `## Brands` row's `Booking` overrides it for that brand. A booking URL is public.
+   */
+  booking: z.object({ url: z.string().nullable().default(null) }).default({ url: null }),
   /** Calendar the `calendar` skill writes holds into; null fields: not set (the skill reports a calendar-problem, never guesses). */
   calendar: z
     .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null), /** P62: Google Calendar connectors (`gcal-<label>`) attached to this project. */ connector: z.array(z.string()).default([]) })

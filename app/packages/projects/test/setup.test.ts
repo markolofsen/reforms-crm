@@ -29,15 +29,23 @@ describe("hub project setup", () => {
   it("asks only for what is empty, and Enter skips", async () => {
     const r = rig();
     const asked: string[] = [];
-    const answers = ["calm", ""];
+    const answers = ["calm", "", ""];
     expect(await runProjectSetup("acme-travel", {}, r.o, async (q) => { asked.push(q); return answers.shift() ?? ""; })).toBe(0);
-    expect(asked).toHaveLength(2);
+    // tone, signoff and (P155 verdict 10) the skippable booking link
+    expect(asked).toHaveLength(3);
+    expect(asked[2]).toMatch(/Booking link/);
     expect(readFileSync(r.md, "utf8")).toMatch(/\| tone \| calm \|/);
     expect(r.lines.join("\n")).toContain("skipped signoff");
-    // second run: tone is answered, only signoff is asked again
+    // second run: tone is answered, signoff and the booking link are asked again
     const again: string[] = [];
     await runProjectSetup("acme-travel", {}, r.o, async (q) => { again.push(q); return ""; });
-    expect(again).toHaveLength(1);
+    expect(again).toHaveLength(2);
+  });
+  it("P155: --booking writes booking.url as the owner's answer; a bad URL is refused", async () => {
+    const r = rig();
+    expect(await runProjectSetup("acme-travel", { booking: "https://cal.example.test/acme/30min" }, r.o)).toBe(0);
+    expect(readFileSync(r.md, "utf8")).toMatch(/\| booking\.url \| https:\/\/cal\.example\.test\/acme\/30min \| \d{4}-\d{2}-\d{2} \| owner \|/);
+    expect(await runProjectSetup("acme-travel", { booking: "cal.example.test/acme" }, rig().o)).toBe(1);
   });
   it("without a terminal and without flags it changes nothing", async () => {
     const r = rig();

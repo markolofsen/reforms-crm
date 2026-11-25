@@ -93,7 +93,7 @@ export function fakePorts(o: FakePortsOptions = {}): FakePorts {
     drafts: mail,
     projectMail: () => {
       const c = config();
-      return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers };
+      return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers, booking: c.booking.url };
     },
     projectConfig: () => config(),
     mailWritten: () => {},

@@ -150,6 +150,7 @@ describe("doctorProject", () => {
       "every project domain has a brand": "skipped",
       "every brand has a signature": "skipped",
       "knowledge scope fits brands": "skipped",
+      "booking link answers": "skipped",
       "active project has an address": "pass",
       "notion databases readable": "pass",
       "knowledge index not empty": "pass",

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { checkProject } from "@hub/knowledge/check";
 import { parseRulesFile } from "@hub/mail-filters/rules-file";
+import { bookingLinkOf } from "@hub/projects/brands";
 import { projectStore } from "@hub/projects/store";
 import type { Repos } from "@hub/db";
 import { projectOverviewDto, type ProjectOverviewDto } from "@hub/contract/project";
@@ -54,12 +55,16 @@ export async function projectOverview(repos: Repos, slug: string, root: string =
   const open = row ? await repos.projects.questions(slug, "open") : [];
   const q = open[0];
   let messengerPolicy: ProjectOverviewDto["messengerPolicy"] = null;
+  let booking: ProjectOverviewDto["booking"] = { state: "absent" };
   if (row) {
     try {
       const config = projectStore({ projects: root, ...(policyDir ? { stateProjects: policyDir } : {}) }).config(slug);
       messengerPolicy = { language: config.messengers.language, instruction: config.messengers.instruction };
-    } catch {
+      // P155: Settings ▸ Mail shows the links the agent offers, per brand.
+      booking = { state: "ok", setting: config.booking.url, url: bookingLinkOf({ booking: config.booking, brands: [] }, null).url, brands: config.brands.map((b) => ({ brand: b.name, cell: b.booking ?? null, url: bookingLinkOf(config, b.name).url })) };
+    } catch (e) {
       messengerPolicy = null;
+      booking = { state: "error", message: message(e) };
     }
   }
   return projectOverviewDto.parse({
@@ -68,5 +73,6 @@ export async function projectOverview(repos: Repos, slug: string, root: string =
     messengerPolicy,
     knowledge: await knowledgeOf(repos, root, slug),
     filters: filtersOf(root, slug),
+    booking,
   });
 }

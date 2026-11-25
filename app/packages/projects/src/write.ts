@@ -174,6 +174,8 @@ export interface BrandRowInput {
   signature: readonly string[];
   /** Optional visible From name; absent keeps Mail's account name. */
   displayName?: string | null;
+  /** P155: the brand's booking link or `none`; absent or null leaves the cell empty (the project's booking.url). */
+  booking?: string | null;
   by: By;
   date: string;
 }
@@ -199,7 +201,13 @@ export function applyBrandRow(text: string, slug: string, b: BrandRowInput): str
   const sc = scan(lines);
   const eol = eolOf(raws.find((r) => r.endsWith("\n")), "\n");
   const displayName = normalizedDisplayName(b.displayName);
-  const row = (withDisplayName: boolean) => `| ${brandCell(b.name)} | ${brandCell(b.receivesAt.join(", "))} | ${brandCell(joinSignature(b.signature))} | ${b.date} | ${b.by} |${withDisplayName ? ` ${brandCell(displayName ?? "")} |` : ""}`;
+  const booking = b.booking?.trim() || null;
+  // P155: the row is written as wide as the table (5, 6 or 7 columns); a value in a column the table lacks widens it first.
+  const cells = [brandCell(b.name), brandCell(b.receivesAt.join(", ")), brandCell(joinSignature(b.signature)), b.date, b.by, brandCell(displayName ?? ""), brandCell(booking ?? "")];
+  const need = booking !== null ? 7 : displayName !== null ? 6 : 5;
+  const full = SECTIONS.brands.columns.length;
+  const sep = (n: number) => `|${new Array<string>(n).fill("---").join("|")}|`;
+  const row = (width: number) => `| ${cells.slice(0, width).join(" | ")} |`;
   const section = sc.sections.find((s) => s.name === "brands");
   let next: string;
   if (!section) {
@@ -207,22 +215,22 @@ export function applyBrandRow(text: string, slug: string, b: BrandRowInput): str
     const after = settings ? sc.sections[sc.sections.indexOf(settings) + 1] : sc.sections.find((s) => s.name === "notion databases");
     const at = after ? after.start : raws.length;
     const lead = !after && raws.length && (lines[lines.length - 1] ?? "").trim() !== "" ? [eol] : [];
-    next = insertAt(raws, at, [...lead, `## Brands${eol}`, eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|---|${eol}`, `${row(true)}${eol}`, eol]);
+    next = insertAt(raws, at, [...lead, `## Brands${eol}`, eol, `${BRANDS_HEADER}${eol}`, `${sep(full)}${eol}`, `${row(full)}${eol}`, eol]);
   } else {
     const t = tableOf(lines, sc.fenced, section);
-    let withDisplayName = t.header?.length === 6;
-    if (!withDisplayName && displayName !== null && t.header?.length === 5) {
-      raws[t.headerIdx] = `${BRANDS_HEADER}${eolOf(raws[t.headerIdx], eol)}`;
-      if (raws[t.headerIdx + 1] !== undefined) raws[t.headerIdx + 1] = `|---|---|---|---|---|---|${eolOf(raws[t.headerIdx + 1], eol)}`;
-      for (const r of t.rows) raws[r.idx] = `${bare(raws[r.idx] ?? "")} |${eolOf(raws[r.idx], eol)}`;
-      withDisplayName = true;
+    let width = t.header?.length ?? full;
+    if (t.header !== null && width < need) {
+      raws[t.headerIdx] = `| ${SECTIONS.brands.columns.slice(0, need).join(" | ")} |${eolOf(raws[t.headerIdx], eol)}`;
+      if (raws[t.headerIdx + 1] !== undefined) raws[t.headerIdx + 1] = `${sep(need)}${eolOf(raws[t.headerIdx + 1], eol)}`;
+      for (const r of t.rows) raws[r.idx] = `${bare(raws[r.idx] ?? "")}${" |".repeat(need - width)}${eolOf(raws[r.idx], eol)}`;
+      width = need;
     }
     const existing = t.rows.find((r) => (r.cells[0] ?? "").toLowerCase() === b.name.trim().toLowerCase());
-    if (t.header === null) next = insertAt(raws, section.start + 1, [eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|---|${eol}`, `${row(true)}${eol}`]);
+    if (t.header === null) next = insertAt(raws, section.start + 1, [eol, `${BRANDS_HEADER}${eol}`, `${sep(full)}${eol}`, `${row(full)}${eol}`]);
     else if (existing) {
-      raws[existing.idx] = `${row(withDisplayName)}${eolOf(raws[existing.idx], "")}`;
+      raws[existing.idx] = `${row(width)}${eolOf(raws[existing.idx], "")}`;
       next = raws.join("");
-    } else next = insertAt(raws, t.lastIdx + 1, [`${row(withDisplayName)}${eol}`]);
+    } else next = insertAt(raws, t.lastIdx + 1, [`${row(width)}${eol}`]);
   }
   const brandErrors = parseProjectMd(next, slug).issues.filter((i) => i.field === "brands" && i.severity === "error");
   if (brandErrors.length) throw new ProjectError(brandErrors);

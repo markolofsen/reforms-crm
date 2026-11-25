@@ -8,7 +8,7 @@ const doc = (body: string) => splitLines(`# X\n\n${body}\n`);
 
 describe("SECTIONS specs", () => {
   it("the writer's header line has every column and a matching separator", () => {
-    expect(headerLine(SECTIONS.brands)).toBe("| Brand | Receives at | Signature | Answered | By | Display name |");
+    expect(headerLine(SECTIONS.brands)).toBe("| Brand | Receives at | Signature | Answered | By | Display name | Booking |");
     expect(separatorLine(SECTIONS.links)).toBe("|---|---|---|---|---|---|");
     expect(headerLine(SECTIONS.settings)).toBe("| Field | Value | Answered | By |");
   });
@@ -22,11 +22,11 @@ describe("SECTIONS specs", () => {
     expect(headerWidth(SECTIONS.settings, ["Field", "Value", "Answered"])).toBeNull();
   });
 
-  it("rows are padded to every column, so a five-column Brands row reads Display name as empty", () => {
+  it("rows are padded to every column, so a five-column Brands row reads Display name and Booking as empty", () => {
     const lines = doc("## Brands\n\n| Brand | Receives at | Signature | Answered | By |\n|---|---|---|---|---|\n| A | a@x.test | A | 2026-11-23 | owner |");
     const t = readTable(lines, scan(lines), SECTIONS.brands);
     expect(t?.issues).toEqual([]);
-    expect(t?.rows[0]?.cells).toEqual(["A", "a@x.test", "A", "2026-11-23", "owner", ""]);
+    expect(t?.rows[0]?.cells).toEqual(["A", "a@x.test", "A", "2026-11-23", "owner", "", ""]);
   });
 
   it("a row whose cell count differs from its header is one issue with the spec's code and field", () => {
@@ -46,6 +46,6 @@ describe("SECTIONS specs", () => {
     const lines = doc("## Brands\n\n| Brand | Domains |\n|---|---|");
     const t = readTable(lines, scan(lines), SECTIONS.brands);
     expect(t?.bad).toBe(true);
-    expect(t?.issues[0]?.message).toBe("## Brands needs a table with the columns Brand | Receives at | Signature | Answered | By, with optional Display name");
+    expect(t?.issues[0]?.message).toBe("## Brands needs a table with the columns Brand | Receives at | Signature | Answered | By, with optional Display name | Booking");
   });
 });

@@ -647,6 +647,7 @@ export * from './projectLinksLinksItemKind';
 export * from './projectLinksNotion';
 export * from './projectLinksNotionState';
 export * from './projectOverview';
+export * from './projectOverviewBooking';
 export * from './projectOverviewFilters';
 export * from './projectOverviewKnowledge';
 export * from './projectOverviewMessengerPolicy';
