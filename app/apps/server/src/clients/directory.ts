@@ -98,7 +98,11 @@ export function entryOf(page: { id: string; properties: Record<string, Prop> }):
       if (u && !ids.some((i) => i.kind === "username" && i.value === u)) ids.push({ kind: "username", value: u });
     }
   }
-  return { key: page.id, name, email, relationship: textOf(props["Relationship"]).trim() || null, identifiers: ids };
+  // P142 verdict 12: the CRM's follow-up facts are read with the identifiers and shown to a sweep turn as facts, never written.
+  const on = props["Follow-up on"];
+  const start = on?.type === "date" && on.date && typeof on.date === "object" ? Reflect.get(on.date, "start") : null;
+  const followUp = { doNotFollowUp: checked(props["Do not follow up"]), followUpOn: typeof start === "string" ? start : textOf(on).trim() || null };
+  return { key: page.id, name, email, relationship: textOf(props["Relationship"]).trim() || null, identifiers: ids, followUp };
 }
 
 export interface StartDirectory {

@@ -15,6 +15,8 @@ import { start as startTerminal } from "../terminal/start";
 import { start as startAgent } from "../agent/start";
 import { start as startInstance } from "../instance/start";
 import { startKnowledgeIndex } from "../knowledge/start";
+import { followUpBrainOf, startFollowUps } from "../follow-ups/start";
+import { messengerPolicy } from "../send/messenger-policy";
 
 /** A started runtime and what only the process needs from it: the terminal's upgrade and one stop for every domain. */
 export type Started = { runtime: Runtime; upgrade: ReturnType<typeof startTerminal>["terminal"]["upgrade"]; stop(): Promise<void> };
@@ -44,6 +46,18 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     busy: () => busy.now(),
     mailMoved: (project) => void bumpTopic(db, "mail", project),
     knownClient: (project, email) => linker.project === project && (linker.directory.current()?.all.some((e) => e.email?.trim().toLowerCase() === email) ?? false),
+  });
+  // P142 (decision 0050): the daily follow-up sweep, the one timer that starts a model; its nudges go through the same door.
+  const senders = messengers.handles.senders;
+  const doorPolicy = messengerPolicy({ projectsDir, policyDir: paths.stateProjects, allowList: readAllowList(paths.configFile) });
+  const followUps = startFollowUps({
+    repos,
+    projects,
+    brain: followUpBrainOf({ env: process.env, paths, repos }),
+    autopilot: messengers.handles.autopilot,
+    door: () => (senders ? { repos, policy: doorPolicy, senders } : null),
+    mail: mail.handles.conversation,
+    directory: { get project() { return linker.project; }, all: () => linker.directory.current()?.all },
   });
   const { terminal, detector } = startTerminal({ repos, paths, modes, adminPort, apiPort: o.apiPort });
   const agent = startAgent({ repos, paths, modes, detector, recheck: () => void terminal.recheck() });
@@ -77,6 +91,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     projectsDir,
     policyDir: paths.stateProjects,
     projects,
+    followUps,
     mail: {
       ...mail.handles,
       sender: {
@@ -102,6 +117,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     runtime,
     upgrade: terminal.upgrade,
     stop: async () => {
+      await followUps.stop();
       live.stop();
       knowledge.stop();
       instance.stop();

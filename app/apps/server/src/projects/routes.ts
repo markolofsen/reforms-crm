@@ -5,7 +5,8 @@ import { projectRoutes } from "./project-routes";
 import { projectLinksRoutes } from "./links-routes";
 import { sequenceRoutes } from "./sequences-routes";
 import { knowledgeRoutes } from "./knowledge-routes";
+import { followUpRoutes } from "../follow-ups/routes";
 
 /** Every Projects route over its one context (P126 S1). */
 export const routes = (ctx: ProjectsContext) =>
-  new Hono().route("/", projectCatalogRoutes(ctx)).route("/", projectRoutes(ctx)).route("/", projectLinksRoutes(ctx)).route("/", sequenceRoutes(ctx)).route("/", knowledgeRoutes(ctx));
+  new Hono().route("/", projectCatalogRoutes(ctx)).route("/", projectRoutes(ctx)).route("/", projectLinksRoutes(ctx)).route("/", sequenceRoutes(ctx)).route("/", knowledgeRoutes(ctx)).route("/", followUpRoutes(ctx));

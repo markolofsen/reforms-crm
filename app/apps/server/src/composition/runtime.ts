@@ -17,6 +17,7 @@ import type { WhatsAppHandle } from "../messengers/accounts/whatsapp";
 import type { ProjectAutolink } from "../messengers/autolink/setup";
 import type { Preanalysis } from "../messengers/preanalysis";
 import type { AutopilotHandle } from "../messengers/autopilot/wake";
+import type { FollowUpsRuntime } from "../follow-ups/start";
 import type { AgentToolsService } from "../agent/tools";
 import type { FocusStore } from "../agent/focus";
 import type { ConnectionsService } from "../instance/connections";
@@ -49,6 +50,8 @@ export type Runtime = {
   projects: ProjectStore;
   /** Tests: the Overview's and the knowledge page's zone. */
   timeZone?: string;
+  /** P142 (decision 0050): the daily follow-up sweep; absent in tests that do not wire it. */
+  followUps?: FollowUpsRuntime;
   mail: {
     sender?: RuntimeSender;
     sent?: () => SentStatus;

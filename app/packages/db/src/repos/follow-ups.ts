@@ -255,7 +255,7 @@ export function followUpSweepsRepo(db: Db) {
       if (!row) throw new RepoError("not_found", "The sweep could not be recorded");
       return row;
     },
-    async finishSweep(id: number, s: Partial<Pick<FollowUpSweepRow, "listed" | "turns" | "nudged" | "waited" | "stopped" | "handedOver" | "failed" | "skipped" | "error">> & { finishedAt: string }): Promise<FollowUpSweepRow | null> {
+    async finishSweep(id: number, s: Partial<Pick<FollowUpSweepRow, "listed" | "turns" | "nudged" | "waited" | "stopped" | "handedOver" | "failed" | "skipped" | "error">> & { finishedAt?: string | null }): Promise<FollowUpSweepRow | null> {
       return db.update(followUpSweeps).set(s).where(eq(followUpSweeps.id, id)).returning().get() ?? null;
     },
     /** The project's sweeps since `since`, newest first (the one-a-day rule, the Run-now cap, Overview's line). */

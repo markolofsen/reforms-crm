@@ -121,11 +121,13 @@ const OUTCOME_OF: Partial<Record<AutopilotReason, AutopilotOutcome>> = { owner_r
 export class AutopilotScheduler {
   private readonly entries = new Map<string, Entry>();
   private readonly queue: string[] = [];
-  private readonly lastSent = new Map<string, number>();
+  // P142: the sweep borrows pool slots (`lent`), and records its autopilot nudge here so its echo is not the owner taking over.
+  readonly lastSent = new Map<string, number>();
+  lent = 0;
   private readonly settled = new Set<Promise<void>>();
   private running = 0;
   private readonly clock: Clock;
-  private readonly ledger: AutopilotLedger;
+  readonly ledger: AutopilotLedger;
   private readonly spacing: SendSpacing;
   private readonly pool: number;
   private readonly l: { debounceMs: number; burstMaxMs: number; timeoutMs: number; restartWindowMs: number; echoMs: number; budget?: BudgetLimits };
@@ -217,8 +219,8 @@ export class AutopilotScheduler {
     this.pump();
   }
 
-  private pump(): void {
-    while (this.running < this.pool && this.queue.length) {
+  pump(): void {
+    while (this.running + this.lent < this.pool && this.queue.length) {
       const e = this.entries.get(this.queue.shift() ?? "");
       if (!e || e.phase !== "queued") continue;
       e.phase = "running";

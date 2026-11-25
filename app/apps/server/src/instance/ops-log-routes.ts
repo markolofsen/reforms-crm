@@ -16,6 +16,7 @@ export const OPS_PLACE: Readonly<Record<OpsSource, StatusNext | null>> = {
   autolink: "messengers",
   preanalysis: "messengers",
   autopilot: "messengers",
+  "follow-ups": "messengers",
   mail: "mail",
   notion: "connections",
   send: "sending",

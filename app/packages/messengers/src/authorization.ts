@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { AGENT_WORD_SEND_ACTOR } from "@hub/config";
 import type { AUTOPILOT_SEND_ACTOR } from "@hub/config/autopilot";
+import type { FOLLOW_UP_SEND_REASON } from "@hub/config/follow-ups";
 import type { MessengerChannel } from "@hub/db";
 import { MessengersError } from "./errors";
 
@@ -16,13 +17,14 @@ import { MessengersError } from "./errors";
  *
  * - `autopilot` (decision 0048, P139 A4): the server's messenger autopilot, in a chat whose three switches the owner turned on;
  *   `turn` is the turn's action id (P137), the one reference its `send_log` row spends, so one turn sends at most once. The
- *   audit stage holds it to its share of the account (`AUTOPILOT_ACCOUNT_SHARE` of the daily cap).
+ *   audit stage holds it to its share of the account (`AUTOPILOT_ACCOUNT_SHARE` of the daily cap). `reason: "nudge"` (decision 0050,
+ *   P142 F5) is the follow-up sweep's nudge in such a chat: the same authority and stages, its own caps checked before the door.
  * Every switch below is exhaustive, so a new member fails the typecheck until it is handled.
  */
 export type MessengerAuthority =
   | { readonly kind: "owner_click"; readonly actor: "admin" }
   | { readonly kind: "owner_word"; readonly actor: typeof AGENT_WORD_SEND_ACTOR; readonly ownerWord: string }
-  | { readonly kind: "autopilot"; readonly actor: typeof AUTOPILOT_SEND_ACTOR; readonly turn: string };
+  | { readonly kind: "autopilot"; readonly actor: typeof AUTOPILOT_SEND_ACTOR; readonly turn: string; readonly reason?: typeof FOLLOW_UP_SEND_REASON };
 
 /** The `send_log.actor` (and the draft's `confirmed_by`) of an authority. */
 export function actorOf(a: MessengerAuthority): string {

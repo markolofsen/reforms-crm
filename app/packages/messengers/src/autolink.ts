@@ -27,6 +27,8 @@ export interface DirectoryEntry {
   /** The record's Relationship (Client, Prospect, Lead, ...) or null: shown and counted, never used to decide. */
   relationship: string | null;
   identifiers: DirectoryKey[];
+  /** P142: the card's CRM follow-up facts (`Do not follow up`, `Follow-up on`), shown to a sweep turn as data. */
+  followUp?: { doNotFollowUp: boolean; followUpOn: string | null };
 }
 
 export interface Directory {

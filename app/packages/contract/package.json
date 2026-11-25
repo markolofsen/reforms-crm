@@ -10,6 +10,7 @@
     "./connections": "./src/connections.ts",
     "./overview": "./src/overview.ts",
     "./sequences": "./src/sequences.ts",
+    "./follow-ups": "./src/follow-ups.ts",
     "./activity": "./src/activity.ts",
     "./instance": "./src/instance.ts",
     "./terminal": "./src/terminal.ts",
