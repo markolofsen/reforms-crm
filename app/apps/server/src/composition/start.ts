@@ -16,6 +16,7 @@ import { start as startAgent } from "../agent/start";
 import { start as startInstance } from "../instance/start";
 import { startKnowledgeIndex } from "../knowledge/start";
 import { followUpBrainOf, startFollowUps } from "../follow-ups/start";
+import { leadPassBrainOf, startLeadPass } from "../lead-pass/start";
 import { messengerPolicy } from "../send/messenger-policy";
 
 /** A started runtime and what only the process needs from it: the terminal's upgrade and one stop for every domain. */
@@ -59,6 +60,15 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     mail: mail.handles.conversation,
     directory: { get project() { return linker.project; }, all: () => linker.directory.current()?.all },
   });
+  // P147 (decision 0055): the daily lead pass, the second timer that starts a model; it writes drafts and proposals only.
+  const leadPass = startLeadPass({
+    repos,
+    projects,
+    brain: leadPassBrainOf({ env: process.env, paths, repos }),
+    autopilot: messengers.handles.autopilot,
+    leads: mail.handles.leads,
+    directory: { get project() { return linker.project; }, all: () => linker.directory.current()?.all },
+  });
   const { terminal, detector } = startTerminal({ repos, paths, modes, adminPort, apiPort: o.apiPort });
   const agent = startAgent({ repos, paths, modes, detector, recheck: () => void terminal.recheck() });
   const instance = startInstance({ repos, paths, modes, projects, fakeMail: mail.kind === "fake", bot: messengers.handles.bot });
@@ -92,6 +102,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     policyDir: paths.stateProjects,
     projects,
     followUps,
+    leadPass,
     mail: {
       ...mail.handles,
       sender: {
@@ -118,6 +129,7 @@ export async function startRuntime(o: { db: Db; modes: RuntimeModes; paths: HubP
     upgrade: terminal.upgrade,
     stop: async () => {
       await followUps.stop();
+      await leadPass.stop();
       live.stop();
       knowledge.stop();
       instance.stop();

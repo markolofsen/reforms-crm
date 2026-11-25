@@ -12,6 +12,8 @@ import { createHubMcpServer, HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../sr
 import { httpAgentSend, MESSENGER_SEND_TOOL, sentLine, type AgentSendPort } from "../src/messenger/send-tool";
 import { AUTOPILOT_HUB_TOOLS } from "@hub/config/autopilot";
 import { AUTOPILOT_ALLOWED, autopilotDisallowed } from "../src/autopilot";
+import { LEAD_PASS_HUB_TOOLS } from "@hub/config/lead-pass";
+import { LEAD_PASS_ALLOWED, leadPassDisallowed } from "../src/lead-pass";
 
 // Decision 0046 (P132 B1-3): `messenger_send` exists only in a session the owner started (attended), whatever the permission
 // mode (owner 2026-11-25: one mode, no prompts with the OS sandbox). In a background run it is absent from `hub mcp` and on the
@@ -143,5 +145,29 @@ describe("decision 0048: an autopilot turn has no send tool (P139 A3, verdict 28
     expect(denied).toContain(SEND);
     for (const t of deniedTools("background")) expect(denied).toContain(t);
     expect(AUTOPILOT_ALLOWED.filter((t) => SEND_LIKE_TOOL.test(t.replace("mcp__hub__", "")) && t !== "mcp__hub__messenger_draft_write")).toEqual([]);
+  });
+});
+
+describe("decision 0055: a lead pass turn has no send tool (P147 verdict 16)", () => {
+  it("its hub mcp registers exactly verdict 5's six lead-bound tools, none send-like, attended port or not", async () => {
+    const server = createHubMcpServer(createRepos(h.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), leadPage: "a".repeat(32), leadPass: 1, agentSend: async () => ({ ok: false, status: 409, reason: "no_owner_word", error: "Not sent.", next: "Ask." }) });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await server.connect(a);
+    const client = new Client({ name: "t", version: "0" });
+    await client.connect(b);
+    const names = (await client.listTools()).tools.map((t) => t.name).sort();
+    expect(names).toEqual(["client_show", "draft_write", "knowledge_get", "knowledge_search", "lead_decide", "message_show"]);
+    expect(names).toEqual([...LEAD_PASS_HUB_TOOLS].sort());
+    expect(names.filter((n) => SEND_LIKE_TOOL.test(n))).toEqual([]);
+  });
+
+  it("its CLI allows the six and denies messenger_send, client_create and every other hub tool by name, and the background run's deny list", () => {
+    expect(LEAD_PASS_ALLOWED).toHaveLength(6);
+    const denied = leadPassDisallowed();
+    expect(denied).toContain(SEND);
+    expect(denied).toContain("mcp__hub__client_create");
+    expect(denied).toContain("mcp__hub__leads_open");
+    for (const t of deniedTools("background")) expect(denied).toContain(t);
+    for (const t of LEAD_PASS_ALLOWED) expect(denied).not.toContain(t);
   });
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LEAD_PASS_DECISIONS } from "@hub/config/lead-pass";
 
 // The Mail reader's replies (P96 S1): the Inbox view of Mail (the clients who wrote and have no draft yet) and one message's
 // card, its text read from Mail when it is opened. Read-only toward Mail; the only writes are the owner's No reply needed and
@@ -60,6 +61,8 @@ export const leadRowDto = z.strictObject({
   /** Open requests sharing the address (verdict 7: one person, "2 requests"). */
   requests: z.number().int(),
   facts: leadFactsDto,
+  /** P147 verdict 15: the daily lead pass's decision on this request (the card's chip and Redo), or null when none was made. */
+  pass: z.strictObject({ decision: z.enum(LEAD_PASS_DECISIONS), reason: z.string().nullable(), at: z.string().nullable(), draftId: z.number().int().nullable(), excludedAt: z.string().nullable() }).nullable(),
 });
 export type LeadRowDto = z.infer<typeof leadRowDto>;
 

@@ -25,6 +25,7 @@ export const leadDto = (r: LeadRow & { requests?: number }): LeadRowDto => ({
   preview: r.preview,
   requests: r.requests ?? 1,
   facts: { site: r.site, country: r.country, segment: r.segment, volume: r.volume },
+  pass: r.passDecision ? { decision: r.passDecision, reason: r.passReason, at: r.passAt, draftId: r.passDraftId, excludedAt: r.passExcludedAt } : null,
 });
 /** How much of the answering draft's text the card shows (the stored body; Mail holds the full draft). */
 const ANSWER_EXCERPT = 600;

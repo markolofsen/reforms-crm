@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
 import { FOLLOW_UP_DEFAULT_AT, FOLLOW_UP_SCHEDULES } from "@hub/config/follow-ups";
+import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE, LEAD_PASS_SCHEDULES } from "@hub/config/lead-pass";
 import { BCP47, isIsoDate, isTimezone, SLUG } from "./values";
 
 export const STATUSES = ["draft", "active", "paused", "archived"] as const;
@@ -120,7 +121,10 @@ export const ProjectBase = z.object({
    * person writing): never an Inbox client row, even when the mail filters whitelist them. `windowDays`: the Inbox lists the Leads
    * rows still New that were received in the last this many days (default 14); older ones are one muted count.
    */
-  leads: z.object({ noticeSenders: z.array(z.string()).default([]), windowDays: z.number().int().positive().max(365).default(14) }).default({ noticeSenders: [], windowDays: 14 }),
+  // P147 (decision 0055, D9): `pass` (the daily lead pass, off in the core) and `passAt`; not protected, the pass sends nothing.
+  leads: z
+    .object({ noticeSenders: z.array(z.string()).default([]), windowDays: z.number().int().positive().max(365).default(14), pass: z.enum(LEAD_PASS_SCHEDULES).default(LEAD_PASS_DEFAULT_SCHEDULE), passAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default(LEAD_PASS_DEFAULT_AT) })
+    .default({ noticeSenders: [], windowDays: 14, pass: LEAD_PASS_DEFAULT_SCHEDULE, passAt: LEAD_PASS_DEFAULT_AT }),
   /** Calendar the `calendar` skill writes holds into; null fields: not set (the skill reports a calendar-problem, never guesses). */
   calendar: z
     .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null), /** P62: Google Calendar connectors (`gcal-<label>`) attached to this project. */ connector: z.array(z.string()).default([]) })

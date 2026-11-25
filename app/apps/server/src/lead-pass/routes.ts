@@ -1,0 +1,79 @@
+import { Hono, type Context } from "hono";
+import { leadPageParam, leadPassDto, leadRedoneDto, runLeadPassBody } from "@hub/contract/lead-pass";
+import { slugParam } from "@hub/contract/requests";
+import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE } from "@hub/config/lead-pass";
+import { gateRefusal } from "../http/admin-gate";
+import { notFound, v } from "../http/http";
+import type { ProjectsContext } from "../projects/context";
+
+// The lead pass routes (decision 0055, P147 L4). The read is behind the general guard. The owner's writes (Run lead pass now,
+// Redo) take the admin's exact Origin, a loopback Host and `Sec-Fetch-Site: same-origin`; no ticket, since they only start a pass
+// or clear one decision. A pass runs in the background: the POST answers at once.
+
+const DAY_MS = 86_400_000;
+
+export function leadPassRoutes(ctx: ProjectsContext) {
+  const { repos, now } = ctx;
+  const known = async (slug: string) => (await repos.projects.list()).includes(slug);
+  const door = (c: Context): Response | null => {
+    const why = ctx.adminPort === undefined ? "no admin port" : gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, ctx.adminPort, { sameSite: true });
+    return why ? c.json({ error: `Not changed: ${why}.`, code: "forbidden" as const }, 403) : null;
+  };
+
+  return new Hono()
+    .get("/api/projects/:slug/lead-pass", v("param", slugParam), async (c) => {
+      const { slug } = c.req.valid("param");
+      if (!(await known(slug))) return notFound(c, "project");
+      const at = now();
+      const cfg = ctx.projects.find(slug)?.leads;
+      const settings = { schedule: cfg?.pass ?? LEAD_PASS_DEFAULT_SCHEDULE, at: cfg?.passAt ?? LEAD_PASS_DEFAULT_AT };
+      const from = new Date(at.getTime() - (cfg?.windowDays ?? 14) * DAY_MS).toISOString();
+      const rows = await repos.leadPass.decided(slug, from);
+      const today = { drafted: 0, spam: 0, notNow: 0, forYou: 0, sent: 0, excluded: 0 };
+      for (const r of rows) {
+        if (r.display === "drafted") today.drafted++;
+        else if (r.display === "proposed") today[r.passDecision === "spam" ? "spam" : "notNow"]++;
+        else if (r.display === "for_you") today.forYou++;
+        else if (r.display === "sent") today.sent++;
+        else if (r.display === "excluded") today.excluded++;
+      }
+      const sch = ctx.leadPass?.schedule;
+      const last = await repos.leadPass.lastPass(slug);
+      const batchId = await repos.leadPass.openBatch(slug);
+      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => r.display === "drafted").length;
+      return c.json(
+        leadPassDto.parse({
+          today,
+          pass: {
+            ...settings,
+            last,
+            next: sch ? await sch.next(slug, settings) : null,
+            running: sch?.isRunning(slug) ?? false,
+            runNowOff: sch ? await sch.runNowOff(slug) : "this server has no lead pass model",
+            stopped: last?.error ?? null,
+          },
+          review: { batchId: drafts > 0 || today.spam + today.notNow > 0 ? batchId : null, drafts, proposals: today.spam + today.notNow },
+        }),
+      );
+    })
+    .post("/api/projects/:slug/lead-pass", v("param", slugParam), v("json", runLeadPassBody), async (c) => {
+      const refused = door(c);
+      if (refused) return refused;
+      const { slug } = c.req.valid("param");
+      if (!(await known(slug))) return notFound(c, "project");
+      const sch = ctx.leadPass?.schedule;
+      if (!sch) return c.json({ error: "This server has no lead pass model: nothing runs here.", code: "wrong_state" as const }, 409);
+      const r = await sch.runNow(slug);
+      if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
+      return c.json({ ok: true as const, joined: r.joined }, 202);
+    })
+    // Redo (verdict 3): the lead's decision is cleared, so the next pass decides it again. Its draft, if any, stays in Mail.
+    .post("/api/projects/:slug/leads/:pageId/redo", v("param", leadPageParam), async (c) => {
+      const refused = door(c);
+      if (refused) return refused;
+      const { slug, pageId } = c.req.valid("param");
+      const id = pageId.replace(/-/g, "").toLowerCase();
+      if (!(await repos.leadPass.redo(slug, id))) return notFound(c, "lead");
+      return c.json(leadRedoneDto.parse({ ok: true, pageId: id }));
+    });
+}

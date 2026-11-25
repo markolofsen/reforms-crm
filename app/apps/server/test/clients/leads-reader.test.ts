@@ -83,7 +83,7 @@ const reader = (n: ReturnType<typeof fakeNotion>) => startLeadsReader({ repos, p
 describe("windowOf (verdict 9 as answered: the last 14 days)", () => {
   it("keeps the window's pages with the reply address and the brand row's name, and counts older New ones", () => {
     const pages = [page("a".repeat(32), { email: "acc@x.test", details: "Contact channel: Email: typed@x.test" }), page("b".repeat(32), { received: "2026-10-01" }), page("c".repeat(32), { received: "2026-10-01", status: "Won" })];
-    const r = windowOf(pages, { project: "p", config: { brands: [{ name: "Carapis", receivesAt: [], signature: [], answered: "", by: "agent" }] as never, leads: { noticeSenders: [], windowDays: 14 } }, now: NOW });
+    const r = windowOf(pages, { project: "p", config: { brands: [{ name: "Carapis", receivesAt: [], signature: [], answered: "", by: "agent" }] as never, leads: { noticeSenders: [], windowDays: 14, pass: "off" as const, passAt: "09:30" } }, now: NOW });
     expect(r.older).toBe(1);
     expect(r.rows).toEqual([expect.objectContaining({ pageId: "a".repeat(32), email: "typed@x.test", accountEmail: "acc@x.test", brand: "Carapis", notionStatus: "New" })]);
   });
@@ -92,7 +92,7 @@ describe("windowOf (verdict 9 as answered: the last 14 days)", () => {
 describe("the lead's preview (P98 item 4)", () => {
   it("is what the person wrote (Message), never the form's metadata (Details); an empty Message stays empty", () => {
     const meta = "Locale: pt-BR\nApi host: api.carapis.com\nCompany website: https://kobori.xyz/\nConsent version: 2026-09-22";
-    const config = { brands: [] as never, leads: { noticeSenders: [], windowDays: 14 } };
+    const config = { brands: [] as never, leads: { noticeSenders: [], windowDays: 14, pass: "off" as const, passAt: "09:30" } };
     const [said] = windowOf([page("a".repeat(32), { message: "cars24.com", details: meta })], { project: "p", config, now: NOW }).rows;
     expect(said?.preview).toBe("cars24.com");
     const [silent] = windowOf([page("b".repeat(32), { message: "", details: meta })], { project: "p", config, now: NOW }).rows;
@@ -103,7 +103,7 @@ describe("the lead's preview (P98 item 4)", () => {
 describe("P138 E1: the row's facts and the card's form, read, and notes", () => {
   const meta = "Company website: https://www.almir.test/\nCountry: AE\nSegment: Dealer\nExpected volume: Under 10k/month\nContact channel: WhatsApp: +971 50 123 4567\nLocale: en";
   it("stores four short facts of the form on the row", () => {
-    const config = { brands: [] as never, leads: { noticeSenders: [], windowDays: 14 } };
+    const config = { brands: [] as never, leads: { noticeSenders: [], windowDays: 14, pass: "off" as const, passAt: "09:30" } };
     const [r] = windowOf([page("a".repeat(32), { details: meta })], { project: "p", config, now: NOW }).rows;
     expect(r?.facts).toEqual({ site: "almir.test", country: "United Arab Emirates", segment: "Dealer", volume: "Under 10k/month" });
   });

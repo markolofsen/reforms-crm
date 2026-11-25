@@ -14,7 +14,7 @@
 export const GENERATED_OPERATIONS = {
   instance: ["getInstance", "getInstanceLogo", "getCoreUpdate", "checkCoreUpdate", "getAutostart", "setAutostart", "listConnections", "testConnection", "setConnectionSecret", "removeConnectionSecret", "getOpsErrors", "getOpsLines", "checkApps", "openLocal", "streamLive"],
   overview: ["getHealth", "getPulse", "getOverview", "getScheme"],
-  projects: ["listProjects", "getProjectOverview", "getProjectDoctor", "getActivity", "getProjectLinks", "listKnowledge", "getKnowledgeText", "listSequences", "listEnrollments", "stopEnrollment", "listFollowUps", "runFollowUps", "setFollowUp"],
+  projects: ["listProjects", "getProjectOverview", "getProjectDoctor", "getActivity", "getProjectLinks", "listKnowledge", "getKnowledgeText", "listSequences", "listEnrollments", "stopEnrollment", "listFollowUps", "runFollowUps", "setFollowUp", "getLeadPass", "runLeadPass", "redoLead"],
   mail: [
     "listDrafts", "setDraftChecked", "setDraftStatus", "setDraftTone", "ackDraftCheck", "undoDraftStatus", "setClientMarks", "getClientTimeline", "getClientHistory", "listBatches", "getBatch", "undoBatch", "acknowledgeBatchWarnings", "getSafetyRules", "setSafetyRule", "getAgentSettings", "setAgentSettings",
     "listConversations", "getClientByKey", "getClientMap", "listStuckClients", "getConversation", "getConversationMail", "getConversationText", "refreshConversation", "createManualMailDraft", "getDraftMail", "saveDraftMail", "restoreDraftMail", "tidyDraftMail", "listInbox", "listNotByEmail", "listInbound", "checkInbound", "undismissInbound", "dismissInbound",

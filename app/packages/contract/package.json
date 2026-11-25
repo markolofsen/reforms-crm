@@ -11,6 +11,7 @@
     "./overview": "./src/overview.ts",
     "./sequences": "./src/sequences.ts",
     "./follow-ups": "./src/follow-ups.ts",
+    "./lead-pass": "./src/lead-pass.ts",
     "./activity": "./src/activity.ts",
     "./instance": "./src/instance.ts",
     "./terminal": "./src/terminal.ts",

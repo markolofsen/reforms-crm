@@ -15,6 +15,7 @@
     "./mcp": "./src/mcp/server.ts",
     "./autopilot": "./src/autopilot/index.ts",
     "./follow-up": "./src/follow-up/index.ts",
+    "./lead-pass": "./src/lead-pass/index.ts",
     "./session-rules": "./src/session-rules.ts",
     "./mcp-stdio": "./src/mcp/stdio.ts",
     "./mcp-binding": "./src/mcp/binding.ts",

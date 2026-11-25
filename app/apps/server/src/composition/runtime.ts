@@ -18,6 +18,7 @@ import type { ProjectAutolink } from "../messengers/autolink/setup";
 import type { Preanalysis } from "../messengers/preanalysis";
 import type { AutopilotHandle } from "../messengers/autopilot/wake";
 import type { FollowUpsRuntime } from "../follow-ups/start";
+import type { LeadPassRuntime } from "../lead-pass/start";
 import type { AgentToolsService } from "../agent/tools";
 import type { FocusStore } from "../agent/focus";
 import type { ConnectionsService } from "../instance/connections";
@@ -52,6 +53,8 @@ export type Runtime = {
   timeZone?: string;
   /** P142 (decision 0050): the daily follow-up sweep; absent in tests that do not wire it. */
   followUps?: FollowUpsRuntime;
+  /** P147 (decision 0055): the daily lead pass; absent in tests that do not wire it. */
+  leadPass?: LeadPassRuntime;
   mail: {
     sender?: RuntimeSender;
     sent?: () => SentStatus;

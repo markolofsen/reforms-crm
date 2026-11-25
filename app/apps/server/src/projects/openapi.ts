@@ -5,6 +5,7 @@ import { projectLinksDto, projectOverviewDto, projectsDto } from "@hub/contract/
 import { doctorDto } from "@hub/contract/sending";
 import { enrollmentChangedDto, enrollmentParam, enrollmentsDto, enrollmentsQuery, sequencesDto, slugOnlyParam, stopBody } from "@hub/contract/sequences";
 import { followUpChangedDto, followUpParam, followUpsDto, runFollowUpsBody, runFollowUpsDto, setFollowUpBody } from "@hub/contract/follow-ups";
+import { leadPageParam, leadPassDto, leadRedoneDto, runLeadPassBody, runLeadPassDto } from "@hub/contract/lead-pass";
 import type { Operation } from "../http/openapi";
 
 /** The projects domain's operations (P120 W2): the list, one project's page, its knowledge, links, activity and follow-ups. */
@@ -23,4 +24,8 @@ export const operations: Operation[] = [
   { method: "get", path: "/api/projects/:slug/follow-ups", operationId: "listFollowUps", summary: "List the project's follow-up plans and its sweep", tags: ["mail"], params: slugParam, reply: { name: "FollowUps", schema: followUpsDto }, errors: [404, 503] },
   { method: "post", path: "/api/projects/:slug/follow-ups/sweep", operationId: "runFollowUps", summary: "Run the project's follow-up sweep now", tags: ["mail"], params: slugParam, body: { name: "RunFollowUpsBody", schema: runFollowUpsBody }, reply: { name: "RunFollowUps", schema: runFollowUpsDto }, status: [202], errors: [403, 404, 409] },
   { method: "put", path: "/api/projects/:slug/follow-ups/:clientId", operationId: "setFollowUp", summary: "Change the date of, stop or resume one follow-up plan", tags: ["mail"], params: followUpParam, body: { name: "SetFollowUpBody", schema: setFollowUpBody }, reply: { name: "FollowUpChanged", schema: followUpChangedDto }, errors: [400, 403, 404] },
+  // P147 (decision 0055): the lead pass's line and Run lead pass now; Redo of one lead's decision (the admin's Origin).
+  { method: "get", path: "/api/projects/:slug/lead-pass", operationId: "getLeadPass", summary: "The project's lead pass: today's decisions, the last pass, the next, the review", tags: ["mail"], params: slugParam, reply: { name: "LeadPass", schema: leadPassDto }, errors: [404] },
+  { method: "post", path: "/api/projects/:slug/lead-pass", operationId: "runLeadPass", summary: "Run the project's lead pass now", tags: ["mail"], params: slugParam, body: { name: "RunLeadPassBody", schema: runLeadPassBody }, reply: { name: "RunLeadPass", schema: runLeadPassDto }, status: [202], errors: [403, 404, 409] },
+  { method: "post", path: "/api/projects/:slug/leads/:pageId/redo", operationId: "redoLead", summary: "Clear one lead's pass decision so the next pass decides it again", tags: ["mail"], params: leadPageParam, reply: { name: "LeadRedone", schema: leadRedoneDto }, errors: [403, 404] },
 ];

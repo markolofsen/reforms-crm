@@ -19,6 +19,7 @@ export const OPS_SOURCES = [
   "preanalysis", // P71 M-P: the cheap model's pass over linked chats (through `@hub/llm`)
   "autopilot", // decision 0048 (P139): the messenger autopilot's turns, one line per outcome with the turn's action id
   "follow-ups", // decision 0050 (P142): the daily follow-up sweep, one line per sweep, per turn and per autopilot nudge
+  "lead-pass", // decision 0055 (P147): the daily lead pass, one line per pass and per lead turn
   "mail", // Apple Mail: the draft writer, Sent detection, Trash moves
   "notion",
   "send", // the send door: refusals and failures of a person's Send, a batch run

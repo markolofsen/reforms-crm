@@ -6,6 +6,7 @@ import { KIND_IDS } from "./kinds";
 import { AUTOLINK_MODES, KNOWLEDGE_SCOPES, SEND_MODES, STAMP_MODES, STATUSES } from "./schema";
 import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
 import { FOLLOW_UP_AT, FOLLOW_UP_SCHEDULES } from "@hub/config/follow-ups";
+import { LEAD_PASS_AT, LEAD_PASS_SCHEDULES } from "@hub/config/lead-pass";
 import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
@@ -67,6 +68,8 @@ export const FIELDS: Record<string, FieldDef> = {
   "notion.convert_leads": { path: "notion.convertLeads", schema: check((v) => (STAMP_MODES as readonly string[]).includes(v), (v) => `expected on or off, got "${v}"`), doc: "P97: on (default): at the first confirmed send to a lead the Hub links the lead to its Clients card (or creates one, Relationship Lead, when none has the address) and sets the lead In progress; off: nothing is written on leads at a send." },
   "leads.notice_senders": { path: "leads.noticeSenders", schema: addresses, doc: "P97: addresses whose mail is a site's notification of a lead (a copy of a Leads row): never an Inbox client row, even when the mail filters whitelist them; the lead is shown from Notion Leads instead." },
   "leads.window_days": { path: "leads.windowDays", schema: check((v) => /^[1-9]\d{0,2}$/.test(v) && Number(v) <= 365, (v) => `expected 1 to 365 days, got "${v}"`).transform(Number), doc: "P97: the Inbox lists the Leads rows still New received in the last this many days; default 14. Older ones are one muted count." },
+  "leads.pass": { path: "leads.pass", schema: check((v) => (LEAD_PASS_SCHEDULES as readonly string[]).includes(v), (v) => `expected daily or off, got "${v}"`), doc: "P147 (decision 0055): off (the core's default): no lead pass runs by itself (the dock phrase still works); daily: once a day the Hub lists the project's open leads with no decision and the agent drafts the first replies or proposes spam, not now or a hand-over, for your one reviewed Send in Mail ▸ Leads ▸ Review." },
+  "leads.pass_at": { path: "leads.passAt", schema: check((v) => LEAD_PASS_AT.test(v), (v) => `expected HH:MM, got "${v}"`), doc: "P147: the lead pass's time of day on this Mac's clock, HH:MM (default 09:30); it starts after the day's follow-up sweep finished (at most 30 minutes later), and a Mac asleep then runs it once when it is next up." },
   "notion.token_file": { path: "notion.tokenFile", schema: check((v) => /^[A-Za-z0-9._-]+$/.test(v), () => "expected a file name (no path, no value of a secret)"), doc: "File name in state/secrets/ holding the Notion token." },
   "calendar.name": { path: "calendar.name", schema: oneLine, doc: "Calendar the calendar skill writes holds into." },
   "calendar.id": { path: "calendar.id", schema: oneLine, doc: "Calendar id when the name is not enough; with calendar.connector, the Google calendar id holds go to (default: the connector's primary calendar)." },
