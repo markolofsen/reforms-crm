@@ -1,3 +1,4 @@
+import type { LinkFetch } from "../link/fetch";
 import type { Repos } from "@hub/db";
 import type { Brand, ProjectConfig } from "@hub/projects/model";
 import type { DraftWriter } from "@hub/mail-app/writer/types";
@@ -35,6 +36,8 @@ export interface HubMcpEnv {
   bindingRefusal?: string;
   /** P141 guard: how many migrations the database is behind this core (asked per call); above 0 every tool refuses with db_behind. */
   dbBehind?: () => number;
+  /** `link_fetch`'s fetcher (tests pass a fake); absent, the real public-only one. */
+  linkFetch?: LinkFetch;
   /** `state/focus.json` of the instance. */
   focusFile: string;
   /** `state/pointer.json` of the instance (P72); absent, `highlight` refuses `unavailable`. */

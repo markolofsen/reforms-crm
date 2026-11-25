@@ -1,7 +1,7 @@
 ---
 name: triage-messages
 description: Use when the owner wants the linked Telegram and WhatsApp chats of one project answered: read each linked chat with its rules, and leave one unsent reply draft where the client's newest message has none, within that chat's rules. Ends with a report table. Draft only: never sends on its own (one draft only on the owner's word, through messenger_send, decision 0046), never writes first, never touches a chat the owner did not link. Unlike triage-mail, which works on Mail, this reads only the hub's stored chat messages; both refresh the client's Notion profile from what they read.
-allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messenger_history mcp__hub__messenger_draft_write mcp__hub__client_map mcp__hub__messenger_send mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-update-page mcp__hub__conversation_done mcp__hub__client_create mcp__hub__chat_link
+allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messenger_history mcp__hub__messenger_draft_write mcp__hub__client_map mcp__hub__messenger_send mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__hub__link_fetch mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-update-page mcp__hub__conversation_done mcp__hub__client_create mcp__hub__chat_link
 ---
 
 # Triage messages (manual run, one project; also one chat)
@@ -23,7 +23,7 @@ Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one 
 - A chat on autopilot (decision 0048: its `open_draft.autopilot` is true, or the owner says so) is the server's: skip it (`skipped:autopilot`) unless the owner names that chat.
 
 ## 2. Per chat (in this order)
-1. `messenger_history` of the chat. It returns the messages newest first, the chat's `rules`, `owner_instruction` (the owner's own words for this chat), `open_draft` and `can_draft`. With the chat's pre-analysis on (P71 M-P), messages a cheap model judged `closing`, `automated` or `personal` are left out and counted in `prefilter` (`hidden` by reason, `left_out_below`); `include_hidden: true` returns them marked `hidden`. A message it could not judge is shown as usual.
+1. `messenger_history` of the chat. It returns the messages newest first, the chat's `rules`, `owner_instruction` (the owner's own words for this chat), `open_draft` and `can_draft`. With the chat's pre-analysis on (P71 M-P), messages a cheap model judged `closing`, `automated` or `personal` are left out and counted in `prefilter` (`hidden` by reason, `left_out_below`); `include_hidden: true` returns them marked `hidden`. A message it could not judge is shown as usual. A link in the client's message: open it with `link_fetch`; an image: fetch it and look at it.
    - `prefilter.newest_in_hidden` set (the client's newest message was hidden, as a "thanks" or a notice): no reply is owed, `skipped:hidden-<reason>`, unless the owner asked for this chat.
 2. Decide from `can_draft`, never around it:
    - `ok: true`: write one reply to the newest inbound message. With `nudge: true` (our own message is the newest) the hub admits the draft too: write it when the owner asked for this chat in this session (a reply, a follow-up); otherwise no reply is owed, `skipped:last-is-ours`.

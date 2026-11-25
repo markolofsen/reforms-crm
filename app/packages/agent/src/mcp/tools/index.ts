@@ -12,6 +12,7 @@ import { followUpPlanTool, followUpsDueTool } from "./follow-ups";
 import { knowledgeGetTool, knowledgeSearchTool } from "./knowledge";
 import { clientShowTool, mailListTool, messageShowTool } from "./mail-read";
 import { messengerDraftWriteTool, messengerHistoryTool, messengerSendTool } from "./messengers";
+import { linkFetchTool } from "./link";
 import { projectShowTool } from "./project";
 
 // P129 A2: the one list of `hub mcp`'s tools. `HUB_MCP_TOOLS`, the README table, the capability matrix and the registry
@@ -19,8 +20,9 @@ import { projectShowTool } from "./project";
 
 // P129 verdict 5 (A4): `project_show` replaced `project_notion` and `project_links`; `message_show` replaced `inbound_show`
 // and `mail_brand`; `mail_list` replaced `drafts_list`; the knowledge tools moved here from the `knowledge-mcp` server.
+// Owner 2026-11-25: `link_fetch` opens a public link a client sent (the session's commands have no network).
 // P143: `conversation_done` (also an autopilot turn's, its own chat), `client_create` and `chat_link` (attended only, at run time).
-export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool, followUpsDueTool, followUpPlanTool] as const satisfies readonly ToolDef[];
+export const TOOLS = [focusTool, highlightTool, projectShowTool, mailListTool, clientShowTool, draftShowTool, messageShowTool, draftWriteTool, clientRecordTool, clientMapTool, mapsDueTool, knowledgeSearchTool, knowledgeGetTool, messengerHistoryTool, messengerDraftWriteTool, chatsUnlinkedTool, chatsProposeHideTool, conversationDoneTool, clientCreateTool, chatLinkTool, followUpsDueTool, followUpPlanTool, linkFetchTool] as const satisfies readonly ToolDef[];
 
 /** Decision 0048 (verdict 28 as built): an autopilot turn's `hub mcp` registers exactly these, each bound to the turn's chat. */
 export const AUTOPILOT_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (AUTOPILOT_HUB_TOOLS as readonly string[]).includes(t.name));

@@ -12,7 +12,16 @@ export class ToolError extends Error {
   }
 }
 
-export const ok = (value: Record<string, unknown>) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }], structuredContent: value });
+/** The reserved output key of a tool that shows an image (`link_fetch`): sent as MCP image content, never in the JSON. */
+export const MEDIA_KEY = "_media";
+type Media = { data: string; mimeType: string };
+const mediaOf = (v: unknown): Media[] => (Array.isArray(v) ? v.filter((m): m is Media => !!m && typeof m === "object" && typeof Reflect.get(m, "data") === "string" && typeof Reflect.get(m, "mimeType") === "string") : []);
+
+export const ok = (value: Record<string, unknown>) => {
+  const { [MEDIA_KEY]: media, ...rest } = value;
+  const images = mediaOf(media).map((m) => ({ type: "image" as const, data: m.data, mimeType: m.mimeType }));
+  return { content: [{ type: "text" as const, text: JSON.stringify(rest) }, ...images], structuredContent: rest };
+};
 export const fail = (code: string, message: string, detail: Record<string, unknown> = {}) => ({ isError: true, content: [{ type: "text" as const, text: JSON.stringify({ error: code, message, ...detail }) }] });
 
 const refusal = (code: string, message: string, detail: Record<string, unknown> = {}) => {

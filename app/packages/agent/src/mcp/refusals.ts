@@ -8,6 +8,9 @@ export const REFUSAL_CODES = [
   "unbound",
   "invalid",
   "db_behind",
+  // link_fetch (owner 2026-11-25)
+  "link_refused",
+  "link_failed",
   "unavailable",
   "not_found",
   "not_this_project",
@@ -95,6 +98,8 @@ const ONE_LINE = "Tell the owner in one line";
 
 export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   unbound: { retry: "no", next: "Ask the owner to start this session with hub agent <project>." },
+  link_refused: { retry: "no", next: "Only a public http(s) link is opened (never localhost, a private address or file:): tell the owner in one line which link and why." },
+  link_failed: { retry: "no", next: "Say in one line that the link did not open (the message says why) and go on without it; never guess what it showed." },
   db_behind: { retry: "after_owner", next: "Tell the owner in one line: restart the Hub server (it applies the database migration), then this works again. Do not retry before." },
   invalid: { retry: "now", next: "Fix the arguments as the message says." },
   unavailable: { retry: "no", next: `${ONE_LINE} that this session cannot do it (the message says why).`, fix: { line: "Restart the agent session with hub agent <project>.", place: "the dock" } },
