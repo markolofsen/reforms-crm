@@ -97,6 +97,22 @@ describe("the mail pass (decision 0055 point 9)", () => {
     expect(mailer.sent).toEqual([]);
   });
 
+  it("the review reads only the picked drafts (?only=), and ?stored=1 answers from the Hub's copy unverified, serving no hash", async () => {
+    await repos.inboundMail.store([inbound(1), inbound(2)], NOW);
+    const row = await run();
+    const app = testApp(repos, { sender: { kind: "fake", mailer, projectsDir: deps.projectsDir, policyDir: deps.policyDir, allowList: [], adminPort: 5173, now: () => NOW, batchRuns: batchRuns({ limits: { dailyCap: 50, spacingSeconds: 0 } }), batchLimits: { dailyCap: 50, spacingSeconds: 0 } } });
+    const url = `http://127.0.0.1:4317/api/projects/acme/lead-review/${row?.batchId}`;
+    const ids = (await repos.mailPass.decided("acme", at(48))).map((m) => m.passDraftId as number);
+    const stored = (await (await app.request(`${url}?stored=1`)).json()) as { verified: boolean; rows: Array<{ draftId: number; mail: { body: string } | null }> };
+    expect(stored.verified).toBe(false);
+    expect(stored.rows).toHaveLength(2);
+    expect((await repos.drafts.get(ids[0] as number))?.servedHash ?? null).toBeNull();
+    const one = (await (await app.request(`${url}?only=${ids[0]}`)).json()) as { verified: boolean; rows: Array<{ draftId: number }>; proposals: unknown[] };
+    expect(one).toMatchObject({ verified: true, proposals: [] });
+    expect(one.rows.map((r) => r.draftId)).toEqual([ids[0]]);
+    expect((await app.request(`${url}?only=1;2`)).status).toBe(400);
+  });
+
   it("a spam proposal Mail did not move stays in Needs you, and the attended route takes the agent token only", async () => {
     await repos.inboundMail.store([inbound(3, { email: "it-helpdesk@corp-security.example", subject: "Access Renewal required" })], NOW);
     const row = await run();

@@ -18,4 +18,5 @@ export interface LeadReview {
   handOvers: LeadReviewHandOversItem[];
   cap: LeadReviewCap;
   spacingSeconds: number;
+  verified: boolean;
 }

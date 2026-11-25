@@ -52,12 +52,14 @@ export const batchTicketKey = (batchId: number, items: readonly Pick<BatchItem, 
  * click), read fresh from Mail. Sends nothing, writes nothing. Drafts past today's cap are held with that reason. Null when the
  * batch is not this project's.
  */
-export async function planBatch(deps: SendDeps, project: string, batchId: number, limits: BatchLimits = BATCH_LIMITS): Promise<BatchPlan | null> {
+/** `only`: plan just these drafts of the batch (the lead review's click reads Mail only for what it sends; owner 2026-11-25). */
+export async function planBatch(deps: SendDeps, project: string, batchId: number, limits: BatchLimits = BATCH_LIMITS, only?: readonly number[]): Promise<BatchPlan | null> {
   if (!(await deps.repos.batches.get(project, batchId))) return null;
   const at = (deps.now?.() ?? new Date()).toISOString();
   const used = (await deps.repos.sends.actorUsage(project, BATCH_SEND_ACTOR, at)).sentLastDay;
   const room = Math.max(0, limits.dailyCap - used);
-  const checked = await deps.repos.batches.drafts(project, batchId, "checked");
+  const all = await deps.repos.batches.drafts(project, batchId, "checked");
+  const checked = only ? all.filter((d) => only.includes(d.id)) : all;
   const items: BatchItem[] = [];
   const held: BatchHeld[] = [];
   for (const d of checked) {

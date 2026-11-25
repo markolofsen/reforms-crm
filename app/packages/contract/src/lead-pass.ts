@@ -18,6 +18,19 @@ export const leadPageParam = z.object({ slug: project, pageId: page });
 /** Run now: the lead pass (default) or, P147 3h, the mail pass. */
 export const runLeadPassBody = z.strictObject({ pass: z.enum(PASS_KINDS).optional() });
 export const leadReviewParam = z.object({ slug: project, batchId: z.coerce.number().int().positive() });
+/**
+ * The review's read (owner 2026-11-25: the sheet sat 40 s on skeletons). `only`: the picked drafts' ids, comma separated (a list
+ * selection reads just those). `stored`: the Hub's own copy of each text, at once, with no Mail read and no served hash: the
+ * sheet shows it while the Mail read verifies, and Send waits for that read.
+ */
+export const leadReviewQuery = z.object({
+  only: z
+    .string()
+    .regex(/^\d+(,\d+){0,199}$/)
+    .transform((s) => s.split(",").map(Number))
+    .optional(),
+  stored: z.enum(["1"]).optional(),
+});
 /** The review's one click: the ticked drafts (each its id), the unticked ones (excluded, D7), and the ticked proposals. */
 export const leadReviewTicketBody = z.strictObject({
   send: z.array(z.number().int().positive()).max(200),
@@ -131,6 +144,8 @@ export const leadReviewDto = z.object({
   /** The batch cap (50 a day) and the spacing, as P85b's plan states them. */
   cap: z.object({ limit: z.number(), used: z.number(), room: z.number() }),
   spacingSeconds: z.number(),
+  /** false: the `stored` read, the Hub's copy shown while Mail is read; the click needs the verified read (true). */
+  verified: z.boolean().default(true),
 });
 export type LeadReviewDto = z.infer<typeof leadReviewDto>;
 

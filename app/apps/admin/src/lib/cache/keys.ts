@@ -92,7 +92,8 @@ export const keys = {
   leads: (project: string, view: string, brand: string | null) => ["inbound", project, "leads", view, brand] as const,
   /** P147: the lead pass line and the day's review (under `inbound`: the inbox, drafts and sends topics read them again). */
   leadPass: (project: string) => ["inbound", project, "lead-pass"] as const,
-  leadReview: (project: string, batchId: number) => ["inbound", project, "lead-review", batchId] as const,
+  /** The review of one batch; `read` tells the stored first paint and a selection's read apart (a prefix of the batch's key). */
+  leadReview: (project: string, batchId: number, read?: string) => (read === undefined ? (["inbound", project, "lead-review", batchId] as const) : (["inbound", project, "lead-review", batchId, read] as const)),
 };
 
 /**

@@ -1,7 +1,8 @@
 import { Hono, type Context } from "hono";
-import { leadReviewDto, leadReviewParam, leadReviewTicketBody, leadReviewTicketDto } from "@hub/contract/lead-pass";
+import { leadReviewDto, leadReviewParam, leadReviewQuery, leadReviewTicketBody, leadReviewTicketDto } from "@hub/contract/lead-pass";
 import { LEAD_REPLY_INTENT } from "@hub/config/lead-pass";
 import { assess, type SendDeps } from "@hub/send/assess";
+import { BATCH_SEND_ACTOR } from "@hub/config";
 import { batchTicketKey, planBatch, type BatchLimits } from "@hub/send/batch";
 import { mailHash } from "@hub/send/find";
 import { replyAddressOf } from "@hub/notion";
@@ -61,19 +62,32 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
   };
 
   return new Hono()
-    .get("/api/projects/:slug/lead-review/:batchId", v("param", leadReviewParam), async (c) => {
+    .get("/api/projects/:slug/lead-review/:batchId", v("param", leadReviewParam), v("query", leadReviewQuery), async (c) => {
       const { slug, batchId } = c.req.valid("param");
+      const { only, stored } = c.req.valid("query");
+      const picked = (id: number) => !only || only.includes(id);
+      // `stored`: the Hub's own copy, at once (no Mail read, no served hash); the click needs the verified read.
+      const read = async (draftId: number): Promise<{ mail: { sender: string | null; to: string[]; cc: string[]; subject: string; body: string } | null; held: string[] }> => {
+        if (stored) {
+          const d = await repos.drafts.get(draftId);
+          const split = (s: string | null | undefined) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+          return { mail: d && d.body ? { sender: null, to: split(d.toAddr), cc: split(d.ccAddr), subject: d.subject, body: d.body } : null, held: [] };
+        }
+        if (!deps) return { mail: null, held: [] };
+        const a = await assess(deps, draftId, { mode: "manual" });
+        // D10: the hash of exactly the text served here; the ticket's Checked takes it, and an edit after this read is a new text.
+        await repos.leadPass.setServedHash(slug, draftId, a.mail ? mailHash(a.mail) : null);
+        return { mail: a.mail ?? null, held: a.reasons.filter((x) => x !== NOT_CHECKED) };
+      };
       if (!deps) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
       const batch = await leadBatch(slug, batchId);
       if (!batch) return notFound(c, "batch");
       const at = deps.now?.() ?? new Date();
       const rows = [];
       for (const r of await repos.leadPass.ofBatch(slug, batchId)) {
-        if (r.passDraftId === null) continue;
-        const a = await assess(deps, r.passDraftId, { mode: "manual" });
-        const held = a.reasons.filter((x) => x !== NOT_CHECKED);
-        // D10: the hash of exactly the text served here; the ticket's Checked takes it, and an edit after this read is a new text.
-        await repos.leadPass.setServedHash(slug, r.passDraftId, a.mail ? mailHash(a.mail) : null);
+        if (r.passDraftId === null || !picked(r.passDraftId)) continue;
+        const a = await read(r.passDraftId);
+        const held = a.held;
         const excluded = r.display === "excluded";
         const to = replyAddressOf(r);
         const language = languageLine((await repos.drafts.get(r.passDraftId))?.context ?? null);
@@ -90,7 +104,7 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
           reason: r.passReason,
           display: r.display,
           draftId: r.passDraftId,
-          mail: a.mail ? { from: a.mail.sender, to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+          mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
           held,
           // 3i P2: a needs-input draft is shown For you; once its marker is filled (nothing held) it ticks like any other.
           ticked: held.length === 0 && !excluded && a.mail !== null && (r.display === "drafted" || r.display === "for_you"),
@@ -98,10 +112,9 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
       }
       // P147 3h: the mail pass's replies, grouped after the leads; a first reply to a new sender opens unticked.
       for (const m of await repos.mailPass.ofBatch(slug, batchId)) {
-        if (m.passDraftId === null) continue;
-        const a = await assess(deps, m.passDraftId, { mode: "manual" });
-        const held = a.reasons.filter((x) => x !== NOT_CHECKED);
-        await repos.leadPass.setServedHash(slug, m.passDraftId, a.mail ? mailHash(a.mail) : null);
+        if (m.passDraftId === null || !picked(m.passDraftId)) continue;
+        const a = await read(m.passDraftId);
+        const held = a.held;
         const display = m.display === "dismissed" ? ("excluded" as const) : m.display === "new" ? ("drafted" as const) : m.display;
         rows.push({
           kind: "mail" as const,
@@ -118,7 +131,7 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
           reason: m.passReason,
           display,
           draftId: m.passDraftId,
-          mail: a.mail ? { from: a.mail.sender, to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
+          mail: a.mail ? { from: a.mail.sender ?? "", to: a.mail.to, cc: a.mail.cc, subject: a.mail.subject, body: a.mail.body } : null,
           held,
           ticked: !m.newSender && held.length === 0 && a.mail !== null && (display === "drafted" || display === "for_you"),
         });
@@ -133,8 +146,10 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
         ...decided.filter((r) => r.display === "for_you").map((r) => ({ kind: "lead" as const, pageId: r.pageId, inbound: null, name: r.name, email: r.email, request: r.preview, reason: r.passReason })),
         ...mailDecided.filter((r) => r.passDecision === "hand_over" && r.display === "for_you").map((r) => ({ kind: "mail" as const, pageId: String(r.id), inbound: r.id, name: r.name || r.email, email: r.email, request: `${r.subject} · ${r.preview}`.slice(0, 200), reason: r.passReason })),
       ];
-      const plan = await planBatch(deps, slug, batchId, o.limits);
-      return c.json(leadReviewDto.parse({ batchId, name: batch.name, rows, proposals, handOvers, cap: plan?.cap ?? { limit: o.limits.dailyCap, used: 0, room: o.limits.dailyCap }, spacingSeconds: o.limits.spacingSeconds }));
+      // The cap from the send log alone: P85b's plan would read Mail again for every Checked draft of the batch.
+      const used = (await repos.sends.actorUsage(slug, BATCH_SEND_ACTOR, at.toISOString())).sentLastDay;
+      const cap = { limit: o.limits.dailyCap, used, room: Math.max(0, o.limits.dailyCap - used) };
+      return c.json(leadReviewDto.parse({ batchId, name: batch.name, rows, proposals: only ? [] : proposals, handOvers: only ? [] : handOvers, cap, spacingSeconds: o.limits.spacingSeconds, verified: !stored }));
     })
     // The owner's one click: "Send N · Spam M · Not now K". The admin then starts P85b's run with the ticket and the items.
     .post("/api/projects/:slug/lead-review/:batchId/ticket", v("param", leadReviewParam), v("json", leadReviewTicketBody), async (c) => {
@@ -214,7 +229,7 @@ export function leadReviewRoutes(o: LeadReviewDeps) {
         }
       }
       // What can go out now: P85b's plan of the Checked drafts, cut to exactly the ticked ones; the rest of the plan's held say why.
-      const plan = await planBatch(deps, slug, batchId, o.limits);
+      const plan = await planBatch(deps, slug, batchId, o.limits, ticked);
       const items = (plan?.items ?? []).filter((i) => ticked.includes(i.draftId));
       for (const h of plan?.held ?? []) if (ticked.includes(h.draftId)) held.push({ draftId: h.draftId, name: h.name, reasons: h.reasons });
       const ticket = items.length ? tickets.mint(batchTicketKey(batchId, items)).ticket : null;

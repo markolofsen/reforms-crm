@@ -365,6 +365,8 @@ export * from './getClientHistoryParams';
 export * from './getClientTimelineParams';
 export * from './getConversationTextParams';
 export * from './getKnowledgeTextParams';
+export * from './getLeadReviewParams';
+export * from './getLeadReviewStored';
 export * from './getProjectDoctorParams';
 export * from './getProjectOverviewParams';
 export * from './getSafetyRulesParams';

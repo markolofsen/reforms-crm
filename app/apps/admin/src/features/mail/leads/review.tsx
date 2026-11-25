@@ -112,10 +112,11 @@ function MarkerFields({ row, markers, busy, onFill }: { row: Row; markers: reado
   );
 }
 
-type ListProps = { project: string; d: LeadReviewDto; only?: ReadonlySet<number> | null; onSent?: (t: LeadReviewTicketDto) => void };
+/** `verifying`: the list shows the Hub's own copy while Mail is read (that many drafts), "failed" when the read failed; Send waits. */
+type ListProps = { project: string; d: LeadReviewDto; only?: ReadonlySet<number> | null; onSent?: (t: LeadReviewTicketDto) => void; verifying?: number | "failed" | null };
 
 /** The list itself, in the sheet or on the review page. */
-export function ReadyList({ project, d, only = null, onSent }: ListProps) {
+export function ReadyList({ project, d, only = null, onSent, verifying = null }: ListProps) {
   const [opened] = useState(() => initialTicks(d));
   const [ticks, setTicks] = useState<ReadonlySet<number>>(opened);
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
@@ -219,12 +220,12 @@ export function ReadyList({ project, d, only = null, onSent }: ListProps) {
         </p>
       )}
       <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t bg-background py-3">
-        <ActionButton data-testid="review-send" disabled={confirm.isPending || n + body.proposals.length + body.exclude.length === 0} onClick={() => confirm.mutate(body)} size="m" variant="primary">
+        <ActionButton data-testid="review-send" disabled={verifying !== null || !d.verified || confirm.isPending || n + body.proposals.length + body.exclude.length === 0} onClick={() => confirm.mutate(body)} size="m" variant="primary">
           <SendIcon aria-hidden="true" />
           {confirm.isPending ? "Starting" : n === 0 && body.proposals.length > 0 ? `Mark ${body.proposals.length}` : `Send ${n}`}
         </ActionButton>
-        <p className="text-muted-foreground text-xs tabular-nums">
-          One every {d.spacingSeconds} s · mails today {d.cap.used} of {d.cap.limit}
+        <p className="text-muted-foreground text-xs tabular-nums" role="status">
+          {verifying === "failed" ? "Mail did not answer: close and open again to check the drafts." : verifying !== null ? `Checking ${verifying} ${verifying === 1 ? "draft" : "drafts"} in Mail…` : `One every ${d.spacingSeconds} s · mails today ${d.cap.used} of ${d.cap.limit}`}
         </p>
         <span className="text-destructive-foreground text-sm" role="alert">
           {error ?? ""}
@@ -250,7 +251,10 @@ export function LeadReviewScreen() {
   const route = useRoute();
   const { project } = useProjectScope();
   const batch = route.route === "mail.lead-review" ? route.params.batch : 0;
-  const q = useLeadReview(project, batch);
+  // The same two reads as the sheet: the Hub's copy at once, the Mail read verifies it (Send waits for it).
+  const stored = useLeadReview(project, batch, { stored: true });
+  const mail = useLeadReview(project, batch);
+  const q = mail.data ? mail : stored;
   const [said, setSaid] = useState<string | null>(null);
   return (
     <Page
@@ -269,8 +273,8 @@ export function LeadReviewScreen() {
           {said}
         </p>
       )}
-      <QueryView loading={<ListSkeleton label="Reading the drafts from Mail" />} query={q} what="today's replies">
-        {(d) => (d.rows.length + d.proposals.length + d.handOvers.length === 0 ? <EmptyState title="Nothing to send">The day’s passes wrote no draft and proposed nothing.</EmptyState> : <ReadyList d={d} key={d.batchId} onSent={(t) => setSaid(sentLine(t))} project={project} />)}
+      <QueryView loading={<ListSkeleton label="Reading today's drafts" />} query={q} what="today's replies">
+        {(d) => (d.rows.length + d.proposals.length + d.handOvers.length === 0 ? <EmptyState title="Nothing to send">The day’s passes wrote no draft and proposed nothing.</EmptyState> : <ReadyList d={d} key={d.batchId} onSent={(t) => setSaid(sentLine(t))} project={project} verifying={mail.data ? null : mail.isError ? "failed" : d.rows.length} />)}
       </QueryView>
     </Page>
   );

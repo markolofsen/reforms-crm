@@ -8,7 +8,7 @@ import type { LiveTopic } from "@hub/contract/live";
 import { inboundApi, inboxApi, leadsApi, sequencesApi } from "@/lib/api/inbox";
 import type { LeadReviewTicketBody, LeadReviewTicketDto } from "@hub/contract/lead-pass";
 import type { BatchRunDto } from "@hub/contract/sending";
-import { leadPassApi } from "@/lib/api/project/lead-pass";
+import { leadPassApi, type ReviewRead } from "@/lib/api/project/lead-pass";
 import { leadReviewApi, sendApi } from "@/lib/api/send";
 import { keys } from "@/lib/cache/keys";
 import { useCommand, useRefreshTopics } from "@/lib/cache/topics";
@@ -124,7 +124,8 @@ export function useRedoLead(project: string, pageId: string, on: { onError: (e: 
  * The review of the day's lead batch: each draft's full text read from Mail now (the server keeps the hash it showed). Mounted
  * only by the open sheet and the review page; no read on window focus, since each read asks Mail for every draft.
  */
-export const useLeadReview = (project: string, batchId: number | null) => useQuery({ queryKey: keys.leadReview(project, batchId ?? 0), queryFn: () => leadPassApi.review(project, batchId ?? 0), staleTime: 0, refetchOnWindowFocus: false, enabled: batchId !== null && batchId > 0 });
+export const useLeadReview = (project: string, batchId: number | null, q: ReviewRead = {}) =>
+  useQuery({ queryKey: keys.leadReview(project, batchId ?? 0, `${q.stored ? "stored" : "mail"}:${q.only?.join(",") ?? "all"}`), queryFn: () => leadPassApi.review(project, batchId ?? 0, q), staleTime: 0, refetchOnWindowFocus: false, enabled: batchId !== null && batchId > 0 });
 
 /**
  * 3i P2: the owner's answer to one `[Owner: …]` placeholder of a review draft. The draft's text is read from Mail now, the marker is

@@ -12,6 +12,7 @@ import type {
   BatchSendOutcome,
   BatchTicketBody,
   CancelSendParams,
+  GetLeadReviewParams,
   LeadReview,
   LeadReviewTicket,
   LeadReviewTicketBody,
@@ -421,21 +422,30 @@ export type getLeadReviewResponseError = (getLeadReviewResponse404 | getLeadRevi
 export type getLeadReviewResponse = (getLeadReviewResponseSuccess | getLeadReviewResponseError)
 
 export const getGetLeadReviewUrl = (slug: string,
-    batchId: number,) => {
+    batchId: number,
+    params?: GetLeadReviewParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/projects/${encodeURIComponent(String(slug))}/lead-review/${encodeURIComponent(String(batchId))}`
+  return stringifiedParams.length > 0 ? `/api/projects/${encodeURIComponent(String(slug))}/lead-review/${encodeURIComponent(String(batchId))}?${stringifiedParams}` : `/api/projects/${encodeURIComponent(String(slug))}/lead-review/${encodeURIComponent(String(batchId))}`
 }
 
 /**
  * @summary Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs
  */
 export const getLeadReview = async (slug: string,
-    batchId: number, options?: Parameters<typeof hubMutator>[1]): Promise<getLeadReviewResponse> => {
+    batchId: number,
+    params?: GetLeadReviewParams, options?: Parameters<typeof hubMutator>[1]): Promise<getLeadReviewResponse> => {
 
-  return hubMutator<getLeadReviewResponse>(getGetLeadReviewUrl(slug,batchId),
+  return hubMutator<getLeadReviewResponse>(getGetLeadReviewUrl(slug,batchId,params),
   {
     ...options,
     method: 'GET'

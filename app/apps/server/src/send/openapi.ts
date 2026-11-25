@@ -2,7 +2,7 @@ import { z } from "zod";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger";
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
 import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
-import { leadReviewDto, leadReviewParam, leadReviewTicketBody, leadReviewTicketDto } from "@hub/contract/lead-pass";
+import { leadReviewDto, leadReviewParam, leadReviewQuery, leadReviewTicketBody, leadReviewTicketDto } from "@hub/contract/lead-pass";
 import type { Operation } from "../http/openapi";
 
 const ticket = { name: "SendTicket", schema: sendTicketDto };
@@ -23,7 +23,7 @@ export const operations: Operation[] = [
   { method: "get", path: "/api/projects/:slug/batches/:id/send", operationId: "getBatchSend", summary: "Read one batch run", tags: ["sending"], params: batchSendParam, reply: run, errors: [404] },
   { method: "post", path: "/api/projects/:slug/batches/:id/send", operationId: "runBatchSend", summary: "Plan or start one batch run (the owner's confirmed click)", tags: ["sending"], params: batchSendParam, body: { name: "BatchSendBody", schema: batchSendBody }, reply: { name: "BatchSendOutcome", schema: z.union([batchSendPlanDto, batchRunStateDto]) }, errors: [400, 403, 404, 409] },
   // P147 L5 (decision 0055 point 2): the lead review (full texts, served hashes) and its one click, which returns the batch ticket.
-  { method: "get", path: "/api/projects/:slug/lead-review/:batchId", operationId: "getLeadReview", summary: "Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs", tags: ["sending"], params: leadReviewParam, reply: { name: "LeadReview", schema: leadReviewDto }, errors: [404, 409] },
+  { method: "get", path: "/api/projects/:slug/lead-review/:batchId", operationId: "getLeadReview", summary: "Read the day's lead batch for review: each draft's full text, the proposals, the hand-overs", tags: ["sending"], params: leadReviewParam, query: leadReviewQuery, reply: { name: "LeadReview", schema: leadReviewDto }, errors: [404, 409] },
   { method: "post", path: "/api/projects/:slug/lead-review/:batchId/ticket", operationId: "confirmLeadReview", summary: "The owner's one click: Checked on the ticked drafts, the untick and the proposals applied, the batch ticket", tags: ["sending"], params: leadReviewParam, body: { name: "LeadReviewTicketBody", schema: leadReviewTicketBody }, reply: { name: "LeadReviewTicket", schema: leadReviewTicketDto }, errors: [400, 403, 404, 409] },
   { method: "post", path: "/api/projects/:slug/batches/:id/send/stop", operationId: "stopBatchSend", summary: "Stop one batch run", tags: ["sending"], params: batchSendParam, reply: run, errors: [403, 404] },
   { method: "get", path: "/api/projects/:slug/sends", operationId: "listSends", summary: "List the project's sends", tags: ["sending"], params: slugParam, reply: { name: "Sends", schema: sendsDto }, errors: [404, 503] },

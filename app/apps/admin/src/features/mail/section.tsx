@@ -125,7 +125,11 @@ function MailSection({ project, filter, q, batch, brand, clientId, pending, poin
       }
       emptyTitle={known && batch === null ? EMPTY[filter] : undefined}
       listBottom={
-        batch !== null && known ? (
+        batch !== null && known && current?.intent === "lead_reply" ? (
+          // P147 3m (owner 2026-11-25): the daily passes' batch has one door, Send all ready or a selection's Send N; its own Send
+          // all Checked read "nothing Checked yet" and looked broken.
+          <p className="border-t p-3 text-muted-foreground text-sm">Send all ready above, or select drafts and press Send N.</p>
+        ) : batch !== null && known ? (
           // P85b: a batch's own Send all Checked; every draft still has its own Send at the bottom of its conversation.
           <BatchSend batchId={batch} brief={current?.brief ?? null} checked={current?.counts.checked ?? 0} project={project} />
         ) : filter === "sequences" ? (
@@ -141,7 +145,7 @@ function MailSection({ project, filter, q, batch, brand, clientId, pending, poin
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={
         <>
-          {filter === "needs_you" && batch === null && <SendReadyBar />}
+          {((filter === "needs_you" && batch === null) || current?.intent === "lead_reply") && <SendReadyBar />}
           <StatusLine project={project} />
           {batchLines}
         </>

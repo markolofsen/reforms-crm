@@ -34,11 +34,23 @@ export function selectedReady(ctx: Ctx | null, drafts: readonly { id: number; ba
  * The review is read only while the sheet is open: each read asks Mail for every draft's text and stores the hash it served (the
  * click sends exactly that text). Mounting the list, or each mail the run sends, must not read Mail again.
  */
-function SheetBody({ project, batchId, only, onSent }: { project: string; batchId: number; only: ReadonlySet<number> | null; onSent: (t: LeadReviewTicketDto) => void }) {
-  const q = useLeadReview(project, batchId);
+function SheetBody({ project, batchId, only, waiting, onSent }: { project: string; batchId: number; only: ReadonlySet<number> | null; waiting: number; onSent: (t: LeadReviewTicketDto) => void }) {
+  const ids = only ? [...only] : undefined;
+  // Owner 2026-11-25 ("it does nothing"): the Mail read took 40 s on 35 drafts behind bare skeletons. The Hub's own copy paints
+  // at once; the Mail read (only the picked drafts for a selection) verifies it and serves the hash the click binds to.
+  const stored = useLeadReview(project, batchId, { only: ids, stored: true });
+  const mail = useLeadReview(project, batchId, { only: ids });
+  const n = ids?.length ?? waiting;
+  const q = mail.data ? mail : stored;
   return (
-    <QueryView loading={<ListSkeleton label="Reading the drafts from Mail" />} query={q} what="today's replies">
-      {(d) => (d.rows.length + d.proposals.length === 0 ? <EmptyState title="Nothing to send">The day’s passes wrote no draft and proposed nothing.</EmptyState> : <ReadyList d={d} key={`${d.batchId}:${only ? [...only].join(",") : "all"}`} only={only} onSent={onSent} project={project} />)}
+    <QueryView loading={<ListSkeleton label={`Reading ${n} ${n === 1 ? "draft" : "drafts"}`} />} query={q} what="today's replies">
+      {(d) =>
+        d.rows.length + d.proposals.length === 0 ? (
+          <EmptyState title="Nothing to send">The day’s passes wrote no draft and proposed nothing.</EmptyState>
+        ) : (
+          <ReadyList d={d} key={`${d.batchId}:${ids?.join(",") ?? "all"}`} only={only} onSent={onSent} project={project} verifying={mail.data ? null : mail.isError ? "failed" : d.rows.length} />
+        )
+      }
     </QueryView>
   );
 }
@@ -64,6 +76,7 @@ export function SendReadyProvider({ project, children }: { project: string; chil
             {sheet && batchId !== null && (
               <SheetBody
                 batchId={batchId}
+                waiting={ctx.waiting.drafts}
                 only={sheet.only}
                 onSent={(t) => {
                   setSheet(null);

@@ -5972,6 +5972,23 @@
               "exclusiveMinimum": 0,
               "maximum": 9007199254740991
             }
+          },
+          {
+            "name": "only",
+            "in": "query",
+            "required": false,
+            "schema": {}
+          },
+          {
+            "name": "stored",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1"
+              ]
+            }
           }
         ],
         "responses": {
@@ -23360,6 +23377,10 @@
           },
           "spacingSeconds": {
             "type": "number"
+          },
+          "verified": {
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
@@ -23369,7 +23390,8 @@
           "proposals",
           "handOvers",
           "cap",
-          "spacingSeconds"
+          "spacingSeconds",
+          "verified"
         ],
         "additionalProperties": false
       },
