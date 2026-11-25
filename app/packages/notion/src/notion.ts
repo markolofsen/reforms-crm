@@ -40,15 +40,17 @@ interface MarkdownResponse {
  */
 /**
  * P86: a failed Notion call is an `error` line with the operation, Notion's status and code and the error's class; never its
- * message (a Notion error can quote a property value). The SDK has already retried 429 and 529 when this runs.
+ * message (a Notion error can quote a property value). The SDK has already retried 429 and 529 when this runs. P145 K4: a query
+ * of a listing also says which page failed and whether it carried a cursor (the 400 of 2026-11-25 did not tell a stale cursor
+ * from a first-page failure).
  */
-async function logged<T>(op: string, fn: () => Promise<T>): Promise<T> {
+async function logged<T>(op: string, fn: () => Promise<T>, at: { page?: number; cursor?: boolean } = {}): Promise<T> {
   try {
     return await fn();
   } catch (e) {
     const status: unknown = e && typeof e === "object" ? Reflect.get(e, "status") : undefined;
     const kind: unknown = e && typeof e === "object" ? Reflect.get(e, "code") : undefined;
-    ops("notion").error(`Notion ${op} failed`, { status: typeof status === "number" ? status : null, kind: typeof kind === "string" ? kind : null, error: e instanceof Error ? e.name : "error" });
+    ops("notion").error(`Notion ${op} failed`, { status: typeof status === "number" ? status : null, kind: typeof kind === "string" ? kind : null, error: e instanceof Error ? e.name : "error", ...at });
     throw e;
   }
 }
@@ -78,14 +80,17 @@ export function createNotionReader(token: string, options: ReaderOptions = {}): 
 
     async *listPages(dataSourceId: string): AsyncIterable<PageObject> {
       let cursor: string | undefined;
-      for (;;) {
+      for (let page = 1; ; page++) {
         await gate();
-        const res = (await logged("query", () =>
-          client.dataSources.query({
-            data_source_id: dataSourceId,
-            page_size: 100,
-            ...(cursor ? { start_cursor: cursor } : {}),
-          }),
+        const res = (await logged(
+          "query",
+          () =>
+            client.dataSources.query({
+              data_source_id: dataSourceId,
+              page_size: 100,
+              ...(cursor ? { start_cursor: cursor } : {}),
+            }),
+          { page, cursor: cursor !== undefined },
         )) as unknown as QueryResponse;
         for (const item of res.results) if (item.object === "page") yield item as PageObject;
         if (!res.has_more || !res.next_cursor) return;

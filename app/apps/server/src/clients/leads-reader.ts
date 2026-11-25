@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { LEAD_PREVIEW_CHARS, type NewLead, type Repos } from "@hub/db";
 import { createNotionReader, leadFactsOf, loadToken, NoTokenError, parseLeadDetail, secretsDir, type LeadDetail, type NotionReader } from "@hub/notion";
 import { convertLead, createLeadWriter, notionFailure, writeLeadStatus, type LeadWriter, type LeadWriteStatus } from "@hub/notion/leads-write";
+import { brandForKey } from "@hub/projects/brands";
 import { projectStore } from "@hub/projects/store";
 import type { ProjectConfig } from "@hub/projects/model";
 import { errFields, ops } from "@hub/log/ops";
@@ -68,10 +69,10 @@ interface Target {
   leads: string;
 }
 
-/** Lead.Brand as the project's `## Brands` row name (case-insensitive), else the Notion option as written. */
+/** Lead.Brand as the project's `## Brands` row name (the same project key, decision 0053), else the Notion option as written. */
 export function brandOf(lead: Pick<LeadDetail, "brands">, config: Pick<ProjectConfig, "brands">): string | null {
   for (const b of lead.brands) {
-    const row = config.brands.find((r) => r.name.toLowerCase() === b.toLowerCase());
+    const row = brandForKey(config.brands, b);
     if (row) return row.name;
   }
   return lead.brands[0] ?? null;
@@ -184,8 +185,8 @@ export function startLeadsReader(o: LeadsOptions): LeadsHandle {
       if (!t) return { note: "project.md lists no leads database (## Notion databases)." };
       try {
         const { writer } = await clientsOf(t.config);
-        if (!writer.retrieveLead) return { note: "This Hub cannot read a lead page." };
-        return { lead: parseLeadDetail(await writer.retrieveLead(pageId)) };
+        if (!writer.retrievePage) return { note: "This Hub cannot read a lead page." };
+        return { lead: parseLeadDetail(await writer.retrievePage(pageId)) };
       } catch (e) {
         if (e instanceof NoTokenError) return { note: NO_LEADS_TOKEN };
         ops("notion").warn("reading a lead page for its card failed", { project, ...notionFailure(e) });

@@ -20,7 +20,7 @@ const CLIENTS: Record<string, PropertyConfig> = {
   Email: { type: "email" },
   Phone: { type: "phone_number" },
   Relationship: { type: "select", select: opts("Lead", "Prospect", "Client") },
-  Brand: { type: "multi_select", multi_select: opts("carapis", "Reforms") },
+  Projects: { type: "multi_select", multi_select: opts("carapis", "Reforms") },
 };
 
 function lead(id: string, o: { email?: string; details?: string; status?: string | null; client?: string | null; received?: string } = {}): PageObject {
@@ -37,7 +37,7 @@ function lead(id: string, o: { email?: string; details?: string; status?: string
     },
   };
 }
-const card = (id: string, email: string): PageObject => ({ id, last_edited_time: "x", properties: { Name: { type: "title", title: [{ plain_text: id }] }, Email: { type: "email", email } } });
+const card = (id: string, email: string, projects: string[] = []): PageObject => ({ id, last_edited_time: "x", properties: { Name: { type: "title", title: [{ plain_text: id }] }, Email: { type: "email", email }, Projects: { type: "multi_select", multi_select: projects.map((name) => ({ name })) } } });
 
 function fake(o: { leads: PageObject[]; clients: PageObject[]; leadsProps?: Record<string, PropertyConfig>; createFails?: number; updateFails?: number }) {
   const calls: Array<[string, ...unknown[]]> = [];
@@ -53,7 +53,8 @@ function fake(o: { leads: PageObject[]; clients: PageObject[]; leadsProps?: Reco
     setStatus: async (...a) => { fail(o.updateFails); calls.push(["status", ...a]); },
     linkClient: async (...a) => { fail(o.updateFails); calls.push(["link", ...a]); },
     createClient: async (...a) => { fail(o.createFails); calls.push(["create", ...a]); return "new-card"; },
-    retrieveLead: async (id) => o.leads.find((p) => p.id === id) ?? lead(id),
+    retrievePage: async (id) => o.leads.find((p) => p.id === id) ?? o.clients.find((p) => p.id === id) ?? lead(id),
+    setProjects: async (...a) => { fail(o.updateFails); calls.push(["projects", ...a]); },
   };
   return { reader, writer, calls };
 }
@@ -80,13 +81,13 @@ describe("convertLead at the first reply sent (verdict 5)", () => {
     const f = fake({ leads: [lead("L1")], clients: [card("c1", "koboriubiratan@gmail.com")] });
     const r = await convertLead(f, input);
     expect(r).toEqual({ clientPageId: "c1", card: "linked", status: "in_progress", note: null });
-    expect(f.calls).toEqual([["link", "L1", "Client", "c1"], ["status", "L1", { name: "Status", type: "select" }, "In progress"]]);
+    expect(f.calls).toEqual([["link", "L1", "Client", "c1"], ["projects", "c1", "Projects", ["carapis"]], ["status", "L1", { name: "Status", type: "select" }, "In progress"]]);
   });
-  it("no card: creates one (Relationship Lead, the brand as the schema spells it) and links it", async () => {
+  it("no card: creates one (Relationship Lead, the project as the schema spells it) and links it", async () => {
     const f = fake({ leads: [lead("L1")], clients: [] });
     const r = await convertLead(f, { ...input, brand: "Carapis" });
     expect(r).toMatchObject({ clientPageId: "new-card", card: "created", status: "in_progress", note: null });
-    expect(f.calls[0]).toEqual(["create", "clients", { Name: { title: [{ type: "text", text: { content: "KodaCar" } }] }, Email: { email: "koboriubiratan@gmail.com" }, Relationship: { select: { name: "Lead" } }, Brand: { multi_select: [{ name: "carapis" }] } }]);
+    expect(f.calls[0]).toEqual(["create", "clients", { Name: { title: [{ type: "text", text: { content: "KodaCar" } }] }, Email: { email: "koboriubiratan@gmail.com" }, Relationship: { select: { name: "Lead" } }, Projects: { multi_select: [{ name: "carapis" }] } }]);
   });
   it("several cards: links none and says so; an existing card is never written", async () => {
     const f = fake({ leads: [lead("L1")], clients: [card("c1", "koboriubiratan@gmail.com"), card("c2", "koboriubiratan@gmail.com")] });
@@ -95,8 +96,21 @@ describe("convertLead at the first reply sent (verdict 5)", () => {
     expect(r.note).toMatch(/2 Clients cards have koboriubiratan@gmail.com/);
     expect(f.calls.filter((c) => c[0] !== "status")).toEqual([]);
   });
+  it("a known client of another project gains this lead's project, keeping every option it had (P145 9a)", async () => {
+    const f = fake({ leads: [lead("L1", { client: "c1", status: "Won" })], clients: [card("c1", "koboriubiratan@gmail.com", ["Reforms"])] });
+    expect(await convertLead(f, input)).toMatchObject({ clientPageId: "c1", card: "already_linked", note: null });
+    expect(f.calls).toEqual([["projects", "c1", "Projects", ["Reforms", "carapis"]]]);
+  });
+  it("adds nothing when the card has the project, or no single option has its key (never a new option)", async () => {
+    const has = fake({ leads: [lead("L1", { client: "c1", status: "Won" })], clients: [card("c1", "koboriubiratan@gmail.com", ["carapis"])] });
+    await convertLead(has, { ...input, brand: "Carapis" });
+    expect(has.calls).toEqual([]);
+    const none = fake({ leads: [lead("L1", { client: "c1", status: "Won" })], clients: [card("c1", "koboriubiratan@gmail.com", ["Reforms"])] });
+    await convertLead(none, { ...input, brand: "unknown-project" });
+    expect(none.calls).toEqual([]);
+  });
   it("already linked: nothing to link; a Won lead keeps its Status", async () => {
-    const f = fake({ leads: [lead("L1", { client: "c9", status: "Won" })], clients: [] });
+    const f = fake({ leads: [lead("L1", { client: "c9", status: "Won" })], clients: [card("c9", "koboriubiratan@gmail.com", ["carapis"])] });
     expect(await convertLead(f, input)).toEqual({ clientPageId: "c9", card: "already_linked", status: "kept", note: null });
     expect(f.calls).toEqual([]);
   });
@@ -108,7 +122,7 @@ describe("convertLead at the first reply sent (verdict 5)", () => {
   });
   it("a status-typed Status is written as status; an option that does not exist is skipped, not invented", async () => {
     const asStatus = { ...LEADS, Status: { type: "status", status: opts("New", "In progress", "Spam") } };
-    const f = fake({ leads: [lead("L1", { client: "c1" })], clients: [], leadsProps: asStatus });
+    const f = fake({ leads: [lead("L1", { client: "c1" })], clients: [card("c1", "koboriubiratan@gmail.com", ["carapis"])], leadsProps: asStatus });
     await convertLead(f, input);
     expect(f.calls).toEqual([["status", "L1", { name: "Status", type: "status" }, "In progress"]]);
     const g = fake({ leads: [lead("L1")], clients: [], leadsProps: { ...LEADS, Status: { type: "select", select: opts("New") } } });

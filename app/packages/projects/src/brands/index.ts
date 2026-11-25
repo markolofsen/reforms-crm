@@ -9,3 +9,4 @@ export * from "./signature";
 export * from "./composer";
 export * from "./signoff";
 export * from "./knowledge-scope";
+export * from "./key";

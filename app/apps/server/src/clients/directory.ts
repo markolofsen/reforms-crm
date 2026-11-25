@@ -18,6 +18,25 @@ import { ops } from "@hub/log/ops";
 export const DIRECTORY_REFRESH_MS = 6 * 60 * 60 * 1000;
 /** P143 N2: one card is read again at most this often (a conversation opened, its Refresh, a Hub write to the card). */
 export const CARD_READ_MS = 60_000;
+/** P145 K4 (verdict 11): after a failed full read the next one comes this soon, not at the next full cycle. */
+export const DIRECTORY_RETRY_MS = 5 * 60 * 1000;
+
+/** Every record of one full listing. A listing is restarted from its first page, never resumed, so it never holds a page twice. */
+async function listAll(reader: NotionReader, dataSourceId: string): Promise<DirectoryEntry[]> {
+  const entries: DirectoryEntry[] = [];
+  for await (const page of reader.listPages(dataSourceId)) {
+    const e = entryOf(page as { id: string; properties: Record<string, Prop> });
+    if (e) entries.push(e);
+  }
+  return entries;
+}
+
+/** Notion's status and code of a failure (never its message, which can quote a value). */
+const failureOf = (e: unknown) => {
+  const status: unknown = e && typeof e === "object" ? Reflect.get(e, "status") : undefined;
+  const code: unknown = e && typeof e === "object" ? Reflect.get(e, "code") : undefined;
+  return { status: typeof status === "number" ? status : null, kind: typeof code === "string" ? code : null };
+};
 const NUMBER_PROPS = /^(phone|mobile|tel)$/i;
 /** A property of one messenger: its numbers match that messenger's chats only. */
 const channelOf = (key: string): DialogChannel | null => (/^whatsapp$/i.test(key) ? "whatsapp" : /^telegram$/i.test(key) ? "telegram" : null);
@@ -140,11 +159,12 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
     const began = new Set(extra.keys());
     try {
       const reader = o.reader ?? createNotionReader(await token());
-      const entries: DirectoryEntry[] = [];
-      for await (const page of reader.listPages(o.dataSourceId)) {
-        const e = entryOf(page as { id: string; properties: Record<string, Prop> });
-        if (e) entries.push(e);
-      }
+      // P145 K4: a schema edit between two pages invalidates the cursor (a 400 validation_error): read once more from the first page.
+      const entries = await listAll(reader, o.dataSourceId).catch(async (e: unknown) => {
+        if (failureOf(e).status !== 400) throw e;
+        ops("notion").warn("reading the Notion clients failed: reading again from the first page", failureOf(e));
+        return listAll(reader, o.dataSourceId as string);
+      });
       const listed = new Set(entries.map((e) => e.key));
       for (const [k, e] of extra) if (!listed.has(k)) entries.push(e);
       for (const k of began) extra.delete(k);
@@ -156,7 +176,8 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
     } catch (e) {
       // The message names the failure's class only: a Notion error can quote a property value.
       st = { ...st, state: dir ? "ready" : "error", reason: why(e) };
-      ops("notion").error("reading the Notion clients for the autolink failed", { reason: why(e), kept: dir ? "the last read" : "nothing" });
+      ops("notion").error("reading the Notion clients for the autolink failed", { reason: why(e), ...failureOf(e), kept: dir ? "the last read" : "nothing", retryInMs: o.auto === false ? null : DIRECTORY_RETRY_MS });
+      if (o.auto !== false) setTimeout(() => void refresh(), DIRECTORY_RETRY_MS).unref?.();
     }
   };
   const refresh = () => (running ??= read().finally(() => (running = null)));

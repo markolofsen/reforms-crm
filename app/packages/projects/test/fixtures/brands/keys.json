@@ -1,0 +1,19 @@
+{
+  "note": "P145 K1: the keys table (PLAN section 4) and the option names read live on 2026-11-25. Each name gives its key; names in one row match.",
+  "rows": [
+    { "key": "carapis", "names": ["carapis", "Carapis"] },
+    { "key": "cmdop", "names": ["cmdop", "CMDOP"] },
+    { "key": "reforms", "names": ["Reforms", "reforms"] },
+    { "key": "mlsbali", "names": ["MLS Bali", "mls-bali"] },
+    { "key": "toponimo", "names": ["Toponimo", "toponimo"] },
+    { "key": "gptkino", "names": ["GPT-Kino", "gptkino"] },
+    { "key": "idtypes", "names": ["IdTypes", "idtypes"] },
+    { "key": "sdkrouter", "names": ["SDKRouter", "sdkrouter"] },
+    { "key": "onemark", "names": ["OneMark", "onemark"] },
+    { "key": "caribbeanmls", "names": ["Caribbean MLS", "caribbean-mls", "CaribbeanMLS"] },
+    { "key": "danmerriam", "names": ["Dan Merriam", "dan-merriam", "DanMerriam.com"] },
+    { "key": "secretbay", "names": ["Secret Bay", "secret-bay"] }
+  ],
+  "liveLeadsBrand": ["carapis", "Caribbean MLS", "Dan Merriam", "Reforms", "Other", "cmdop"],
+  "brands": ["Carapis", "GPT-Kino", "IdTypes", "SDKRouter", "Toponimo", "MLS Bali", "OneMark", "CMDOP", "Reforms"]
+}

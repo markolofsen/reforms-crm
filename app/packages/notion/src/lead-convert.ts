@@ -1,9 +1,11 @@
 // P97 S4 and S5 (decision 0044 point 4): the Hub's writes on leads, and nothing else. On a lead page it sets exactly `Status`
 // (In progress at the first confirmed send, Spam on the owner's click, New on its Undo) and `Client` (the relation to the lead's
-// Clients card); in Clients it creates exactly one page per person who had none (Name, Email, Phone, Relationship Lead, Brand
-// where the schema has them). Never an intake field, never Owner, Next step or Notes, never a delete. Like `stamp.ts` there is no
-// generic page update here. A refusal never reaches the send: the caller stores the note for the owner and logs one line.
+// Clients card); in Clients it creates exactly one page per person who had none (Name, Email, Phone, Relationship Lead, Projects
+// where the schema has them) and adds the lead's project to a card it links (P145, decision 0053: added, never removed). Never an
+// intake field, never Owner, Next step or Notes, never a delete. Like `stamp.ts` there is no generic page update here. A refusal
+// never reaches the send: the caller stores the note for the owner and logs one line.
 import notionhq from "@notionhq/client";
+import { optionForKey, projectsWithKey } from "@hub/projects/brands";
 import { notionSdkLog } from "./sdk-log";
 import { findClientPages } from "./client-lookup";
 import { parseLeadPage } from "./leads";
@@ -19,8 +21,10 @@ export interface LeadWriter {
   linkClient(leadPageId: string, relation: string, clientPageId: string): Promise<void>;
   /** One new Clients page with these property values; returns its id. */
   createClient(clientsDataSource: string, properties: Record<string, unknown>): Promise<string>;
-  /** The lead page itself (its `Client` and `Status` now). Optional: without it the caller's stored facts are used. */
-  retrieveLead?(pageId: string): Promise<PageObject>;
+  /** One page (the lead with its `Client` and `Status` now, or a Clients card). Optional: without it the caller's stored facts are used. */
+  retrievePage?(pageId: string): Promise<PageObject>;
+  /** `Projects` of one Clients card: exactly these options (the card's own plus one; decision 0053 point 4). */
+  setProjects?(pageId: string, property: string, options: readonly string[]): Promise<void>;
 }
 
 export function createLeadWriter(token: string, options: { fetch?: typeof fetch } = {}): LeadWriter {
@@ -36,8 +40,11 @@ export function createLeadWriter(token: string, options: { fetch?: typeof fetch 
       const r = (await client.pages.create({ parent: { data_source_id: clientsDataSource }, properties: properties as never })) as { id: string };
       return r.id;
     },
-    async retrieveLead(pageId) {
+    async retrievePage(pageId) {
       return (await client.pages.retrieve({ page_id: pageId })) as unknown as PageObject;
+    },
+    async setProjects(pageId, property, options) {
+      await client.pages.update({ page_id: pageId, properties: { [property]: { multi_select: options.map((name) => ({ name })) } } as never });
     },
   };
 }
@@ -52,6 +59,9 @@ const refused = (e: unknown) => {
   const f = notionFailure(e);
   return f.status === 403 || f.code === "restricted_resource" || f.status === 401;
 };
+
+/** The Clients (and Documents, Contacts, Tasks, Expenses, Bug reports) property that holds a record's project keys (decision 0053). */
+export const PROJECTS = "Projects";
 
 const optionNames = (c: PropertyConfig | undefined): string[] => {
   if (!c) return [];
@@ -118,12 +128,10 @@ export function newClientProperties(ds: DataSourceInfo, l: { name: string; email
   if (l.phone && ds.properties["Phone"]?.type === "phone_number") props["Phone"] = { phone_number: l.phone.slice(0, 60) };
   const rel = ds.properties["Relationship"];
   if (rel && (rel.type === "select" || rel.type === "status") && optionNames(rel).includes("Lead")) props["Relationship"] = rel.type === "status" ? { status: { name: "Lead" } } : { select: { name: "Lead" } };
-  const brand = ds.properties["Brand"];
-  if (l.brand && brand) {
-    const known = optionNames(brand).find((n) => n.toLowerCase() === l.brand?.toLowerCase());
-    if (known && brand.type === "multi_select") props["Brand"] = { multi_select: [{ name: known }] };
-    if (known && brand.type === "select") props["Brand"] = { select: { name: known } };
-  }
+  // P145 (decision 0053): the lead's project is the Clients option with the same key; none or two: nothing, never a new option.
+  const projects = ds.properties[PROJECTS];
+  const known = l.brand && projects?.type === "multi_select" ? optionForKey(optionNames(projects), l.brand) : null;
+  if (known) props[PROJECTS] = { multi_select: [{ name: known }] };
   return props;
 }
 
@@ -137,7 +145,7 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
   const notes: string[] = [];
   const leadsDs = await deps.reader.retrieveDataSource(o.leadsDataSource);
   const relation = Object.entries(leadsDs.properties).find(([n, c]) => n === "Client" && c.type === "relation")?.[0] ?? null;
-  const page = deps.writer.retrieveLead ? await deps.writer.retrieveLead(o.leadPageId) : null;
+  const page = deps.writer.retrievePage ? await deps.writer.retrievePage(o.leadPageId) : null;
   const lead = page ? parseLeadPage(page) : null;
   const linkedId = page ? ((page.properties["Client"]?.relation as Array<{ id?: string }> | undefined)?.[0]?.id ?? null) : null;
   const hasClient = lead ? lead.hasClient : (o.stored?.hasClient ?? false);
@@ -185,6 +193,11 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
     }
   }
 
+  if (clientPageId && (card === "already_linked" || card === "linked") && o.brand) {
+    const note = await addProjectToCard(deps, { clientsDataSource: o.clientsDataSource, pageId: clientPageId, project: o.brand });
+    if (note) notes.push(note);
+  }
+
   let st: ConvertOutcome["status"] = "kept";
   if (status === null || status === "New") {
     const r = await writeLeadStatus(deps, { leadsDataSource: o.leadsDataSource, pageId: o.leadPageId, status: "In progress" });
@@ -193,4 +206,28 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
     if (r.state === "skipped") notes.push(`the lead's Status was not set: ${r.reason}`);
   }
   return { clientPageId, card, status: st, note: notes.length ? notes.join("; ") : null };
+}
+
+/**
+ * P145 9a (decision 0053 point 4): a known client who arrives for another project gets that project's option in `Projects`, added
+ * to the ones the card has and never removing one (Notion replaces a multi_select whole, so the card is read first). Only an
+ * option that exists with the same key; none or two: nothing (Notion would make a new option). A 403 is a note; null when done
+ * or nothing to do.
+ */
+export async function addProjectToCard(deps: { reader: NotionReader; writer: LeadWriter }, o: { clientsDataSource: string; pageId: string; project: string }): Promise<string | null> {
+  if (!deps.writer.retrievePage || !deps.writer.setProjects) return null;
+  const ds = await deps.reader.retrieveDataSource(o.clientsDataSource);
+  const config = ds.properties[PROJECTS];
+  if (config?.type !== "multi_select") return null;
+  const page = await deps.writer.retrievePage(o.pageId);
+  const current = ((page.properties[PROJECTS]?.multi_select as Array<{ name?: unknown }> | undefined) ?? []).map((x) => (typeof x.name === "string" ? x.name : "")).filter(Boolean);
+  const next = projectsWithKey(current, optionNames(config), o.project);
+  if (!next) return null;
+  try {
+    await deps.writer.setProjects(o.pageId, PROJECTS, next);
+    return null;
+  } catch (e) {
+    if (!refused(e)) throw e;
+    return `Notion did not let the Hub add ${o.project} to the client's Projects: give the hub integration Update content`;
+  }
 }

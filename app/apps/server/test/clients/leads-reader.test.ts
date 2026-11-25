@@ -53,7 +53,7 @@ function fakeNotion(pages: PageObject[], clients: PageObject[] = []) {
     setStatus: async (...a) => { calls.push(["status", ...a]); },
     linkClient: async (...a) => { calls.push(["link", ...a]); },
     createClient: async (...a) => { calls.push(["create", ...a]); return "new-card"; },
-    retrieveLead: async (id) => pages.find((p) => p.id.replace(/-/g, "") === id.replace(/-/g, "")) ?? page(id),
+    retrievePage: async (id) => pages.find((p) => p.id.replace(/-/g, "") === id.replace(/-/g, "")) ?? page(id),
   };
   return { clients: () => ({ reader, writer }), calls };
 }
