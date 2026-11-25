@@ -95,6 +95,6 @@ A new document takes the next free number in `@docs/core/` and a row here. Secre
 Agent sessions: one mode, no prompts with the OS sandbox on (never a sandbox bypass); a session the owner starts is attended, a background run the Hub starts is not. The send tools are denied, the session cannot write the send policy, and `hub audit-run <transcript.jsonl> --project <slug>` checks a session after the fact ([`24`](@docs/core/24-terminal.md)). Mail goes through Apple Mail only (`mail-mcp` on :8787 for the agent, no send tool; `osascript` for the hub's send and Sent detection); client records live in Notion; project facts, knowledge, follow-up sequences and development plans are files in `projects/<slug>/`. An instance owns its data, config, secrets, backups and skills; the user's home holds at most the optional `hub` shortcut ([`08`](@docs/core/08-local-app-stack.md)). Details: [`@docs/00-README.md`](@docs/00-README.md).
 
 ## License
-Not chosen yet: see `LICENSE.todo`.
+MIT, see `LICENSE`.
 
 Update this page when the architecture changes.
