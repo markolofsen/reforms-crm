@@ -5,6 +5,7 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ListSkeleton, QueryView } from "@/components/state-views";
 import { NeedsYou, useQuestions } from "./needs-you";
+import { useFollowUpNeeds, type FollowUpNeed } from "./follow-ups/today";
 import { SchemeTable } from "./scheme-table";
 
 /**
@@ -15,18 +16,19 @@ import { SchemeTable } from "./scheme-table";
 export function SchemeBlock({ multi, projects }: { multi: boolean; projects: readonly string[] }) {
   const q = useScheme();
   const questions = useQuestions(projects);
+  const followUps = useFollowUpNeeds(projects);
   return (
     <QueryView loading={<ListSkeleton label="Loading the parts" rows={4} />} query={q} what="the parts">
-      {(d) => <SchemeParts multi={multi} nodes={worstFirst(d.nodes)} questions={questions} />}
+      {(d) => <SchemeParts followUps={followUps} multi={multi} nodes={worstFirst(d.nodes)} questions={questions} />}
     </QueryView>
   );
 }
 
 /** Needs you, then every part folded under All parts (the block above owns the read and its states). */
-function SchemeParts({ multi, nodes, questions }: { multi: boolean; nodes: ReturnType<typeof worstFirst>; questions: ReturnType<typeof useQuestions> }) {
+function SchemeParts({ multi, nodes, questions, followUps }: { multi: boolean; nodes: ReturnType<typeof worstFirst>; questions: ReturnType<typeof useQuestions>; followUps: readonly FollowUpNeed[] }) {
   return (
     <>
-      <NeedsYou multi={multi} nodes={nodes} questions={questions} />
+      <NeedsYou followUps={followUps} multi={multi} nodes={nodes} questions={questions} />
       <Collapsible>
         <CollapsibleTrigger className="group -ms-3 justify-start gap-2" render={<ActionButton size="m" variant="quiet" />}>
           All parts

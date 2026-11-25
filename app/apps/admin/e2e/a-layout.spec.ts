@@ -81,7 +81,7 @@ const SCREENS: Screen[] = [
       await p.getByRole("group", { name: "Actions" }).waitFor();
     },
   },
-  { name: "drafts: follow-ups", path: at(P, "/mail?filter=sequences"), ready: async (p) => void (await p.getByTestId("follow-ups").waitFor()) },
+  { name: "drafts: sequence steps", path: at(P, "/mail?filter=sequences"), ready: async (p) => void (await p.getByTestId("sequence-steps").waitFor()) },
   { name: "drafts: not by email", path: at(P, "/mail?filter=not_by_email"), ready: async (p) => void (await p.getByTestId("not-by-email").waitFor()) },
   {
     name: "overview",

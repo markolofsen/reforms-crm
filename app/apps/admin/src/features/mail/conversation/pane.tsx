@@ -13,6 +13,7 @@ import { toastManager } from "@hub/ui/toast";
 import { ConversationHeaderActions } from "@/components/conversation/header-actions";
 import { RefreshConversation } from "./refresh";
 import { ClientMapLine } from "@/components/conversation/client-map";
+import { FollowUpLine } from "@/components/follow-up/header-line";
 import { matchSources } from "@/components/conversation/client-map-sources";
 import { EmptyState, LoadFailed } from "@/components/state-views";
 import { DraftCard } from "@/features/mail/draft/draft-card";
@@ -171,7 +172,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
       dataAgentRef={refOf("client", row?.client.id ?? clientId)}
       dataState={row?.state}
       historyActions={scrollState && !scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}
-      header={<ConversationHeader back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} actions={<ConversationHeaderActions contact={row?.contact} mailMessageId={newest} notionPageId={pageId} refresh={<RefreshConversation clientId={clientId} project={project} />} />} subtitle={row ? <ConversationHeaderFacts><ClientMapLine onShowSources={showSources} subject={{ project, clientId: row.client.id, name: row.client.name || row.client.email, email: row.client.email, notionPageId: pageId }} /><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={row.client.email} /><span data-testid="conversation-state">{CONVERSATION_STATE_LABELS[row.state]}</span>{notionState && <span data-testid="conversation-notion"><IntegrationStatus detail={notionDetail} label="Notion" state={notionState} /></span>}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={row?.client.name || row?.client.email || "Conversation"} />}
+      header={<ConversationHeader back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} actions={<ConversationHeaderActions contact={row?.contact} mailMessageId={newest} notionPageId={pageId} refresh={<RefreshConversation clientId={clientId} project={project} />} />} subtitle={row ? <ConversationHeaderFacts><ClientMapLine onShowSources={showSources} subject={{ project, clientId: row.client.id, name: row.client.name || row.client.email, email: row.client.email, notionPageId: pageId }} /><FollowUpLine clientId={row.client.id} project={project} /><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={row.client.email} /><span data-testid="conversation-state">{CONVERSATION_STATE_LABELS[row.state]}</span>{notionState && <span data-testid="conversation-notion"><IntegrationStatus detail={notionDetail} label="Notion" state={notionState} /></span>}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={row?.client.name || row?.client.email || "Conversation"} />}
       testId="conversation"
     >
       {history}

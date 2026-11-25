@@ -27,15 +27,16 @@ export function statusOf(r: ConversationRow): Status {
 
 type Chip = ConversationChip;
 
-/** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, checks, a follow-up step, two brands. */
-export function chipsOf(r: ConversationRow): Chip[] {
+/** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, checks, a sequence step, the follow-up plan (P142), two brands. */
+export function chipsOf(r: ConversationRow, followUp: string | null = null): Chip[] {
   const out: Chip[] = [];
   const d: ReviewDraft | null = r.draft;
   if (d?.client.marks.includes("do_not_contact")) out.push({ id: "dnc", text: "Do not contact", variant: "error" });
   if (d && d.injectionSuspected && !isClosed(d)) out.push({ id: "injection", text: "Suspicious mail", variant: "error" });
   const pending = d && !isClosed(d) ? openResults(d) : [];
   if (pending.length > 0) out.push({ id: "checks", text: `${pending.length} check${pending.length === 1 ? "" : "s"}`, variant: pending.some((x) => x.level === "red") ? "error" : "warning" });
-  if (d?.sequence) out.push({ id: "follow-up", text: `Follow-up ${d.sequence.step}/${d.sequence.steps}`, variant: "info" });
+  if (d?.sequence) out.push({ id: "sequence-step", text: `Step ${d.sequence.step}/${d.sequence.steps}`, variant: "info" });
+  if (followUp) out.push({ id: "follow-up", text: followUp, variant: "info" });
   if (r.brands.length > 1) out.push({ id: "brands", text: r.brands.join(" · "), variant: "outline" });
   return out.slice(0, 2);
 }
@@ -50,7 +51,7 @@ export function draftChipsOf(d: ReviewDraft): Chip[] {
 }
 
 /** Mail's row as the shared three lines (P127 C1): the person, the state word and subject, their words or the agent's verdict. */
-export function summaryOf(r: ConversationRow, now: number): ConversationSummary {
+export function summaryOf(r: ConversationRow, now: number, followUp: string | null = null): ConversationSummary {
   const id = rowId(r);
   const name = r.client.name || r.client.email;
   return {
@@ -64,20 +65,21 @@ export function summaryOf(r: ConversationRow, now: number): ConversationSummary 
     subject: r.subject,
     preview: r.preview || undefined,
     agent: r.agent ? agentLine(r.agent) : undefined,
-    chips: chipsOf(r),
+    chips: chipsOf(r, followUp),
     marker: <IntegrationStatus compact className="shrink-0" detail={notionIdentityLine(r.notion, r.client.name)} label="Notion" state={notionIndicatorState(r.notion)} />,
     data: { "data-state": r.state },
   };
 }
 
-type Props = { r: ConversationRow; now: number; open: boolean; selecting: boolean; selected: boolean; to: Dest; replace: boolean; onToggle: () => void };
+/** `followUp`: the plan's chip word (P142, "Follow-up 30 Nov"), from the project's one follow-ups list. */
+type Props = { r: ConversationRow; now: number; open: boolean; selecting: boolean; selected: boolean; to: Dest; replace: boolean; onToggle: () => void; followUp?: string | null };
 
 /**
  * One person in the list (P99 verdict 13), drawn by the shared `ConversationRow`: a real link to `/mail/c/<email>` (routes rule 7,
  * P128 F20; open in a new tab works), replacing the entry while a conversation is open (routes rule 9). The leading control is the
  * state shape, which becomes the checkbox on hover or while a selection is under way.
  */
-export function ListRow({ r, now, open, selecting, selected, to, replace, onToggle }: Props) {
+export function ListRow({ r, now, open, selecting, selected, to, replace, onToggle, followUp = null }: Props) {
   const { Icon, label, tone } = statusOf(r);
   const leading = (
     <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1.5" data-hit="">
@@ -102,7 +104,7 @@ export function ListRow({ r, now, open, selecting, selected, to, replace, onTogg
         </AppLink>
       )}
       selected={selected}
-      summary={summaryOf(r, now)}
+      summary={summaryOf(r, now, followUp)}
     />
   );
 }

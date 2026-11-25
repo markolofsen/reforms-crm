@@ -29,7 +29,7 @@ export type FlowStep = "idle" | "reading" | "sending" | "refused" | "failed" | "
 
 /**
  * Which of the 15 states a draft is in. `follow_up` (P47) is an open step of a follow-up sequence: the hub refuses to send
- * it in every mode, so the way on is Mail, and the card's header carries Stop follow-ups. `readable` is false only when this server reads Mail and Mail has no such draft
+ * it in every mode, so the way on is Mail, and the card's header carries Stop the sequence. `readable` is false only when this server reads Mail and Mail has no such draft
  * (P27 M3.1): the text cannot be judged, so Checked and Send are off and the way on is Mail.
  */
 export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardState {

@@ -8,14 +8,14 @@ test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
-// Follow-ups (P47 W2, read-only since P48 D1) as a View of Drafts. Seeded for lisbon-realty: Tiago enrolled and due, and the
+// Sequence steps (P47 W2; "Follow-ups" until P142, read-only since P48 D1) as a View of Drafts. Seeded for lisbon-realty: Tiago enrolled and due, and the
 // core's starter sequence copied into the project (playwright.config). A session enrols on the owner's phrase; the admin shows
 // the enrolments and offers Stop only. One write: Stop Tiago (from a card). Nothing here enrols, drafts or sends.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-const block = (p: Page) => p.getByTestId("follow-ups");
+const block = (p: Page) => p.getByTestId("sequence-steps");
 const open = async (p: Page) => {
   await p.goto(at("lisbon-realty", "/mail?filter=sequences"));
   await expect(block(p)).toBeVisible();
@@ -23,14 +23,14 @@ const open = async (p: Page) => {
 type Row = { id: number; client: { name: string }; state: string; finishReason: string | null };
 const enrollments = async (p: Page, view: "due" | "active" | "finished") => ((await (await p.request.get(`/api/projects/lisbon-realty/enrollments?view=${view}`)).json()) as { enrollments: Row[] }).enrollments;
 
-test("the Follow-ups view lists the enrolment with its step and the owner's phrase; no Enrol, no Not now", async ({ page }) => {
+test("the Sequence steps view lists the enrolment with its step and the owner's phrase; no Enrol, no Not now", async ({ page }) => {
   await page.route(/\/api\/projects\/lisbon-realty\/enrollments\?view=active/, async (route) => {
     const res = await route.fetch();
     const json = (await res.json()) as { enrollments: Record<string, unknown>[] };
     await route.fulfill({ response: res, json: { ...json, enrollments: json.enrollments.map((e) => ({ ...e, enrolledPhrase: "подготовь follow-up молчащим" })) } });
   });
   await open(page);
-  const row = page.getByTestId("follow-up").filter({ hasText: "Tiago Amostra" });
+  const row = page.getByTestId("sequence-enrolment").filter({ hasText: "Tiago Amostra" });
   await expect(row).toContainText("step 1 of 3");
   await expect(row).toContainText("Enrolled on your words: “подготовь follow-up молчащим”");
   await expect(block(page).getByRole("button", { name: /enrol|not now|send|draft|pause|resume/i })).toHaveCount(0);
@@ -40,13 +40,13 @@ test("the Follow-ups view lists the enrolment with its step and the owner's phra
   expect((await enrollments(page, "active")).map((e) => e.client.name)).toContain("Tiago Amostra");
 });
 
-test("axe finds nothing on the Follow-ups view, light and dark, at 360, 768 and 1280", async ({ page }) => {
+test("axe finds nothing on the Sequence steps view, light and dark, at 360, 768 and 1280", async ({ page }) => {
   for (const scheme of ["light", "dark"] as const) {
     for (const width of [360, 768, 1280]) {
       await page.setViewportSize({ width, height: width === 360 ? 740 : 900 });
       await page.emulateMedia({ colorScheme: scheme });
       await open(page);
-      const axe = await new AxeBuilder({ page }).include('[data-testid="follow-ups"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+      const axe = await new AxeBuilder({ page }).include('[data-testid="sequence-steps"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
       expect(axe.violations.map((v) => `${scheme} ${width}: ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(" | ")}`)).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${scheme} ${width}: sideways scroll`).toBeLessThanOrEqual(0);
     }
@@ -61,15 +61,15 @@ test("loading, then an error with Retry, then the list", async ({ page }) => {
     else await route.continue();
   });
   await page.goto(at("lisbon-realty", "/mail?filter=sequences"));
-  await expect(page.getByRole("list", { name: "Loading the follow-ups" })).toBeAttached();
-  const failed = page.getByTestId("follow-ups-failed");
-  await expect(failed).toContainText("Could not load the follow-ups", { timeout: 10_000 });
+  await expect(page.getByRole("list", { name: "Loading the sequences" })).toBeAttached();
+  const failed = page.getByTestId("sequence-steps-failed");
+  await expect(failed).toContainText("Could not load the sequences", { timeout: 10_000 });
   fail = false;
   await failed.getByRole("button", { name: "Retry" }).click();
   await expect(block(page)).toBeVisible();
 });
 
-test("Stop follow-ups from a step draft's card: the card says so, and the enrollment is finished as stopped", async ({ page }) => {
+test("Stop the sequence from a step draft's card: the card says so, and the enrollment is finished as stopped", async ({ page }) => {
   const tiago = (await enrollments(page, "active")).find((e) => e.client.name === "Tiago Amostra");
   if (!tiago) throw new Error("the seeded enrollment for Tiago is missing");
   // The first draft of the real list is shown as a step of Tiago's real enrollment; nothing else is patched or written.
@@ -77,11 +77,11 @@ test("Stop follow-ups from a step draft's card: the card says so, and the enroll
   await page.goto(at("lisbon-realty", "/mail?filter=all"));
   await page.locator('ul[aria-label="People"] > li').first().getByRole("link").first().click();
   const card = page.getByRole("article");
-  await expect(card.getByTestId("follow-up-step")).toContainText("Follow-up 1 of 3");
+  await expect(card.getByTestId("sequence-step")).toContainText("Sequence step 1 of 3");
   // a step is sent from Mail: no Send on its card, and Open the draft in Mail is the one primary
   await expect(card.getByTestId("draft-send")).toHaveCount(0);
   await expect(page.locator('[data-pane="detail"] [data-variant="primary"]')).toHaveText(/Open the draft in Mail|Open their message|Copy subject/);
-  await card.getByRole("button", { name: "Stop follow-ups" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Follow-ups stopped for" })).toBeVisible();
+  await card.getByRole("button", { name: "Stop the sequence" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Sequence stopped for" })).toBeVisible();
   expect((await enrollments(page, "finished")).find((e) => e.id === tiago.id)).toMatchObject({ state: "finished", finishReason: "stopped" });
 });

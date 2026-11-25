@@ -15,6 +15,8 @@ import type { useChatMoves } from "./status/use-moves";
 import { RecordSearch } from "./unlinked/record-search";
 import { dialogOf, useUnlinkedMoves } from "./unlinked/known-unlinked";
 import { autopilotMark, useChatAutopilot } from "./autopilot/chat-switch";
+import { useFollowUps } from "@/lib/data/project";
+import { chipFor } from "@/components/follow-up/words";
 
 /**
  * One linked chat on the panel (P71 M3, P102): a compact identity row with its channel mark, Notion state, newest message state
@@ -33,6 +35,8 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
   // P141 U3: a known chat that is not linked offers Link, Create and Hide (decision 0049), not the linked chat's moves.
   const unlinked = useUnlinkedMoves(project, dialogOf(c), moves);
   const notionState = notionIndicatorState(c);
+  // P142 F6: the client's follow-up plan as a chip ("Follow-up 30 Nov"), from the project's one follow-ups list.
+  const followUp = chipFor(useFollowUps(project).data?.rows, c.client?.id);
   // P139 A5 (verdict 6): "Autopilot" or "Autopilot paused" on the row's state line, a word and not only a colour.
   const ap = autopilotMark(useChatAutopilot(project, c.id)?.c);
   const notionMarker = notionState ? <IntegrationStatus compact className="shrink-0" detail={notionIdentityLine(c) ?? undefined} label="Notion" state={notionState} /> : null;
@@ -78,6 +82,7 @@ export function ChatRow({ c, project, now, moves, to, open = false, replace = fa
         // P143 N1: the client's name leads; the number or @username follows the state word.
         ...(c.client && handleLine(c.identity) ? { subject: handleLine(c.identity) ?? undefined } : {}),
         preview: c.last ? lastText(c) : undefined,
+        ...(followUp ? { chips: [{ id: "follow-up", text: followUp, variant: "info" as const }] } : {}),
         mark: <ChannelIcon channel={c.channel} />,
         marker: notionMarker,
         data: { "data-chat": c.id },

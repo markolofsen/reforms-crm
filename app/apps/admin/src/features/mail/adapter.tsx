@@ -27,6 +27,8 @@ import { usePaneNarrow } from "@/hooks/use-pane";
 import { refOf } from "@hub/contract/focus";
 import { isClosed, rowId, type ConversationRow, type ReviewDraft } from "@/features/mail/model";
 import { useReviewRows, type ReviewSource } from "@/lib/data/conversations";
+import { useFollowUps } from "@/lib/data/project";
+import { chipFor } from "@/components/follow-up/words";
 import { useReviewActions, type Notice } from "./list/use-review-actions";
 import { useSelection, useShareReview } from "./list/use-selection";
 
@@ -56,7 +58,7 @@ type Props = {
   body?: ReactNode;
   /** A pane that is not a conversation (P97: a lead's card) and whether it is open (a phone shows it alone). */
   aside?: { node: ReactNode; open: boolean };
-  /** Under the rows: the enrolments of the Follow-ups view. */
+  /** Under the rows: the enrolments of the Sequence steps view. */
   listBottom?: ReactNode;
 };
 
@@ -90,7 +92,7 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
 type RowsQuery = ReturnType<typeof useReviewRows>["query"];
 
 /** The people of the view: loading, failed, empty, or the rows with Load more. */
-function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: number; now: number; openId: number | null; sel: ReturnType<typeof useSelection>; searched: boolean; emptyTitle: string; empty: ReactNode; onAll: (() => void) | null; rowTo: (r: ConversationRow) => Dest; replace: boolean }) {
+function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: number; now: number; openId: number | null; sel: ReturnType<typeof useSelection>; searched: boolean; emptyTitle: string; empty: ReactNode; onAll: (() => void) | null; rowTo: (r: ConversationRow) => Dest; replace: boolean; followUpOf: (clientId: number) => string | null }) {
   const { query, rows, sel } = p;
   return (
     <QueryView frame={(note) => <ListState>{note}</ListState>} loading={<ListSkeleton label="Loading the people" />} query={query} what="the people">
@@ -101,7 +103,7 @@ function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: numbe
       ) : (
         <ConversationList ariaLabel="People">
           {rows.map((r) => (
-            <ListRow key={rowId(r)} now={p.now} replace={p.replace} to={p.rowTo(r)} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === p.openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
+            <ListRow followUp={p.followUpOf(r.client.id)} key={rowId(r)} now={p.now} replace={p.replace} to={p.rowTo(r)} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === p.openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
           ))}
         </ConversationList>
       )}
@@ -137,6 +139,7 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
   const [q, setQ] = search;
   const searchRef = useRef<HTMLInputElement>(null);
   const { query, rows, total, counts, brands } = useReviewRows(source);
+  const plans = useFollowUps(source.project).data?.rows;
   const sel = useSelection(rows);
   const { filter, batch, brand } = place;
   const emailOf = (id: number) => rows.find((r) => rowId(r) === id)?.client.email ?? null;
@@ -225,6 +228,7 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
       rows={
         <PeopleRows
           empty={empty(filtered)}
+          followUpOf={(id) => chipFor(plans, id)}
           emptyTitle={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}
           now={now}
           onAll={filtered && !q ? () => onView("all") : null}

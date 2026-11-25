@@ -15,20 +15,20 @@ import { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, typ
  * never reaches the activity API.
  */
 export { TIMELINE_VIEWS, type TimelineView };
-export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "sends", "errors"] as const;
-/** `errors` (P137 L3): the ops log's warn and error lines of the last day, the admin's own view like `sends`. */
-export type ActivityView = TimelineView | "sends" | "errors";
-/** The admin's own views: neither reaches the activity API, and neither is per client. */
-export const isLogView = (v: ActivityView): v is "sends" | "errors" => v === "sends" || v === "errors";
+export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "follow-ups", "sends", "errors"] as const;
+/** `errors` (P137 L3): the ops log's warn and error lines of the last day, the admin's own view like `sends`; `follow-ups` (P142 F6): the plans of the daily sweep. */
+export type ActivityView = TimelineView | "follow-ups" | "sends" | "errors";
+/** The admin's own views: none reaches the activity API, and none is per client. */
+export const isLogView = (v: ActivityView): v is "follow-ups" | "sends" | "errors" => v === "follow-ups" || v === "sends" || v === "errors";
 
 /**
  * The views of the Mail list (P99 verdict 3), in their menu order: Needs you (the default: they wrote, or a draft is ready),
- * Waiting (for them), All; then two filters, Follow-ups (`sequences`, P47) and Not by email (P48, read-only client rows). Hold,
+ * Waiting (for them), All; then two filters, Sequence steps (`sequences`, P47; "Follow-ups" until P142, which named the daily sweep so) and Not by email (P48, read-only client rows). Hold,
  * Sent and Finished are words and chips on a row, not views. The list itself lives in `@hub/config`.
  */
 export { DRAFT_VIEWS, type DraftView };
 /** The one label of each view: the View menu and the dock's "Agent sees: Mail · Needs you" read it. */
-export const DRAFT_VIEW_LABELS: Readonly<Record<DraftView, string>> = { needs_you: "Needs you", waiting: "Waiting", all: "All", sequences: "Follow-ups", not_by_email: "Not by email" };
+export const DRAFT_VIEW_LABELS: Readonly<Record<DraftView, string>> = { needs_you: "Needs you", waiting: "Waiting", all: "All", sequences: "Sequence steps", not_by_email: "Not by email" };
 /** The filters of the View menu, under their own heading (a filter of All, verdict 3). */
 export const DRAFT_FILTERS: ReadonlySet<DraftView> = new Set(["sequences", "not_by_email"]);
 export const DEFAULT_DRAFT_VIEW: DraftView = "needs_you";

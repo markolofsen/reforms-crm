@@ -11,7 +11,7 @@ export const inboxApi = {
 };
 
 /**
- * Follow-ups (P47), read-only but for Stop: the project's sequences and its enrolments (a session enrols on the owner's
+ * Sequences (P47; the admin says "Sequence steps"), read-only but for Stop: the project's sequences and its enrolments (a session enrols on the owner's
  * phrase, D1 of P48). Nothing here drafts or sends: a session drafts a due step into Mail, and the owner sends it from Mail.
  */
 export const sequencesApi = {

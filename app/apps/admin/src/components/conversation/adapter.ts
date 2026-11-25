@@ -37,7 +37,7 @@ export type ChannelSlots = {
   rows: ReactNode;
   /** A view whose rows are not conversations (Not by email): shown instead of the rows, and nothing opens by itself. */
   body?: ReactNode;
-  /** Under the rows: leads, follow-ups, batch send. */
+  /** Under the rows: leads, sequence steps, batch send. */
   listBottom?: ReactNode;
   /** A pane that is not a conversation (a lead's card), and whether it is open. */
   aside?: { node: ReactNode; open: boolean; label: string };

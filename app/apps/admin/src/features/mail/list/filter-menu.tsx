@@ -2,7 +2,7 @@ import { ListFilterIcon } from "lucide-react";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
 
-/** One filter of the list (Follow-ups, Not by email) or one brand, with its count. */
+/** One filter of the list (Sequence steps, Not by email) or one brand, with its count. */
 export type FilterOption = { value: string; label: string; count: number | undefined };
 /** P134 verdict 4: the brands of the list on screen with their counts; the group shows only with two or more. */
 export type BrandCount = { name: string; count: number };
@@ -23,7 +23,7 @@ type Props = {
 };
 
 /**
- * The filter button beside the search (P134 verdicts 1 and 4): what the sidebar does not choose. The filters of All (Follow-ups,
+ * The filter button beside the search (P134 verdicts 1 and 4): what the sidebar does not choose. The filters of All (Sequence steps,
  * Not by email) and, only when the list holds two or more brands, the brands with their counts (`?brand=`). Nothing to choose:
  * no button at all, so a single-brand project sees nothing new. A filter or a brand on screen marks the button as pressed.
  */

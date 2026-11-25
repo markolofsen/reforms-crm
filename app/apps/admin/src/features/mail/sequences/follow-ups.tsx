@@ -15,7 +15,7 @@ import { useEnrollments, useStopFollowUps } from "@/lib/data/inbound";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 
-/** Stop follow-ups for one client: it only reduces mail, but the admin cannot restart it (resume is the owner's, in his terminal), so it asks in place. */
+/** Stop the sequence for one client: it only reduces mail, but the admin cannot restart it (resume is the owner's, in his terminal), so it asks in place. */
 function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
   const [asking, setAsking] = useState(false);
   const stop = useStopFollowUps(project, e.id);
@@ -24,7 +24,7 @@ function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
   return (
     <span className="flex items-center gap-1">
       <ActionButton disabled={stop.isPending} onClick={() => stop.mutate()} size="s" variant="danger">
-        {stop.isPending ? "Stopping" : "Stop follow-ups"}
+        {stop.isPending ? "Stopping" : "Stop the sequence"}
       </ActionButton>
       <ActionButton onClick={() => setAsking(false)} size="s" variant="quiet">Keep</ActionButton>
     </span>
@@ -33,7 +33,7 @@ function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
 
 function Row({ project, e }: { project: string; e: EnrollmentDto }) {
   return (
-    <ConversationListItem className="flex min-w-0 flex-col gap-0.5 px-3 py-2 text-sm" dataAttributes={{ "data-testid": "follow-up" }}>
+    <ConversationListItem className="flex min-w-0 flex-col gap-0.5 px-3 py-2 text-sm" dataAttributes={{ "data-testid": "sequence-enrolment" }}>
       <ConversationListIdentity name={e.client.name} time={<Badge variant={e.display === "due" || e.display === "draft_ready" ? "info" : "outline"}>{SEQUENCE_DISPLAY_LABELS[e.display]} · step {e.step} of {e.steps}</Badge>} />
       <p className="truncate text-muted-foreground">{e.sequenceName}</p>
       {e.enrolledPhrase && <p className="measure text-muted-foreground text-xs">Enrolled on your words: “{e.enrolledPhrase}”</p>}
@@ -47,14 +47,14 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
 }
 
 /**
- * Follow-ups (P47) in the Follow-ups view, under the open step drafts: every running enrolment, read-only but for Stop. The
+ * Sequence steps (P47; "Follow-ups" until P142 gave that name to the daily sweep) in the Sequence steps view, under the open step drafts: every running enrolment, read-only but for Stop. The
  * agent enrols a client only on the owner's phrase in a session (D1 of P48), shown with the enrolment; the agent drafts each
  * due step into Mail, and the owner sends it from Mail. Nothing here enrols, drafts or sends.
  */
 export function FollowUps({ project }: { project: string }) {
   const q = useEnrollments(project, "active");
   return (
-    <QueryView frame={(note, kind) => <ListState testId={kind === "failed" ? "follow-ups-failed" : undefined}>{note}</ListState>} loading={<ListSkeleton label="Loading the follow-ups" rows={2} />} query={q} what="the follow-ups">
+    <QueryView frame={(note, kind) => <ListState testId={kind === "failed" ? "sequence-steps-failed" : undefined}>{note}</ListState>} loading={<ListSkeleton label="Loading the sequences" rows={2} />} query={q} what="the sequences">
       {(d) => <FollowUpList project={project} rows={d.enrollments} />}
     </QueryView>
   );
@@ -63,14 +63,14 @@ export function FollowUps({ project }: { project: string }) {
 /** The running enrolments, once read; a failed refetch's stale note sits above them (`QueryView`, state rule 5). */
 function FollowUpList({ project, rows }: { project: string; rows: readonly EnrollmentDto[] }) {
   return (
-    <section aria-label="Follow-ups" className="flex flex-col" data-testid="follow-ups">
-      <h3 className="px-3 pt-2 pb-1 font-medium text-sm">In follow-up ({rows.length})</h3>
+    <section aria-label="Sequence steps" className="flex flex-col" data-testid="sequence-steps">
+      <h3 className="px-3 pt-2 pb-1 font-medium text-sm">In a sequence ({rows.length})</h3>
       {rows.length === 0 ? (
         <p className="measure px-3 pb-3 text-muted-foreground text-sm">
-          Nobody is in a follow-up. Say to the agent: <code>{phrase("sequence-drafts", project)}</code>.
+          Nobody is in a sequence. Say to the agent: <code>{phrase("sequence-drafts", project)}</code>.
         </p>
       ) : (
-        <ConversationList ariaLabel="Clients in follow-up">{rows.map((e) => <Row e={e} key={e.id} project={project} />)}</ConversationList>
+        <ConversationList ariaLabel="Clients in a sequence">{rows.map((e) => <Row e={e} key={e.id} project={project} />)}</ConversationList>
       )}
     </section>
   );

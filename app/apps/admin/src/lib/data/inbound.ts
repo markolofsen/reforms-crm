@@ -11,7 +11,7 @@ import { useCommand, useRefreshTopics } from "@/lib/cache/topics";
 
 /**
  * P127 C2's data half (V3): Mail's inbound side, one module (state rule 4b): the Mail reader's list and Check now, one inbound
- * message's No reply needed and its Undo, the Leads group and a lead's card, Not by email, and the follow-ups with Stop. Features
+ * message's No reply needed and its Undo, the Leads group and a lead's card, Not by email, and the sequence enrolments with Stop. Features
  * read and write them here and never name a key, a facade or the Query client.
  */
 
@@ -93,8 +93,8 @@ export function useLeadAction(project: string, pageId: string, on: { onSuccess: 
 export const useNotByEmail = (project: string, kind: InboxKind | null, o: { keep?: boolean } = {}) =>
   useQuery({ queryKey: keys.notByEmail(project, kind), queryFn: () => inboxApi.notByEmail(project, kind), ...(o.keep ? { placeholderData: keepPreviousData } : {}) });
 
-/** Follow-ups (P47): the project's enrolments of one view. */
+/** Sequence steps (P47): the project's enrolments of one view. */
 export const useEnrollments = (project: string, view: EnrollmentView) => useQuery({ queryKey: keys.enrollments(project, view), queryFn: () => sequencesApi.enrollments(project, view) });
 
-/** Stop one client's follow-ups (the server skips the open step in the same write). Resume is the owner's, in his terminal. */
+/** Stop one client's sequence (the server skips the open step in the same write). Resume is the owner's, in his terminal. */
 export const useStopFollowUps = (project: string, enrollmentId: number) => useCommand({ project, touches: ["sequences"], run: (_: void) => sequencesApi.stop(project, enrollmentId) });

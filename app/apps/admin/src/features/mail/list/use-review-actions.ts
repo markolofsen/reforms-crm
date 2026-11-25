@@ -25,9 +25,9 @@ export function useReviewActions(project: string) {
   const last = useRef<{ draft: ReviewDraft; at: number } | null>(null);
   const onError = (e: unknown) => setNotice({ text: sentence(e), kind: "error" });
   const { checked, status, tone, undo, undoMany, marks } = useDraftCommands(project, onError);
-  // P47: the owner stops a client's follow-ups from the step draft's card; the server skips the open step in the same write.
+  // P47: the owner stops a client's sequence from the step draft's card; the server skips the open step in the same write.
   const stop = useStopStepFollowUps<{ enrollmentId: number; name: string }>(project, {
-    onSuccess: (_r, v) => setNotice({ text: `Follow-ups stopped for ${v.name}. The open step is skipped; nothing more is drafted.`, kind: "info" }),
+    onSuccess: (_r, v) => setNotice({ text: `Sequence stopped for ${v.name}. The open step is skipped; nothing more is drafted.`, kind: "info" }),
     onError,
   });
 
@@ -73,7 +73,7 @@ export function useReviewActions(project: string) {
       if (target) undoNow(target);
     },
     setMarks: (clientId: number, next: Mark[]) => marks.mutate({ clientId, marks: next }),
-    /** Stop follow-ups (P47) for the client of a step draft. */
+    /** Stop the sequence (P47) for the client of a step draft. */
     stopFollowUps: (d: ReviewDraft) => {
       if (!d.sequence) return;
       setNotice(null);

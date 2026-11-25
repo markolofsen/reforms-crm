@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { at } from "./support";
 
 // P142 (decision 0050): the daily follow-up sweep at the API level, against the e2e stack's own server (a throwaway HUB_HOME and
 // HUB_DB, `HUB_FOLLOWUP_BRAIN=fake`: the scripted brain, no model; the server refuses it without HUB_DB). Run follow-ups now starts a
@@ -12,8 +13,9 @@ const admin = () => `http://127.0.0.1:${process.env.HUB_E2E_UI_PORT}`;
 const same = () => ({ origin: admin(), "sec-fetch-site": "same-origin" });
 
 type Row = { clientId: number; name: string; state: string; display: string; nextAt: string | null; nudgesSent: number; channel: string | null; reason: string | null };
-type Sweep = { last: unknown; next: unknown; running: boolean; today: { ready: number; waiting: number; stopped: number; forYou: number } };
-type List = { rows: Row[]; sweep: Sweep };
+type Sweep = { schedule: "daily" | "off"; at: string; last: unknown; next: string | null; running: boolean; runNowOff: string | null; stopped: string | null };
+type Today = { ready: number; waiting: number; due: number; stopped: number; forYou: number };
+type List = { rows: Row[]; today: Today; sweep: Sweep };
 
 async function list(request: APIRequestContext): Promise<List> {
   const r = await request.get(`${admin()}/api/projects/${P}/follow-ups`, { headers: same() });
@@ -39,7 +41,9 @@ test("follow-ups: the list's shape before any sweep", async ({ request }) => {
   const l = await list(request);
   expect(Array.isArray(l.rows)).toBe(true);
   expect(typeof l.sweep.running).toBe("boolean");
-  for (const k of ["ready", "waiting", "stopped", "forYou"] as const) expect(typeof l.sweep.today[k]).toBe("number");
+  expect(["daily", "off"]).toContain(l.sweep.schedule);
+  expect(l.sweep.at).toMatch(/^\d{2}:\d{2}$/);
+  for (const k of ["ready", "waiting", "due", "stopped", "forYou"] as const) expect(typeof l.today[k]).toBe("number");
   for (const row of l.rows) {
     expect(typeof row.clientId).toBe("number");
     expect(typeof row.name).toBe("string");
@@ -50,7 +54,11 @@ test("follow-ups: the list's shape before any sweep", async ({ request }) => {
 
 test("follow-ups: Run follow-ups now sweeps, and the sweep line says so", async ({ request }) => {
   const r = await request.post(`${admin()}/api/projects/${P}/follow-ups/sweep`, { headers: same(), data: {} });
-  expect([200, 202]).toContain(r.status());
+  // 202: the sweep runs in the background (`joined` when a click meets the one already running); 409 says why it is off.
+  expect(r.status()).toBe(202);
+  const body = (await r.json()) as { ok: boolean; joined: boolean; sweep: unknown };
+  expect(body).toMatchObject({ ok: true, sweep: null });
+  expect(typeof body.joined).toBe("boolean");
   const l = await settled(request);
   expect(l.sweep.last).not.toBeNull();
 });
@@ -63,16 +71,21 @@ test("follow-ups: a write from another origin is refused", async ({ request }) =
   expect(put.status()).toBe(403);
 });
 
+test("follow-ups: a malformed owner move is refused before any write", async ({ request }) => {
+  const r = await request.put(`${admin()}/api/projects/${P}/follow-ups/1`, { headers: same(), data: { action: "date", nextAt: "30 Nov" } });
+  expect(r.status()).toBe(400);
+});
+
 test("follow-ups: the fake brain decides for each seeded silent client", async ({ request }) => {
   test.fixme(true, "the e2e seed has no client whose newest message is ours with no waiting draft; add one (Mail `waiting` or a linked chat with last_outbound_at newer) and assert its row after the sweep");
   await request.post(`${admin()}/api/projects/${P}/follow-ups/sweep`, { headers: same(), data: {} });
   const l = await settled(request);
   expect(l.rows.length).toBeGreaterThan(0);
-  expect(l.sweep.today.ready + l.sweep.today.waiting + l.sweep.today.stopped + l.sweep.today.forYou).toBeGreaterThan(0);
+  expect(l.today.ready + l.today.due + l.today.waiting + l.today.stopped + l.today.forYou).toBeGreaterThan(0);
 });
 
 test("follow-ups: the owner's Stop and Resume move one plan", async ({ request }) => {
-  test.fixme(true, "needs a seeded plan row (a silent client the fake brain decided for); the PUT body's exact shape is the server's route, check it there when the fixture lands");
+  test.fixme(true, "needs a seeded plan row (a silent client the fake brain decided for); the PUT body is {action: date|stop|resume}, a date with nextAt YYYY-MM-DD");
   const l = await settled(request);
   const row = l.rows[0]!;
   const stop = await request.put(`${admin()}/api/projects/${P}/follow-ups/${row.clientId}`, { headers: same(), data: { action: "stop" } });
@@ -81,4 +94,14 @@ test("follow-ups: the owner's Stop and Resume move one plan", async ({ request }
   const resume = await request.put(`${admin()}/api/projects/${P}/follow-ups/${row.clientId}`, { headers: same(), data: { action: "resume" } });
   expect(resume.status()).toBe(200);
   expect((await list(request)).rows.find((x) => x.clientId === row.clientId)?.state).toBe("waiting");
+});
+
+test("follow-ups: Overview says today's line with Run follow-ups now, and Activity ▸ Follow-ups lists the plans", async ({ page }) => {
+  await page.goto("/overview");
+  const part = page.locator(`[data-testid="follow-ups-today"][data-project="${P}"]`);
+  await expect(part).toContainText("Follow-ups today:");
+  await expect(part.getByRole("button", { name: "Run follow-ups now" })).toBeVisible();
+  await page.goto(at(P, "/log?kind=follow-ups"));
+  await expect(page.getByRole("link", { name: /Follow-ups/ }).first()).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("follow-ups-view")).toBeVisible();
 });

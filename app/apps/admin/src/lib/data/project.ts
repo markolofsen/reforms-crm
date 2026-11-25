@@ -6,11 +6,13 @@ import type { SafetyKind } from "@hub/config";
 import type { ActivityDto, ActivityView } from "@hub/contract/activity";
 import type { KnowledgeView } from "@hub/contract/knowledge";
 import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
+import type { SetFollowUpBody } from "@hub/contract/follow-ups";
 import { connectionsApi } from "@/lib/api/connections";
 import { projectApi } from "@/lib/api/project/facts";
 import { knowledgeApi } from "@/lib/api/project/knowledge";
 import { projectSettingsApi } from "@/lib/api/project/settings";
 import { sendApi } from "@/lib/api/send";
+import { followUpsApi } from "@/lib/api/project/follow-ups";
 import { keys } from "@/lib/cache/keys";
 import { useCommand } from "@/lib/cache/topics";
 import type { CommandEvents } from "./instance";
@@ -125,3 +127,16 @@ export const useDoctor = (project: string, enabled = true) => useQuery({ queryKe
 
 /** The agent's feed of one project (P59), when a project is open. */
 export const useAgentFeed = (project: string | null) => useQuery({ queryKey: keys.agentFeed(project ?? ""), queryFn: () => projectApi.agentFeed(project ?? ""), enabled: project !== null });
+
+/** P142 F6: the project's follow-up plans, today's counts and the sweep (Activity ▸ Follow-ups, the conversation header, the chips). */
+export const useFollowUps = (project: string | null) => useQuery({ queryKey: keys.followUps(project ?? ""), queryFn: () => followUpsApi.list(project ?? ""), enabled: project !== null });
+
+/** The same read for several projects (Overview's follow-ups part, one read each). */
+export const useFollowUpsOf = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.followUps(p), queryFn: () => followUpsApi.list(p) })) });
+
+/** Run follow-ups now (202: the sweep runs in the background; the live `follow-ups` topic brings its rows). */
+export const useRunFollowUps = (project: string) => useCommand({ project, touches: ["follow-ups"], run: (_: void) => followUpsApi.run(project) });
+
+/** The owner's move on one plan: a new date, Stop or Resume (Undo of a Stop is Resume). */
+export const useSetFollowUp = (project: string, on: CommandEvents<Awaited<ReturnType<typeof followUpsApi.set>>> = {}) =>
+  useCommand({ project, touches: ["follow-ups"], run: (v: { clientId: number; body: SetFollowUpBody }) => followUpsApi.set(project, v.clientId, v.body), onSuccess: on.onSuccess, onError: on.onError });

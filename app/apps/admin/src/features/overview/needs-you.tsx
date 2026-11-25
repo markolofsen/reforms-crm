@@ -7,6 +7,7 @@ import { useLocalAction } from "@/components/local-action";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { SectionTitle } from "@hub/ui/product/shell/page";
 import { placeDest, SCHEME_LOOK } from "./labels";
+import { FollowUpNeedItem, type FollowUpNeed } from "./follow-ups/today";
 
 type Question = { project: string; question: string; options: readonly string[] };
 
@@ -89,13 +90,13 @@ function QuestionItem({ q, multi }: { q: Question; multi: boolean }) {
 
 /**
  * "Needs you" (P70, Overview's one job): the agent's open questions first, then every part that is broken or needs a look, worst
- * first, each with what is wrong, the fix line (the source's own, or the phrase) and one link to where it is fixed. A part "Not
+ * first, each with what is wrong (P142: then the clients the follow-up sweep handed over and a sweep that stopped early), the fix line (the source's own, or the phrase) and one link to where it is fixed. A part "Not
  * checked here" is nobody's failure and stays under All parts. Nothing needs him: one line, "Everything works". No control here,
  * only a part's local Open (P87: Open Mail), which changes nothing in the Hub.
  */
-export function NeedsYou({ nodes, questions, multi }: { nodes: readonly SchemeNode[]; questions: readonly Question[]; multi: boolean }) {
+export function NeedsYou({ nodes, questions, multi, followUps = [] }: { nodes: readonly SchemeNode[]; questions: readonly Question[]; multi: boolean; followUps?: readonly FollowUpNeed[] }) {
   const items = nodes.filter((n) => n.state === "fail" || n.state === "warn");
-  if (items.length === 0 && questions.length === 0) {
+  if (items.length === 0 && questions.length === 0 && followUps.length === 0) {
     return (
       <p className="flex items-center gap-2 font-medium text-base" data-testid="everything-works" role="status">
         <CheckCircle2Icon aria-hidden="true" className="size-4 text-success-foreground" />
@@ -112,6 +113,9 @@ export function NeedsYou({ nodes, questions, multi }: { nodes: readonly SchemeNo
         ))}
         {items.map((n) => (
           <Item key={n.id} multi={multi} n={n} />
+        ))}
+        {followUps.map((n) => (
+          <FollowUpNeedItem key={n.id} multi={multi} n={n} />
         ))}
       </ul>
     </section>

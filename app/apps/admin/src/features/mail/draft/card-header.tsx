@@ -74,16 +74,16 @@ export function CardHeader({ d, actions, now, ready, contact = null }: Props) {
         </p>
       )}
       {d.sequence && (
-        // P47: a follow-up step. The owner sends it from Mail (the hub refuses it); Stop ends the client's follow-ups and skips this step.
-        <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="follow-up-step">
+        // P47: a follow-up step. The owner sends it from Mail (the hub refuses it); Stop ends the client's sequence and skips this step.
+        <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="sequence-step">
           <Badge variant="info">
-            Follow-up {d.sequence.step} of {d.sequence.steps}
+            Sequence step {d.sequence.step} of {d.sequence.steps}
           </Badge>
           {d.sequence.state === "finished" ? (
-            <span className="text-muted-foreground">Follow-ups have ended for this client.</span>
+            <span className="text-muted-foreground">The sequence has ended for this client.</span>
           ) : (
             <ActionButton disabled={actions.pending} onClick={() => actions.stopFollowUps(d)} size="s" variant="quiet">
-              Stop follow-ups
+              Stop the sequence
             </ActionButton>
           )}
         </p>

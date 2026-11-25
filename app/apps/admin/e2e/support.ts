@@ -20,7 +20,7 @@ export const listTitle = (page: Page) => page.getByTestId("list-title").locator(
 export const mailViews = (page: Page) => page.getByRole("navigation", { name: "Sections" }).first().getByRole("list", { name: "Mail views" });
 /** Chooses a Mail view by its sidebar child (the one door, P134). */
 export const openMailView = (page: Page, name: string) => mailViews(page).getByRole("link", { name: new RegExp(`^${name}`) }).click();
-/** The filter button beside Mail's search (Follow-ups, Not by email, the brands), only when it has a choice. */
+/** The filter button beside Mail's search (Sequence steps, Not by email, the brands), only when it has a choice. */
 export const filterMenu = (page: Page) => page.getByRole("button", { name: /^Filter mail/ });
 /** The unsent message of one client (today's card body at the bottom of the conversation), once its row is open. */
 export const cardOf = (page: Page, name: string): Locator => page.getByRole("article", { name: `Draft for ${name}` });

@@ -57,7 +57,7 @@ export function useListKeys(k: ListKeyDeps): void {
   const { ids } = k;
   const index = k.currentId === null ? -1 : ids.indexOf(k.currentId);
   // Moving between the panes only starts from the list (or nowhere in particular): a button in the pane keeps its own Enter.
-  // A control of the list column that is not a row (New leads, Follow-ups, Not by email, Link a chat) keeps its own Enter too.
+  // A control of the list column that is not a row (New leads, Sequence steps, Not by email, Link a chat) keeps its own Enter too.
   const ownEnter = (el: Element) => el.closest("button, a[href], [role=button]") !== null && el.closest("li[data-agent-ref]") === null;
   const fromList = () => document.activeElement === null || document.activeElement === document.body || (inside(document.activeElement, "list") && !ownEnter(document.activeElement));
   const intoDetail = (e: { preventDefault: () => void }) => {

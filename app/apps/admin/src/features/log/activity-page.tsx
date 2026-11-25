@@ -4,10 +4,11 @@ import { SectionLayout } from "@hub/ui/product/shell/section-layout";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { useClock } from "@/lib/clock";
-import { useSends, useTimeline } from "@/lib/data/project";
+import { useFollowUps, useSends, useTimeline } from "@/lib/data/project";
 import { useOpsLines } from "@/lib/data/overview";
 import { isLogView, LOG_SEARCH, type ActivityView, type TimelineView } from "@/routes/search";
 import { ErrorsView } from "./errors/errors-view";
+import { FollowUpsView } from "./follow-ups/table";
 import { KindNav } from "./kind-nav";
 import { SendsView } from "./sends-table";
 import { Timeline } from "./timeline";
@@ -68,10 +69,11 @@ export function ActivityPage({ project, kind, client }: Props) {
   // The counts come with any view's reply; on Sends the All reply carries them (the same key as the All view, cached).
   const counts = useTimeline(project, isLogView(kind) ? "all" : kind, isLogView(kind) ? null : client).head?.counts;
   const sends = useSends(project);
+  const followUps = useFollowUps(project);
   const lines = useOpsLines();
   return (
-    <SectionLayout nav={<KindNav client={client} counts={counts} errors={lines.data?.errors} sends={sends.data?.sends.length} value={kind} />} navButton="Kinds" navLabel="Activity kinds">
-      <Page label="Activity list">{kind === "sends" ? <SendsView project={project} /> : kind === "errors" ? <ErrorsView /> : <TimelineView client={client} project={project} view={kind} />}</Page>
+    <SectionLayout nav={<KindNav client={client} counts={counts} errors={lines.data?.errors} followUps={followUps.data?.rows.length} sends={sends.data?.sends.length} value={kind} />} navButton="Kinds" navLabel="Activity kinds">
+      <Page label="Activity list">{kind === "sends" ? <SendsView project={project} /> : kind === "follow-ups" ? <FollowUpsView project={project} /> : kind === "errors" ? <ErrorsView /> : <TimelineView client={client} project={project} view={kind} />}</Page>
     </SectionLayout>
   );
 }

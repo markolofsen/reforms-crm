@@ -46,7 +46,7 @@ export function useDraftCommands(project: string, onError: (e: unknown) => void)
   };
 }
 
-/** P47: the owner stops a client's follow-ups from the step draft's card; the server skips the open step in the same write. */
+/** P47: the owner stops a client's sequence from the step draft's card; the server skips the open step in the same write. */
 export const useStopStepFollowUps = <V extends { enrollmentId: number }>(project: string, on: { onSuccess: (r: unknown, v: V) => void; onError: (e: unknown) => void }) =>
   useCommand({ project, touches: ["sequences", "drafts", "mail"], run: (v: V) => sequencesApi.stop(project, v.enrollmentId), onSuccess: on.onSuccess, onError: on.onError });
 

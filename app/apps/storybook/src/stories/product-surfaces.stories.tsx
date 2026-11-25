@@ -102,7 +102,7 @@ function FilterMenuDemo() {
         <ListFilterMenu
           name="View"
           onChange={setView}
-          options={[{ value: "needs-you", label: "Needs you", count: 2, group: "Views" }, { value: "all", label: "All conversations", group: "Views" }, { value: "follow-ups", label: "Follow-ups", count: 1, group: "Filters" }]}
+          options={[{ value: "needs-you", label: "Needs you", count: 2, group: "Views" }, { value: "all", label: "All conversations", group: "Views" }, { value: "sequence-steps", label: "Sequence steps", count: 1, group: "Filters" }]}
           tooltip="Choose list view"
           value={view}
         />

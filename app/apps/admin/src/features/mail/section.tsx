@@ -27,7 +27,7 @@ import { StatusLine } from "./status-line";
 // P99 (verdict 3): Mail lists people. Needs you (they wrote, or a draft is ready) is the default, then Waiting and All; Follow-ups
 // and Not by email are filters of All under their own heading. The old views (To review, Hold, Thin basis, Sent, Finished, Inbox)
 // are state words and chips on a row.
-const EMPTY: Record<DraftView, string> = { needs_you: "Nobody needs you", waiting: "Nobody to wait for", all: "No conversation yet", sequences: "No follow-up step to review", not_by_email: "Nobody" };
+const EMPTY: Record<DraftView, string> = { needs_you: "Nobody needs you", waiting: "Nobody to wait for", all: "No conversation yet", sequences: "No sequence step to review", not_by_email: "Nobody" };
 const SEARCH_PAUSE_MS = 250;
 /** A batch on screen (`?batch=`) is the list's title like a view; its value carries the id. */
 const BATCH = "batch:";
@@ -46,7 +46,7 @@ export type MailViewItem = { id: "needs_you" | "waiting" | "all" | "leads"; titl
 /**
  * Mail's sidebar submenu (P104's scope, P125 verdict 12): Needs you · Waiting · All with the counts of the Needs you reply (it
  * carries every view's count), the one on screen marked. P134 verdict 1: it is the one door to a view; the list's header only
- * names the view on screen, and the filters of All (Follow-ups, Not by email) sit in its filter button.
+ * names the view on screen, and the filters of All (Sequence steps, Not by email) sit in its filter button.
  */
 export function useMailViews(project: string | null): MailViewItem[] {
   const route = useRoute();
