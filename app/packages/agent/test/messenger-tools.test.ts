@@ -265,11 +265,11 @@ describe("draftVerdict", () => {
   });
 });
 
-describe("P143 L1: in a session the owner attends, any chat of the project is read, linked or not; never unattended", () => {
+describe("P143 L1: in a session the owner started, any chat of the project is read, linked or not; never in a background run", () => {
   const chat44 = { channel: "telegram_user", chat_id: "44" };
   const owner = { ownerWords: () => true };
 
-  it("is not_linked in an unattended session", async () => {
+  it("is not_linked in a background run (no send port)", async () => {
     const call = await connect("acme");
     expect((await call("messenger_history", chat44)).json.error).toBe("not_linked");
     expect((await call("messenger_draft_write", { ...chat44, text: "Hello" })).json.error).toBe("not_linked");
@@ -306,7 +306,7 @@ describe("P143 D3: conversation_done takes a chat out of Needs you until their n
     expect((await call("messenger_history", chat42)).json.chats[0]).toMatchObject({ done: null });
   });
 
-  it("refuses nothing_to_close where they never wrote, and an unlinked chat unattended", async () => {
+  it("refuses nothing_to_close where they never wrote, and an unlinked chat in a background run", async () => {
     const call = await connect("acme");
     const silent = (await w.messengers.chat("acme", "telegram_user", "43"))!;
     expect((await call("conversation_done", { chat: silent.id, reason: "nothing there" })).json.error).toBe("nothing_to_close");
@@ -314,7 +314,7 @@ describe("P143 D3: conversation_done takes a chat out of Needs you until their n
     expect((await call("conversation_done", { chat: qimma.id, reason: "a thanks" })).json.error).toBe("not_linked");
   });
 
-  it("client_create and chat_link refuse outside an attended session", async () => {
+  it("client_create and chat_link refuse in a background run (no send port)", async () => {
     const call = await connect("acme");
     const qimma = (await w.messengers.chat("acme", "telegram_user", "44"))!;
     expect((await call("client_create", { chat: qimma.id, name: "Ahmed", company: "Qimma Auctions" })).json.error).toBe("unattended");

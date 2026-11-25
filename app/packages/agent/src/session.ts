@@ -1,11 +1,11 @@
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 
-// The two modes of a hub agent session (P49 section 5A), one table for both CLIs:
-// - normal (`agent.unattended` false, the default): the CLI asks before commands and edits; a person is the guard.
-// - unattended (`agent.unattended` true): no prompts, and the OS sandbox is on by itself: no loopback or other
-//   network from commands, no Apple Events, and the files below are read-only. MCP connectors run in the CLI
-//   process, outside the sandbox, unchanged. Bypass without the sandbox does not exist.
+// The one permission mode of a hub agent session (P49 section 5A; owner 2026-11-25: no friction, no switch), both CLIs: no
+// prompts, and the OS sandbox is on by itself: no loopback or other network from commands, no Apple Events, and the files
+// below are read-only. MCP connectors run in the CLI process, outside the sandbox, unchanged. Bypass without the sandbox does
+// not exist. The mode says nothing about who is there: a session the owner started is attended, a background run the Hub
+// started is not (`backgroundRunOf` of `@hub/config/follow-ups`).
 
 /** The versions the guards were measured on (research 21 section 5); older ones are a failed Agent tools row. */
 export const MEASURED_VERSIONS: Record<AgentCli, string> = { claude: "2.1.220", codex: "0.146.0" };
@@ -13,7 +13,7 @@ export const MEASURED_VERSIONS: Record<AgentCli, string> = { claude: "2.1.220", 
 export const CLI_LABELS: Record<AgentCli, string> = { claude: "Claude Code", codex: "Codex" };
 
 /**
- * What an unattended session may not write, absolute paths: the send policy and the generated session files
+ * What a session may not write, absolute paths: the send policy and the generated session files
  * (`state/projects`), secrets, the Codex homes, the instance config (allow-list, switches), the core, the instance's
  * own launcher, Claude's project settings, the MCP file the session config is built from, and the git folder (hooks).
  * The project folder, the evidence ledger and the database stay writable: `hub sequences enrol|judge` write there (P129 A9 moves them into `hub mcp`; then the database folder becomes read-only).
@@ -48,7 +48,7 @@ export function protectedPaths(paths: HubPaths): string[] {
 export const claudeProtectedPaths = (paths: HubPaths): string[] => [...new Set([...protectedPaths(paths), paths.log])];
 
 /**
- * Claude Code's `sandbox` block for an unattended session. `failIfUnavailable`: no sandbox, no session (never a silent
+ * Claude Code's `sandbox` block of every session. `failIfUnavailable`: no sandbox, no session (never a silent
  * unsandboxed run). No network allowlist: a command reaches no host, loopback included (the send route); the MCP
  * servers are the CLI's own calls. Apple Events stay off (no `osascript` to Mail).
  */
@@ -63,15 +63,14 @@ export function claudeSandbox(paths: HubPaths): Record<string, unknown> {
   };
 }
 
-/** The Claude flags of a mode. Unattended: no prompts; the generated settings carry the sandbox. Normal: Claude's own prompts. */
-export const claudeModeArgs = (unattended: boolean): string[] => (unattended ? ["--dangerously-skip-permissions"] : []);
+/** The Claude flags of the mode: no prompts; the generated settings carry the sandbox (`failIfUnavailable`). */
+export const CLAUDE_MODE_ARGS: readonly string[] = ["--dangerously-skip-permissions"];
 
 /** The Codex bypass flag. Never passed, in any mode: it turns the sandbox off, the only layer that held (research 21, test 6). */
 export const CODEX_BYPASS = "--dangerously-bypass-approvals-and-sandbox";
 
-/** The Codex flags of a mode. The sandbox is the generated permissions profile in both modes; only the approval differs. */
-export const codexModeArgs = (unattended: boolean): string[] => ["-a", unattended ? "never" : "on-request"];
+/** The Codex flags of the mode: no approval prompts; the sandbox is the generated permissions profile. */
+export const CODEX_MODE_ARGS: readonly string[] = ["-a", "never"];
 
-/** The one sentence the launcher and the terminal tab show for a mode. */
-export const modeLine = (unattended: boolean): string =>
-  unattended ? "unattended: no prompts, OS sandbox on (no network or Apple Events from commands; policy, config and core read-only)" : "normal: the CLI asks before commands and edits";
+/** The one sentence the launcher and the terminal tab show for the mode. */
+export const MODE_LINE = "no prompts, OS sandbox on (no network or Apple Events from commands; policy, config and core read-only)";

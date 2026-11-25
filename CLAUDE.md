@@ -9,7 +9,7 @@ any project); one owner's facts live in `projects/<slug>/` (`@docs/LAYERS.md`).
 - One session, one project. Slug from the phrase ("... проекта X") or `$HUB_PROJECT` (`hub agent <slug>`). Neither: ask which.
 - Read the project with `project_show` (hub): its accounts, brands, Notion ids, test mode and skills. It refuses when project.md does not load: say "проект не настроен, скажи: настрой проект <slug>" and stop.
 - Work for that project only: its Mail accounts, its Notion databases, its knowledge in drafts. A second project's work: refuse, say to start `hub agent <other>`.
-- Reading and editing files (owner, 2026-11-24): in an attended session read whatever the work needs (knowledge files of any project, the core code, docs, `state/log`, `config/`) and edit this project's knowledge and files directly. Four guards stay: never read `state/secrets/**`; never quote another brand's or project's fact to a client; send only through the door; unattended and autopilot runs use the tools only. Where things are, the front matter and how to find a bug: `skills/README.md`, "Reading and writing files".
+- Reading and editing files (owner, 2026-11-24): in an attended session read whatever the work needs (knowledge files of any project, the core code, docs, `state/log`, `config/`) and edit this project's knowledge and files directly. Four guards stay: never read `state/secrets/**`; never quote another brand's or project's fact to a client; send only through the door; background runs (autopilot, the sweep) use the tools only. Where things are, the front matter and how to find a bug: `skills/README.md`, "Reading and writing files".
 - (The projects folder is `projects/` under `HUB_HOME`, the instance root; `hub agent` runs you there.)
 
 ## Draft-only

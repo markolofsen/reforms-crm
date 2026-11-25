@@ -81,7 +81,7 @@ describe("always on (decision 0032): no switch", () => {
       spawned = [];
       const { call } = setup();
       const s = (await (await call("GET", "/api/terminal")).json()) as Record<string, unknown>;
-      expect(s).toMatchObject({ unattended: false, presets: ["claude", "codex", "shell"], sessions: [], problem: null });
+      expect(s).toMatchObject({ presets: ["claude", "codex", "shell"], sessions: [], problem: null });
       expect(s).not.toHaveProperty("enabled");
       const made = await call("POST", "/api/terminal/sessions", { preset: "shell" });
       expect(made.status).toBe(201);
@@ -127,11 +127,11 @@ describe("P66: when no tab can start, the state says why and a start is 503 with
 });
 
 describe("the doors", () => {
-  beforeEach(() => config({ agent: { default: "codex", unattended: true } }));
+  beforeEach(() => config({ agent: { default: "codex" } }));
 
   it("offers the presets from the server's table, default CLI first", async () => {
-    const s = (await (await setup().call("GET", "/api/terminal")).json()) as { unattended: boolean; presets: string[]; sessions: unknown[] };
-    expect(s).toMatchObject({ unattended: true, presets: ["codex", "claude", "shell"], sessions: [], problem: null });
+    const s = (await (await setup().call("GET", "/api/terminal")).json()) as { presets: string[]; sessions: unknown[] };
+    expect(s).toMatchObject({ presets: ["codex", "claude", "shell"], sessions: [], problem: null });
   });
   it("a preset runs hub agent in the instance, with the server's Node first and none of the server's switches", async () => {
     const { call } = setup();
@@ -211,7 +211,7 @@ describe("the doors", () => {
 });
 
 describe("ensure (P57): the column starts the best ready CLI itself, at most one session per project", () => {
-  beforeEach(() => config({ agent: { default: "claude", unattended: false } }));
+  beforeEach(() => config({ agent: { default: "claude" } }));
   const argvCli = (n: number) => spawned[n]?.args.at(-1);
 
   it("starts Claude Code when it is ready; a second ensure returns the running session and spawns nothing", async () => {

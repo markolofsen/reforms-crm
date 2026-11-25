@@ -16,7 +16,7 @@ const H = { "content-type": "application/json" };
 function setup() {
   const home = mkdtempSync(join(tmpdir(), "hub-server-agent-tools-"));
   mkdirSync(join(home, "config"), { recursive: true });
-  writeFileSync(join(home, "config", "config.json"), JSON.stringify({ agent: { default: "codex", unattended: true } }));
+  writeFileSync(join(home, "config", "config.json"), JSON.stringify({ agent: { default: "codex", unattended: true } }) /* a retired key, read by nothing */);
   let t = Date.parse("2026-11-18T10:00:00Z");
   const agentTools = createAgentTools({ paths: hubPaths({ home, env: {} }), repos, fake: true, now: () => new Date((t += 1000)) });
   const app = testApp(repos, { agentTools });
@@ -27,7 +27,8 @@ describe("agent tools", () => {
   it("the first GET computes the rows of both CLIs, the next returns them, Refresh recomputes", async () => {
     const call = setup();
     const a = agentToolsDto.parse(await (await call("GET", "/api/projects/acme/agent-tools")).json());
-    expect(a).toMatchObject({ project: "acme", unattended: true, defaultCli: "codex" });
+    expect(a).toMatchObject({ project: "acme", defaultCli: "codex" });
+    expect(a).not.toHaveProperty("unattended");
     expect(new Set(a.rows.map((r) => r.cli))).toEqual(new Set(["claude", "codex"]));
     expect(a.rows.filter((r) => r.state === "fail").map((r) => r.fix)).toEqual(["hub agent acme --prepare", "hub agent acme --cli codex --prepare"]);
     expect(a.rows.some((r) => r.state === "warn")).toBe(true);

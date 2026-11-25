@@ -89,10 +89,11 @@ describe("what an agent started in an instance gets", () => {
   const paths = () => hubPaths();
   it("deny rules name the instance's folders, relative to where claude starts", () => {
     const f = writeSessionFiles(paths().home, paths().projects, "acme-travel", process.execPath, paths());
-    // P140 K3 (attended, the instance default): other projects' folders are readable and editable; their session files are not.
+    // P140 K3 (the owner's session): other projects' folders are readable and editable; their session files are not.
     expect(f.rules).not.toContain("Read(./projects/nordhaus/**)");
     expect(f.rules).toContain("Read(./state/projects/nordhaus/**)");
-    expect(f.rules).toContain("Edit(./data/**)");
+    // The database folder is the sandbox's: no rule (it would become a sandbox denial for the record writers).
+    expect(f.rules).not.toContain("Edit(./data/**)");
     expect(f.rules).not.toContain("Read(./data/**)");
     expect(f.rules).toContain("Edit(./state/secrets/**)");
     expect(f.rules.some((r) => r.includes("acme-travel/**"))).toBe(false);

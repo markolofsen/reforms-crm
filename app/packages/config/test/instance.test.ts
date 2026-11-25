@@ -26,23 +26,31 @@ describe("readInstanceConfig", () => {
     const { config, problems } = readInstanceConfig(at("full.json", JSON.stringify({
       name: " Acme ", logo: "logo.png", account: "Work", mailboxes: ["INBOX", ""], sent_mailbox: "Sent", allow_list: ["a@example.com", 3],
       extra_dirs: ["~/notes", " "], admin_port: "4400", api_port: 4401, backup_dir: "../b", backup_repos: ["../site"],
-      log: { retention_days: 30 }, llm: { monthly_cap_usd: 5, presets: { quick: ["m1"], empty: [] } }, agent: { default: "codex", unattended: true },
+      log: { retention_days: 30 }, llm: { monthly_cap_usd: 5, presets: { quick: ["m1"], empty: [] } }, agent: { default: "codex" },
     })));
     expect(problems).toEqual([]);
     expect(config).toEqual({
       name: "Acme", logo: "logo.png", account: "Work", mailboxes: ["INBOX"], sent_mailbox: "Sent", allow_list: ["a@example.com"],
       extra_dirs: ["~/notes"], admin_port: "4400", api_port: 4401, backup_dir: "../b", backup_repos: ["../site"],
-      log: { retention_days: 30 }, llm: { monthly_cap_usd: 5, presets: { quick: ["m1"] } }, agent: { default: "codex", unattended: true },
+      log: { retention_days: 30 }, llm: { monthly_cap_usd: 5, presets: { quick: ["m1"] } }, agent: { default: "codex" },
     });
   });
 
   it("leaves out a malformed field, names it, and keeps the others", () => {
-    const { config, problems } = readInstanceConfig(at("mixed.json", JSON.stringify({ account: "Work", allow_list: "a@example.com", log: { retention_days: 0 }, agent: { default: "gpt", unattended: true } })));
+    const { config, problems } = readInstanceConfig(at("mixed.json", JSON.stringify({ account: "Work", allow_list: "a@example.com", log: { retention_days: 0 }, agent: { default: "gpt" } })));
     expect(config.account).toBe("Work");
     expect(config.allow_list).toBeUndefined();
     expect(config.log).toEqual({});
-    expect(config.agent).toEqual({ unattended: true });
+    expect(config.agent).toEqual({});
     expect(problems).toEqual(["allow_list must be a list of strings", "log.retention_days must be a whole number from 1 to 3650", "agent.default must be claude or codex"]);
+  });
+
+  it("accepts a retired agent.unattended silently: no problem, no field (one permission mode, owner 2026-11-25)", () => {
+    for (const v of [true, false, "yes"]) {
+      const { config, problems } = readInstanceConfig(at(`retired-${String(v)}.json`, JSON.stringify({ agent: { default: "codex", unattended: v } })));
+      expect(problems).toEqual([]);
+      expect(config.agent).toEqual({ default: "codex" });
+    }
   });
 
   it("is read on every call, never cached", () => {
@@ -54,5 +62,15 @@ describe("readInstanceConfig", () => {
 
   it("lists log among its keys (the doctor warned on it while log.retention_days was read)", () => {
     expect(INSTANCE_KEYS).toContain("log");
+  });
+});
+
+describe("backgroundRunOf (decision 0046, owner 2026-11-25): attendance comes from how the session started", () => {
+  it("only a runner's variable makes a background run; the permission mode never does", async () => {
+    const { backgroundRunOf } = await import("../src/follow-ups");
+    expect(backgroundRunOf({})).toBe(false);
+    expect(backgroundRunOf({ HUB_PROJECT: "acme", HUB_AUTOPILOT_CHAT: " " })).toBe(false);
+    expect(backgroundRunOf({ HUB_AUTOPILOT_CHAT: "12" })).toBe(true);
+    expect(backgroundRunOf({ HUB_FOLLOWUP_CLIENT: "7" })).toBe(true);
   });
 });

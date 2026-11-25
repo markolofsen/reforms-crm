@@ -75,8 +75,8 @@ export interface HubMcpEnv {
    */
   testRecipients?: (slug: string) => readonly string[];
   /**
-   * Decision 0046: the server's agent send route (`messenger_send`). Passed only in an attended instance; absent, the tool does
-   * not exist in this server (unattended sessions never see it).
+   * Decision 0046: the server's agent send route (`messenger_send`). Passed only in a session the owner started; absent, the tool
+   * does not exist in this server (a background run never sees it).
    */
   agentSend?: AgentSendPort;
   /** P128 X5: the server's unlinked chats and the agent's proposed hides (loopback, the agent token); absent, both tools refuse `unavailable`. */

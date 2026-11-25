@@ -1,5 +1,5 @@
 import { httpChatSort } from "../messenger/chat-sort-port";
-import { hubPaths, instanceFeatures, instancePorts } from "@hub/config/paths";
+import { hubPaths, instancePorts } from "@hub/config/paths";
 import { bumpTopicIn, createRepos, openDb, openDbReadOnly } from "@hub/db";
 import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
 import { join } from "node:path";
@@ -22,7 +22,7 @@ import { logStoreOf, readEvents } from "@hub/log/store";
 import { ops } from "@hub/log/ops";
 import { bindProject } from "./binding";
 import { AUTOPILOT_CHAT_ENV } from "@hub/config/autopilot";
-import { FOLLOW_UP_CLIENT_ENV } from "@hub/config/follow-ups";
+import { backgroundRunOf, FOLLOW_UP_CLIENT_ENV } from "@hub/config/follow-ups";
 
 /** Decision 0048 (verdict 20): the chat an autopilot turn's server is bound to (`HUB_AUTOPILOT_CHAT`, a row id), or none. */
 export function autopilotChatOf(env: NodeJS.ProcessEnv): number | undefined {
@@ -40,6 +40,13 @@ export function followUpClientOf(env: NodeJS.ProcessEnv): number | undefined {
   const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
+
+/**
+ * Decision 0046 (owner 2026-11-25): a session is attended when the owner started it (the dock, a terminal, a resumed session),
+ * and unattended only when it is a background run the Hub started (an autopilot turn, a follow-up sweep turn: the runner sets
+ * the variable). Never the permission mode: every session runs with no prompts and the OS sandbox on.
+ */
+export const attendedSession = (env: NodeJS.ProcessEnv): boolean => !backgroundRunOf(env) && autopilotChatOf(env) === undefined && followUpClientOf(env) === undefined;
 
 /** P142 F7: a plan to the client's Notion page (the four Hub properties and the dated line); its state is the tool's answer. */
 const syncFollowUpOf = (paths: { projects: string; secrets: string }) => async (slug: string, f: FollowUpSync) =>
@@ -119,8 +126,8 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const autopilotChat = autopilotChatOf(env);
   // Decision 0050: a sweep turn's server serves one client, with no send port and no chat sort either.
   const followUpClient = followUpClientOf(env);
-  // Decision 0046: `messenger_send` exists only in an attended instance (read at start; the server refuses an unattended one anyway).
-  const attended = autopilotChat === undefined && followUpClient === undefined && !instanceFeatures(paths).agent.unattended;
+  // Decision 0046: `messenger_send`, client_create and chat_link exist only in a session the owner started.
+  const attended = attendedSession(env);
   const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};
   // P128 X5: sorting the chats proposes hides only, so it is not gated on attendance.
   const chatSort = httpChatSort({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) });

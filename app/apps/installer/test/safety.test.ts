@@ -78,8 +78,8 @@ describe("hub guard", () => {
   ])("blocks in block mode: %s", (_n, c) => {
     expect(guard(c, { HUB_PROJECT: "acme-travel", HUB_GUARD: "block" }).code).toBe(2);
   });
-  it("P140 K3: attended, a Read, Grep or Glob of another project's folder passes and an Edit there is flagged; unattended both are", () => {
-    const at = (c: ReturnType<typeof call>, unattended: boolean) => guardDecision(c, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, unattended }).violations;
+  it("P140 K3: in the owner's session a Read, Grep or Glob of another project's folder passes and an Edit there is flagged; in a background run both are", () => {
+    const at = (c: ReturnType<typeof call>, background: boolean) => guardDecision(c, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, background }).violations;
     for (const c of [call("Read", { file_path: "projects/nordhaus/project.md" }), call("Grep", { pattern: "price", path: "projects/nordhaus/knowledge" }), call("Glob", { pattern: "projects/*/knowledge/files/*.md" })]) {
       expect(at(c, false)).toEqual([]);
       expect(at(c, true)).not.toEqual([]);
@@ -94,16 +94,16 @@ describe("hub guard", () => {
     expect(guardDecision(call("Read", { file_path: "projects/_template/x.md" }), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
     expect(guardDecision(call("mcp__mail-mcp__create_reply"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
   });
-  it("decision 0046: messenger_send is refused unattended in every guard mode, passed attended, and never by a mode default", () => {
+  it("decision 0046: messenger_send is refused in a background run in every guard mode, passed in the owner's session, and never by a mode default", () => {
     const send = call("mcp__hub__messenger_send", { chat: 3, draft: 7 });
     for (const mode of ["warn", "block"]) {
-      const un = guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT, unattended: true });
-      expect(un).toMatchObject({ block: true, always: true, violations: [expect.stringMatching(/messenger_send is denied in an unattended session/)] });
+      const un = guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT, background: true });
+      expect(un).toMatchObject({ block: true, always: true, violations: [expect.stringMatching(/messenger_send is denied in a background run/)] });
       expect(guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT }).block).toBe(true);
-      expect(guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT, unattended: false })).toMatchObject({ block: false, violations: [] });
+      expect(guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT, background: false })).toMatchObject({ block: false, violations: [] });
     }
-    // Any other send-like tool of the hub stays a violation attended too.
-    expect(guardDecision(call("mcp__hub__mail_send"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, unattended: false }).violations).toEqual([expect.stringMatching(/send-capable/)]);
+    // Any other send-like tool of the hub stays a violation in the owner's session too.
+    expect(guardDecision(call("mcp__hub__mail_send"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, background: false }).violations).toEqual([expect.stringMatching(/send-capable/)]);
   });
   it("P112 S3: an unknown Notion tool is refused in warn mode, unbound, and when the project cannot be loaded; an allowed one passes", () => {
     const unknown = call("mcp__notion__notion-duplicate-page", { page_id: "x" });
@@ -176,9 +176,8 @@ describe("generated session files", () => {
   it("an unbound session writes to _unbound", () => {
     expect(existsSync(writeSessionFiles(root, PROJECTS, undefined).settings)).toBe(true);
   });
-  it("normal mode has no sandbox block; unattended has the OS sandbox with no network, no Apple Events and the policy read-only (P49 S9)", () => {
-    expect(settings.sandbox).toBeUndefined();
-    const u = JSON.parse(readFileSync(writeSessionFiles(root, PROJECTS, "acme-travel", "/n/node", pathsAt(root), true).settings, "utf8"));
+  it("every session has the OS sandbox with no network, no Apple Events and the policy read-only (P49 S9)", () => {
+    const u = settings as { sandbox: { allowAppleEvents?: unknown; filesystem: { denyWrite: string[] } }; permissions: { deny: string[] } };
     expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, network: { allowedDomains: [], allowLocalBinding: false } });
     expect(u.sandbox.allowAppleEvents).toBeUndefined();
     const dw: string[] = u.sandbox.filesystem.denyWrite;
@@ -186,7 +185,6 @@ describe("generated session files", () => {
     // the database stays writable for the hub's own record writers (draft_write, client_record): its Read/Edit rules would become sandbox denials
     expect(u.permissions.deny.some((r: string) => r.includes("./data/"))).toBe(false);
     expect(u.permissions.deny).toContain("Bash(*hub send*)");
-    writeSessionFiles(root, PROJECTS, "acme-travel", "/n/node"); // back to normal for the rest of the suite
   });
 });
 
@@ -197,7 +195,7 @@ describe("the Codex home (P49 S10)", () => {
   writeFileSync(path.join(owner, "config.toml"), 'model = "gpt-test"\nsandbox_mode = "danger-full-access"\n[mcp_servers.slack]\nurl = "https://x"\n');
   mkdirSync(path.join(root, "config"), { recursive: true });
   writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" }, slack: { type: "http", url: "https://x" } } }));
-  const home = writeCodexHome({ paths: pathsAt(root), projectsDir: PROJECTS, slug: "acme-travel", unattended: true, instructions: "bound", env: { HOME: "/nowhere", CODEX_HOME: owner } });
+  const home = writeCodexHome({ paths: pathsAt(root), projectsDir: PROJECTS, slug: "acme-travel", instructions: "bound", env: { HOME: "/nowhere", CODEX_HOME: owner } });
   const toml = readFileSync(path.join(home, "config.toml"), "utf8");
   it("P51: the hub MCP server and the focus hook on every prompt", () => {
     expect(toml).toContain('[mcp_servers."hub"]');
@@ -215,7 +213,7 @@ describe("the Codex home (P49 S10)", () => {
     expect(toml).toMatch(/\[mcp_servers\."hub"\]\n(?:(?!\[mcp_servers)[^\n]*\n)*?tool_timeout_sec = 300\n/);
     expect(toml).not.toContain("slack");
   });
-  it("is unattended without the bypass: approvals never, the profile's sandbox, network off, the policy read-only", () => {
+  it("has no prompts and no bypass: approvals never, the profile's sandbox, network off, the policy read-only", () => {
     expect(toml).toContain('approval_policy = "never"');
     expect(toml).toContain('[mcp_servers."hub".tools."draft_write"]\napproval_mode = "approve"');
     expect(toml).toContain('default_permissions = "hub"');
@@ -224,11 +222,10 @@ describe("the Codex home (P49 S10)", () => {
     expect(toml).toMatch(/\[permissions\.hub\.network\]\nenabled = false/);
     expect(toml).toContain('model = "gpt-test"');
   });
-  it("keeps the draft writer approval-gated in attended mode", () => {
-    const attendedHome = writeCodexHome({ paths: pathsAt(root), projectsDir: PROJECTS, slug: "acme-travel", unattended: false, instructions: "bound", env: { HOME: "/nowhere", CODEX_HOME: owner } });
-    const attended = readFileSync(path.join(attendedHome, "config.toml"), "utf8");
-    expect(attended).toContain('approval_policy = "on-request"');
-    expect(attended).not.toContain('[mcp_servers."hub".tools."draft_write"]');
+  it("approves the hub's own writing tools by name (the send on the owner's word included), never a read tool or another server's", () => {
+    for (const t of ["messenger_send", "client_create", "chat_link", "messenger_draft_write"]) expect(toml).toContain(`[mcp_servers."hub".tools."${t}"]\napproval_mode = "approve"`);
+    expect(toml).not.toContain('[mcp_servers."hub".tools."client_show"]');
+    expect(toml).not.toMatch(/\[mcp_servers\."(?!hub")[^"]+"\.tools\./);
   });
   it("links auth.json and the skills, writes the forbidden rules", () => {
     expect(lstatSync(path.join(home, "auth.json")).isSymbolicLink()).toBe(true);

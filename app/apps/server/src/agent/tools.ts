@@ -48,9 +48,9 @@ export function createAgentTools(o: AgentToolsOptions) {
     // P82: the Notion row reads what this project's sessions did with Notion in the last 14 days (the log, P54).
     const since = new Date(now().getTime() - NOTION_EVIDENCE_DAYS * 86_400_000).toISOString();
     const events = o.fake ? [] : readEvents(logStoreOf(o.paths), { project: slug, kinds: ["tool_call", "tool_result", "tool_error"], since });
-    for (const cli of AGENT_CLIS) rows.push(...(o.fake ? fakeAgentRows(slug, cli) : await agentChecks({ paths: o.paths, slug, cli, unattended: f.agent.unattended, probe, facts, notionEvidence: notionEvidenceOf(events, cli), defaultCli: f.agent.default })));
+    for (const cli of AGENT_CLIS) rows.push(...(o.fake ? fakeAgentRows(slug, cli) : await agentChecks({ paths: o.paths, slug, cli, probe, facts, notionEvidence: notionEvidenceOf(events, cli), defaultCli: f.agent.default })));
     const capabilities = o.fake ? FAKE_CAPABILITIES : capabilitiesOf(o.paths, slug);
-    const dto = agentToolsDto.parse({ project: slug, unattended: f.agent.unattended, defaultCli: f.agent.default, rows, capabilities, checkedAt: now().toISOString() });
+    const dto = agentToolsDto.parse({ project: slug, defaultCli: f.agent.default, rows, capabilities, checkedAt: now().toISOString() });
     last.set(slug, dto);
     return dto;
   }

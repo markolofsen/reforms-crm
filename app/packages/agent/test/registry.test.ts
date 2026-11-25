@@ -3,7 +3,7 @@ import { z } from "zod";
 import { DRAFT_TOOLS, SEND_LIKE_TOOL } from "../src/deny";
 import { annotationsOf, DESCRIPTION_MAX } from "../src/mcp/define";
 import { NEXT_MAX, REFUSAL_CODES, REFUSALS } from "../src/mcp/refusals";
-import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../src/mcp/server";
+import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS, HUB_MCP_WRITE_TOOLS } from "../src/mcp/server";
 import { ATTENDED_TOOLS, TOOLS } from "../src/mcp/tools";
 
 // P129 A2 (verdicts 1, 2): one tool registry and one refusal registry for `hub mcp`.
@@ -35,9 +35,16 @@ describe("the tool registry", () => {
   it("has exactly two draft writers and the record of a client handled without one (approval-and-capabilities: the draft tools are the only writers of a draft)", () => {
     // P129 A3: client_record writes one Inbox row (no draft, no mail text) with the draft effect, since it writes as the session.
     // P135: client_map writes the client's map (Hub state and the client's Notion block), never a draft or a send.
-    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["client_map", "client_record", "draft_write", "messenger_draft_write"]);
+    // P142: follow_up_plan writes the sweep's plan of one client (the agent's notes), never a draft or a send.
+    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["client_map", "client_record", "draft_write", "follow_up_plan", "messenger_draft_write"]);
     expect(annotationsOf("read")).toMatchObject({ readOnlyHint: true });
     for (const e of ["pointer", "draft", "send"] as const) expect(annotationsOf(e).readOnlyHint).toBe(false);
+  });
+
+  it("Codex approves by name exactly the tools that write (owner 2026-11-25: one mode, approval never), never a read tool", () => {
+    expect([...HUB_MCP_WRITE_TOOLS].sort()).toEqual(ALL.filter((t) => t.effect !== "read").map((t) => t.name).sort());
+    expect(HUB_MCP_WRITE_TOOLS).toContain("messenger_send");
+    for (const t of ALL.filter((x) => x.effect === "read")) expect(HUB_MCP_WRITE_TOOLS).not.toContain(t.name);
   });
 
   it("gives every tool an object output schema whose JSON Schema an MCP client can read", () => {

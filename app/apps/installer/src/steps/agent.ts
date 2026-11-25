@@ -13,8 +13,8 @@ import { ensureSpawnHelper, nodePtyRoot, tabShell, terminalReadiness } from "@hu
 // The `Agent` doctor group (P49 5B): the Agent tools rows of Connections, one doctor row per project and CLI, the
 // embedded terminal's own check (always on, decision 0032) and the CLIs on the login shell (P66). `hub doctor --only Agent` prints what the Connections block shows.
 
-const why = "A hub agent session needs its CLI, its session files, the hub's MCP servers answering, the send tools off and its mode (prompts, or the OS sandbox) in place; a missing piece shows only when the owner starts the session.";
-const verifies = "For each project and each CLI (Claude Code, Codex): the CLI is found by the owner's login shell and answers `--version` (another version than the measured one is a WARN), it is signed in (`claude auth status`, `codex login status`), the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).";
+const why = "A hub agent session needs its CLI, its session files, the hub's MCP servers answering, the send tools off and its mode (no prompts, the OS sandbox) in place; a missing piece shows only when the owner starts the session.";
+const verifies = "For each project and each CLI (Claude Code, Codex): the CLI is found by the owner's login shell and answers `--version` (another version than the measured one is a WARN), it is signed in (`claude auth status`, `codex login status`), the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode is in place (the OS sandbox, approval never with the hub's writing tools approved by name; no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).";
 
 /** Worst state of a CLI's rows: one doctor line, with the first red row's fix. */
 export function summarise(rows: AgentCheckRow[]): CheckResult {
@@ -41,7 +41,7 @@ async function checkCli(ctx: Ctx, slug: string, cli: AgentCli): Promise<CheckRes
   // P82: the Notion row reads this project's session log of the last 14 days, as the server does.
   const since = new Date(Date.now() - NOTION_EVIDENCE_DAYS * 86_400_000).toISOString();
   const events = readEvents(logStoreOf(ctx.paths), { project: slug, kinds: ["tool_call", "tool_result", "tool_error"], since });
-  return summarise(await agentChecks({ paths: ctx.paths, slug, cli, unattended: f.unattended, probe, facts: await factsOf(ctx, run), notionEvidence: notionEvidenceOf(events, cli), defaultCli: f.default }));
+  return summarise(await agentChecks({ paths: ctx.paths, slug, cli, probe, facts: await factsOf(ctx, run), notionEvidence: notionEvidenceOf(events, cli), defaultCli: f.default }));
 }
 
 function cliStep(id: string, title: string, check: (ctx: Ctx) => Promise<CheckResult>): Step {

@@ -35,12 +35,10 @@ export interface SenderOptions {
   agent?: AgentSendOptions;
 }
 
-/** What the agent send route needs (decision 0046): the token `hub mcp` presents, the instance's mode, the session log. */
+/** What the agent send route needs (decision 0046): the token `hub mcp` presents and the session log. */
 export interface AgentSendOptions {
   /** The server's token (`state/secrets/agent-send-token`), made at start. */
   token: string;
-  /** `agent.unattended` of the instance, read per call: an unattended instance never sends on the agent's call. */
-  unattended: () => boolean;
   /** The project's `prompt` and `focus` events of the session log since `since`. */
   events: (project: string, since: string) => readonly LogEvent[];
 }

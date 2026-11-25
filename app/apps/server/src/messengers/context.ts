@@ -32,8 +32,6 @@ export type MessengersContext = {
   autolink?: ProjectAutolink;
   /** P128 X5: the token `hub mcp` presents (the agent send's, decision 0046); absent, the agent's chat-sorting doors refuse. */
   agentToken?: string;
-  /** P143 L2: whether the instance runs unattended sessions (read per call); absent or true, the agent's Create and Link refuse. */
-  agentUnattended?: () => boolean;
   /** P139 A1: the autopilot's switches and scheduler; absent, its routes answer 404. */
   autopilot?: AutopilotHandle;
   /** Tests: the autopilot tickets (their clock). */

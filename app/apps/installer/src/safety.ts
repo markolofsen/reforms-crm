@@ -1,5 +1,6 @@
 import { slimMessageContent } from "./slim-headers";
-import { codexSessionPaths, instanceFeatures, pathsAt, type HubPaths } from "@hub/config/paths";
+import { codexSessionPaths, pathsAt, type HubPaths } from "@hub/config/paths";
+import { backgroundRunOf } from "@hub/config/follow-ups";
 import { auditToolCalls, HUB_MESSENGER_SEND, type AuditLayout, type SkillScope, type ToolCall } from "@hub/projects/audit";
 import { defaultProjectsRoot } from "@hub/projects/registry";
 import { kindOf } from "@hub/projects/kinds";
@@ -26,7 +27,7 @@ import { appendEvents, logStoreOf } from "@hub/log/store";
 // Tool-level safety of `hub agent` (plans p17 and P49). What each CLI gets is built in `@hub/agent` (one source for the launcher,
 // the doctor and the server); this file writes it. Layers: (1) deny rules and disallowed tools, (2) the hub's MCP servers only
 // (Claude --strict-mcp-config, Codex its own CODEX_HOME), (3) the PreToolUse guard `hub guard` (warn by default, HUB_GUARD=block
-// to refuse), (4) in unattended mode the OS sandbox (no network, no Apple Events, the policy and config read-only).
+// to refuse), (4) the OS sandbox of every session (no network, no Apple Events, the policy and config read-only).
 
 export const stateDir = (root: string) => pathsAt(root).stateProjects;
 export const slugDir = (root: string, slug: string | undefined) => path.join(stateDir(root), slug ?? "_unbound");
@@ -78,17 +79,17 @@ export function projectConnectors(paths: HubPaths, projectsDir: string, slug: st
  * Writes state/projects/<slug|_unbound>/{settings.json,mcp.json} (git-ignored: state/*) and returns what to pass to claude.
  * The model and advisor come from the project's row in the database (P55, Settings ▸ Agent), read at every start.
  */
-export function writeSessionFiles(root: string, projectsDir: string, slug: string | undefined, nodeBin = process.execPath, paths: HubPaths = pathsAt(root), unattended = false): SessionFiles {
+export function writeSessionFiles(root: string, projectsDir: string, slug: string | undefined, nodeBin = process.execPath, paths: HubPaths = pathsAt(root)): SessionFiles {
   const dir = slugDir(root, slug);
   mkdirSync(dir, { recursive: true });
   const agent = readAgentSettings(paths.db, slug);
   const { attached } = projectConnectors(paths, projectsDir, slug);
-  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, unattended, agent, connectors: attached });
+  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, agent, connectors: attached });
   const settingsFile = path.join(dir, "settings.json");
   writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
   const mcpFile = path.join(dir, "mcp.json");
   writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug, nodeBin, attached) }, null, 2) + "\n");
-  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(attached, unattended), rules: (settings.permissions as { deny: string[] }).deny, agent };
+  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(attached), rules: (settings.permissions as { deny: string[] }).deny, agent };
 }
 
 /** The owner's own Codex folder: where `auth.json` lives (`CODEX_HOME` of the caller, else `~/.codex`). */
@@ -110,12 +111,12 @@ function carriedCodexKeys(file: string): Record<string, string> {
  * Writes the session's CODEX_HOME (P49 S10): config.toml, rules/hub.rules, skills/ (links to the core skills) and auth.json (a link to the
  * owner's, never a copy). Returns the folder.
  */
-export function writeCodexHome(o: { paths: HubPaths; projectsDir: string; slug: string | undefined; unattended: boolean; instructions: string; env?: NodeJS.ProcessEnv; nodeBin?: string }): string {
+export function writeCodexHome(o: { paths: HubPaths; projectsDir: string; slug: string | undefined; instructions: string; env?: NodeJS.ProcessEnv; nodeBin?: string }): string {
   const env = o.env ?? process.env;
   const home = codexHome(o.paths, o.slug);
   mkdirSync(path.join(home, "rules"), { recursive: true });
   const owner = ownerCodexHome(env);
-  const toml = codexConfigToml({ paths: o.paths, projectsDir: o.projectsDir, slug: o.slug, unattended: o.unattended, servers: instanceMcpServers(o.paths, o.slug, o.nodeBin), instructions: o.instructions, nodeBin: o.nodeBin ?? process.execPath, carry: carriedCodexKeys(path.join(owner, "config.toml")) });
+  const toml = codexConfigToml({ paths: o.paths, projectsDir: o.projectsDir, slug: o.slug, servers: instanceMcpServers(o.paths, o.slug, o.nodeBin), instructions: o.instructions, nodeBin: o.nodeBin ?? process.execPath, carry: carriedCodexKeys(path.join(owner, "config.toml")) });
   writeFileSync(path.join(home, "config.toml"), toml);
   writeFileSync(path.join(home, "rules", "hub.rules"), codexRules());
   const auth = path.join(home, "auth.json");
@@ -178,20 +179,20 @@ export function skillScope(kindId: string, dir: string): SkillScope | undefined 
   return { allowed: kind.skills, hub };
 }
 
-export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope; /** P82: this session's earlier Notion reads (the ledger). */ notionRead?: readonly NotionRead[]; /** Decision 0046: the instance's `agent.unattended` (default true: the stricter answer). */ unattended?: boolean }): GuardResult {
+export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope; /** P82: this session's earlier Notion reads (the ledger). */ notionRead?: readonly NotionRead[]; /** Decision 0046: a background run the Hub started (`backgroundRunOf`; default true: the stricter answer). */ background?: boolean }): GuardResult {
   const call: ToolCall = { name: String(payload.tool_name ?? ""), input: payload.tool_input };
   // Unbound session (project-setup, `hub agent new`): no project to compare with, but sends and secrets still count.
   // P129 A0, P131 verdict 6, P112 S3: a Notion tool off the allow-list (default-deny) is refused in every mode. The audit names it
   // in the same words (`@hub/projects/notion-tools`); here it moves from the mode-bound violations to the outward ones.
   const denied = notionDenial(call.name);
-  // Decision 0046 point 3: an unattended session never sends, so `messenger_send` is refused there in every guard mode.
-  const unattendedSend = call.name === HUB_MESSENGER_SEND && (o.unattended ?? true) ? `messenger_send is denied in an unattended session (decision 0046: the agent sends only in an attended one, on the owner's word)` : null;
-  const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout, { unattended: o.unattended ?? true })
+  // Decision 0046 point 3: a background run never sends, so `messenger_send` is refused there in every guard mode.
+  const backgroundSend = call.name === HUB_MESSENGER_SEND && (o.background ?? true) ? `messenger_send is denied in a background run (decision 0046: the agent sends only in a session the owner started, on his word)` : null;
+  const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout, { background: o.background ?? true })
     .filter((v) => o.slug || !/outside project|in a \(unbound\)|touched \S+\/\S+ in a/.test(v))
-    .filter((v) => v !== denied && v !== unattendedSend);
+    .filter((v) => v !== denied && v !== backgroundSend);
   // P62 K3: a connector call off its allowlist, or a hold with guests, is refused in every mode (it would leave the Mac).
   // P82: a Notion call on another project's database (or a page this session did not read from its own) is refused the same way.
-  const outward = [...(denied ? [denied] : []), ...(unattendedSend ? [unattendedSend] : []), ...connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] }), ...notionViolations(call.name, call.input, o.connectors?.notion, o.notionRead)];
+  const outward = [...(denied ? [denied] : []), ...(backgroundSend ? [backgroundSend] : []), ...connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] }), ...notionViolations(call.name, call.input, o.connectors?.notion, o.notionRead)];
   return { violations: [...violations, ...outward], block: outward.length > 0 || (violations.length > 0 && o.mode === "block"), ...(outward.length ? { always: true } : {}) };
 }
 
@@ -225,9 +226,8 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   const sid = typeof payload.session_id === "string" ? payload.session_id : "";
   let notionRead: LedgerEntry[] = [];
   try { if (slug && sid && String(payload.tool_name ?? "").startsWith("mcp__notion__")) notionRead = readSession(g.root, slug, sid).filter((e) => e.kind === "notion"); } catch { /* the guard never throws: no ledger, no provenance */ }
-  let unattended = true;
-  try { unattended = instanceFeatures(paths).agent.unattended; } catch { /* unreadable config: the stricter answer */ }
-  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead, unattended });
+  // Decision 0046: the guard runs in the sessions the owner starts (a background run has no hooks); the variable is the belt.
+  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead, background: backgroundRunOf(env) });
   // P71 M2: a messenger reply is written from its chat's own history (a Mail draft is not judged for what was read: P140 K2).
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug));
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");

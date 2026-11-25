@@ -50,7 +50,7 @@ A session keeps the hooks it started with: a session opened before a core update
 - **Mail bodies are never kept** (decision 0013: the body lives in Mail). The result of a mail-mcp tool other than the header-only `list_accounts`, `list_mailboxes`, `find_messages`, and the `content`/`body` input of `draft_write` and the mail compose tools, are stored as `{sha256, chars}`: the same text gives the same hash, so a repeated reply is still visible.
 - **Sizes.** Prompts and answers up to 8 000 characters, any other string up to 2 000; a line over 16 KB keeps its envelope and says how big it was.
 - **Local only.** `state/` is git-ignored and never leaves the machine; backups do not copy it.
-- **The agent cannot edit its log** in Claude Code: `state/log` has an Edit deny rule in every mode and is `denyWrite` in the unattended sandbox (hooks run outside the sandbox, so they still write). In Codex it is not protected yet: whether Codex runs hooks under its `hub` profile is unmeasured, and a read-only folder there would be a silent log.
+- **The agent cannot edit its log** in Claude Code: `state/log` has an Edit deny rule in every mode and is `denyWrite` in the sandbox (hooks run outside the sandbox, so they still write). In Codex it is not protected yet: whether Codex runs hooks under its `hub` profile is unmeasured, and a read-only folder there would be a silent log.
 
 ## Retention
 

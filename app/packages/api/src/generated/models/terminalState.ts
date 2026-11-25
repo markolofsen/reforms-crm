@@ -11,7 +11,6 @@ import type { TerminalStateProblem } from './terminalStateProblem';
 import type { TerminalStateSessionsItem } from './terminalStateSessionsItem';
 
 export interface TerminalState {
-  unattended: boolean;
   presets: TerminalStatePresetsItem[];
   sessions: TerminalStateSessionsItem[];
   clis: TerminalStateClisItem[];

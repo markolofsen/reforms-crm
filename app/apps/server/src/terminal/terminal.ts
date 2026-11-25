@@ -235,7 +235,7 @@ export function createTerminal(o: TerminalOptions) {
       // `missing` or `signed-out` answer is left to the other triggers (a session ending, Refresh, `ensure`): re-detecting
       // it every minute would run the owner's login shell every minute the admin is open.
       if (!d || d.facts.some((f) => f.state === "unknown")) void detector.get();
-      return { unattended: features().agent.unattended, presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [], clis: (d?.facts ?? []).map(wireFact), checkedAt: d?.at ?? null, problem: currentProblem() };
+      return { presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [], clis: (d?.facts ?? []).map(wireFact), checkedAt: d?.at ?? null, problem: currentProblem() };
     },
     /** Why no tab can start, checked now (server start, Agent tools' Refresh); null when a tab can start. */
     recheck: () => currentProblem(true),

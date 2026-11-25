@@ -15,8 +15,8 @@ const MAIL = "mcp__mail-mcp__";
 /** The hub MCP server's draft writer (P52): bound to the project's accounts like mail-mcp. */
 const HUB_DRAFT_WRITE = "mcp__hub__draft_write";
 /**
- * Decision 0046: the hub's one send, a messenger draft on the owner's word. Allowed in an attended session (the server verifies
- * the word and sends through the door); in an unattended one it is a send-capable tool like any other, and `hub guard` blocks it.
+ * Decision 0046: the hub's one send, a messenger draft on the owner's word. Allowed in a session the owner started (the server
+ * verifies the word and sends through the door); in a background run it is a send-capable tool like any other, and `hub guard` blocks it.
  */
 export const HUB_MESSENGER_SEND = "mcp__hub__messenger_send";
 // Send, forward, reply (Gmail connector: sends; mail-mcp's `create_reply` only drafts), trash/delete (Notion, Gmail, mail),
@@ -126,10 +126,10 @@ export function toolCallsFromLog(text: string): ToolCall[] {
  * project-aware, so the binding is checked against the calls: a mail call naming an `account` outside the project,
  * a knowledge call naming another `project`, a send-capable tool, or a file access in another project's folder.
  * Folders starting with `_` (`_template`, `_archive`) are shared reference and allowed.
- * P140 K3 (owner, 2026-11-24): in an attended session a Read, Grep, Glob or LS of another project's folder, or of the projects
+ * P140 K3 (owner, 2026-11-24): in a session the owner started a Read, Grep, Glob or LS of another project's folder, or of the projects
  * folder itself, is not flagged (the session reads whatever the work needs); an Edit, a Write or a command there still is.
  */
-export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, accounts: readonly string[], skills: SkillScope | undefined, layout: AuditLayout, mode: { unattended: boolean } = { unattended: true }): string[] {
+export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, accounts: readonly string[], skills: SkillScope | undefined, layout: AuditLayout, run: { background: boolean } = { background: true }): string[] {
   const m = matchers(layout);
   const ok = new Set(accounts.map((a) => a.trim().toLowerCase()));
   const out: string[] = [];
@@ -145,15 +145,15 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
     }
     const denied = notionDenial(c.name);
     if (denied) out.push(denied);
-    else if (c.name === HUB_MESSENGER_SEND && !mode.unattended) { /* decision 0046: attended, on the owner's word, through the door */ }
-    else if (c.name === HUB_MESSENGER_SEND) out.push(`${short} is denied in an unattended session (decision 0046: the agent sends only in an attended one, on the owner's word)`);
+    else if (c.name === HUB_MESSENGER_SEND && !run.background) { /* decision 0046: the owner's session, on his word, through the door */ }
+    else if (c.name === HUB_MESSENGER_SEND) out.push(`${short} is denied in a background run (decision 0046: the agent sends only in a session the owner started, on his word)`);
     else if (SEND_CAPABLE.test(c.name) || SEND_CAPABLE.test(short)) out.push(`${short} is a send-capable tool (drafts only, nothing may be sent)`);
     if (typeof input.command === "string" && HUB_SEND.test(input.command)) out.push(`${short} runs hub send (only a person or the hub's own runner sends; the agent never does)`);
     const seq = typeof input.command === "string" ? sequenceRefusal(input.command) : null;
     if (seq) out.push(`${short} runs ${seq}`);
     const written = [input.command, input.new_string, input.content, ...(Array.isArray(input.edits) ? input.edits.map((e) => (e as { new_string?: unknown })?.new_string) : [])];
     if (written.some((w) => typeof w === "string" && SEND_SETTINGS.test(w))) out.push(`${short} writes a send.* setting (switching sending on is the owner's step)`);
-    const readsAnyProject = !mode.unattended && READ_TOOLS.has(c.name);
+    const readsAnyProject = !run.background && READ_TOOLS.has(c.name);
     for (const k of PATH_KEYS) {
       const v = input[k];
       if (typeof v !== "string") continue;

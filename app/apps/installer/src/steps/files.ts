@@ -14,6 +14,12 @@ const SETTINGS = ["config.json"];
 const REQUIRED_CONFIG_KEYS = ["account", "mailboxes", "allow_list"];
 /** Every key of `config/config.json`: the schema of `@hub/config/instance`, the one reader (P126 K1). Add a key there. */
 export const CONFIG_KEYS: readonly string[] = INSTANCE_KEYS;
+/** Keys under `agent` the hub read once and reads no more: `unattended` (one permission mode for every session, owner 2026-11-25). */
+export const RETIRED_AGENT_KEYS: readonly string[] = ["unattended"];
+const retiredAgentKeys = (cfg: object): string[] => {
+  const agent: unknown = Reflect.get(cfg, "agent");
+  return agent && typeof agent === "object" && !Array.isArray(agent) ? RETIRED_AGENT_KEYS.filter((k) => k in agent) : [];
+};
 
 /** Mail login files of the removed IMAP reader (decision 0026): nothing reads them; the owner deletes them. */
 const OLD_MAIL_LOGIN = /^mail-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
@@ -83,10 +89,12 @@ export const fileSteps: Step[] = [
   {
     id: "files.config-keys", group: "Files", title: "Settings file holds no key nothing reads",
     why: "`config/config.json` kept keys of the archived background daemon after it was removed: they look like settings and change nothing, so someone edits them and expects an effect.",
-    verifies: `Every top-level key of \`config/config.json\` is one the hub reads (${CONFIG_KEYS.map((k) => `\`${k}\``).join(", ")}). An unknown key is a WARN naming it, never a FAIL: nothing is changed or deleted.`,
+    verifies: `Every top-level key of \`config/config.json\` is one the hub reads (${CONFIG_KEYS.map((k) => `\`${k}\``).join(", ")}). An unknown key is a WARN naming it, never a FAIL. A retired key (${RETIRED_AGENT_KEYS.map((k) => `\`agent.${k}\``).join(", ")}: one permission mode since 2026-11-25) is a WARN too: read by nothing, it changes nothing. Nothing is changed or deleted.`,
     async check(ctx) {
       const cfg = readJson(ctx.paths.configFile);
       if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) return pass("no readable config.json: files.settings reports that");
+      const retired = retiredAgentKeys(cfg);
+      if (retired.length) return warn(`config.json has retired key(s) nothing reads: ${retired.map((k) => `agent.${k}`).join(", ")}. Delete them: every session runs with no prompts and the OS sandbox on`);
       const unknown = Object.keys(cfg).filter((k) => !CONFIG_KEYS.includes(k));
       // A malformed value is left out by the reader and the rest still applies: say which, beside the unknown keys.
       const { problems } = readInstanceConfig(ctx.paths);

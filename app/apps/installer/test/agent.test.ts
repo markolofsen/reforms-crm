@@ -44,15 +44,14 @@ describe("parseAgentArgs: mode selection", () => {
 });
 
 describe("buildClaudeArgs", () => {
-  it("base flags: normal mode asks (no bypass), unattended skips the prompts", () => {
-    expect(claudeBaseArgs(false, [MAP])).toEqual(["--chrome", "--add-dir", MAP]);
-    expect(claudeBaseArgs(true)).toEqual(["--dangerously-skip-permissions", "--chrome"]);
+  it("base flags: the one mode skips the prompts (the settings carry the sandbox)", () => {
+    expect(claudeBaseArgs([MAP])).toEqual(["--dangerously-skip-permissions", "--chrome", "--add-dir", MAP]);
+    expect(claudeBaseArgs()).toEqual(["--dangerously-skip-permissions", "--chrome"]);
   });
   it("pick leads with --resume; never --continue (P64: it would take any project's newest conversation in the instance root)", () => {
     expect(buildClaudeArgs({ mode: "continue", extra: [] }, [MAP])).not.toContain("--continue");
     expect(buildClaudeArgs({ mode: "pick", extra: [] }, [MAP])[0]).toBe("--resume");
-    expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP])).toEqual(claudeBaseArgs(false, [MAP]));
-    expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP], undefined, undefined, true)).toEqual(claudeBaseArgs(true, [MAP]));
+    expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP])).toEqual(claudeBaseArgs([MAP]));
   });
   it("a project adds the binding prompt, extra flags come last", () => {
     const a = buildClaudeArgs({ mode: "new", project: "acme", extra: ["--model", "opus"] }, [MAP]);
@@ -65,18 +64,16 @@ describe("buildClaudeArgs", () => {
 describe("buildCodexArgs", () => {
   const home = mkdtempSync(path.join(tmpdir(), "hub-codex-"));
   const paths = pathsAt(home);
-  it("never carries the sandbox bypass flag; unattended means approvals never, normal on-request; the hub's own hook is trusted (P51)", () => {
-    for (const unattended of [true, false]) {
-      const a = buildCodexArgs({ mode: "new", extra: [] }, paths, unattended);
-      expect(a.join(" ")).not.toMatch(/bypass-approvals|yolo|danger-full-access/);
-      expect(a).toEqual(["-C", home, "-a", unattended ? "never" : "on-request", "--dangerously-bypass-hook-trust"]);
-    }
-    expect(buildCodexArgs({ mode: "continue", extra: [] }, paths, true)).not.toContain("--last");
-    expect(buildCodexArgs({ mode: "resume", resume: ID, extra: [] }, paths, true)).toEqual(["resume", ID, ...buildCodexArgs({ mode: "new", extra: [] }, paths, true)]);
+  it("never carries the sandbox bypass flag; approvals never; the hub's own hook is trusted (P51)", () => {
+    const a = buildCodexArgs({ mode: "new", extra: [] }, paths);
+    expect(a.join(" ")).not.toMatch(/bypass-approvals|yolo|danger-full-access/);
+    expect(a).toEqual(["-C", home, "-a", "never", "--dangerously-bypass-hook-trust"]);
+    expect(buildCodexArgs({ mode: "continue", extra: [] }, paths)).not.toContain("--last");
+    expect(buildCodexArgs({ mode: "resume", resume: ID, extra: [] }, paths)).toEqual(["resume", ID, ...buildCodexArgs({ mode: "new", extra: [] }, paths)]);
   });
   it("refuses the bypass flag even when it is passed through", () => {
-    expect(() => buildCodexArgs({ mode: "new", extra: ["--dangerously-bypass-approvals-and-sandbox"] }, paths, true)).toThrow(/sandbox off/);
-    expect(() => buildCodexArgs({ mode: "new", extra: ["--yolo"] }, paths, false)).toThrow(/sandbox off/);
+    expect(() => buildCodexArgs({ mode: "new", extra: ["--dangerously-bypass-approvals-and-sandbox"] }, paths)).toThrow(/sandbox off/);
+    expect(() => buildCodexArgs({ mode: "new", extra: ["--yolo"] }, paths)).toThrow(/sandbox off/);
   });
 });
 
@@ -205,8 +202,8 @@ describe("P64: --resume <id> resumes one session, with the CURRENT flags", () =>
   it("Claude: the resume argv is the fresh argv (settings, strict MCP, denied tools, binding prompt) with --resume <id> in front", () => {
     const files = { settings: "/s/settings.json", mcp: "/s/mcp.json", disallowed: ["mcp__mail__send"], rules: [], agent: DEFAULT_AGENT_SETTINGS };
     const plan: AgentPlan = { mode: "new", project: "acme", extra: [] };
-    const fresh = buildClaudeArgs(plan, [MAP], files, "projects", true);
-    const resumed = buildClaudeArgs({ ...plan, mode: "resume", resume: ID }, [MAP], files, "projects", true);
+    const fresh = buildClaudeArgs(plan, [MAP], files, "projects");
+    const resumed = buildClaudeArgs({ ...plan, mode: "resume", resume: ID }, [MAP], files, "projects");
     expect(resumed).toEqual(["--resume", ID, ...fresh]);
     for (const f of [...claudeEnforcementArgs(files), "--append-system-prompt", bindingPrompt("acme", "projects"), "--dangerously-skip-permissions"]) expect(resumed).toContain(f);
   });

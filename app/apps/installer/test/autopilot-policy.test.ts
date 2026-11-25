@@ -73,7 +73,7 @@ describe("no agent path reaches the autopilot's switches (pinned)", () => {
     expect(protectedEditRules(paths)).toEqual(expect.arrayContaining(["Edit(./state/autopilot.json)", "Edit(./state/projects)", "Edit(./state/projects/**)"]));
     const sandbox = claudeSandbox(paths) as { filesystem: { denyWrite: string[] } };
     expect(sandbox.filesystem.denyWrite).toEqual(expect.arrayContaining([paths.autopilot, paths.stateProjects]));
-    const toml = codexConfigToml({ paths, projectsDir: paths.projects, slug: "t", unattended: true, servers: {}, instructions: "x" });
+    const toml = codexConfigToml({ paths, projectsDir: paths.projects, slug: "t", servers: {}, instructions: "x" });
     expect(toml).toContain(`${JSON.stringify(paths.autopilot)} = "read"`);
     expect(toml).toContain(`${JSON.stringify(paths.stateProjects)} = "read"`);
   });

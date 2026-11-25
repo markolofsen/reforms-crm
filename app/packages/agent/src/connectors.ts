@@ -150,13 +150,13 @@ export const BROWSER_CAPABILITY =
  * The capabilities line of a bound session (K4), appended after the project's identity: what this session can reach, built from
  * the same resolver that writes its MCP file, so it never names a tool the session lacks. Rules: `@docs/core/26-capabilities.md`.
  * P82: with the project's Notion scope, the notion part names its databases by id (one source with the guard, `notion-scope.ts`).
- * P140 K3: an attended session also reads and edits the knowledge entry files, so "use only what it names" does not forbid them.
+ * P140 K3: an owner's session also reads and edits the knowledge entry files, so "use only what it names" does not forbid them.
  */
-export function sessionCapabilities(slug: string, attached: readonly AttachedConnector[], cli: AgentCli, notion?: NotionScope, unattended = true): string {
+export function sessionCapabilities(slug: string, attached: readonly AttachedConnector[], cli: AgentCli, notion?: NotionScope): string {
   const who = (c: AttachedConnector) => `${c.name} (${c.account ? c.account.account : "account not confirmed yet"})`;
   const cal = attached.filter((c) => c.kind === "calendar");
   const drive = attached.filter((c) => c.kind === "drive");
-  const parts = ["mail: mail-mcp (read only) and the hub's draft_write (unsent drafts)", notion ? notionCapability(notion) : "notion: the project's CRM databases", `knowledge: the hub's knowledge_search and knowledge_get${unattended ? "" : ", and the entry files directly (attended)"}`];
+  const parts = ["mail: mail-mcp (read only) and the hub's draft_write (unsent drafts)", notion ? notionCapability(notion) : "notion: the project's CRM databases", "knowledge: the hub's knowledge_search and knowledge_get, and the entry files directly"];
   if (cli === "codex") {
     if (cal.length || drive.length) parts.push(`calendar and drive: not in Codex sessions (${[...cal, ...drive].map((c) => c.name).join(", ")} sign in only in Claude Code)`);
     else parts.push("calendar: none attached", "drive: none attached");

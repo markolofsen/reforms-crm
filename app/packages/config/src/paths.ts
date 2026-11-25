@@ -242,10 +242,10 @@ export type AgentCli = (typeof AGENT_CLIS)[number];
 
 export interface InstanceFeatures {
   /**
-   * `agent.default`: the CLI `hub agent` and the terminal's `+` start (default claude). `agent.unattended`: no prompts,
-   * with the OS sandbox on (P49 section 5A); off unless exactly `true`.
+   * `agent.default`: the CLI `hub agent` and the terminal's `+` start (default claude). There is one permission mode, no
+   * switch: every session runs with no prompts and the OS sandbox on (owner 2026-11-25).
    */
-  agent: { default: AgentCli; unattended: boolean };
+  agent: { default: AgentCli };
 }
 
 /**
@@ -255,5 +255,5 @@ export interface InstanceFeatures {
  */
 export function instanceFeatures(paths: Pick<HubPaths, "configFile">): InstanceFeatures {
   const agent = readInstanceConfig(paths).config.agent;
-  return { agent: { default: agent?.default ?? "claude", unattended: agent?.unattended === true } };
+  return { agent: { default: agent?.default ?? "claude" } };
 }

@@ -33,8 +33,7 @@ export type AgentCapability = z.infer<typeof agentCapability>;
 
 export const agentToolsDto = z.strictObject({
   project: z.string(),
-  /** `agent.unattended` of the instance, and `agent.default`. */
-  unattended: z.boolean(),
+  /** `agent.default` of the instance. */
   defaultCli: z.enum(AGENT_TOOL_CLIS),
   rows: z.array(agentToolRow),
   /** P62: the connectors attached to this project and working in its session files (Settings ▸ Agent, Connectors); the rows say what is wrong with the rest. */

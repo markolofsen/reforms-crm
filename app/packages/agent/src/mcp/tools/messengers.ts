@@ -15,8 +15,8 @@ import { cut, ToolError } from "../result";
 // only: a chat no client identifier names, or another project's, is `not_linked` and named nowhere (0036 point 3). P143 L1
 // (decision 0049 as amended 2026-11-25): in a session the owner started (attended), every known chat of the bound project, linked or
 // not, is read and drafted on his request; the chat in focus is named by being in focus, so no `owner_request` naming is asked.
-// Unattended runs and autopilot turns never pass; the triage-messages skill keeps to linked chats by its own rule. Through `@hub/db` only (research 26 section 4): no `@hub/messengers` import, so `hub mcp` loads no Telegram client.
-// Neither sends. Decision 0046: `messenger_send`, registered only in an attended instance, hands one draft to the server's
+// Background runs (autopilot and sweep turns) never pass; the triage-messages skill keeps to linked chats by its own rule. Through `@hub/db` only (research 26 section 4): no `@hub/messengers` import, so `hub mcp` loads no Telegram client.
+// Neither sends. Decision 0046: `messenger_send`, registered only in a session the owner started, hands one draft to the server's
 // send door on the owner's word (`../../messenger/send-tool.ts` holds its port).
 
 const CHANNELS = ["telegram_bot", "telegram_user", "whatsapp"] as const;
@@ -37,7 +37,7 @@ const effectiveRules = (row: MessengerChatRow, policy: { language: string | null
 const policyOf = ({ env, project }: ToolCtx) => env.projectMail?.(project()).messengers ?? { language: null, instruction: null };
 
 /** P143 L1: a session the owner started and attends (the server's send port is passed only then), never an autopilot turn. */
-export const attended = (env: ToolCtx["env"]): boolean => env.autopilotChat === undefined && env.agentSend !== undefined;
+export const attended = (env: ToolCtx["env"]): boolean => env.autopilotChat === undefined && env.followUpClient === undefined && env.agentSend !== undefined;
 
 export function chatAccess(repos: Repos, env: ToolCtx["env"]) {
   const refusal = (what: string, slug: string) => new ToolError("not_linked", `${what} is not a linked chat of project ${slug}: outside a session the owner attends, the agent reads and drafts only in chats linked to a client. Nothing was read or written.`);

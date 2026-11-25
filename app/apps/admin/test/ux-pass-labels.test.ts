@@ -32,7 +32,7 @@ describe("knowledge: a column every entry shares is said once", () => {
 
 describe("agent: one line, and only the rows that need him", () => {
   const row = (state: AgentToolRow["state"]): AgentToolRow => ({ id: `x.${state}`, cli: "claude", title: state, state, detail: "", fix: null });
-  const dto = (rows: AgentToolRow[]): AgentToolsDto => ({ project: "p", unattended: true, defaultCli: "claude", checkedAt: null, rows, capabilities: [] });
+  const dto = (rows: AgentToolRow[]): AgentToolsDto => ({ project: "p", defaultCli: "claude", checkedAt: null, rows, capabilities: [] });
   it("says where the checks stand, without the mode or the default CLI", () => {
     expect(toolsSentence(dto([row("pass")]))).toBe("Ready");
     expect(toolsSentence(dto([row("pass"), row("warn"), row("warn")]))).toBe("Ready, 2 checks to look at");

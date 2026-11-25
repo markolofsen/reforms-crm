@@ -4,7 +4,7 @@ import { ALLOWED_HOSTNAMES } from "@hub/config";
 // The two doors that need a person at the admin tab, not just a loopback caller (P49 S4, S5, S12): the manual Send and
 // the terminal. The API's general guard admits any loopback Origin on any port; these admit only the admin's own origin,
 // and only with a single-use ticket that page fetched a moment before. Headers can be forged by an unsandboxed local
-// process, so this raises the bar; the OS sandbox of an unattended agent is the boundary (it cannot reach loopback).
+// process, so this raises the bar; the OS sandbox of every agent session is the boundary (it cannot reach loopback).
 
 /** `http://127.0.0.1:<admin port>` and `http://localhost:<admin port>`: the only origins of the admin page. */
 export const adminOrigins = (adminPort: number): string[] => ["127.0.0.1", "localhost"].map((h) => `http://${h}:${adminPort}`);

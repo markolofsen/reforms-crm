@@ -5,13 +5,13 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_AGENT_SETTINGS } from "@hub/config";
 import { hubPaths } from "@hub/config/paths";
 import { ADVISOR_OFF_ENV, CLAUDE_CHROME_SERVER, ancestorMemoryExcludes, claudeBaseArgs, claudeDisallowed, claudeModelSettings, claudeSettings } from "../src/claude";
-import { DENIED_TOOLS, denyRules } from "../src/deny";
+import { DENIED_TOOLS, deniedTools, denyRules } from "../src/deny";
 
 // P55: the model keys of a Claude session's settings.json, pinned per project so the owner's personal ones never leak in.
 
 const input = () => {
   const home = mkdtempSync(path.join(tmpdir(), "hub-claude-model-"));
-  return { paths: hubPaths({ home, env: {} }), projectsDir: path.join(home, "projects"), slug: "acme", nodeBin: "/n/node", unattended: false };
+  return { paths: hubPaths({ home, env: {} }), projectsDir: path.join(home, "projects"), slug: "acme", nodeBin: "/n/node" };
 };
 
 describe("P55: claudeSettings pins the model and the advisor", () => {
@@ -42,13 +42,12 @@ describe("P55: claudeSettings pins the model and the advisor", () => {
 // Decision 0040 as amended: the Hub adds no browser, and cuts off none of the owner's: `--chrome` stays, nothing denies its tools.
 describe("the owner's Claude in Chrome is never cut off", () => {
   it("every session starts with --chrome, in both modes", () => {
-    expect(claudeBaseArgs(false)).toContain("--chrome");
-    expect(claudeBaseArgs(true)).toContain("--chrome");
+    expect(claudeBaseArgs()).toContain("--chrome");
   });
-  it("no deny rule, disallowed tool or settings rule names the Chrome tools, in either mode", () => {
+  it("no deny rule, disallowed tool or settings rule names the Chrome tools", () => {
     const i = input();
     const all = [...DENIED_TOOLS, ...denyRules(i.projectsDir, i.paths.home, "acme", i.paths), ...claudeDisallowed()];
-    for (const unattended of [false, true]) all.push(...((claudeSettings({ ...i, unattended }).permissions as { deny: string[] }).deny));
+    all.push(...((claudeSettings(i).permissions as { deny: string[] }).deny), ...deniedTools("background"));
     expect(all.filter((r) => r.includes(CLAUDE_CHROME_SERVER) || /chrome/i.test(r))).toEqual([]);
   });
 });

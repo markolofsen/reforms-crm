@@ -8,31 +8,32 @@ import { claudeSettings } from "../src/claude";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "../src/detect";
 import { codexConfigToml, codexHome } from "../src/codex";
 import { MEASURED_VERSIONS } from "../src/session";
+import { HUB_MCP_WRITE_TOOLS } from "../src/mcp/server";
 
 // The Agent tools rows (P49 5B) on a written instance and a fake probe: no CLI runs, no MCP server is reached.
 
-// A prepared instance always has the hub server (`instanceMcpServers` falls back to the core's): its draft writer is the one
-// unattended approval override the Codex config may carry.
+// A prepared instance always has the hub server (`instanceMcpServers` falls back to the core's): its writing tools are the only
+// approval overrides the Codex config may carry.
 const servers = {
   "mail-mcp": { type: "http", url: "http://127.0.0.1:8787/mcp" },
   notion: { type: "http", url: "https://mcp.notion.com/mcp" },
   hub: { type: "stdio", command: "/n/node", args: ["/core/app/packages/agent/src/mcp/stdio.ts"], env: { HUB_PROJECT: "acme" } },
 };
 
-function instance(o: { unattended: boolean; codex?: boolean; skills?: boolean; claudeSandbox?: boolean }) {
+function instance(o: { codex?: boolean; skills?: boolean; claudeSandbox?: boolean } = {}) {
   const home = mkdtempSync(path.join(tmpdir(), "hub-agent-checks-"));
   mkdirSync(path.join(home, "projects", "acme"), { recursive: true });
   const paths: HubPaths = hubPaths({ home, env: {} });
   const dir = path.join(paths.stateProjects, "acme");
   mkdirSync(dir, { recursive: true });
-  const settings = claudeSettings({ paths, projectsDir: path.join(home, "projects"), slug: "acme", nodeBin: "/n/node", unattended: o.unattended });
+  const settings = claudeSettings({ paths, projectsDir: path.join(home, "projects"), slug: "acme", nodeBin: "/n/node" });
   if (o.claudeSandbox === false) delete (settings as Record<string, unknown>).sandbox;
   writeFileSync(path.join(dir, "settings.json"), JSON.stringify(settings));
   writeFileSync(path.join(dir, "mcp.json"), JSON.stringify({ mcpServers: servers }));
   if (o.codex !== false) {
     const ch = codexHome(paths, "acme");
     mkdirSync(path.join(ch, "skills", "triage-mail"), { recursive: true });
-    writeFileSync(path.join(ch, "config.toml"), codexConfigToml({ paths, projectsDir: path.join(home, "projects"), slug: "acme", unattended: o.unattended, servers, instructions: "acme only" }));
+    writeFileSync(path.join(ch, "config.toml"), codexConfigToml({ paths, projectsDir: path.join(home, "projects"), slug: "acme", servers, instructions: "acme only" }));
   }
   if (o.skills !== false) mkdirSync(path.join(paths.claudeSkills, "triage-mail"), { recursive: true });
   return paths;
@@ -63,60 +64,59 @@ const input = (o: Parameters<typeof probe>[0] & { loggedIn?: boolean } = {}) => 
 const byId = (rows: Awaited<ReturnType<typeof agentChecks>>) => Object.fromEntries(rows.map((r) => [r.id, r]));
 
 describe("agentChecks", () => {
-  it("a prepared unattended instance passes every row for both CLIs", async () => {
-    const paths = instance({ unattended: true });
+  it("a prepared instance passes every row for both CLIs", async () => {
+    const paths = instance();
     for (const cli of ["claude", "codex"] as const) {
-      const rows = await agentChecks({ paths, slug: "acme", cli, unattended: true, ...input() });
+      const rows = await agentChecks({ paths, slug: "acme", cli, ...input() });
       const bad = rows.filter((r) => r.state === "fail" || r.state === "warn");
       expect(bad, cli).toEqual([]);
       expect(rows.every((r) => r.cli === cli && (r.state === "pass" || r.state === "skip") === (r.fix === null))).toBe(true);
     }
   });
-  it("reports the exact Codex approval exception and rejects a second automatic MCP override", async () => {
-    const paths = instance({ unattended: true });
-    const good = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }));
-    expect(good["approval.policy"]).toMatchObject({ state: "pass", detail: "unattended: only hub.draft_write is automatically approved" });
+  it("approves only the hub's own writing tools, by name, and rejects any other automatic MCP override", async () => {
+    const paths = instance();
+    const good = byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }));
+    expect(good["approval.policy"]).toMatchObject({ state: "pass", detail: `only the hub's ${HUB_MCP_WRITE_TOOLS.length} writing tools are automatically approved` });
     const home = codexHome(paths, "acme");
     writeFileSync(path.join(home, "config.toml"), `${readFileSync(path.join(home, "config.toml"), "utf8")}\n[mcp_servers."hub".tools."project_write"]\napproval_mode = "approve"\n`);
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }))["approval.policy"]).toMatchObject({ state: "fail" });
-    const attendedPaths = instance({ unattended: false });
-    const attended = byId(await agentChecks({ paths: attendedPaths, slug: "acme", cli: "codex", unattended: false, ...input() }));
-    expect(attended["approval.policy"]).toMatchObject({ state: "pass", detail: "attended: MCP tools remain on-request" });
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["approval.policy"]).toMatchObject({ state: "fail" });
+    writeFileSync(path.join(home, "config.toml"), `${readFileSync(path.join(home, "config.toml"), "utf8").replace(/\n\[mcp_servers\."hub"\.tools\."project_write"\]\napproval_mode = "approve"\n$/, "")}\n[mcp_servers."notion".tools."notion-search"]\napproval_mode = "approve"\n`);
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["approval.policy"]).toMatchObject({ state: "fail" });
   });
   it("a missing CLI fails; another version warns; Codex not signed in fails with the login line", async () => {
-    const paths = instance({ unattended: true });
-    const missing = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input({ version: { codex: "" } }) }));
+    const paths = instance();
+    const missing = byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input({ version: { codex: "" } }) }));
     expect(missing["cli.version"]).toMatchObject({ state: "fail", fix: "npm i -g @openai/codex" });
     expect(missing["cli.signed-in"]!.state).toBe("skip");
-    const other = byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input({ version: { claude: "2.2.0" } }) }));
+    const other = byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input({ version: { claude: "2.2.0" } }) }));
     expect(other["cli.version"]!.state).toBe("warn");
-    const out = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input({ loggedIn: false }) }));
+    const out = byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input({ loggedIn: false }) }));
     expect(out["cli.signed-in"]).toMatchObject({ state: "fail", fix: "codex login && hub agent acme --cli codex --prepare" });
   });
   it("no session files: fail with the prepare line; no skills: fail", async () => {
-    const paths = instance({ unattended: true, codex: false, skills: false });
-    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }));
+    const paths = instance({ codex: false, skills: false });
+    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }));
     expect(r["session.files"]).toMatchObject({ state: "fail", fix: prepareLine("acme", "codex") });
     expect(r["mode"]!.state).toBe("fail");
-    const c = byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input() }));
+    const c = byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input() }));
     expect(c["skills.linked"]).toMatchObject({ state: "fail", fix: "hub agent acme --prepare" });
   });
   it("a send tool that is not denied fails; the hub never probes Notion (P82)", async () => {
-    const paths = instance({ unattended: true });
-    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input({ tools: { "mail-mcp": ["send_now", "create_reply"] } }) }));
+    const paths = instance();
+    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input({ tools: { "mail-mcp": ["send_now", "create_reply"] } }) }));
     expect(r["mcp.answers.notion"]).toBeUndefined();
     expect(r["mcp.present.notion"]!.state).toBe("pass");
     expect(r["send-tools.off"]).toMatchObject({ state: "fail", detail: "not denied: mail-mcp.send_now" });
   });
   it("Claude Code's Notion row reads the session log: works, a newer sign-in request warns with /mcp, nothing is a quiet skip (P82)", async () => {
-    const paths = instance({ unattended: true });
+    const paths = instance();
     // Today's saas lines, shortened: a search answered; then a synthetic sign-in request (S0 point 4).
     const worked: EvidenceEvent[] = [
       { ts: "2026-11-20T03:23:47.098Z", cli: "claude", kind: "tool_call", corr: "a", data: { tool: "mcp__notion__notion-search", input: { query: "Clients" } } },
       { ts: "2026-11-20T03:25:02.000Z", cli: "claude", kind: "tool_result", corr: "b", data: { tool: "mcp__notion__notion-query-data-sources", output: "{}" } },
       { ts: "2026-11-20T03:23:55.670Z", cli: "claude", kind: "tool_error", corr: "c", data: { tool: "mcp__notion__notion-fetch", error: "Input validation error: id: expected string" } },
     ];
-    const run = async (events: EvidenceEvent[]) => byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input(), notionEvidence: notionEvidenceOf(events, "claude") }))["notion.signin"];
+    const run = async (events: EvidenceEvent[]) => byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input(), notionEvidence: notionEvidenceOf(events, "claude") }))["notion.signin"];
     expect(await run(worked)).toMatchObject({ state: "pass", detail: "works, last used 2026-11-20 03:25", fix: null });
     for (const late of [
       { ts: "2026-11-21T09:00:00.000Z", cli: "claude", kind: "tool_call", data: { tool: "mcp__notion__authenticate", input: {} } },
@@ -132,9 +132,9 @@ describe("agentChecks", () => {
     expect((await run([worked[2]!, { ...worked[1]!, cli: "codex" }]))!.state).toBe("skip");
   });
   it("Codex's Notion row is its own `codex mcp list` answer: not signed in is quiet unless Codex is the default or tried Notion (P82)", async () => {
-    const paths = instance({ unattended: true });
+    const paths = instance();
     const home = codexHome(paths, "acme");
-    const run = async (o: { auth?: string; events?: EvidenceEvent[]; defaultCli?: "claude" | "codex" }) => byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input(o.auth ? { notionAuth: o.auth } : {}), notionEvidence: notionEvidenceOf(o.events ?? [], "codex"), defaultCli: o.defaultCli ?? "claude" }))["notion.signin"];
+    const run = async (o: { auth?: string; events?: EvidenceEvent[]; defaultCli?: "claude" | "codex" }) => byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input(o.auth ? { notionAuth: o.auth } : {}), notionEvidence: notionEvidenceOf(o.events ?? [], "codex"), defaultCli: o.defaultCli ?? "claude" }))["notion.signin"];
     const quiet = await run({ auth: "not_logged_in" });
     expect(quiet).toMatchObject({ state: "skip", fix: null });
     expect(quiet!.detail).toBe(`Codex is not signed in to Notion; only needed for Notion from Codex: CODEX_HOME=${home} codex mcp login notion`);
@@ -146,21 +146,23 @@ describe("agentChecks", () => {
     // A Codex exec that never names Notion is not a try.
     expect((await run({ auth: "not_logged_in", events: [{ ...tried[0]!, data: { tool: "exec", input: "tools.mcp__hub__focus({})" } }] }))!.state).toBe("skip");
   });
-  it("unattended Claude without the sandbox block fails; a Codex config that bypasses the sandbox fails", async () => {
-    const paths = instance({ unattended: true, claudeSandbox: false });
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input() }))["mode"]!.state).toBe("fail");
+  it("Claude without the sandbox block fails; a Codex config that bypasses the sandbox fails", async () => {
+    const paths = instance({ claudeSandbox: false });
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input() }))["mode"]!.state).toBe("fail");
     writeFileSync(path.join(codexHome(paths, "acme"), "config.toml"), 'sandbox_mode = "danger-full-access"\n');
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }))["mode"]).toMatchObject({ state: "fail", detail: "the Codex config bypasses the sandbox" });
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["mode"]).toMatchObject({ state: "fail", detail: "the Codex config bypasses the sandbox" });
   });
-  it("a Codex config for the other mode fails; a broken policy file fails", async () => {
-    const paths = instance({ unattended: false });
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }))["mode"]!.state).toBe("fail");
+  it("a Codex config that asks for approvals fails; a broken policy file fails", async () => {
+    const paths = instance();
+    const file = path.join(codexHome(paths, "acme"), "config.toml");
+    writeFileSync(file, readFileSync(file, "utf8").replace('approval_policy = "never"', 'approval_policy = "on-request"'));
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", ...input() }))["mode"]!.state).toBe("fail");
     writeFileSync(path.join(paths.stateProjects, "acme", "send-policy.json"), "{");
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: false, ...input() }))["send.pipeline"]!.state).toBe("fail");
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", ...input() }))["send.pipeline"]!.state).toBe("fail");
   });
   it("the fake rows hold one of each state and a fix on each red row; Codex's Notion row is quiet", () => {
     const rows = fakeAgentRows("acme", "claude");
-    // skip: Claude Code has no MCP approval override (its attended permission flow), so that row is skipped.
+    // skip: Claude Code has no MCP approval override (no prompts inside its OS sandbox), so that row is skipped.
     expect(new Set(rows.map((r) => r.state))).toEqual(new Set(["pass", "fail", "warn", "skip"]));
     expect(rows.filter((r) => r.state === "fail" || r.state === "warn").every((r) => r.fix)).toBe(true);
     expect(rows.find((r) => r.id === "notion.signin")).toMatchObject({ state: "warn", fix: "/mcp" });

@@ -11,7 +11,6 @@ import type { AgentToolsRowsItem } from './agentToolsRowsItem';
 
 export interface AgentTools {
   project: string;
-  unattended: boolean;
   defaultCli: AgentToolsDefaultCli;
   rows: AgentToolsRowsItem[];
   capabilities: AgentToolsCapabilitiesItem[];

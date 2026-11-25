@@ -78,7 +78,7 @@ describe("the agent has no send path", () => {
         expect(g.violations.join("; ")).toMatch(/not on the Notion allow-list/);
       }
     }
-    const toml = codexConfigToml({ paths: INSTANCE.paths, projectsDir: PROJECTS, slug: "acme-travel", unattended: true, servers: { notion: { type: "http", url: "https://mcp.notion.com/mcp" } }, instructions: "x" });
+    const toml = codexConfigToml({ paths: INSTANCE.paths, projectsDir: PROJECTS, slug: "acme-travel", servers: { notion: { type: "http", url: "https://mcp.notion.com/mcp" } }, instructions: "x" });
     expect(toml).toContain(`enabled_tools = [${NOTION_ALLOWED.map((t) => `"${t}"`).join(", ")}]`);
   });
 

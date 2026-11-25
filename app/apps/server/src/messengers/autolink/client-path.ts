@@ -15,7 +15,7 @@ import type { ProjectAutolink } from "./setup";
  * P100, P143 L2: the one path of Link and Create from a chat, shared by the owner's doors (the admin) and the agent's (attended,
  * `hub mcp` with the agent token), so both link, fill the card and read it back the same way. The routes stay in `routes.ts`.
  */
-export function clientPath({ repos, kit, agentUnattended }: { repos: MessengersContext["repos"]; kit: ReturnType<typeof chatIdentityKit>; agentUnattended: MessengersContext["agentUnattended"] }) {
+export function clientPath({ repos, kit }: { repos: MessengersContext["repos"]; kit: ReturnType<typeof chatIdentityKit> }) {
   const { identityFor, ownIdentity, fillLine, fillCard } = kit;
   type UserChannel = "telegram_user" | "whatsapp";
   type Linked = { pageId: string; name: string; imported: number; importError: string | null; notion: string | null; how: "created" | "linked_existing" | "linked" };
@@ -80,12 +80,8 @@ export function clientPath({ repos, kit, agentUnattended }: { repos: MessengersC
   }
   const refusedOf = (c: Context, r: Refused) => c.json({ error: r.refused, code: r.code }, r.code === "not_found" ? 404 : 409);
 
-  /** P143 L2: the agent's doors act only in an attended instance (decision 0046's rule for the agent send). */
-  const unattendedRefusal = (c: Context): Response | null => (!agentUnattended || agentUnattended() ? c.json({ error: "This instance runs unattended sessions: only the owner links or creates clients here.", code: "forbidden" as const }, 403) : null);
-  /** P143 L2: the agent's chat doors, attended, on a known user chat of this project. */
+  /** P143 L2: the agent's chat doors, on a known user chat of this project. Only `hub mcp` of a session the owner started calls them (its token; a background run has no such tool). */
   async function agentChat(c: Context, slug: string, chat: number): Promise<{ row: NonNullable<Awaited<ReturnType<MessengersContext["repos"]["messengers"]["chatById"]>>>; channel: UserChannel; account: string } | Response> {
-    const refused = unattendedRefusal(c);
-    if (refused) return refused;
     const row = await repos.messengers.chatById(slug, chat);
     if (!row) return notFound(c, "chat");
     if (row.channel === "telegram_bot") return c.json({ error: "A bot chat is not linked by the autolink.", code: "wrong_state" as const }, 409);
@@ -101,7 +97,7 @@ export function clientPath({ repos, kit, agentUnattended }: { repos: MessengersC
    * with no chat, a Clients card alone (`clientWithoutChat`).
    */
   async function agentCreate(c: Context, slug: string, a: ProjectAutolink, b: NewClientBody & { chat?: number | undefined }): Promise<Response> {
-    if (b.chat === undefined) return unattendedRefusal(c) ?? createWithoutChat(c, slug, a, b);
+    if (b.chat === undefined) return createWithoutChat(c, slug, a, b);
     const at = await agentChat(c, slug, b.chat);
     if (at instanceof Response) return at;
     // P141 C2: one lookup by the person's identities first: a client the Hub knows by this email or this number is linked to.

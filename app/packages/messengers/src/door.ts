@@ -24,8 +24,8 @@ export type { MessengerAuthority } from "./authorization";
 // The ticket is not a stage here: it proves an `owner_click` and is taken by the route before the door is called. Who may ask
 // is `MessengerAuthority` (`./authorization.ts`): the owner's click, the agent on the owner's word (decision 0046), or the
 // server's autopilot in a chat the owner switched on (decision 0048), never a default. All pass the same five stages; the
-// autopilot's audit row is also held to its share of the account. The door knows no session mode, so an unattended
-// instance's deny lists (which bind the model's processes) do not reach it.
+// autopilot's audit row is also held to its share of the account. The door knows no session mode, so a session's
+// deny lists (which bind the model's processes) do not reach it.
 
 /** The live send of each connected account, from the server's supervisors; nothing else holds one. */
 export interface MessengerSenders {

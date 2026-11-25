@@ -20,4 +20,4 @@ indexable file with its row, read only: the doctor row `knowledge.index` fails w
 
 How a session reaches the entries: through `knowledge_search` and `knowledge_get` (bound to its project), and in an attended
 session also by reading, grepping and editing the entry files under `projects/<slug>/knowledge/files/` directly (owner,
-2026-11-24; `skills/README.md`, "Reading and writing files"). An unattended session uses the tools only.
+2026-11-24; `skills/README.md`, "Reading and writing files"). A background run uses the tools only.

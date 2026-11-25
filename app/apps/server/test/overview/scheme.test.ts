@@ -37,7 +37,6 @@ const CONN: ConnectionsDto = {
 };
 const TOOLS: AgentToolsDto = {
   project: "alpha",
-  unattended: false,
   defaultCli: "claude",
   capabilities: [],
   checkedAt: "2026-11-19T10:00:00Z",

@@ -55,7 +55,7 @@ const LEAVE = "Leave the draft for the owner and tell him in one line that it wa
 
 /**
  * Decision 0046 (P132 B1-2): the agent sends ONE messenger draft on the owner's word, through the same door as his Send. Only
- * `hub mcp` may ask (its token), never on an unattended instance, never for Mail (this route knows messenger drafts only); the
+ * `hub mcp` of a session the owner started may ask (its token; a background run has no send tool), never for Mail (this route knows messenger drafts only); the
  * word is found here, in the project's session log, never taken from the caller; the `send_log` row carries the word's reference.
  */
 function agentSendRoute({ repos, sender, messengers }: SendContext) {
@@ -65,7 +65,6 @@ function agentSendRoute({ repos, sender, messengers }: SendContext) {
     const agent = sender?.agent;
     if (!sender || !agent) return c.json(agentRefusal("unavailable", "the agent send is not set up on this server.", LEAVE), 409);
     if (!tokenMatches(c.req.header(AGENT_SEND_HEADER), agent.token)) return c.json(agentRefusal("forbidden", "only the hub's own MCP server may ask for an agent send.", LEAVE), 403);
-    if (agent.unattended()) return c.json(agentRefusal("unattended", "this instance runs unattended sessions, which never send (decision 0046).", LEAVE), 409);
     const d = await repos.messengers.getDraft(slug, id);
     const row = await repos.messengers.chatById(slug, chat);
     if (!d || !row) return c.json(agentRefusal("not_found", `there is no messenger draft ${id} in chat:${chat} of ${slug} (a Mail draft is never sent by the agent).`, "Read the chat with messenger_history and use its open_draft id."), 404);

@@ -9,7 +9,7 @@ import { TerminalContext, type TerminalModel } from "../src/features/terminal/us
 // the column says the reason and the one fix line; while the state loads, the strip is there too.
 
 const problem = { reason: "node-pty does not load on this Node (v24.0.0): ABI mismatch", fix: "pnpm --dir /core/app install --frozen-lockfile" };
-const state = (p: TerminalStateDto["problem"]): TerminalStateDto => ({ unattended: false, presets: ["claude", "codex", "shell"], sessions: [], clis: [], checkedAt: null, problem: p });
+const state = (p: TerminalStateDto["problem"]): TerminalStateDto => ({ presets: ["claude", "codex", "shell"], sessions: [], clis: [], checkedAt: null, problem: p });
 
 function model(over: Partial<TerminalModel>): TerminalModel {
   return {

@@ -7,6 +7,7 @@ import { connectorRows } from "./connector-checks";
 import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, deniedTools, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
 import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
+import { HUB_MCP_WRITE_TOOLS } from "./mcp/server";
 import { codexNotionAuth, NO_NOTION_EVIDENCE, notionFix, notionRow, notionSignIn, type NotionEvidence } from "./notion-signin";
 
 // "Agent tools" (P49 section 5B): per CLI and per project, whether a hub agent session has what it needs, loaded and
@@ -32,7 +33,6 @@ export interface AgentCheckInput {
   paths: HubPaths;
   slug: string;
   cli: AgentCli;
-  unattended: boolean;
   probe: AgentProbe;
   /** What the detector found on this Mac (`@hub/agent/detect`): rows 1 and 2 are read from it, never probed again here. */
   facts: readonly CliFact[];
@@ -80,7 +80,7 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
     row("cli.version", `${label} installed`, "fail", f.detail, INSTALL_LINE[cli]);
     row("cli.signed-in", "Signed in", "skip", `${label} is not installed`);
   } else {
-    if (f.version !== MEASURED_VERSIONS[cli]) row("cli.version", `${label} installed`, "warn", `${f.version}; the sandbox was measured on ${MEASURED_VERSIONS[cli]}: rerun the unattended checks of @docs/core/24-terminal.md`, `${cli} --version`);
+    if (f.version !== MEASURED_VERSIONS[cli]) row("cli.version", `${label} installed`, "warn", `${f.version}; the sandbox was measured on ${MEASURED_VERSIONS[cli]}: rerun the sandbox checks of @docs/core/24-terminal.md`, `${cli} --version`);
     else row("cli.version", `${label} installed`, "pass", f.version);
     if (f.state === "ready") row("cli.signed-in", "Signed in", "pass", f.detail.replace(/^\S+ · /, ""));
     else row("cli.signed-in", "Signed in", "fail", `${label} is not signed in`, cli === "codex" ? `${LOGIN_LINE.codex} && ${prepare}` : LOGIN_LINE.claude);
@@ -123,16 +123,16 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   }
 
   // 5. No tool that sends, forwards or removes reaches the session.
-  const deniedList = deniedTools(i.unattended);
+  const deniedList = deniedTools("owner");
   const denied = new Set(deniedList);
-  // Decision 0046: an attended session keeps `hub.messenger_send` (the owner's word, verified by the server, through his door).
-  const allowed = new Set(i.unattended ? [] : ATTENDED_SEND_TOOLS);
+  // Decision 0046: an owner's session keeps `hub.messenger_send` (the owner's word, verified by the server, through his door).
+  const allowed = new Set(ATTENDED_SEND_TOOLS);
   const open = listed.flatMap((l) => l.tools.filter((t) => SEND_LIKE_TOOL.test(t) && !DRAFT_TOOLS.includes(t) && !denied.has(`mcp__${l.name}__${t}`) && !allowed.has(`mcp__${l.name}__${t}`)).map((t) => `${l.name}.${t}`));
   const codexOff = toml === null || HUB_MCP_SERVERS.every((n) => !servers[n] || !deniedList.some((t) => t.startsWith(`mcp__${n}__`)) || /^disabled_tools = /m.test(section(n)));
   if (!listed.length) row("send-tools.off", "Send tools off", "skip", "no server answered");
   else if (open.length) row("send-tools.off", "Send tools off", "fail", `not denied: ${open.join(", ")}`, "hub core update");
   else if (!codexOff) row("send-tools.off", "Send tools off", "fail", "the Codex config does not disable the send tools", prepare);
-  else row("send-tools.off", "Send tools off", "pass", `${deniedList.length} denied${i.unattended ? "" : "; messenger_send on the owner's word (decision 0046)"}`);
+  else row("send-tools.off", "Send tools off", "pass", `${deniedList.length} denied; messenger_send on the owner's word (decision 0046)`);
 
   // 5b. P62: the project's connectors (Calendar, Drive): attached, answering, the account, the writes off; then the info rows.
   const deny = [...((settings?.permissions?.deny ?? []) as string[])];
@@ -143,30 +143,28 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   const linked = existsSync(skillsDir) ? readdirSync(skillsDir).length : 0;
   row("skills.linked", "Skills linked", linked ? "pass" : "fail", linked ? `${linked} in ${skillsDir}` : `none in ${skillsDir}`, prepare);
 
-  // 7. The mode: prompts on, or the OS sandbox with no network and no bypass.
+  // 7. The mode: the OS sandbox with no network and no bypass.
   if (cli === "claude") {
     const sb = settings?.sandbox;
     const domains = sb?.network?.allowedDomains;
     const good = !!sb && sb.enabled === true && sb.allowUnsandboxedCommands === false && Array.isArray(domains) && domains.length === 0;
-    if (!i.unattended) row("mode", "Mode", settings ? "pass" : "fail", "attended: Claude Code asks before each action", prepare);
-    else row("mode", "Mode", good ? "pass" : "fail", good ? "unattended: OS sandbox on, no network, no unsandboxed commands" : "unattended without the OS sandbox block", prepare);
+    row("mode", "Mode", good ? "pass" : "fail", good ? "no prompts: OS sandbox on, no network, no unsandboxed commands" : "no OS sandbox block in the session settings", prepare);
   } else if (toml === null) row("mode", "Mode", "fail", "no Codex config", prepare);
   else if (codexConfigBypasses(toml)) row("mode", "Mode", "fail", "the Codex config bypasses the sandbox", prepare);
   else {
     const profile = toml.includes(`default_permissions = "${CODEX_PROFILE}"`) && /\[permissions\.hub\.network\]\s*\nenabled = false/.test(toml);
-    const approval = toml.includes(`approval_policy = "${i.unattended ? "never" : "on-request"}"`);
-    row("mode", "Mode", profile && approval ? "pass" : "fail", profile && approval ? `${i.unattended ? "unattended" : "attended"}: the hub profile, no network` : "the Codex config does not use the hub profile for this mode", prepare);
+    const approval = toml.includes(`approval_policy = "never"`);
+    row("mode", "Mode", profile && approval ? "pass" : "fail", profile && approval ? "no prompts: the hub profile, no network" : "the Codex config does not use the hub profile and approval never", prepare);
   }
 
-  // The unattended exception is deliberately narrower than the global mode: only the hub's unsent draft writer may
-  // receive an automatic approval override. Attended configs must not carry the override forward from another session.
+  // The approval overrides are the hub's own writing tools, by name, and nothing else (no other server's tool, no unknown name).
   if (cli === "codex" && toml !== null) {
     const overrides = [...toml.matchAll(/^\[mcp_servers\."([^"]+)"\.tools\."([^"]+)"\]\s*\n(?:[^\[]*\n)*?approval_mode\s*=\s*"([^"]+)"/gm)].map((match) => ({ server: match[1], tool: match[2], mode: match[3] }));
-    const onlyDraftWriter = overrides.length === 1 && overrides[0]?.server === "hub" && overrides[0].tool === "draft_write" && overrides[0].mode === "approve";
-    const safe = i.unattended ? onlyDraftWriter : overrides.length === 0;
-    row("approval.policy", "MCP approval", safe ? "pass" : "fail", safe ? (i.unattended ? "unattended: only hub.draft_write is automatically approved" : "attended: MCP tools remain on-request") : "unexpected MCP approval override; only unattended hub.draft_write may be automatic", prepare);
+    const writers = new Set(HUB_MCP_WRITE_TOOLS);
+    const safe = overrides.every((o) => o.server === "hub" && !!o.tool && writers.has(o.tool) && o.mode === "approve");
+    row("approval.policy", "MCP approval", safe ? "pass" : "fail", safe ? `only the hub's ${overrides.length} writing tools are automatically approved` : "unexpected MCP approval override; only the hub's own writing tools may be automatic", prepare);
   } else if (cli === "codex") row("approval.policy", "MCP approval", "fail", "no Codex config", prepare);
-  else row("approval.policy", "MCP approval", "skip", "Claude Code uses its attended permission flow");
+  else row("approval.policy", "MCP approval", "skip", "Claude Code runs with no prompts inside its OS sandbox");
 
   // 8. The send pipeline: the policy file is the server's, not the project's.
   const pol = json<SendPolicyFile>(path.join(paths.stateProjects, slug, "send-policy.json"));
@@ -260,7 +258,7 @@ export function fakeAgentRows(slug: string, cli: AgentCli): AgentCheckRow[] {
       : r("notion.signin", "Notion sign-in", "skip", `Codex is not signed in to Notion; only needed for Notion from Codex: ${notionFix(cli)}`),
     r("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`),
     cli === "codex"
-      ? r("approval.policy", "MCP approval", "pass", "unattended: only hub.draft_write is automatically approved")
-      : r("approval.policy", "MCP approval", "skip", "Claude Code uses its attended permission flow"),
+      ? r("approval.policy", "MCP approval", "pass", `only the hub's ${HUB_MCP_WRITE_TOOLS.length} writing tools are automatically approved`)
+      : r("approval.policy", "MCP approval", "skip", "Claude Code runs with no prompts inside its OS sandbox"),
   ];
 }

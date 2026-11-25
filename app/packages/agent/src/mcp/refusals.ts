@@ -138,7 +138,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   no_inbound: { retry: "no", next: "No message from this person is stored yet: tell the owner in one line to Refresh the chat or check the receiver; his word that they wrote does not count. Write nothing." },
   not_requested: { retry: "after_owner", next: "Draft here only when the owner asks for this chat; pass his words as owner_request." },
   forbidden: { retry: "no", next: "Leave the draft for the owner on the Messengers panel; never retry." },
-  unattended: { retry: "no", next: "Unattended sessions never send: leave the draft for the owner." },
+  unattended: { retry: "no", next: "A background run never sends: leave the draft for the owner." },
   other_chat: { retry: "now", next: "Use the open_draft id messenger_history gives for this chat." },
   no_owner_word: { retry: "after_owner", next: "Send only after the owner tells you to in this session; the draft waits." },
   word_before_draft: { retry: "after_owner", next: "His word came before the draft's last change: ask him again in one line." },

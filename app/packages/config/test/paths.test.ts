@@ -87,19 +87,20 @@ describe("instanceBrand (P48 W0)", () => {
   });
 });
 
-describe("instanceFeatures (P49): every switch is off unless it is exactly true", () => {
+describe("instanceFeatures (P49): the default CLI, and no permission switch", () => {
   it("absent, malformed or not exactly true is the safe default", () => {
     const home = instanceDir();
     mkdirSync(join(home, "config"));
     const p = pathsAt(home, empty);
-    const off = { agent: { default: "claude", unattended: false } };
+    const off = { agent: { default: "claude" } };
     expect(instanceFeatures(p)).toEqual(off);
-    for (const cfg of ["not json", JSON.stringify({ agent: "codex" }), JSON.stringify({ agent: { default: "gemini", unattended: 1 } })]) {
+    for (const cfg of ["not json", JSON.stringify({ agent: "codex" }), JSON.stringify({ agent: { default: "gemini" } })]) {
       writeFileSync(p.configFile, cfg);
       expect(instanceFeatures(p), cfg).toEqual(off);
     }
+    // Owner 2026-11-25: a leftover agent.unattended is read by nothing; every session runs in the one mode.
     writeFileSync(p.configFile, JSON.stringify({ agent: { default: "codex", unattended: true } }));
-    expect(instanceFeatures(p)).toEqual({ agent: { default: "codex", unattended: true } });
+    expect(instanceFeatures(p)).toEqual({ agent: { default: "codex" } });
   });
 
   it("the terminal has no switch (decision 0032): a terminal key changes nothing", () => {
@@ -108,7 +109,7 @@ describe("instanceFeatures (P49): every switch is off unless it is exactly true"
     const p = pathsAt(home, empty);
     for (const enabled of [false, true]) {
       writeFileSync(p.configFile, JSON.stringify({ terminal: { enabled }, agent: { default: "codex" } }));
-      expect(instanceFeatures(p)).toEqual({ agent: { default: "codex", unattended: false } });
+      expect(instanceFeatures(p)).toEqual({ agent: { default: "codex" } });
     }
   });
 });

@@ -3,8 +3,8 @@ import { AGENT_SEND_HEADER } from "./send-token";
 // `messenger_send`'s port (decision 0046, P132 B1-2; the tool is `../mcp/tools/messengers.ts`): in an ATTENDED session only, the agent sends one messenger draft after the owner
 // told it to in this session ("отправь", "send it"). The tool names the chat and the draft, nothing else: the server finds the
 // owner's word in the session log and sends through the same door as the owner's Send (inbound first, Stop sending, cap and
-// spacing, `draft.recipients`, `send_log` with `actor: agent_on_owner_word`). `hub mcp` registers it only when the instance is
-// not unattended; the deny list, Codex `disabled_tools` and `hub guard` refuse it in unattended sessions. Mail has no send tool.
+// spacing, `draft.recipients`, `send_log` with `actor: agent_on_owner_word`). `hub mcp` registers it only in a session the owner
+// started; a background run's deny list and `hub guard` refuse it there. Mail has no send tool.
 
 export const MESSENGER_SEND_TOOL = "messenger_send";
 

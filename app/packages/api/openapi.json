@@ -22379,9 +22379,6 @@
           "project": {
             "type": "string"
           },
-          "unattended": {
-            "type": "boolean"
-          },
           "defaultCli": {
             "type": "string",
             "enum": [
@@ -22476,7 +22473,6 @@
         },
         "required": [
           "project",
-          "unattended",
           "defaultCli",
           "rows",
           "capabilities",
@@ -22716,9 +22712,6 @@
       "TerminalState": {
         "type": "object",
         "properties": {
-          "unattended": {
-            "type": "boolean"
-          },
           "presets": {
             "type": "array",
             "items": {
@@ -22874,7 +22867,6 @@
           }
         },
         "required": [
-          "unattended",
           "presets",
           "sessions",
           "clis",

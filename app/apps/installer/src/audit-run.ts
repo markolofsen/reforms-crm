@@ -3,7 +3,7 @@ import path from "node:path";
 import { auditToolCalls, toolCallsFromLog, type ToolCall } from "@hub/projects/audit";
 import { defaultProjectsRoot } from "@hub/projects/registry";
 import { projectStore } from "@hub/projects/store";
-import { hubPaths, instanceFeatures } from "@hub/config/paths";
+import { hubPaths } from "@hub/config/paths";
 import { auditLayout, skillScope } from "./safety";
 
 export interface AuditResult { project: string; calls: number; violations: string[] }
@@ -28,6 +28,6 @@ export function auditRun(logFile: string, slug: string, projectsRoot?: string): 
   return {
     project: slug,
     calls: calls.length,
-    violations: auditToolCalls(calls, slug, p.parsed.config.mail.accounts, skillScope(p.parsed.config.kind, hubPaths().skills), auditLayout(hubPaths()), { unattended: instanceFeatures(hubPaths()).agent.unattended }),
+    violations: auditToolCalls(calls, slug, p.parsed.config.mail.accounts, skillScope(p.parsed.config.kind, hubPaths().skills), auditLayout(hubPaths()), { background: false }),
   };
 }

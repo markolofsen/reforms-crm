@@ -30,7 +30,7 @@ const CRITICAL_PLACES: readonly Place[] = [
   { place: "agent tool refused", file: "packages/agent/src/mcp/define.ts", line: /ops\("agent"\)\.warn\(`tool \$\{t\.name\} refused`/ },
   { place: "Notion call failed", file: "packages/notion/src/notion.ts", line: /ops\("notion"\)\.error\(`Notion \$\{op\} failed`/ },
   { place: "Notion retry (rate limit)", file: "packages/notion/src/sdk-log.ts", line: /ops\("notion"\)\.warn\("Notion asked to wait/ },
-  { place: "Notion client card created", file: "packages/notion/src/chat-client.ts", line: /"client card created in Notion from a chat"/ },
+  { place: "Notion client card created", file: "packages/notion/src/chat-client.ts", line: /"client card created in Notion"/ },
   { place: "Notion client map", file: "packages/notion/src/client-map.ts", line: /log\.info\(`client map copied to Notion/ },
   { place: "Notion send stamp", file: "packages/notion/src/stamp.ts", line: /log\.info\("send stamped in Notion/ },
   { place: "Mail reader pass failed", file: "apps/server/src/mail/inbound.ts", line: /ops\("mail"\)\.error\("a pass of the Mail reader failed"/ },

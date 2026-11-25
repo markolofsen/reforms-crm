@@ -25,11 +25,11 @@ import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../mcp/server";
 /** The hub tools of a turn as Claude names them. */
 export const AUTOPILOT_ALLOWED: readonly string[] = AUTOPILOT_HUB_TOOLS.map((t) => `mcp__hub__${t}`);
 
-/** Every other hub tool (the attended send included) and the hub's deny list of every unattended session: denied by name. */
+/** Every other hub tool (the attended send included) and the deny list of a background run: denied by name. */
 export const autopilotDisallowed = (): string[] => {
   const own = new Set<string>(AUTOPILOT_HUB_TOOLS);
   const hub = [...HUB_MCP_TOOLS, ...HUB_MCP_ATTENDED_TOOLS].filter((t) => !own.has(t)).map((t) => `mcp__hub__${t}`);
-  return [...new Set([...hub, ...deniedTools(true)])];
+  return [...new Set([...hub, ...deniedTools("background")])];
 };
 
 /** Where one chat's turn files live: `state/projects/<slug>/autopilot/<chat row id>/` (per chat: the pool runs two at once). */

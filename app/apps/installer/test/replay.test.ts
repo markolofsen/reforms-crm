@@ -20,7 +20,7 @@ const guard: ReplayGuard = (call, p) => {
   const paths = pathsAt(p.dir);
   const payload = { session_id: call.sessionId, tool_name: call.name, tool_input: call.input };
   const accounts = projectStore({ projects: p.projectsDir }).config(p.slug).mail.accounts;
-  const g = guardDecision(payload, { slug: p.slug, accounts, mode: "block", layout: auditLayout(paths), unattended: false });
+  const g = guardDecision(payload, { slug: p.slug, accounts, mode: "block", layout: auditLayout(paths), background: false });
   return [...g.violations, ...preDraftViolations(payload, p.dir, p.slug)];
 };
 const observe: ReplayObserver = (call, p) => void recordPost(p.dir, p.slug, { session_id: call.sessionId, tool_name: call.name, tool_input: call.input, tool_response: call.result });

@@ -117,7 +117,7 @@ describe("the messenger door's stages (P112 S2)", () => {
     expect(await applyMessenger(later(31), "p", over, { chatId: "100", text: "Reply 21" }, CLICK)).toEqual({ sendId: expect.any(Number) });
   });
 
-  it("the door knows no session mode: nothing in it reads an unattended switch (decision 0048: deny lists bind the model, not the server)", async () => {
+  it("the door knows no session mode: nothing in it reads a session-mode switch (decision 0048: deny lists bind the model, not the server)", async () => {
     const { readFileSync } = await import("node:fs");
     for (const f of ["../src/door.ts", "../src/authorization.ts", "../src/send-confirmed.ts"]) expect(readFileSync(new URL(f, import.meta.url), "utf8")).not.toMatch(/unattended\s*[(:=]|instanceFeatures|agent\.unattended/);
   });

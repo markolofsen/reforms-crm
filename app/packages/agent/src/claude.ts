@@ -3,7 +3,7 @@ import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from "@hub/config";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { connectorDeniedTools, type AttachedConnector } from "./connectors";
 import { deniedTools, denyRules } from "./deny";
-import { claudeModeArgs, claudeProtectedPaths, claudeSandbox } from "./session";
+import { CLAUDE_MODE_ARGS, claudeProtectedPaths, claudeSandbox } from "./session";
 
 // A Claude Code session of `hub agent`, built without writing (the launcher writes it; the Agent tools check reads it).
 
@@ -13,7 +13,6 @@ export interface ClaudeSessionInput {
   slug: string | undefined;
   /** The Node that runs the hub (the hooks call `hub guard` with it). */
   nodeBin: string;
-  unattended: boolean;
   /** P55: the project's model and advisor (Settings ▸ Agent); the default when left out. */
   agent?: AgentSettings;
   /** P62: the project's attached connectors; every tool of theirs off the allowlist is denied by name. */
@@ -42,7 +41,7 @@ export const ADVISOR_RULE =
 
 /**
  * Edit rules for the protected paths, in every mode: the Edit and Write tools are not sandboxed (only commands are), so the
- * send policy and the session's own config need a deny rule as well (live, 2026-11-18: an unattended Edit of
+ * send policy and the session's own config need a deny rule as well (live, 2026-11-18: a sandboxed Edit of
  * send-policy.json went through with the sandbox alone). `./` is the instance root (where the session starts), `//` absolute.
  */
 export function protectedEditRules(paths: HubPaths): string[] {
@@ -72,15 +71,15 @@ export function ancestorMemoryExcludes(home: string): string[] {
 }
 
 /**
- * `state/projects/<slug>/settings.json`: deny rules, the guard hooks, and in unattended mode the sandbox. In unattended
- * mode the database folder is left out of the Read/Edit deny rules: Claude turns them into sandbox read and write
+ * `state/projects/<slug>/settings.json`: deny rules, the guard hooks and the sandbox. The database folder is left out of the
+ * Read/Edit deny rules: Claude turns them into sandbox read and write
  * denials, and `hub sequences enrol|judge` (until P129 A9 moves them into `hub mcp`, which records drafts outside the sandbox) must open the database. The database holds
  * no permission to send: a manual send needs a person's ticket (S12), an autosend the policy file (S11).
  */
 export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
   const dbRules = new Set(["Read", "Edit"].map((t) => `${t}(./${(path.relative(i.paths.home, path.dirname(i.paths.db)) || ".").split(path.sep).join("/")}/**)`));
-  const all = denyRules(i.projectsDir, i.paths.home, i.slug, i.paths, i.unattended);
-  const deny = [...(i.unattended ? all.filter((r) => !dbRules.has(r)) : all), ...connectorDeniedTools(i.connectors ?? []), ...protectedEditRules(i.paths)];
+  const all = denyRules(i.projectsDir, i.paths.home, i.slug, i.paths);
+  const deny = [...all.filter((r) => !dbRules.has(r)), ...connectorDeniedTools(i.connectors ?? []), ...protectedEditRules(i.paths)];
   const hub = `${JSON.stringify(i.nodeBin)} ${JSON.stringify(i.paths.hubBin)} guard`;
   return {
     ...claudeModelSettings(i.agent),
@@ -96,7 +95,7 @@ export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
       // print mode on 2.1.220, an async Stop hook wrote nothing, so it runs in line, after the answer is already shown.
       ...Object.fromEntries(CLAUDE_LOG_EVENTS.map((e) => [e, [{ hooks: [{ type: "command", command: logHookCommand(i.nodeBin, i.paths, "claude"), ...(CLAUDE_LOG_IN_LINE.has(e) ? { timeout: 10 } : { timeout: 20, async: true }) }] }]])),
     },
-    ...(i.unattended ? { sandbox: claudeSandbox(i.paths) } : {}),
+    sandbox: claudeSandbox(i.paths),
   };
 }
 
@@ -124,11 +123,11 @@ export function claudeEnforcementArgs(f: ClaudeFiles): string[] {
 export const CLAUDE_CHROME_SERVER = "claude-in-chrome";
 
 /**
- * Fixed flags of a mode, then `--chrome` (decision 0040 as amended: the owner's own Claude in Chrome, every session, both modes,
+ * The mode's fixed flags, then `--chrome` (decision 0040 as amended: the owner's own Claude in Chrome, every session,
  * all its tools; the Hub adds no browser), then the extra readable folders. Measured in the 2.1.220 binary: `--chrome` adds the
  * stdio server `claude-in-chrome` to the same dynamic map as `--mcp-config`, which `--strict-mcp-config` keeps.
  */
-export const claudeBaseArgs = (unattended: boolean, extraDirs: string[] = []): string[] => [...claudeModeArgs(unattended), "--chrome", ...extraDirs.flatMap((d) => ["--add-dir", d])];
+export const claudeBaseArgs = (extraDirs: string[] = []): string[] => [...CLAUDE_MODE_ARGS, "--chrome", ...extraDirs.flatMap((d) => ["--add-dir", d])];
 
-/** `--disallowedTools`: the hub's denied tools of the mode (decision 0046) and, P62, every attached connector's tool off its allowlist. */
-export const claudeDisallowed = (connectors: readonly AttachedConnector[] = [], unattended = true): string[] => [...deniedTools(unattended), ...connectorDeniedTools(connectors)];
+/** `--disallowedTools` of an owner's session: the hub's denied tools (decision 0046) and, P62, every attached connector's tool off its allowlist. */
+export const claudeDisallowed = (connectors: readonly AttachedConnector[] = []): string[] => [...deniedTools("owner"), ...connectorDeniedTools(connectors)];

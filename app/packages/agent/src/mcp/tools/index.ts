@@ -28,5 +28,5 @@ export const AUTOPILOT_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (AUTOPILO
 /** Decision 0050 (P142 verdict 5): a follow-up sweep turn's `hub mcp` registers exactly these, each bound to the turn's client. */
 export const FOLLOW_UP_TOOLS: readonly ToolDef[] = TOOLS.filter((t) => (FOLLOW_UP_HUB_TOOLS as readonly string[]).includes(t.name));
 
-/** Decision 0046: registered only in an attended instance (the server's send port is passed); never unattended. */
+/** Decision 0046: registered only in a session the owner started (the server's send port is passed); never in a background run. */
 export const ATTENDED_TOOLS = [messengerSendTool] as const satisfies readonly ToolDef[];

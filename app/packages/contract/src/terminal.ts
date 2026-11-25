@@ -48,12 +48,11 @@ export const terminalProblemDto = z.strictObject({ reason: z.string(), fix: z.st
 export type TerminalProblemDto = z.infer<typeof terminalProblemDto>;
 
 /**
- * `GET /api/terminal`. The terminal is always on (decision 0032): the instance's mode for the tab badge, the presets in
+ * `GET /api/terminal`. The terminal is always on (decision 0032): the presets in
  * their order (default first), the sessions, (P57) what the detector found, with when (`clis` is empty and `checkedAt`
  * null until the first detection has finished), and (P66) `problem`, null unless no tab can start.
  */
 export const terminalStateDto = z.strictObject({
-  unattended: z.boolean(),
   presets: z.array(z.enum(TERMINAL_PRESETS)),
   sessions: z.array(terminalSessionDto),
   clis: z.array(cliFactDto),

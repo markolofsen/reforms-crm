@@ -29,7 +29,7 @@ Run everything from this folder (the command finds the instance, and runs the pi
 ./run.sh core update               # list core versions; --apply <tag> moves the pin, --branch main follows main
 ```
 
-The admin always carries the agent (a terminal dock on the right edge, Ctrl+`; no switch, decision 0032). Switches in `config/config.json`: `agent.default` picks Claude or Codex; `agent.unattended: true` drops the prompts and turns the OS sandbox on (`core/@docs/core/24-terminal.md`).
+The admin always carries the agent (a terminal dock on the right edge, Ctrl+`; no switch, decision 0032). Switches in `config/config.json`: `agent.default` picks Claude or Codex. Every session runs with no prompts and the OS sandbox on; there is no switch for it (`core/@docs/core/24-terminal.md`).
 
 The admin's header shows `name` from `config/config.json` ("Hub" when empty) and, when `logo` names an image file (svg, png, jpg or webp; a relative path is read from `config/`), that logo; otherwise a monogram. `./run.sh doctor` warns when the logo file is missing.
 

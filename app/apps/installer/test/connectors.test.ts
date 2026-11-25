@@ -76,7 +76,7 @@ describe("session files: one project's connectors, their writes off", () => {
     const { paths } = setup();
     const instructions = sessionInstructions(paths.home, paths.projects, "acme-travel");
     expect(instructions).toMatch(/calendar and drive: not in Codex sessions \(gcal-acme, gdrive-acme/);
-    const home = writeCodexHome({ paths, projectsDir: paths.projects, slug: "acme-travel", unattended: false, instructions, env: { HOME: paths.home } });
+    const home = writeCodexHome({ paths, projectsDir: paths.projects, slug: "acme-travel", instructions, env: { HOME: paths.home } });
     expect(readFileSync(path.join(home, "config.toml"), "utf8")).not.toMatch(/\[mcp_servers\."g(cal|drive)-/);
   });
 });

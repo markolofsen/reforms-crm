@@ -8,7 +8,7 @@ import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type
 import { ADVISOR_OFF_ENV, ADVISOR_RULE, claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
 import { codexArgs, codexHome } from "@hub/agent/codex";
 import { INSTALL_LINE } from "@hub/agent/detect";
-import { CLI_LABELS, modeLine } from "@hub/agent/session";
+import { CLI_LABELS, MODE_LINE } from "@hub/agent/session";
 import { bindingPrompt, capabilitiesOf, identityOf, projectsRelOf, UNBOUND_INSTRUCTIONS } from "@hub/agent/session-rules";
 import { logStoreOf } from "@hub/log/store";
 import { chooseResume, SESSION_ID } from "@hub/log/resume";
@@ -92,8 +92,8 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
   return { mode, ...(project ? { project } : {}), extra, ...(cli ? { cli } : {}), ...(prepare ? { prepare } : {}), ...(resume ? { resume } : {}) };
 }
 
-export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string, unattended = false): string[] {
-  const base = claudeBaseArgs(unattended, dirs);
+export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string): string[] {
+  const base = claudeBaseArgs(dirs);
   if (files) base.push(...claudeEnforcementArgs(files));
   // P55: the advisor's rule line only when this project's Claude session has the advisor on.
   if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel, plan.identity, plan.capabilities) + (files?.agent.advisor ? `\n\n${ADVISOR_RULE}` : ""));
@@ -103,9 +103,9 @@ export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: Se
 }
 
 /** Codex: `resume <id>` resumes one session, `resume` picks; a fresh session starts plain. The binding is the generated `developer_instructions`. */
-export function buildCodexArgs(plan: AgentPlan, paths: HubPaths, unattended: boolean): string[] {
+export function buildCodexArgs(plan: AgentPlan, paths: HubPaths): string[] {
   const lead = plan.mode === "pick" ? ["resume"] : plan.mode === "resume" && plan.resume ? ["resume", plan.resume] : [];
-  return [...lead, ...codexArgs({ paths, unattended, extra: plan.extra })];
+  return [...lead, ...codexArgs({ paths, extra: plan.extra })];
 }
 
 /**
@@ -167,7 +167,7 @@ export interface AgentEnv { root: string; home: string; projectsDir: string; pat
 
 /**
  * `hub agent [project] [--cli claude|codex|shell] [--prepare]`. Starts the instance's default CLI (`agent.default`) in the
- * instance root, bound to one project, in the instance's mode (`agent.unattended`: no prompts, OS sandbox on). The cwd of the
+ * instance root, bound to one project, in the one mode (no prompts, OS sandbox on). The cwd of the
  * caller does not matter. `--prepare` writes the session files and starts nothing (the Agent tools fix line).
  */
 export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
@@ -185,7 +185,6 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const paths = env.paths ?? pathsAt(env.root);
   const features = instanceFeatures(paths);
   const cli: SessionCli = plan.cli ?? features.agent.default;
-  const unattended = features.agent.unattended;
   if (plan.project && cli !== "shell") {
     const caps = capabilitiesOf(paths, env.projectsDir, plan.project, cli);
     if (caps) plan.capabilities = caps;
@@ -207,12 +206,12 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const instructions = plan.project ? bindingPrompt(plan.project, relOk, plan.identity, plan.capabilities) : UNBOUND_INSTRUCTIONS;
   // An instance keeps no copy of the core skills: the CLI finds them through generated links.
   const linked = syncInstanceSkills(paths);
-  const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths, unattended);
+  const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths);
   // P55: advisor off is the CLI's disable variable (an absent advisorModel would let the owner's personal one through).
   if (cli === "claude" && !files.agent.advisor) childEnv[ADVISOR_OFF_ENV] = "1";
   let codexHomeDir: string | undefined;
   if (cli === "codex") {
-    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, nodeBin: process.execPath, instructions });
+    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, nodeBin: process.execPath, instructions });
     childEnv.CODEX_HOME = codexHomeDir;
   }
   if (plan.prepare) {
@@ -229,15 +228,15 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
     console.log(`\n${c.green("Session bound to project:")} ${c.bold(plan.project)} ${c.dim(bound.sticky ? "(kept from the last session; `hub agent new` unbinds)" : run.mode === "resume" ? "(HUB_PROJECT). Resumed: this project's own session, with today's rules." : "(HUB_PROJECT). A fresh session: no other project's context is carried over.")}`);
   }
   if (resumed.line) console.log(c.yellow(resumed.line));
-  console.log(c.dim(`${CLI_LABELS[cli]}, ${modeLine(unattended)}.`));
+  console.log(c.dim(`${CLI_LABELS[cli]}, ${MODE_LINE}.`));
   console.log(c.dim(`Enforced: no send/forward/trash/delete tool (${files.disallowed.length} denied), only the hub's MCP servers, secrets and ${plan.project ? "other projects' folders" : "the live database"} unreadable${cli === "claude" ? `, guard hook ${process.env.HUB_GUARD === "block" ? "BLOCKS" : "warns (HUB_GUARD=block to block)"}` : ", forbidden command rules"}.`));
   console.log();
 
   const dirs = extraDirs(env.root);
   const start = (p: AgentPlan): Promise<number> =>
     cli === "codex"
-      ? spawnCli("codex", "codex", buildCodexArgs(p, paths, unattended), env.root, childEnv)
-      : spawnCli("claude", "claude", buildClaudeArgs(p, dirs, files, relOk, unattended), env.root, childEnv);
+      ? spawnCli("codex", "codex", buildCodexArgs(p, paths), env.root, childEnv)
+      : spawnCli("claude", "claude", buildClaudeArgs(p, dirs, files, relOk), env.root, childEnv);
   return startWithFallback(run, start, { say: (l) => console.log(c.yellow(l)) });
 }
 

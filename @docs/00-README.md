@@ -33,8 +33,8 @@ or more the project is the first segment of every scoped address (`/<project>/ma
 - **Help** (`/help`): what to say to the agent, the tips for each CLI, where the project's files live, and "How it works": the main blocks below in five lanes and three cuts, drawn by Mermaid from the fixed model `@hub/contract/scheme-model` and coloured by the live parts Overview reads (P81, decision 0042).
 
 **The terminal dock.** A right-hand column beside every screen, always there (a strip when closed, Ctrl+`). Its tabs run `hub agent <project>`
-with Claude Code or Codex, or the owner's shell. A session is attended (the CLI asks) or unattended (`agent.unattended: true`: no prompts, the
-OS sandbox on); in both the send tools are denied: [core/24-terminal.md](core/24-terminal.md).
+with Claude Code or Codex, or the owner's shell. Every session runs in one mode, no prompts with the OS sandbox on, and a session the
+owner starts is attended (only a background run the Hub starts is not); the send tools are denied: [core/24-terminal.md](core/24-terminal.md).
 
 **Files dropped on the dock.** A file dragged onto a tab is copied by the server under `state/drops/<project>/<session>/`, and its path is
 pasted into the session's input line. At most 10 files and 20 MiB per drop; the folder goes when the tab closes, and other projects' sessions

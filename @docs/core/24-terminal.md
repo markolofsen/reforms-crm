@@ -7,9 +7,8 @@ A right-hand column in the admin where Claude Code, Codex or a plain shell run i
 | Key | Default | What it does |
 |---|---|---|
 | `agent.default` | `claude` | The CLI `hub agent`, the `hub` menu and the terminal's `+` start first (`claude` or `codex`); the order the automatic start (below) tries them in |
-| `agent.unattended` | `false` | No prompts, the OS sandbox on (the table below). Only an exact `true` |
 
-A server restart (`./run.sh up`) applies a change. The terminal has no key: a leftover `terminal` key is one nothing reads (`files.config-keys` WARNs naming it; delete it).
+A server restart (`./run.sh up`) applies a change. The permission mode has no key: every session runs with no prompts and the OS sandbox on (owner 2026-11-25); a leftover `agent.unattended` is read by nothing (`files.config-keys` WARNs naming it; delete it). The terminal has no key: a leftover `terminal` key is one nothing reads (`files.config-keys` WARNs naming it; delete it).
 
 ## When it cannot start (P66)
 
@@ -17,26 +16,30 @@ A server restart (`./run.sh up`) applies a change. The terminal has no key: a le
 
 The install workflow sets up what it can: node-pty's `spawn-helper` gets its execute bit from the server at start, from row `agent.terminal`'s apply (`./run.sh setup`, `hub install`) and from `hub core update` after its `pnpm install` (a reinstall unpacks it without the bit). Doctor rows (group Agent, both run by `setup` and `install`, not audits): `agent.terminal` (the readiness above, FAIL with its fix; the API port on 127.0.0.1 only, FAIL otherwise; a running server with a `problem`, WARN with its reason) and `agent.clis` (one login-shell detection: each CLI's version and state with its install or sign-in line, and what opening the column starts; WARN when one is not ready, never FAIL, and nothing installs a CLI: `npm i -g` would write outside the instance).
 
-## The two modes of a hub agent session
+## The mode of a hub agent session, and who is there
 
 `hub agent <slug> [--cli claude|codex|shell] [--prepare]` starts the session in the instance root, bound to one project, with the server's Node first on `PATH`. The terminal's presets run exactly this command, so a session is the same from Terminal.app and from the admin.
 
-| | Attended (default) | Unattended (`agent.unattended: true`) |
-|---|---|---|
-| Prompts | the CLI asks (Claude's default mode, Codex `-a on-request`) | none (Claude `--dangerously-skip-permissions`, Codex `-a never`) |
-| OS sandbox | Codex: the `hub` profile; Claude: off | on: Claude's `sandbox` settings block (`enabled`, `failIfUnavailable`, `allowUnsandboxedCommands: false`, no allowed domain, no local binding, `denyWrite` on the protected paths); Codex: the `hub` permissions profile, `approval_policy = "never"` |
-| Network from commands | Claude: yes; Codex: off | off (no loopback: the send route and the API are out of reach) |
-| MCP servers (mail-mcp, Notion, hub) | work | work unchanged: the CLI calls them outside the sandbox |
-| Send tools off, strict MCP, deny rules, guard hook (Claude) or forbidden rules (Codex) | yes | yes |
-| Send policy server-owned (S11), manual send needs a ticket (S12) | yes | yes |
+One permission mode, no switch (owner 2026-11-25: no friction):
 
-Never: Codex `--dangerously-bypass-approvals-and-sandbox` or `--yolo` (`codexArgs` throws, `hub doctor` fails on a config that sets it). In attended mode the person answering the prompts is the guard; in unattended mode the sandbox is.
+| | Every session |
+|---|---|
+| Prompts | none (Claude `--dangerously-skip-permissions`, Codex `-a never` with the hub's writing tools approved by name) |
+| OS sandbox | on: Claude's `sandbox` settings block (`enabled`, `failIfUnavailable`, `allowUnsandboxedCommands: false`, no allowed domain, no local binding, `denyWrite` on the protected paths); Codex: the `hub` permissions profile |
+| Network from commands | off (no loopback: the send route and the API are out of reach) |
+| MCP servers (mail-mcp, Notion, hub) | work unchanged: the CLI calls them outside the sandbox |
+| Send tools off, strict MCP, deny rules, guard hook (Claude) or forbidden rules (Codex) | yes |
+| Send policy server-owned (S11), manual send needs a ticket (S12) | yes |
 
-**Protected paths** (read-only in the sandbox, Edit deny rules in every mode, because Claude's Edit and Write tools are not sandboxed): `state/projects/` (the send policies and session files), `state/autopilot.json` (the instance's autopilot switch, decision 0048), `state/secrets/` (unreadable), `state/codex/`, `config/`, the core, `run.sh`, `.claude/`, `.mcp.json`, `.git`, `CLAUDE.md`, `AGENTS.md`. Claude also gets `state/log/` (the agent session log, [25-agent-log.md](25-agent-log.md)): its hooks write it, the agent cannot. **Reading and editing besides the protected paths** (P140 K3, the owner's decision of 2026-11-24, `skills/README.md` "Reading and writing files"; `denyRules` of `@hub/agent/deny`): an unattended session may neither read nor edit `state/secrets/`, the database folder, another project's folder, its session files (`state/projects/<other>`), its Codex home (`state/codex/<other>`) or another tab's drop folder (`state/drops/<other>`, the Shell's). An attended session reads and edits `projects/**`, other projects included; reads the database folder and the other tabs' drops but never edits them; and still neither reads nor edits `state/secrets/`, another project's session files or its Codex home (they hold that project's capability, P112 S3). The guard (`auditToolCalls`) warns on an attended Edit in another project's folder and says nothing on a Read or Grep there; a knowledge tool stays bound to the session's project. The database folder stays writable so `draft_write`'s record works inside the sandbox; `draft_write`'s record loads only its own project's folder.
+Never: Codex `--dangerously-bypass-approvals-and-sandbox` or `--yolo` (`codexArgs` throws, `hub doctor` fails on a config that sets it). The sandbox is the guard.
 
-**Codex** has no strict-MCP flag, so each project gets its own `CODEX_HOME`: `state/codex/<slug>/` with `config.toml` (the hub's MCP servers only, `disabled_tools` per server, the `hub` profile: `":root" = "read"`, `":workspace_roots" = "write"`, the protected paths `"read"`, secrets and other projects' session files under `state/projects/<other>` and Codex homes (P112 S3) `"none"`, other projects' folders and the other tabs' drops `"none"` unattended and `"read"` attended (P140 K3), network `enabled = false`, the Notion server's `enabled_tools` = the allow-list (P112 S3: Notion is default-deny); the project trusted; the owner's `model` and `model_reasoning_effort` carried), `rules/hub.rules` (`hub send`, the API and loopback as `forbidden` prefixes), `skills/` (links to the core skills) and `auth.json` (a link to the owner's, never a copy). A remote MCP server that needs OAuth (Notion) signs in once per `CODEX_HOME`.
+**Attended or not comes from how the session started, never from the mode** (decision 0046). A session the owner starts (the dock, a terminal, a resumed session) is attended: `messenger_send` on his word, `client_create`, `chat_link`, any known chat of the project. A background run the Hub starts itself (an autopilot turn, a follow-up sweep turn) is not: its runner sets `HUB_AUTOPILOT_CHAT` or `HUB_FOLLOWUP_CLIENT` on the turn's `hub mcp` (`backgroundRunOf` of `@hub/config/follow-ups`), the turn has its own bound tools and no send.
 
-Measured on Claude Code 2.1.220 and Codex 0.146.0 (2026-11-18), unattended, in a scratch instance: a decimal-IP `curl` to the send route exits 7 in both; `osascript` to Mail fails in both; `echo >>` the policy file is refused by the OS in both; Claude's Edit and Codex's `apply_patch` on it are refused; `draft_write`'s record works. Another CLI version is a WARN in Agent tools: rerun those checks.
+**Protected paths** (read-only in the sandbox, Edit deny rules in every mode, because Claude's Edit and Write tools are not sandboxed): `state/projects/` (the send policies and session files), `state/autopilot.json` (the instance's autopilot switch, decision 0048), `state/secrets/` (unreadable), `state/codex/`, `config/`, the core, `run.sh`, `.claude/`, `.mcp.json`, `.git`, `CLAUDE.md`, `AGENTS.md`. Claude also gets `state/log/` (the agent session log, [25-agent-log.md](25-agent-log.md)): its hooks write it, the agent cannot. **Reading and editing besides the protected paths** (P140 K3, the owner's decision of 2026-11-24, `skills/README.md` "Reading and writing files"; `denyRules` of `@hub/agent/deny`): a session reads and edits `projects/**`, other projects included; reads the database folder and the other tabs' drops but never edits them; and still neither reads nor edits `state/secrets/`, another project's session files or its Codex home (they hold that project's capability, P112 S3). The guard (`auditToolCalls`) warns on an Edit in another project's folder and says nothing on a Read or Grep there; a knowledge tool stays bound to the session's project. The database folder stays writable so `draft_write`'s record works inside the sandbox; `draft_write`'s record loads only its own project's folder.
+
+**Codex** has no strict-MCP flag, so each project gets its own `CODEX_HOME`: `state/codex/<slug>/` with `config.toml` (the hub's MCP servers only, `disabled_tools` per server, the `hub` profile: `":root" = "read"`, `":workspace_roots" = "write"`, the protected paths `"read"`, secrets and other projects' session files under `state/projects/<other>` and Codex homes (P112 S3) `"none"`, other projects' folders and the other tabs' drops `"read"` (P140 K3), network `enabled = false`, the Notion server's `enabled_tools` = the allow-list (P112 S3: Notion is default-deny); the project trusted; the owner's `model` and `model_reasoning_effort` carried), `rules/hub.rules` (`hub send`, the API and loopback as `forbidden` prefixes), `skills/` (links to the core skills) and `auth.json` (a link to the owner's, never a copy). A remote MCP server that needs OAuth (Notion) signs in once per `CODEX_HOME`.
+
+Measured on Claude Code 2.1.220 and Codex 0.146.0 (2026-11-18), in the sandboxed mode, in a scratch instance: a decimal-IP `curl` to the send route exits 7 in both; `osascript` to Mail fails in both; `echo >>` the policy file is refused by the OS in both; Claude's Edit and Codex's `apply_patch` on it are refused; `draft_write`'s record works. Another CLI version is a WARN in Agent tools: rerun those checks.
 
 ### The third kind: an autopilot turn (decision 0048, P139 A3)
 
@@ -57,7 +60,7 @@ Wire shapes: `@hub/contract/terminal`. Server: `@hub/terminal` (sessions, PTY, p
 
 | Route | What it does |
 |---|---|
-| `GET /api/terminal` | `{unattended, presets, sessions, clis, checkedAt, problem}` (`clis`: the detector's facts, below; no path; empty until the first detection finished; `problem`: null, or why no tab can start with its fix, above) |
+| `GET /api/terminal` | `{presets, sessions, clis, checkedAt, problem}` (`clis`: the detector's facts, below; no path; empty until the first detection finished; `problem`: null, or why no tab can start with its fix, above) |
 | `POST /api/terminal/sessions` | `{preset: "claude" \| "codex" \| "shell", project?}` (strict: no command, no path). 201 with the session; 400 an unknown preset or a CLI without a project, 404 an unknown project, 409 at 8 live sessions, 503 `terminal_unavailable` while a problem is set. Exact admin origin and `Sec-Fetch-Site: same-origin` (P57) |
 | `POST /api/terminal/ensure` | `{project?, theme?}` (P57): the running session of that project (200, `created: false`), else the server's pick starts (201, `created: true`, `why`: the one line when the pick was not the first choice, or that it resumed); P64: the pick resumes the project's last logged session when it can (below). One at a time per project, so two tabs get one session; 503 `terminal_unavailable` while a problem is set. Exact admin origin and `Sec-Fetch-Site: same-origin` |
 | `DELETE /api/terminal/sessions/:id` | Closes the tab: SIGHUP to the process group, SIGKILL after 3 s |
@@ -97,7 +100,7 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 | S6 | No CORS header anywhere; no state change on GET |
 | S7 | Presets only: no route takes a command; the slug is checked against the registry. The one route that takes a file name (the drop, P76) keeps only a safe basename and writes it under a folder the server names (`state/drops/<project>/<session>/`); no route takes a path |
 | S8 | XSS in the admin equals a shell: no `dangerouslySetInnerHTML` in `apps/admin` or `packages/ui` (rules test); terminal links open through `lib/external.ts` with `noopener`; they stay outside the Open registry (P61, `@hub/contract/local`) on purpose: a terminal prints arbitrary hosts, which a fixed table cannot list, and they open a browser tab, not an OS program |
-| S9 to S12 | The unattended sandbox, send tools off, the server-owned send policy, the send ticket (above) |
+| S9 to S12 | The sandbox, send tools off, the server-owned send policy, the send ticket (above) |
 
 ## Shared focus: the agent sees what the owner sees (P51, decision 0029)
 
@@ -120,7 +123,7 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 
 ## Agent tools (Settings ▸ Agent, P70; the Agents page in P63, on Connections before)
 
-`@hub/agent` `agentChecks({paths, slug, cli, unattended, probe, facts})` returns rows `{id, cli, title, state: pass|warn|fail|skip, detail, fix}`; every row that is not a pass names one command line. The same rows serve `hub doctor` group `Agent` (one line per project and CLI, an audit row: `--fast` leaves it out) and `GET /api/projects/:slug/agent-tools` (the last result, computed on the first GET; `POST .../agent-tools/refresh` reruns it; Settings ▸ Agent `/<project>/settings/agent` renders them for the address's project: one sentence and Refresh, the rows that need a fix or a look with their fix lines and Copy, every row folded under All checks; Overview's parts read the cached result without running it, and its Agent sessions part holds every row no other part covers, so a row that lights Settings ▸ Agent's dot is also a "Needs you" item). `HUB_AGENT_TOOLS=fake` (e2e, refused without `HUB_DB`) returns fixed rows.
+`@hub/agent` `agentChecks({paths, slug, cli, probe, facts})` returns rows `{id, cli, title, state: pass|warn|fail|skip, detail, fix}`; every row that is not a pass names one command line. The same rows serve `hub doctor` group `Agent` (one line per project and CLI, an audit row: `--fast` leaves it out) and `GET /api/projects/:slug/agent-tools` (the last result, computed on the first GET; `POST .../agent-tools/refresh` reruns it; Settings ▸ Agent `/<project>/settings/agent` renders them for the address's project: one sentence and Refresh, the rows that need a fix or a look with their fix lines and Copy, every row folded under All checks; Overview's parts read the cached result without running it, and its Agent sessions part holds every row no other part covers, so a row that lights Settings ▸ Agent's dot is also a "Needs you" item). `HUB_AGENT_TOOLS=fake` (e2e, refused without `HUB_DB`) returns fixed rows.
 
 | Row | Pass when | Fix |
 |---|---|---|
@@ -132,7 +135,7 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 | `send-tools.off` | every listed tool named like send, forward, reply, outgoing, delete, trash, move or cancel is denied (draft tools excepted); Codex disables them per server | `hub core update` (a new tool needs a core release) |
 | `connector.*.<name>` (P62) | per Google connector the project attaches: in the session's MCP file, Google answers (an unauthorised answer counts: the session signs in), its account known (stated, or read by a session's `list_calendars`; else a WARN with `/mcp`), every write off its allowlist denied; a listed connector the session cannot get is a FAIL (`connector.attach`); unattached connectors, Codex (no connector) and the owner's claude.ai connectors are info rows. Table: [26-capabilities.md](26-capabilities.md) section 6 | prepare; `/mcp`; `hub connectors add`; "настрой проект <slug>" |
 | `skills.linked` | links in `.claude/skills` (Claude) or the Codex home | prepare |
-| `mode` | matches `agent.unattended`: Claude's sandbox block; Codex the `hub` profile, network off, the right approval policy, no bypass | prepare |
+| `mode` | Claude's sandbox block; Codex the `hub` profile, network off, `approval_policy = "never"`, no bypass | prepare |
 | `send.pipeline` | the policy file parses (none = drafts only, test recipients) | `hub send policy <slug>` |
 | `guard.hook` | Claude's PreToolUse runs `hub guard`; Codex: skip | prepare |
 | `log.hooks` | the prompt hook names its CLI (`focus --hook --cli <x>`) and `hub log --hook` is in the session files ([25-agent-log.md](25-agent-log.md)) | prepare |

@@ -4,8 +4,8 @@ import { dropFolder, pathsAt, SHELL_DROPS, type HubPaths } from "@hub/config/pat
 import { NOTION_DENIED, NOTION_PREFIX } from "@hub/projects/notion-tools";
 
 // What a hub agent session may never do, in both CLIs (plan p17, P49 S10). These match tool names and command text, so
-// they are a belt, not the boundary: a decimal IP or a script defeats a text rule. In unattended mode the OS sandbox is
-// the boundary (`session.ts`); these stay on in every mode.
+// they are a belt, not the boundary: a decimal IP or a script defeats a text rule. The OS sandbox is the boundary
+// (`session.ts`); these stay on beside it.
 
 /**
  * Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. mail-mcp's
@@ -27,25 +27,28 @@ export const DENIED_TOOLS: readonly string[] = [
 export const MAIL_MCP_READ_TOOLS: readonly string[] = ["list_accounts", "list_mailboxes", "find_messages", "get_message_content", "list_drafts", "list_outgoing_messages"];
 
 /**
- * Decision 0046: the one send tool an ATTENDED session has: `hub`'s `messenger_send`, one messenger draft on the owner's word,
- * verified and sent by the server through the owner's send door. The Agent tools check passes it only in attended mode.
+ * Decision 0046: the one send tool an ATTENDED session (one the owner started) has: `hub`'s `messenger_send`, one messenger draft
+ * on the owner's word, verified and sent by the server through the owner's send door. A background run never has it.
  */
 export const ATTENDED_SEND_TOOLS: readonly string[] = ["mcp__hub__messenger_send"];
 
+/** Who started the session: the owner (the dock, a terminal, a resumed session: attended) or the Hub (a background run). */
+export type SessionRun = "owner" | "background";
+
 /**
- * The denied tools of a mode: {@link DENIED_TOOLS} in every mode, and in an unattended one also {@link ATTENDED_SEND_TOOLS}
- * (decision 0046 point 3: background and unattended sessions never send). Default unattended: the stricter list.
+ * The denied tools of a run: {@link DENIED_TOOLS} always, and for a background run also {@link ATTENDED_SEND_TOOLS}
+ * (decision 0046 point 3: a background run never sends). Default background: the stricter list.
  * Every list in this file binds the MODEL's processes (the CLI, its shell and its MCP servers), never the server: the send door
  * (`@hub/messengers/door`) reads no session mode, so a server-side sender (decision 0048's autopilot, P139) is not reached by
  * them; it still passes every stage of that door. The autopilot turn's own model process denies every hub tool but its five
  * (`autopilotDisallowed`, `./autopilot/session.ts`).
  */
-export const deniedTools = (unattended = true): readonly string[] => (unattended ? [...DENIED_TOOLS, ...ATTENDED_SEND_TOOLS] : DENIED_TOOLS);
+export const deniedTools = (run: SessionRun = "background"): readonly string[] => (run === "background" ? [...DENIED_TOOLS, ...ATTENDED_SEND_TOOLS] : DENIED_TOOLS);
 
-/** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these), for a mode. */
-export function deniedToolsOf(server: string, unattended = true): string[] {
+/** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these), for a run. */
+export function deniedToolsOf(server: string, run: SessionRun = "background"): string[] {
   const pre = `mcp__${server}__`;
-  return deniedTools(unattended).filter((t) => t.startsWith(pre)).map((t) => t.slice(pre.length));
+  return deniedTools(run).filter((t) => t.startsWith(pre)).map((t) => t.slice(pre.length));
 }
 
 /** A tool name that looks like it sends, forwards or removes: the Agent tools check fails when one is not denied (P49 5B). */
@@ -120,33 +123,29 @@ export const otherDrops = (paths: Pick<HubPaths, "drops">, projectsDir: string, 
   [...otherProjects(projectsDir, slug), SHELL_DROPS].map((o) => dropFolder(paths, o));
 
 /**
- * Deny rules for Claude's settings.json: secrets, the live database, other projects' folders, mail-sending programs.
- *
- * Unattended (the default, the stricter list): Read and Edit denied on secrets, the database folder, every other project's
- * folder, session files and Codex home, and every other tab's drop folder.
- * Attended (P140 K3, owner 2026-11-24, `skills/README.md` "Reading and writing files"): the session reads and edits
+ * Deny rules for an owner's Claude session (settings.json): secrets, the live database, other projects' session files,
+ * mail-sending programs. P140 K3 (owner 2026-11-24, `skills/README.md` "Reading and writing files"): the session reads and edits
  * `projects/**`, other projects included (the client guard is "never quote another brand's or project's fact", not the path);
  * it reads the database folder and the other tabs' drops but never edits them (the live DB is the server's, a tab's files are
  * that tab's). Still denied both ways: secrets, and the other projects' session files and Codex homes (they hold that
  * project's capability, P112 S3). The protected paths (core, config, the send policy, `state/autopilot.json`, `.claude`, `.git`,
  * `run.sh`, `CLAUDE.md`, the log) are Edit-denied in every mode by `protectedEditRules` of `claude.ts`.
  */
-export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root), unattended = true): string[] {
+export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root)): string[] {
   const rel = (p: string) => (path.relative(root, p) || ".").split(path.sep).join("/");
   const rules: string[] = [];
   const both = [`./${rel(paths.secrets)}/**`];
   const editOnly: string[] = [];
-  (unattended ? both : editOnly).push(`./${rel(path.dirname(paths.db))}/**`);
+  editOnly.push(`./${rel(path.dirname(paths.db))}/**`);
   // P112 S3: another project's session files (its MCP config holds its project capability) and Codex home, beside its folder.
   for (const o of otherProjects(projectsDir, slug)) {
-    if (unattended) both.push(`./${rel(path.join(projectsDir, o))}/**`);
     both.push(`./${rel(path.join(paths.stateProjects, o))}/**`, `./${rel(path.join(paths.codexHomes, o))}/**`);
   }
-  // P76: a file dropped on another project's tab, or on a Shell tab, is that tab's only (attended: read, never changed).
-  for (const d of otherDrops(paths, projectsDir, slug)) (unattended ? both : editOnly).push(`./${rel(d)}/**`);
+  // P76: a file dropped on another project's tab, or on a Shell tab, is that tab's only (read, never changed).
+  for (const d of otherDrops(paths, projectsDir, slug)) editOnly.push(`./${rel(d)}/**`);
   for (const p of both) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   for (const p of editOnly) rules.push(`Edit(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...deniedTools(unattended));
+  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...deniedTools("owner"));
   return rules;
 }

@@ -26,7 +26,7 @@ export interface InstanceConfigFile {
   api_port?: unknown;
   log?: { retention_days?: number };
   llm?: { monthly_cap_usd?: number; presets?: Record<string, string[]> };
-  agent?: { default?: AgentCli; unattended?: boolean };
+  agent?: { default?: AgentCli };
 }
 
 export interface InstanceConfigRead {
@@ -58,7 +58,6 @@ const presets = field((v) => {
 }, "llm.presets must be an object of model lists");
 // AGENT_CLIS is read at call time only: `./paths` imports this module too.
 const cli = field((v) => AGENT_CLIS.find((c) => c === v), "agent.default must be claude or codex");
-const yes = field((v) => (typeof v === "boolean" ? v : undefined), "agent.unattended must be true or false");
 
 type Raw = "log" | "llm" | "agent" | "admin_port" | "api_port" | "backup_dir";
 const TOP: { [K in Exclude<keyof InstanceConfigFile, Raw>]: Reader<NonNullable<InstanceConfigFile[K]>> } = {
@@ -118,7 +117,6 @@ export function readInstanceConfig(paths: Pick<HubPaths, "configFile">): Instanc
   if (isRecord(raw.agent)) {
     const agent: NonNullable<InstanceConfigFile["agent"]> = {};
     take(raw.agent.default, cli, (x) => (agent.default = x));
-    take(raw.agent.unattended, yes, (x) => (agent.unattended = x));
     config.agent = agent;
   }
   return { config, problems };

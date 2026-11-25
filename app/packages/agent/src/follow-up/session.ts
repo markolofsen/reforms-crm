@@ -15,11 +15,11 @@ import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../mcp/server";
 /** The hub tools of a sweep turn as Claude names them. */
 export const FOLLOW_UP_ALLOWED: readonly string[] = FOLLOW_UP_HUB_TOOLS.map((t) => `mcp__hub__${t}`);
 
-/** Every other hub tool (the attended send included) and the deny list of every unattended session. */
+/** Every other hub tool (the attended send included) and the deny list of a background run. */
 export const followUpDisallowed = (): string[] => {
   const own = new Set<string>(FOLLOW_UP_HUB_TOOLS);
   const hub = [...HUB_MCP_TOOLS, ...HUB_MCP_ATTENDED_TOOLS].filter((t) => !own.has(t)).map((t) => `mcp__hub__${t}`);
-  return [...new Set([...hub, ...deniedTools(true)])];
+  return [...new Set([...hub, ...deniedTools("background")])];
 };
 
 /** `state/projects/<slug>/follow-ups/<client id>/`: one folder per client (a sweep runs one turn at a time, autopilot beside it). */

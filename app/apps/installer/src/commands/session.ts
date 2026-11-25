@@ -25,8 +25,8 @@ export function register(program: Command): void {
     hub agent <x> --prepare     write the session files, start nothing
     hub agent <x> --resume <id> resume that session of <x> (a full session id), with today's settings; fresh if it cannot
     hub agent <x> -- --model opus   anything after -- goes to the CLI
-  Two modes (config/config.json agent.unattended): normal, the CLI asks before commands and edits; unattended (true), no prompts with the
-  OS sandbox on (no network or Apple Events from commands; the send policy, config and core read-only). Always: per-project deny rules, the
+  One mode: no prompts, with the OS sandbox on (no network or Apple Events from commands; the send policy, config and core
+  read-only). Always: per-project deny rules, the
   hub's MCP servers only, send tools off, the guard hook (Claude). Codex never runs with its bypass flag. Extra folders Claude may read:
   HUB_EXTRA_DIRS (colon-separated) or extra_dirs in config/config.json; none by default.`)
     .action(async (target: string | undefined, rest: string[]) => {

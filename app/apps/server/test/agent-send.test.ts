@@ -15,7 +15,7 @@ import { startTelegramUser, type TelegramUserHandle } from "../src/messengers/ac
 // Decision 0046 (P132 B1-4): the agent sends one messenger draft on the owner's word, through the same door as his Send, on a
 // fake mtcute client and a fake session log (no network, no login, nothing sent anywhere). One test per case of the slice:
 // the word sends once; no word, a word before the draft, another chat, a second call are refused with a code and a next step;
-// only hub mcp's token opens the route, never on an unattended instance, never for Mail; Activity says "Agent (your word)".
+// only hub mcp's token opens the route (a background run's hub mcp has no send port), never for Mail; Activity says "Agent (your word)".
 
 const projectMd = ["# P", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", "| mail.accounts | owner@p.example | 2026-11-14 | agent |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", ""].join("\n");
 
@@ -31,7 +31,6 @@ let tg: TelegramUserHandle;
 let root: string;
 let clock: number;
 let events: LogEvent[];
-let unattended: boolean;
 let chat: number;
 let otherChat: number;
 
@@ -39,7 +38,7 @@ const app = () =>
   testApp(repos, {
     telegramUser: tg,
     adminPort: 5173,
-    sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir: join(root, "state", "projects"), allowList: ["telegram:1001", "telegram:1002"], adminPort: 5173, now: () => new Date(clock), agent: { token: TOKEN, unattended: () => unattended, events: () => events } },
+    sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir: join(root, "state", "projects"), allowList: ["telegram:1001", "telegram:1002"], adminPort: 5173, now: () => new Date(clock), agent: { token: TOKEN, events: () => events } },
   });
 const send = (a: ReturnType<typeof app>, draft: number, c = chat, headers: Record<string, string> = H) => a.request(`${BASE}/api/projects/p/messengers/drafts/${draft}/agent-send`, { method: "POST", headers, body: JSON.stringify({ chat: c }) });
 const json = async (r: Response) => (await r.json()) as Record<string, unknown>;
@@ -76,7 +75,6 @@ beforeEach(async () => {
   fake = new FakeMtClient();
   clock = Date.now();
   events = [];
-  unattended = false;
   tg = await startTelegramUser({ repos, env: {}, dir: sessions, clients: { session: () => fake, login: () => { throw new Error("no login in this test"); } }, now: () => new Date(clock) });
   await vi.waitFor(() => expect(fake.listening).toBe(true));
   chat = await link("1001");
@@ -162,7 +160,7 @@ describe("the agent's send on the owner's word (decision 0046)", () => {
     expect(fake.sent).toEqual([]);
   });
 
-  it("only hub mcp's token opens it, an unattended instance never sends, and a Mail draft is never sent", async () => {
+  it("only hub mcp's token opens it, and a Mail draft is never sent", async () => {
     const a = app();
     const id = await draft();
     clock += 2_000;
@@ -170,9 +168,6 @@ describe("the agent's send on the owner's word (decision 0046)", () => {
     clock += 5_000;
     expect(await refusal(await send(a, id, chat, { "content-type": "application/json" }), 403)).toBe("forbidden");
     expect(await refusal(await send(a, id, chat, { "content-type": "application/json", "x-hub-agent-token": "b".repeat(64) }), 403)).toBe("forbidden");
-    unattended = true;
-    expect(await refusal(await send(a, id))).toBe("unattended");
-    unattended = false;
     // A Mail draft's id names no messenger draft of the chat.
     const mail = await repos.drafts.record({ project: "p", email: "anna@example.test", name: "Anna", subject: "S", mailRef: "<m@x>", mailClass: "client" });
     expect(await refusal(await send(a, mail.draftId + 100), 404)).toBe("not_found");

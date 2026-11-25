@@ -43,7 +43,7 @@ function autopilotDrop(autopilot: MessengersContext["autopilot"], now: Messenger
  * the records come from his Notion, and Link, Unlink and Never link change what the Hub reads. The preview is the dry run: counts
  * only, no name, number or text, and nothing written. Nothing here sends.
  */
-export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken, agentUnattended, autopilot, now }: MessengersContext) {
+export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken, autopilot, now }: MessengersContext) {
   async function guarded<T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string, al: ProjectAutolink) => Promise<Response>): Promise<Response> {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
@@ -77,7 +77,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken, age
 
   const { identityFor, ownIdentity, fillLine, fillCard } = chatIdentityKit(repos);
 
-  const { linkToRecord, createFromChat, refusedOf, agentChat, agentActor, agentCreate } = clientPath({ repos, kit: { identityFor, ownIdentity, fillLine, fillCard }, agentUnattended });
+  const { linkToRecord, createFromChat, refusedOf, agentChat, agentActor, agentCreate } = clientPath({ repos, kit: { identityFor, ownIdentity, fillLine, fillCard } });
 
   async function unlink(c: Context, slug: string, al: ProjectAutolink, never: boolean) {
     const id = idOf(c);

@@ -155,7 +155,7 @@ describe("Agent tools rows 1 and 2 come from the facts", () => {
   const home = mkdtempSync(path.join(tmpdir(), "hub-agent-detect-"));
   mkdirSync(path.join(home, "projects", "acme"), { recursive: true });
   const paths = hubPaths({ home, env: {} });
-  const rows = async (facts: CliFact[], cli: "claude" | "codex") => Object.fromEntries((await agentChecks({ paths, slug: "acme", cli, unattended: false, probe, facts })).map((r) => [r.id, r]));
+  const rows = async (facts: CliFact[], cli: "claude" | "codex") => Object.fromEntries((await agentChecks({ paths, slug: "acme", cli, probe, facts })).map((r) => [r.id, r]));
   it("Claude signed in is a pass now (it was a skip before P57); signed out fails with claude auth login", async () => {
     expect((await rows([{ ...f("claude", "ready"), version: "2.1.220", detail: "2.1.220 · signed in (claude.ai)" }], "claude"))["cli.signed-in"]).toMatchObject({ state: "pass", detail: "signed in (claude.ai)" });
     expect((await rows([{ ...f("claude", "signed-out"), version: "2.1.220" }], "claude"))["cli.signed-in"]).toMatchObject({ state: "fail", fix: "claude auth login" });

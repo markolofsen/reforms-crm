@@ -2,7 +2,7 @@
   "name": "@hub/agent",
   "version": "0.1.0",
   "private": true,
-  "description": "What a hub agent session of Claude Code or Codex gets (P49): deny lists, the unattended sandbox, the generated session config, the Agent tools checks, and the shared focus with the hub MCP server (P51) and its Mail draft writer (P52). Node only; built without writing, so `hub agent`, `hub doctor` and the server read one source.",
+  "description": "What a hub agent session of Claude Code or Codex gets (P49): deny lists, the OS sandbox, the generated session config, the Agent tools checks, and the shared focus with the hub MCP server (P51) and its Mail draft writer (P52). Node only; built without writing, so `hub agent`, `hub doctor` and the server read one source.",
   "type": "module",
   "exports": {
     "./deny": "./src/deny.ts",

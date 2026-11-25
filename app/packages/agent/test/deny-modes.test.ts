@@ -13,8 +13,9 @@ import { httpAgentSend, MESSENGER_SEND_TOOL, sentLine, type AgentSendPort } from
 import { AUTOPILOT_HUB_TOOLS } from "@hub/config/autopilot";
 import { AUTOPILOT_ALLOWED, autopilotDisallowed } from "../src/autopilot";
 
-// Decision 0046 (P132 B1-3): `messenger_send` exists only in an attended session. Unattended it is absent from `hub mcp`, on
-// Claude's deny list and `--disallowedTools`, in Codex's `disabled_tools`; attended it is the one send tool, and Mail has none.
+// Decision 0046 (P132 B1-3): `messenger_send` exists only in a session the owner started (attended), whatever the permission
+// mode (owner 2026-11-25: one mode, no prompts with the OS sandbox). In a background run it is absent from `hub mcp` and on the
+// turn's deny list; in the owner's session it is the one send tool, and Mail has none.
 
 const SEND = "mcp__hub__messenger_send";
 let dir: string;
@@ -38,44 +39,52 @@ async function toolsOf(agentSend?: AgentSendPort) {
   return { client, names: (await client.listTools()).tools.map((t) => t.name).sort() };
 }
 
-describe("the deny list by mode (decision 0046)", () => {
-  it("unattended denies messenger_send everywhere; attended keeps every other denial and drops only that one", () => {
+describe("the deny list by who started the session (decision 0046)", () => {
+  it("a background run denies messenger_send; the owner's session keeps every other denial and drops only that one", () => {
     expect(ATTENDED_SEND_TOOLS).toEqual([SEND]);
     expect(DENIED_TOOLS).not.toContain(SEND);
-    expect(deniedTools(true)).toEqual([...DENIED_TOOLS, SEND]);
-    expect(deniedTools(false)).toEqual(DENIED_TOOLS);
+    expect(deniedTools("background")).toEqual([...DENIED_TOOLS, SEND]);
+    expect(deniedTools("owner")).toEqual(DENIED_TOOLS);
     expect(deniedTools()).toContain(SEND);
-    expect(deniedToolsOf("hub", true)).toEqual(["messenger_send"]);
-    expect(deniedToolsOf("hub", false)).toEqual([]);
-    expect(claudeDisallowed([], true)).toContain(SEND);
-    expect(claudeDisallowed([], false)).not.toContain(SEND);
+    expect(deniedToolsOf("hub", "background")).toEqual(["messenger_send"]);
+    expect(deniedToolsOf("hub", "owner")).toEqual([]);
+    expect(claudeDisallowed([])).not.toContain(SEND);
     const paths = pathsAt(dir);
-    expect(denyRules(path.join(dir, "projects"), dir, "acme", paths, true)).toContain(SEND);
-    expect(denyRules(path.join(dir, "projects"), dir, "acme", paths, false)).not.toContain(SEND);
-    // Every Mail send door stays denied attended too.
-    for (const t of DENIED_TOOLS) expect(denyRules(path.join(dir, "projects"), dir, "acme", paths, false)).toContain(t);
+    expect(denyRules(path.join(dir, "projects"), dir, "acme", paths)).not.toContain(SEND);
+    // Every Mail send door stays denied.
+    for (const t of DENIED_TOOLS) expect(denyRules(path.join(dir, "projects"), dir, "acme", paths)).toContain(t);
   });
 
-  it("the generated session files follow the mode: Claude's deny rules and Codex's disabled_tools", () => {
+  it("the owner's session files: Claude's deny rules and Codex's config keep messenger_send, and Codex approves it by name", () => {
     const paths = pathsAt(dir);
-    const deny = (unattended: boolean) => (claudeSettings({ paths, projectsDir: path.join(dir, "projects"), slug: "acme", nodeBin: "node", unattended }).permissions as { deny: string[] }).deny;
-    expect(deny(true)).toContain(SEND);
-    expect(deny(false)).not.toContain(SEND);
-    const toml = (unattended: boolean) => codexConfigToml({ paths, projectsDir: path.join(dir, "projects"), slug: "acme", unattended, servers: { hub: { type: "stdio", command: "node", args: ["hub.mjs", "mcp"] } }, instructions: "x" });
-    const hub = (t: string) => t.slice(t.indexOf('[mcp_servers."hub"]')).split(/\n\[(?!")/)[0] ?? "";
-    expect(hub(toml(true))).toContain('disabled_tools = ["messenger_send"]');
-    expect(toml(false)).not.toMatch(/messenger_send/);
+    const deny = (claudeSettings({ paths, projectsDir: path.join(dir, "projects"), slug: "acme", nodeBin: "node" }).permissions as { deny: string[] }).deny;
+    expect(deny).not.toContain(SEND);
+    const toml = codexConfigToml({ paths, projectsDir: path.join(dir, "projects"), slug: "acme", servers: { hub: { type: "stdio", command: "node", args: ["hub.mjs", "mcp"] } }, instructions: "x" });
+    expect(toml).not.toMatch(/disabled_tools = \[[^\]]*messenger_send/);
+    expect(toml).toContain('[mcp_servers."hub".tools."messenger_send"]\napproval_mode = "approve"');
   });
+
+  it("a config that still says agent.unattended: true with no background marker is attended (the dock, a terminal, a resumed session)", async () => {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const { instanceFeatures } = await import("@hub/config/paths");
+    const { attendedSession } = await import("../src/mcp/stdio");
+    mkdirSync(path.join(dir, "config"), { recursive: true });
+    writeFileSync(path.join(dir, "config", "config.json"), JSON.stringify({ agent: { default: "claude", unattended: true } }));
+    expect(instanceFeatures(pathsAt(dir))).toEqual({ agent: { default: "claude" } });
+    expect(attendedSession({ HUB_HOME: dir, HUB_PROJECT: "acme" })).toBe(true);
+    expect(attendedSession({ HUB_HOME: dir, HUB_PROJECT: "acme", HUB_AUTOPILOT_CHAT: "12" })).toBe(false);
+    expect(attendedSession({ HUB_HOME: dir, HUB_PROJECT: "acme", HUB_FOLLOWUP_CLIENT: "7" })).toBe(false);
+  }, 30_000);
 });
 
 describe("hub mcp offers messenger_send only with the attended port", () => {
-  it("without the port (unattended) the tools are exactly HUB_MCP_TOOLS, none send-like", async () => {
+  it("without the port (a background run) the tools are exactly HUB_MCP_TOOLS, none send-like", async () => {
     const { names } = await toolsOf();
     expect(names).toEqual([...HUB_MCP_TOOLS].sort());
     expect(names.filter((n) => SEND_LIKE_TOOL.test(n))).toEqual([]);
   });
 
-  it("with it (attended) messenger_send is the one addition, and no tool sends Mail", async () => {
+  it("with it (the owner's session) messenger_send is the one addition, and no tool sends Mail", async () => {
     const { names } = await toolsOf(async () => ({ ok: false, status: 409, reason: "no_owner_word", error: "Not sent.", next: "Ask." }));
     expect(HUB_MCP_ATTENDED_TOOLS).toEqual([MESSENGER_SEND_TOOL]);
     expect(names).toEqual([...HUB_MCP_TOOLS, ...HUB_MCP_ATTENDED_TOOLS].sort());
@@ -129,10 +138,10 @@ describe("decision 0048: an autopilot turn has no send tool (P139 A3, verdict 28
     expect(names).not.toContain("messenger_send");
   });
 
-  it("its CLI denies messenger_send and every other hub tool by name, and the unattended deny list", () => {
+  it("its CLI denies messenger_send and every other hub tool by name, and the background run's deny list", () => {
     const denied = autopilotDisallowed();
     expect(denied).toContain(SEND);
-    for (const t of deniedTools(true)) expect(denied).toContain(t);
+    for (const t of deniedTools("background")) expect(denied).toContain(t);
     expect(AUTOPILOT_ALLOWED.filter((t) => SEND_LIKE_TOOL.test(t.replace("mcp__hub__", "")) && t !== "mcp__hub__messenger_draft_write")).toEqual([]);
   });
 });

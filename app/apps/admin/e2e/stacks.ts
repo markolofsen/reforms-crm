@@ -36,9 +36,9 @@ export function prepareStack(s: Stack, starterSequence: string): void {
     // P49 S11: the send policy is the server's file, not a row of project.md (recipients = any, drafts only, as the seeded flows expect).
     writeSendPolicy(s.home, slug);
   }
-  // The instance config: agent sessions unattended. The embedded terminal is always on (decision 0032; the server runs the fake shell).
+  // The instance config: the default CLI. The embedded terminal is always on (decision 0032; the server runs the fake shell).
   mkdirSync(join(s.home, "config"), { recursive: true });
-  writeFileSync(join(s.home, "config", "config.json"), JSON.stringify({ agent: { default: "claude", unattended: true } }, null, 2));
+  writeFileSync(join(s.home, "config", "config.json"), JSON.stringify({ agent: { default: "claude" } }, null, 2));
   // P47: lisbon-realty gets the core's starter sequence, so its seeded follow-ups (Tiago due, Ines a candidate) have a definition.
   mkdirSync(join(s.projects, "lisbon-realty", "sequences"), { recursive: true });
   copyFileSync(starterSequence, join(s.projects, "lisbon-realty", "sequences", "answered-enquiry-no-reply.md"));

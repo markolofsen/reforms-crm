@@ -132,7 +132,7 @@ export const followUpPlanTool = defineTool({
     // Verdict 9: a nudge with no draft written is answered with a hint, never refused.
     const hint = i.decision === "nudge" && !item?.nudgeReady ? "No follow-up draft of this client waits: write it now with draft_write or messenger_draft_write and follow_up = {n}, or decide wait." : null;
     const notion = ctx.env.syncFollowUp
-      ? (await ctx.env.syncFollowUp(slug, { clientId: i.client, email: client.email, pageId: client.notionPageId ?? null, nextAt: r.row.nextAt, state: r.row.state, nudgeReady: item?.nudgeReady ?? false, nudgesSent: r.row.nudgesSent, waitingOn: r.row.waitingOn, line: r.sameDay ? null : r.row.line })).state
+      ? (await ctx.env.syncFollowUp(slug, { clientId: i.client, email: client.email, pageId: null, nextAt: r.row.nextAt, state: r.row.state, nudgeReady: item?.nudgeReady ?? false, nudgesSent: r.row.nudgesSent, waitingOn: r.row.waitingOn, line: r.sameDay ? null : r.row.line })).state
       : "off";
     return {
       project: slug,

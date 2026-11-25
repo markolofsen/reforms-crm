@@ -248,16 +248,12 @@ describe("Create client from a chat", () => {
 
 describe("P143: the agent's client_create with no chat", () => {
   const TOKEN = "t".repeat(64);
-  let unattended = false;
-  const agentPost = (body: unknown) =>
-    autolinkRoutes({ repos, autolink: { project: "p", autolink: al, directory, stop: () => undefined }, adminPort: ADMIN, agentToken: TOKEN, agentUnattended: () => unattended }).request(`${BASE}/api/projects/p/messengers/autolink/agent-create`, {
+  const agentPost = (body: unknown, token = TOKEN) =>
+    autolinkRoutes({ repos, autolink: { project: "p", autolink: al, directory, stop: () => undefined }, adminPort: ADMIN, agentToken: TOKEN }).request(`${BASE}/api/projects/p/messengers/autolink/agent-create`, {
       method: "POST",
-      headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: TOKEN },
+      headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token },
       body: JSON.stringify(body),
     });
-  beforeEach(() => {
-    unattended = false;
-  });
 
   it("makes one Clients card with the name, company, Phone and Telegram, and no Hub row (rule 16)", async () => {
     const r = await agentPost({ name: "Ahmed", company: "Qimma Auctions", phone: "+966 54 455 5430", telegram: "@qimma_k" });
@@ -290,12 +286,11 @@ describe("P143: the agent's client_create with no chat", () => {
     expect(writes).toEqual([]);
   });
 
-  it("refuses a name alone, a number for a name and an unattended instance; nothing is written", async () => {
+  it("refuses a name alone, a number for a name and a caller without hub mcp's token; nothing is written", async () => {
     expect((await agentPost({ name: "Ahmed" })).status).toBe(400);
     expect((await agentPost({ name: "+966 54 455 5430", phone: "+966 54 455 5430" })).status).toBe(400);
     expect((await agentPost({ chat: 1, name: "Ahmed", phone: "+966 54 455 5430" })).status).toBe(400);
-    unattended = true;
-    expect((await agentPost({ name: "Ahmed", email: "ahmed@example.test" })).status).toBe(403);
+    expect((await agentPost({ name: "Ahmed", email: "ahmed@example.test" }, "b".repeat(64))).status).toBe(403);
     expect(writes).toEqual([]);
   });
 });

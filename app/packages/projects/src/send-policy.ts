@@ -1,5 +1,5 @@
 // The send policy (P49 S11): who a draft may go to and whether the hub may send without a person. It is server-owned:
-// it lives in `state/projects/<slug>/send-policy.json`, which an unattended agent's sandbox cannot write, and it is
+// it lives in `state/projects/<slug>/send-policy.json`, which an agent session's sandbox cannot write, and it is
 // written only by a person (`hub send policy set|migrate`). project.md no longer carries it: a row of these fields
 // there is reported (`send_policy_in_project_md`, the project doctor fails) and ignored.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
