@@ -58,4 +58,10 @@ if (stale.length) {
 }
 // `hub mcp` (P51): the read-only MCP server on stdio, without the CLI (nothing but the protocol may reach stdout).
 if (cmd === "mcp" && rest.length === 0) await (await import("@hub/agent/mcp-stdio")).serveHubMcp();
-else await import("../src/cli.ts");
+else {
+  // P144: the CLI loads an instance's own TypeScript too (a watch lens under <home>/packages). An instance root's package.json
+  // has no "type", so that file sits in a CommonJS scope, and the ESM hooks alone turn its import into a require() of an ES module
+  // ("Cannot require() ES Module ... in a cycle"). The CommonJS hooks as well, the way `tsx` runs the server, load it as the server does.
+  (await import("tsx/cjs/api")).register();
+  await import("../src/cli.ts");
+}

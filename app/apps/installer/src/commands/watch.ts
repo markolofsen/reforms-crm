@@ -1,6 +1,7 @@
 // P144 W3: `hub watch import <audience.sqlite> --project <slug>`: the experiment's corpus into a project's watch store, so the
 // Watch section can be read and measured with no Telegram account. The lens named in the project's watch.md supplies the task
 // version. Reads the experiment's file read-only; writes only `data/watch/<slug>.db` (a behind file is refused: the server migrates).
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { Command } from "commander";
 import { readWatch } from "@hub/watch/config";
@@ -25,6 +26,7 @@ export function register(parent: Command): Command {
       if (w.state === "invalid") throw new Error(`${o.project}/watch.md: ${w.reason}`);
       const lens = await loadLens(paths.instancePackages, w.config.lens);
       if (!lens.ok) throw new Error(`lens ${w.config.lens}: ${lens.reason}`);
+      if (!existsSync(path.resolve(file))) throw new Error(`${file} does not exist: give the experiment's audience.sqlite`);
       const store = openWatchStore(watchDbFile(paths.watch, o.project), { project: o.project });
       try {
         const r = importExperiment(path.resolve(file), store, { taskVersion: lens.lens.task.version, ...(o.size ? { size: o.size } : {}), ...(o.overlap ? { overlap: o.overlap } : {}) });
