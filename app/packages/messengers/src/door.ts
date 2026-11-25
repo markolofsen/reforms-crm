@@ -1,3 +1,4 @@
+import { unresolvedMarkers } from "@hub/config";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { AUTOPILOT_ACCOUNT_SHARE } from "@hub/config/autopilot";
 import { RepoError, usageRefusal, type MessengerChannel, type Repos, type SendRow } from "@hub/db";
@@ -101,6 +102,10 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
   if (policy.lifecycle) reasons.push(policy.lifecycle);
   if (d.status !== "draft") reasons.push(`the draft does not wait any more: ${STATE_WORDS[d.status] ?? d.status}`);
   if (!d.text.trim()) reasons.push("the draft text is empty");
+  // The mail door's rule (3i P1) at this door too (2026-11-25: a WhatsApp reply went out with "[Owner: …]" in it): a placeholder
+  // the owner did not fill never goes out, whoever sends (his click, his word, autopilot).
+  const left = unresolvedMarkers(d.text);
+  if (left.length) reasons.push(`a placeholder is left in the text: ${left[0]}`);
   const chat = await repos.messengers.chat(project, d.channel, d.chatId);
   // Decision 0049 point 7: the door needs a known chat, not a linked one; a hidden or forgotten chat has no row.
   if (!chat) reasons.push("the chat is no longer known to the Hub (hidden or forgotten)");

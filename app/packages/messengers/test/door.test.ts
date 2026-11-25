@@ -46,6 +46,14 @@ describe("the messenger door's stages (P112 S2)", () => {
     expect((await assessMessenger(depsWith(() => open), "p", quiet))?.reasons).toContain("nobody wrote in this chat yet: the hub never makes the first contact");
   });
 
+  it("a placeholder left in the text is refused at the assessment and nothing goes out, whoever sends (as the mail door)", async () => {
+    const id = await draft("The price is [Owner: confirm the tier] a month.");
+    expect((await assessMessenger(depsWith(() => open), "p", id))?.reasons).toContain("a placeholder is left in the text: [Owner: confirm the tier]");
+    const r = await applyMessenger(depsWith(() => open), "p", id, { chatId: "100", text: "The price is [Owner: confirm the tier] a month." }, CLICK);
+    expect(r).not.toEqual({ sendId: expect.any(Number) });
+    expect(adapter.sent).toEqual([]);
+  });
+
   it("another project's draft is not found: the door answers null and writes nothing", async () => {
     const id = await draft();
     expect(await assessMessenger(depsWith(() => open), "other", id)).toBeNull();
