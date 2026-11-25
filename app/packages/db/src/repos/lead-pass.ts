@@ -223,6 +223,13 @@ export function leadPassRepo(db: Db) {
       );
     },
 
+    ...leadPassLedger(db),
+  };
+}
+
+/** The pass ledger, the day's lead batch and the served hash: the half of `leadPassRepo` that reads no lead row. */
+function leadPassLedger(db: Db) {
+  return {
     // ---- The passes (verdict 4): one row each, so "last pass" and the day's turn budget survive a restart.
     async startPass(project: string, trigger: LeadPassTrigger, at: string, kind: PassKind = "lead"): Promise<LeadPassRow> {
       const row = db.insert(leadPasses).values({ project, trigger, startedAt: at, kind }).returning().get();
