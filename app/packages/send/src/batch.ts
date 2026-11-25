@@ -138,10 +138,16 @@ export async function runBatch(deps: SendDeps, o: { project: string; batchId: nu
     // The spacing is the run's own pace, never a refusal: it waits until the log allows the next mail (a timer that fires a few
     // ms early, or a send row stamped after its mail left, read again and waited out), so the run never refuses its own item.
     let paced = true;
-    for (let tries = 0; tries < SPACING_TRIES; tries++) {
+    for (let tries = 0; ; tries++) {
       const last = (await deps.repos.sends.actorUsage(o.project, BATCH_SEND_ACTOR, now())).lastAttemptAt;
       const ms = last ? new Date(last).getTime() + limits.spacingSeconds * 1000 - new Date(now()).getTime() : 0;
       if (ms <= 0) break;
+      // A clock that never moves (it cannot happen on a real run): this item is held, never sent closer than the spacing.
+      if (tries >= SPACING_TRIES) {
+        paced = false;
+        set(k, { status: "refused", reasons: [`the spacing did not pass after ${SPACING_TRIES} waits: send it again`] });
+        break;
+      }
       await o.control.wait(ms + SPACING_MARGIN_MS);
       if (o.control.stopped()) {
         paced = false;
@@ -149,7 +155,7 @@ export async function runBatch(deps: SendDeps, o: { project: string; batchId: nu
       }
     }
     if (!paced) {
-      k--;
+      if (o.control.stopped()) k--;
       continue;
     }
     const still = usageRefusal(await deps.repos.sends.actorUsage(o.project, BATCH_SEND_ACTOR, now()), { dailyCap: limits.dailyCap, spacingSeconds: 0 }, now());

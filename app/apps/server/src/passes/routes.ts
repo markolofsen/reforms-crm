@@ -42,7 +42,13 @@ export function leadPassRoutes(ctx: ProjectsContext) {
       const last = await repos.leadPass.lastPass(slug);
       const batchId = await repos.leadPass.openBatch(slug);
       const waits = (d: string) => d === "drafted" || d === "for_you";
-      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => waits(r.display)).length + (await repos.mailPass.ofBatch(slug, batchId)).filter((r) => waits(r.display)).length;
+      // P145 B4: a fixed bug's note in the day's list counts as one more reply waiting, while its draft is unsent.
+      const notes = async (id: number) => {
+        let n = 0;
+        for (const x of await repos.bugNotes.ofBatch(slug, id)) if (x.toldAt === null && x.draftId !== null && (await repos.drafts.get(x.draftId))?.status === "ready") n++;
+        return n;
+      };
+      const drafts = batchId === null ? 0 : (await repos.leadPass.ofBatch(slug, batchId)).filter((r) => waits(r.display)).length + (await repos.mailPass.ofBatch(slug, batchId)).filter((r) => waits(r.display)).length + (await notes(batchId));
       // P147 3h: the mail pass's line, on the same runner.
       const mcfg = ctx.projects.find(slug)?.mail;
       const mset = { schedule: mcfg?.pass ?? LEAD_PASS_DEFAULT_SCHEDULE, at: mcfg?.passAt ?? MAIL_PASS_DEFAULT_AT };
