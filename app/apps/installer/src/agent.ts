@@ -237,7 +237,7 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
     cli === "codex"
       ? spawnCli("codex", "codex", buildCodexArgs(p, paths), env.root, childEnv)
       : spawnCli("claude", "claude", buildClaudeArgs(p, dirs, files, relOk), env.root, childEnv);
-  return startWithFallback(run, start, { say: (l) => console.log(c.yellow(l)) });
+  return startSession(run, start, { cli, say: (l) => console.log(c.yellow(l)) });
 }
 
 /**
@@ -264,18 +264,11 @@ export function resolveResume(plan: AgentPlan, cli: AgentCli, o: { paths: HubPat
 /** The same plan as a fresh session. */
 const freshPlan = ({ resume: _, ...rest }: AgentPlan): AgentPlan => ({ ...rest, mode: "new" });
 
-/** A resume that the CLI refuses fails at once (Claude "No conversation found", exit 1 in about 4 s; Codex "no rollout found", 1.7 s). */
-export const RESUME_FAIL_MS = 15_000;
-
-/**
- * Starts the plan; a resume whose CLI exits non-zero within {@link RESUME_FAIL_MS} gets ONE fresh start, said in one line. A
- * resumed session that ran longer is never restarted.
- */
-export async function startWithFallback(plan: AgentPlan, start: (p: AgentPlan) => Promise<number>, o: { say: (line: string) => void; now?: () => number; failMs?: number }): Promise<number> {
-  const now = o.now ?? Date.now;
-  const t0 = now();
+/** A failed resume stays failed: an authentication, provider or MCP error must not replace the conversation. */
+export async function startSession(plan: AgentPlan, start: (p: AgentPlan) => Promise<number>, o: { cli: AgentCli; say: (line: string) => void }): Promise<number> {
   const code = await start(plan);
-  if (plan.mode !== "resume" || code === 0 || now() - t0 > (o.failMs ?? RESUME_FAIL_MS)) return code;
-  o.say(`Could not resume session ${(plan.resume ?? "").slice(0, 8)} (exit ${code}): a fresh session.`);
-  return start(freshPlan(plan));
+  if (plan.mode === "resume" && code !== 0) {
+    o.say(`Could not resume session ${plan.resume} (exit ${code}). No new session was started. Fix the error above, then retry: hub agent ${plan.project ?? "continue"} --cli ${o.cli} --resume ${plan.resume}. Use + for a new session.`);
+  }
+  return code;
 }

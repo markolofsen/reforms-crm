@@ -20,59 +20,50 @@ export function terminalProjectOf(o: { loaded: boolean; pending: boolean; projec
   return o.multi ? o.scoped : o.project;
 }
 
-/**
- * The column starts its session by itself (P57 2a, 2e, 2g, 2h): each time it becomes visible (the strip, Ctrl+`, the phone's
- * button, or a column restored open from storage) the list is read fresh; the remembered tab, else a session of the address's project, gets the focus,
- * else the server's pick starts (`ensure`), at most once per project per page load. A hidden page waits until it is shown, so a
- * background tab restored open starts nothing. A collapsed strip on page load starts nothing: `open` is false.
- */
-export function useAutoStart(o: {
+type AutoStart = {
   open: boolean;
-  /** The terminal is on, its state was read and the address's project is known (`terminalProjectOf`). */
+  /** State was read, no terminal problem, and the address's project is known. */
   ready: boolean;
   project: string | null;
-  /** The tab he had open (`terminal-tab`): shown again when it is one of this project's sessions (P88, B7: a reload showed the first). */
   remembered: string | null;
-  /** The list, read fresh (`staleTime: 0`); the cached one when the read fails. */
+  /** The last lost PTY id: a new recovery opportunity, not a crashed CLI retry. */
+  recovery: string | null;
   fresh: () => Promise<readonly TerminalSessionDto[]>;
   ensure: () => void;
   show: (session: TerminalSessionDto) => void;
-}) {
+};
+
+/** Re-read before choosing; one ensure attempt per project and lost-PTY event, including after the first start. */
+export async function startVisibleSession(o: AutoStart, attempts: Map<string | null, string | null>, allowed: () => boolean): Promise<void> {
+  if (!o.open || !o.ready || !allowed()) return;
+  const list = await o.fresh();
+  if (!allowed()) return;
+  const kept = list.find((s) => s.id === o.remembered && (!o.project || s.project === o.project));
+  const session = kept ?? sessionFor(list, o.project);
+  if (session) return o.show(session);
+  if (attempts.has(o.project) && attempts.get(o.project) === o.recovery) return;
+  attempts.set(o.project, o.recovery);
+  o.ensure();
+}
+
+/** An open, visible dock reconnects after PTY loss; a hidden page and a deliberately closed dock start nothing. */
+export function useAutoStart(o: AutoStart) {
   const latest = useRef(o);
-  // Runs before the effect below (effects run in order), so `run` reads this render's project and callbacks.
-  useEffect(() => {
-    latest.current = o;
-  });
-  const started = useRef(new Set<string>());
-  const { open, ready } = o;
+  useEffect(() => { latest.current = o; });
+  const attempts = useRef(new Map<string | null, string | null>());
+  const { open, ready, project, recovery } = o;
   useEffect(() => {
     if (!open || !ready) return;
     let gone = false;
-    const run = async () => {
-      const { project, remembered, fresh, ensure, show } = latest.current;
-      const list = await fresh();
-      if (gone || !latest.current.open) return;
-      const kept = list.find((x) => x.id === remembered && (!project || x.project === project));
-      const s = kept ?? sessionFor(list, project);
-      if (s) return show(s);
-      const key = project ?? "";
-      if (started.current.has(key)) return;
-      started.current.add(key);
-      ensure();
-    };
-    if (document.visibilityState === "visible") {
-      void run();
-      return () => { gone = true; };
-    }
-    const onShow = () => {
-      if (document.visibilityState !== "visible") return;
-      document.removeEventListener("visibilitychange", onShow);
-      void run();
-    };
+    const allowed = () => !gone && latest.current.open && document.visibilityState === "visible";
+    const run = () => startVisibleSession(latest.current, attempts.current, allowed);
+    // Keep listening: a read that finishes while hidden is cancelled, then retried when visible again.
+    const onShow = () => { if (allowed()) void run(); };
     document.addEventListener("visibilitychange", onShow);
+    if (allowed()) void run();
     return () => {
       gone = true;
       document.removeEventListener("visibilitychange", onShow);
     };
-  }, [open, ready]);
+  }, [open, ready, project, recovery]);
 }

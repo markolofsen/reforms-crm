@@ -155,12 +155,12 @@ export function sessionManager(o: ManagerOptions) {
   }
 
   /** Closes a tab: SIGHUP to the process group, SIGKILL after the grace period; the session is forgotten at once. */
-  function kill(id: string): boolean {
+  function kill(id: string, restarting = false): boolean {
     const s = sessions.get(id);
     if (!s) return false;
     sessions.delete(id);
     if (s.timer) clearTimeout(s.timer);
-    s.viewer?.close(CLOSE.notFound, "closed");
+    s.viewer?.close(restarting ? CLOSE.restarting : CLOSE.notFound, restarting ? "server restarting" : "closed");
     if (!s.exited) {
       s.pty.kill("SIGHUP");
       const t = setTimeout(() => { if (!s.exited) s.pty.kill("SIGKILL"); }, o.killGraceMs ?? 3000);
@@ -175,11 +175,11 @@ export function sessionManager(o: ManagerOptions) {
     attach,
     input,
     resize,
-    kill,
+    kill: (id: string) => kill(id),
     has: (id: string) => sessions.has(id),
     list: (): TerminalSessionDto[] => [...sessions.values()].map(dto),
     /** Server shutdown: every session ends. */
-    killAll: () => { for (const id of [...sessions.keys()]) kill(id); },
+    killAll: () => { for (const id of [...sessions.keys()]) kill(id, true); },
   };
 }
 export type SessionManager = ReturnType<typeof sessionManager>;

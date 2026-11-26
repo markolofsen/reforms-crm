@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { bindingPrompt, sessionRules } from "@hub/agent/session-rules";
-import { buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs, resolveResume, startWithFallback, type AgentPlan } from "../src/agent";
+import { buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs, resolveResume, startSession, type AgentPlan } from "../src/agent";
 import { ADVISOR_RULE, claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
 import { DEFAULT_AGENT_SETTINGS } from "@hub/config";
 import { appendEvents, logStoreOf } from "@hub/log/store";
@@ -271,27 +271,26 @@ describe("P64: resolveResume reads the session log; a refusal starts fresh and s
   });
 });
 
-describe("P64: startWithFallback", () => {
+describe("P165: resume failures preserve the conversation", () => {
   const plan: AgentPlan = { mode: "resume", project: "acme", resume: ID, extra: [] };
-  it("a resume the CLI refuses at once gets ONE fresh start, said in one line", async () => {
+  it.each([1, 2, 130])("exit %i never launches a blank replacement", async (exitCode) => {
     const runs: AgentPlan[] = [];
     const said: string[] = [];
-    const code = await startWithFallback(plan, async (p) => { runs.push(p); return runs.length === 1 ? 1 : 0; }, { say: (l) => said.push(l), now: () => 0 });
-    expect(code).toBe(0);
-    expect(runs.map((r) => r.mode)).toEqual(["resume", "new"]);
-    expect(runs[1]).not.toHaveProperty("resume");
-    expect(said).toEqual(["Could not resume session 8d31964d (exit 1): a fresh session."]);
+    const code = await startSession(plan, async (p) => { runs.push(p); return exitCode; }, { cli: "codex", say: (l) => said.push(l) });
+    expect(code).toBe(exitCode);
+    expect(runs).toEqual([plan]);
+    expect(said).toHaveLength(1);
+    expect(said[0]).toContain(`hub agent acme --cli codex --resume ${ID}`);
+    expect(said[0]).toContain("No new session was started");
   });
-  it("a fresh start that fails is not retried, and neither is a resumed session that ran longer than 15 s", async () => {
-    let n = 0;
-    expect(await startWithFallback({ ...plan, mode: "new" }, async () => { n++; return 1; }, { say: () => {}, now: () => 0 })).toBe(1);
-    let t = 0;
-    expect(await startWithFallback(plan, async () => { n++; t = 20_000; return 2; }, { say: () => {}, now: () => t })).toBe(2);
-    expect(n).toBe(2);
-  });
-  it("a resume that fails fresh as well stops after the one retry", async () => {
-    let n = 0;
-    expect(await startWithFallback(plan, async () => { n++; return 1; }, { say: () => {}, now: () => 0 })).toBe(1);
-    expect(n).toBe(2);
+  it("successful resume and an explicit new session run once without a failure message", async () => {
+    const runs: AgentPlan[] = [];
+    const said: string[] = [];
+    const start = async (p: AgentPlan) => { runs.push(p); return p.mode === "new" ? 1 : 0; };
+    expect(await startSession(plan, start, { cli: "claude", say: (l) => said.push(l) })).toBe(0);
+    const fresh: AgentPlan = { mode: "new", project: "acme", extra: [] };
+    expect(await startSession(fresh, start, { cli: "claude", say: (l) => said.push(l) })).toBe(1);
+    expect(runs).toEqual([plan, fresh]);
+    expect(said).toEqual([]);
   });
 });

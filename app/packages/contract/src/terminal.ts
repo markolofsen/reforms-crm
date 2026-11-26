@@ -111,7 +111,8 @@ export const serverFrame = z.discriminatedUnion("op", [
 export type ServerFrame = z.infer<typeof serverFrame>;
 
 /** WebSocket close codes the client reads. */
-export const CLOSE = { unauthorized: 4401, notFound: 4404, taken: 4409 } as const;
+// 1012 is the standard Service Restart code: wait for the server before looking up the old PTY.
+export const CLOSE = { restarting: 1012, unauthorized: 4401, notFound: 4404, taken: 4409 } as const;
 
 /** `JSON.parse` + `clientFrame`; null for anything that is not one valid frame. */
 export function parseClientFrame(text: string): ClientFrame | null {

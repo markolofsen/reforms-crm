@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CLOSE } from "@hub/contract/terminal";
 import { ApiFailure } from "../src/lib/api/client";
 import { connectTerminal, retryDelay, type LinkDeps, type LinkState, type SocketHandlers } from "../src/features/terminal/socket";
 
@@ -96,6 +97,27 @@ describe("terminal socket", () => {
     r.sockets[0]!.on.close(1000);
     expect(r.exits).toEqual([3]);
     expect([...r.timers.values()].filter((t) => t.ms !== 20_000)).toEqual([]);
+  });
+
+  it("waits through a server restart, then reports the missing old PTY for dock recovery", async () => {
+    let tickets = 0;
+    const r = rig(async () => {
+      tickets++;
+      if (tickets === 2) throw new ApiFailure("Server offline", "server", 0);
+      if (tickets === 3) throw new ApiFailure("Old PTY not found", "not_found", 404);
+      return { ticket: "t1", expiresAt: "x", url: "ws://127.0.0.1:4317/terminal" };
+    });
+    await r.tick();
+    r.sockets[0]!.on.text(JSON.stringify({ op: "ready", session: "s1" }));
+    r.sockets[0]!.on.close(CLOSE.restarting);
+    expect(r.states.at(-1)).toEqual({ kind: "retrying", inMs: 1000 });
+    r.fire(1000);
+    await r.tick();
+    expect(r.states.at(-1)).toEqual({ kind: "retrying", inMs: 2000 });
+    r.fire(2000);
+    await r.tick();
+    expect(r.states.at(-1)).toEqual({ kind: "gone" });
+    expect(r.timers.size).toBe(0);
   });
 
   it("close ends it: the socket is closed and nothing is scheduled", async () => {

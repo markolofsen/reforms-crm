@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import type { ServerFrame } from "@hub/contract/terminal";
+import { CLOSE, type ServerFrame } from "@hub/contract/terminal";
 import { nodePty, presetArgv, presetOrder, sessionManager, spawnLine, terminalEnv, type PtyProcess, type PtySpawn, type SpawnSpec, type Viewer } from "../src/index";
 
 /** A PTY that records what it is told and lets the test speak for the program. */
@@ -140,6 +140,22 @@ describe("sessions", () => {
     for (let i = 0; i < 8; i++) m.create(spec());
     expect(() => m.create(spec())).toThrow(/at most 8/);
     vi.useRealTimers();
+  });
+});
+
+describe("P165: restarting the server is different from closing a tab", () => {
+  it("shutdown tells viewers to reconnect before killing PTYs; a deliberate Close stays not-found", async () => {
+    const f = fakePty(), m = sessionManager({ spawn: f.spawn });
+    const first = m.create(spec()), w = viewer();
+    await m.attach(first.id, w.v);
+    m.killAll();
+    expect(w.closed).toEqual([CLOSE.restarting]);
+    expect(f.made[0]!.signals).toEqual(["SIGHUP"]);
+    expect(m.list()).toEqual([]);
+    const second = m.create(spec()), v = viewer();
+    await m.attach(second.id, v.v);
+    m.kill(second.id);
+    expect(v.closed).toEqual([CLOSE.notFound]);
   });
 });
 
