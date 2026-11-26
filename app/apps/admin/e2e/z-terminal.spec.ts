@@ -160,7 +160,12 @@ test("terminal: on a project's screen the presets are Claude Code, Codex, Shell;
   const list = await sessions(page);
   expect(list.map((s) => [s.preset, s.project])).toEqual([["claude", P], ["codex", P]]);
   await expect(page.getByRole("tab")).toHaveCount(2);
-  await expect(page.getByRole("tab", { selected: true })).toContainText(P);
+  await expect(page.getByRole("tab")).toHaveText(["Claude", "Codex"]);
+  await expect(page.getByRole("tab", { selected: true })).toHaveText("Codex");
+  await page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("button", { name: "Close Claude", exact: true }).click();
+  await expect(page.getByRole("tab")).toHaveText(["Codex"]);
+  await expect(page.getByRole("tab", { selected: true })).toHaveText("Codex");
+  await expect.poll(async () => (await sessions(page)).map((s) => s.preset)).toEqual(["codex"]);
 });
 
 test("terminal: the tab's tips (P63): its CLI's rows and the Hub's, from one list; the desktop handoff row says why it is not offered", async ({ page }) => {
