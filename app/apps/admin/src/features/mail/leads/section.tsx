@@ -5,6 +5,7 @@ import { LEAD_VIEW_LABELS, type LeadsListDto } from "@hub/contract/inbound";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ListDetail, ListScrollArea } from "@hub/ui/product/list/detail";
 import { ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
+import { SearchField } from "@hub/ui/product/list/search-field";
 import { FilterChips, type Chip } from "@hub/ui/product/list/filter-chips";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, ListState, QueryView, Refreshing } from "@/components/state-views";
@@ -13,6 +14,7 @@ import { useGo } from "@/hooks/use-go";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useClock } from "@/lib/clock";
+import { useDebounced } from "@/hooks/use-debounced";
 import { useLeads } from "@/lib/data/inbound";
 import { dest } from "@/routes/paths";
 import { LEAD_VIEWS, type LeadView } from "@/routes/search";
@@ -24,7 +26,7 @@ import { LeadPassBar } from "./review/pass";
 import { LeadRows, LeadsReadLine } from "./rows";
 import { useLeadsSeen } from "./use-seen";
 
-const EMPTY: Record<LeadView, string> = { new: "No new lead", drafted: "No drafted reply waiting", for_you: "Nothing waits for you", not_now: "Nothing put aside", spam: "No spam", replied: "No lead answered yet" };
+const EMPTY: Record<LeadView, string> = { needs_you: "Nothing needs your action", all: "No leads stored yet", new: "No new lead", drafted: "Nothing to review", for_you: "Nothing needs a decision", not_now: "Nothing deferred", spam: "No spam", replied: "No lead answered yet" };
 
 /**
  * P138 verdict 7: the views of Leads as one segmented control in the list header (New, Not now, Spam, Replied with their counts),
@@ -32,37 +34,40 @@ const EMPTY: Record<LeadView, string> = { new: "No new lead", drafted: "No draft
  * it is on screen. A choice replaces the history entry (`?view=`), like any filter.
  */
 function ViewChips({ view, counts, onView }: { view: LeadView; counts: LeadsListDto["counts"] | undefined; onView: (v: LeadView) => void }) {
-  const chips: Chip<LeadView>[] = LEAD_VIEWS.filter((v) => v !== "replied" || v === view || (counts?.replied ?? 0) > 0).map((v) => ({ value: v, label: LEAD_VIEW_LABELS[v], count: counts?.[v] }));
-  return <FilterChips chips={chips} label="Lead views" onChange={onView} value={view} />;
+  const primary: LeadView[] = ["needs_you", "all"];
+  const chips: Chip<LeadView>[] = primary.map((value) => ({ value, label: LEAD_VIEW_LABELS[value], count: counts?.[value] }));
+  return <FilterChips chips={chips} label="Lead views" onChange={onView} value={view === "needs_you" ? view : "all"} />;
 }
 
-type Props = { project: string; view: LeadView; brand: string | null; pageId: string | null };
+type Props = { project: string; view: LeadView; brand: string | null; pageId: string | null; q: string };
 
 /**
  * Mail ▸ Leads (P134 verdicts 6-8, P138): a page of its own under Mail, not mixed with the conversations. The views as a segmented
  * control in the list header, every lead of the view (paged, by day) beside the open lead's card, which takes the width the views
  * column had. The view, the brand and the lead live in the address. A lead becomes a Mail conversation on its first reply.
  */
-function LeadsPage({ project, view, brand, pageId }: Props) {
+function LeadsPage({ project, view, brand, pageId, q }: Props) {
   const go = useGo();
   const now = useClock()();
-  const { query, rows, head } = useLeads(project, view, brand);
-  const list = dest("mail.leads", { view, brand });
+  const search = useDebounced(q, 250);
+  const { query, rows, head } = useLeads(project, view, brand, search);
+  const list = dest("mail.leads", { view, brand, q });
   const seen = useLeadsSeen(project, newestOf(rows));
-  useLeadListKeys({ ids: rows.map((r) => r.pageId), currentId: pageId, open: (page) => go(dest("mail.lead", { page }, { view, brand })) });
-  const title = `Leads${head ? ` · ${head.total}` : ""}`;
+  useLeadListKeys({ ids: rows.map((r) => r.pageId), currentId: pageId, open: (page) => go(dest("mail.lead", { page }, { view, brand, q })) });
+  const title = `${LEAD_VIEW_LABELS[view]}${head ? ` · ${head.total}` : ""}`;
   const toolbar = (
     <ListToolbar ariaLabel="Lead filters">
       <ListToolbarRow className="flex-nowrap">
         <h3 className="me-auto min-w-0 truncate font-semibold text-sm" data-testid="list-title">
           {title}
         </h3>
-        <ListFilterButton brand={brand} brands={head?.brands ?? []} filter={null} filters={[]} onBrand={(b) => go(dest("mail.leads", { view, brand: b }), { replace: true })} onFilter={() => undefined} what="leads" />
+        <ListFilterButton brand={brand} brands={head?.brands ?? []} filter={view === "needs_you" || view === "all" ? null : view} filters={LEAD_VIEWS.filter((v) => v !== "needs_you" && v !== "all").map((v) => ({ value: v, label: LEAD_VIEW_LABELS[v], count: head?.counts[v] }))} onBrand={(b) => go(dest("mail.leads", { view, brand: b, q }), { replace: true })} onFilter={(v) => go(dest("mail.leads", { view: LEAD_VIEWS.find((x) => x === v) ?? "all", brand, q }), { replace: true })} what="leads" />
         {query.isFetching && !query.isPending && <Refreshing />}
       </ListToolbarRow>
       <ListToolbarRow>
-        <ViewChips counts={head?.counts} onView={(v) => go(dest("mail.leads", { view: v, brand }), { replace: true })} view={view} />
+        <ViewChips counts={head?.counts} onView={(v) => go(dest("mail.leads", { view: v, brand, q }), { replace: true })} view={view} />
       </ListToolbarRow>
+      <SearchField label="Search leads" placeholder="Name, email or website" value={q} onChange={(value) => go(dest("mail.leads", { view, brand, q: value }), { replace: true })} />
     </ListToolbar>
   );
   const listColumn = (
@@ -74,10 +79,10 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
           <>
             {rows.length === 0 ? (
               <EmptyState compact title={EMPTY[view]}>
-                {brand ? `No lead of ${brand} in this view.` : view === "new" ? "A lead a site’s form sent appears here once Notion Leads are read." : undefined}
+                {brand ? `No lead of ${brand} in this view.` : "New requests, replies to review and decisions appear in Needs you. All includes the locally stored history."}
               </EmptyState>
             ) : (
-              <LeadRows now={now} openPageId={pageId} rowTo={(page) => dest("mail.lead", { page }, { view, brand })} rows={rows} seen={seen} />
+              <LeadRows now={now} openPageId={pageId} rowTo={(page) => dest("mail.lead", { page }, { view, brand, q })} rows={rows} seen={seen} />
             )}
             {query.hasNextPage && (
               <div className="flex flex-wrap items-center gap-3 border-t p-3">
@@ -89,7 +94,7 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
                 </ActionButton>
               </div>
             )}
-            {head && <LeadsReadLine now={now} older={view === "new"} read={head.read} />}
+            {head && <LeadsReadLine now={now} older={view === "needs_you" || view === "new" || view === "all"} read={head.read} />}
           </>
         )}
       </QueryView>
@@ -126,5 +131,5 @@ export function LeadsScreen() {
   const route = useRoute();
   const { project } = useProjectScope();
   if (route.route !== "mail.leads" && route.route !== "mail.lead") return null;
-  return <LeadsPage brand={route.search.brand} pageId={route.route === "mail.lead" ? route.params.page : null} project={project} view={route.search.view} />;
+  return <LeadsPage brand={route.search.brand} pageId={route.route === "mail.lead" ? route.params.page : null} project={project} view={route.search.view} q={route.search.q} />;
 }

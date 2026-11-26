@@ -3365,9 +3365,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "default": "new",
+              "default": "needs_you",
               "type": "string",
               "enum": [
+                "needs_you",
+                "all",
                 "new",
                 "drafted",
                 "for_you",
@@ -3375,6 +3377,16 @@
                 "spam",
                 "replied"
               ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "type": "string",
+              "maxLength": 200
             }
           },
           {
@@ -17566,6 +17578,20 @@
                                 "hand_over"
                               ]
                             },
+                            "display": {
+                              "type": "string",
+                              "enum": [
+                                "new",
+                                "drafted",
+                                "draft_gone",
+                                "proposed",
+                                "for_you",
+                                "excluded",
+                                "sent",
+                                "spam",
+                                "not_now"
+                              ]
+                            },
                             "reason": {
                               "type": [
                                 "string",
@@ -18097,6 +18123,20 @@
                             "hand_over"
                           ]
                         },
+                        "display": {
+                          "type": "string",
+                          "enum": [
+                            "new",
+                            "drafted",
+                            "draft_gone",
+                            "proposed",
+                            "for_you",
+                            "excluded",
+                            "sent",
+                            "spam",
+                            "not_now"
+                          ]
+                        },
                         "reason": {
                           "type": [
                             "string",
@@ -18178,6 +18218,16 @@
           "counts": {
             "type": "object",
             "properties": {
+              "needs_you": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "all": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "new": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -18210,6 +18260,8 @@
               }
             },
             "required": [
+              "needs_you",
+              "all",
               "new",
               "drafted",
               "for_you",
@@ -18379,6 +18431,20 @@
                           "spam",
                           "not_now",
                           "hand_over"
+                        ]
+                      },
+                      "display": {
+                        "type": "string",
+                        "enum": [
+                          "new",
+                          "drafted",
+                          "draft_gone",
+                          "proposed",
+                          "for_you",
+                          "excluded",
+                          "sent",
+                          "spam",
+                          "not_now"
                         ]
                       },
                       "reason": {

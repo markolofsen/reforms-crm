@@ -42,6 +42,16 @@ The server drafts the first replies itself, once a day per project, and sends no
 
 Whether a form still delivers a lead at all (page, CSP, endpoint, the signed canary) is a separate check: [22-lead-forms.md](22-lead-forms.md).
 
+## Work queues (P162)
+
+Mail ▸ Leads opens on **Needs you**, with **All** beside it. New requests, unsent replies, pending spam/defer proposals, handovers and draft recovery stay in Needs you until resolved. The former New, Drafted, For you, Not now, Spam and Replied values remain secondary status filters in the URL, so existing lead links still open. All covers locally stored requests, not a promise that an unavailable Notion source has been read completely.
+
+The reader syncs all dated rows it already receives from the Leads listing, including old statuses. Known unresolved work never disappears just because it crossed the ingestion window. The automatic pass still selects only undecided eligible leads in its configured window: showing an older request does not authorize a historical draft sweep. The older-New count describes Notion records, not a count of replies definitely owed.
+
+List and card use the same derived state. A recommendation to mark spam or defer remains a proposal until the owner's click. Confirmed dismissals can be restored from their card. A failed Notion card read preserves the stored preview and offers Retry Notion read.
+
+The dock's lead-pass start reports running, finished, failed or accepted (completion unknown), with counts when known. `lead_pass_start(check_only: true)` reads completion without starting another pass or spending its daily allowance. Empty completed runs say nothing new to process. No completion-time promise or invented future drafts. Review is a batch-specific page: link it only when a real batch exists; otherwise direct the owner to Needs you. The Leads banner reports the last run, not outstanding decisions disguised as new run results. Mail processing belongs on Mail; read-only schedules are under Settings ▸ Agent. The Leads search checks name, addresses, brand, site and stored preview; view counts follow the current search and brand filter.
+
 ## Access
 
 Which integration needs access to Leads and Clients (the backend that writes, the hub that reads) and how to share it: [`../setup/access.md`](../setup/access.md). `hub doctor` fails `notion.access` on `leads` when the hub's integration cannot see it.

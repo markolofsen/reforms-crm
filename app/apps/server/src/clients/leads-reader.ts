@@ -92,7 +92,9 @@ export function windowOf(pages: ReadonlyArray<{ created_time?: unknown } & Param
     const isNew = l.status === null || l.status === "New";
     if (!at || at < since.slice(0, at.length)) {
       if (isNew) older++;
-      continue;
+      // Sync older statuses too, so a resolved Notion request cannot remain stale in Needs you.
+      // The reader already lists the source; runner eligibility still uses its own window.
+      if (!at) continue;
     }
     // P98 item 4: the preview is what the person wrote (Message); the form's metadata (Details: locale, host, consent) never is.
     const text = l.message.replace(/\s+/g, " ").trim();

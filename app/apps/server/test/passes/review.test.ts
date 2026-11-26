@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LEAD_FIRST_REPLY_REASON, leadPassRequest } from "@hub/config/lead-pass";
 import { createRepos, openDb, type DbHandle, type NewLead, type Repos } from "@hub/db";
 import { setSendPolicy } from "@hub/projects/send-policy";
@@ -72,6 +72,8 @@ const control = () => {
 };
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
   dir = mkdtempSync(join(tmpdir(), "hub-lead-review-"));
   mkdirSync(join(dir, "projects", "acme"), { recursive: true });
   writeFileSync(join(dir, "projects", "acme", "project.md"), projectMd);
@@ -83,6 +85,7 @@ beforeEach(() => {
   deps = { repos, mailer, projectsDir: join(dir, "projects"), policyDir, allowList: [] };
 });
 afterEach(() => {
+  vi.useRealTimers();
   handle.close();
   rmSync(dir, { recursive: true, force: true });
 });

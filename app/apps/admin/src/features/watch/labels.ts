@@ -2,7 +2,7 @@ import type { WatchDto, WatchState, WatchView } from "@hub/contract/watch";
 
 /** P144: the menu's views, in order, in the owner's words. */
 export const VIEW_ORDER: readonly WatchView[] = ["triggers", "topics", "moments", "people", "groups", "trend"];
-export const VIEW_LABEL: Record<WatchView, string> = { triggers: "Triggers", topics: "Topics", moments: "Moments", people: "People", groups: "Groups", trend: "Trend" };
+export const VIEW_LABEL: Record<WatchView, string> = { triggers: "Signals", topics: "Topics", moments: "Moments", people: "People", groups: "Groups", trend: "Trend" };
 
 /** The watcher's standing as one word beside its reason. */
 export const STATE_WORD: Record<WatchState, string> = { invalid: "Broken list", lens: "Lens not loaded", off: "Off", no_account: "No account", parked: "Paused", polling: "Reading" };

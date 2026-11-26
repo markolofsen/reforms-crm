@@ -85,7 +85,7 @@ describe("windowOf (verdict 9 as answered: the last 14 days)", () => {
     const pages = [page("a".repeat(32), { email: "acc@x.test", details: "Contact channel: Email: typed@x.test" }), page("b".repeat(32), { received: "2026-10-01" }), page("c".repeat(32), { received: "2026-10-01", status: "Won" })];
     const r = windowOf(pages, { project: "p", config: { brands: [{ name: "Carapis", receivesAt: [], signature: [], answered: "", by: "agent" }] as never, leads: { noticeSenders: [], windowDays: 14, pass: "off" as const, passAt: "09:30" } }, now: NOW });
     expect(r.older).toBe(1);
-    expect(r.rows).toEqual([expect.objectContaining({ pageId: "a".repeat(32), email: "typed@x.test", accountEmail: "acc@x.test", brand: "Carapis", notionStatus: "New" })]);
+    expect(r.rows).toEqual([expect.objectContaining({ pageId: "a".repeat(32), email: "typed@x.test", accountEmail: "acc@x.test", brand: "Carapis", notionStatus: "New" }), expect.objectContaining({ pageId: "b".repeat(32), notionStatus: "New" }), expect.objectContaining({ pageId: "c".repeat(32), notionStatus: "Won" })]);
   });
 });
 

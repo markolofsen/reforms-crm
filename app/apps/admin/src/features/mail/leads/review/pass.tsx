@@ -1,14 +1,14 @@
 "use client";
 
 import { BotIcon } from "lucide-react";
-import { LEAD_PASS_DECISION_LABELS, type LeadPassDecision } from "@hub/config/lead-pass";
+import { LEAD_PASS_DECISION_LABELS, LEAD_PASS_DISPLAY_LABELS, type LeadPassDecision } from "@hub/config/lead-pass";
 import type { LeadPassDto } from "@hub/contract/lead-pass";
 import type { LeadRowDto } from "@hub/contract/inbound";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
-import { useLeadPass, useRedoLead, useRunLeadPass, useRunMailPass } from "@/lib/data/inbound";
+import { useLeadPass, useRedoLead, useRunLeadPass } from "@/lib/data/inbound";
 import { SendReadyButton } from "@/features/mail/ready/send-ready";
 import { SendingLine } from "@/features/mail/ready/sending-line";
 import { formatTime } from "@/lib/format";
@@ -24,17 +24,15 @@ const decisionLabel = (d: string): string => (isLeadDecision(d) ? LEAD_PASS_DECI
 
 /** The chip of a row's decision: what the pass decided, Excluded once the owner unticked it. */
 export function passChipText(p: Pass): string {
+  if (p.display) return p.display === "proposed" ? decisionLabel(p.decision) : LEAD_PASS_DISPLAY_LABELS[p.display];
   return p.excludedAt ? "Excluded" : decisionLabel(p.decision);
 }
 
 /** The pass line: "Lead pass 09:32 · 4 drafted · 2 proposed · 1 for you · next 26 Nov 09:30", or why it is off or stopped. */
 export function passLine(d: LeadPassDto): string {
-  const t = d.today;
   const parts = [d.pass.running ? "Lead pass running" : d.pass.last ? `Lead pass ${formatTime(d.pass.last.finishedAt ?? d.pass.last.startedAt)}` : "No lead pass yet"];
-  if (t.drafted) parts.push(`${t.drafted} drafted`);
-  if (t.spam + t.notNow) parts.push(`${t.spam + t.notNow} proposed`);
-  if (t.forYou) parts.push(`${t.forYou} for you`);
-  parts.push(d.pass.next ? `next ${formatTime(d.pass.next)}` : d.pass.schedule === "off" ? "daily pass off (leads.pass)" : "no next pass");
+  const last = d.pass.last;
+  if (!d.pass.running && last) parts.push(last.listed === 0 ? "nothing new to process" : `${last.listed} eligible · ${last.replied + last.clients} drafts · ${last.handedOver} need a decision · ${last.failed} failed`);
   return parts.join(" · ");
 }
 
@@ -53,7 +51,6 @@ export function mailPassLine(d: LeadPassDto): string {
 export function LeadPassBar({ project }: { project: string }) {
   const q = useLeadPass(project);
   const run = useRunLeadPass(project);
-  const runMail = useRunMailPass(project);
   const d = q.data;
   if (!d) return null;
   const off = d.pass.runNowOff;
@@ -63,19 +60,12 @@ export function LeadPassBar({ project }: { project: string }) {
         <SendReadyButton />
         <ActionButton disabled={off !== null || run.isPending || d.pass.running} onClick={() => run.mutate()} size="s" tooltip={off ?? undefined} variant="secondary">
           <BotIcon aria-hidden="true" />
-          {run.isPending ? "Starting" : d.pass.running ? "Lead pass running" : "Run lead pass now"}
-        </ActionButton>
-        <ActionButton data-testid="mail-pass-run" disabled={d.mail.runNowOff !== null || runMail.isPending || d.mail.running} onClick={() => runMail.mutate()} size="s" tooltip={d.mail.runNowOff ?? undefined} variant="secondary">
-          <BotIcon aria-hidden="true" />
-          {runMail.isPending ? "Starting" : d.mail.running ? "Mail pass running" : "Run mail pass now"}
+          {run.isPending ? "Starting" : d.pass.running ? "Processing leads" : "Process new leads"}
         </ActionButton>
       </div>
       {d.review.batchId !== null && <SendingLine bare batchId={d.review.batchId} project={project} />}
       <p className="text-muted-foreground text-xs tabular-nums" data-testid="lead-pass-line">
         {passLine(d)}
-      </p>
-      <p className="text-muted-foreground text-xs tabular-nums" data-testid="mail-pass-line">
-        {mailPassLine(d)}
       </p>
       {d.pass.stopped && (
         <p className="text-sm" role="status">
@@ -88,7 +78,7 @@ export function LeadPassBar({ project }: { project: string }) {
         </p>
       )}
       <span className="text-destructive-foreground text-xs" role="alert">
-        {run.isError ? sentence(run.error) : runMail.isError ? sentence(runMail.error) : ""}
+        {run.isError ? sentence(run.error) : ""}
       </span>
     </div>
   );

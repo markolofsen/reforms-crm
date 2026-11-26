@@ -72,9 +72,10 @@ test("knowledge: the menu column's view counts are the server's, and each view l
   await page.goto(`/${PROJECT}/knowledge`);
   const nav = page.getByRole("navigation", { name: "Knowledge topics" });
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveCount(0);
-  const want = [["All", d.counts.all], ["Needs a look", d.counts.attention], ["Expired", d.counts.expired], ["Not approved", d.counts.unapproved]] as const;
+  const want = [["All", d.counts.all], ["Needs attention", d.counts.attention]] as const;
   for (const [label, n] of want) await expect(nav.getByRole("link", { name: new RegExp(`^${label}\\s*${n}$`) })).toBeVisible();
-  await nav.getByRole("link", { name: /^Expired/ }).click();
+  await page.getByRole("button", { name: /^Knowledge filter:/ }).click();
+  await page.getByRole("menuitemradio", { name: /^Expired/ }).click();
   await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?filter=expired`);
   await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(d.counts.expired);
   for (const view of ["attention", "unapproved"] as const) {

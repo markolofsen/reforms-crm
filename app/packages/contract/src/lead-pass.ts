@@ -17,6 +17,8 @@ const page = z.string().regex(/^[0-9a-fA-F-]{32,36}$/);
 export const leadPageParam = z.object({ slug: project, pageId: page });
 /** Run now: the lead pass (default) or, P147 3h, the mail pass. */
 export const runLeadPassBody = z.strictObject({ pass: z.enum(PASS_KINDS).optional() });
+/** The attended agent can inspect completion without starting another pass or spending its daily allowance. */
+export const agentLeadPassBody = runLeadPassBody.extend({ checkOnly: z.boolean().optional() });
 export const leadReviewParam = z.object({ slug: project, batchId: z.coerce.number().int().positive() });
 /**
  * The review's read (owner 2026-11-25: the sheet sat 40 s on skeletons). `only`: the picked drafts' ids, comma separated (a list

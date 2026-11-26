@@ -47,7 +47,7 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
       if (!(await project(slug))) return notFound(c, "project");
       const q = c.req.valid("query");
       const windowDays = projects.find(slug)?.leads.windowDays ?? 14;
-      const r = await repos.leadRows.views(slug, q.view, new Date(Date.now() - windowDays * DAY).toISOString(), { brand: q.brand ?? null, limit: q.limit, offset: q.offset });
+      const r = await repos.leadRows.views(slug, q.view, new Date(Date.now() - windowDays * DAY).toISOString(), { brand: q.brand ?? null, q: q.q, limit: q.limit, offset: q.offset });
       const next = q.offset + r.rows.length < r.total ? q.offset + r.rows.length : null;
       return c.json(leadsListDto.parse({ rows: r.rows.map(leadDto), total: r.total, nextOffset: next, counts: r.counts, brands: r.brands, read: projectLeadsOf(leads?.status() ?? LEADS_OFF, slug, windowDays) }));
     })

@@ -46,7 +46,7 @@ export const inboundApi = {
  */
 export const leadsApi = {
   /** P134: one view of Mail ▸ Leads, paged, with every view's count and the view's brands. */
-  list: (project: string, view: LeadView, offset: number, brand: string | null) => readGenerated(listLeads(project, { view, offset, ...(brand ? { brand } : {}) }), leadsListDto),
+  list: (project: string, view: LeadView, offset: number, brand: string | null, q = "") => readGenerated(listLeads(project, { view, offset, q, ...(brand ? { brand } : {}) }), leadsListDto),
   get: (project: string, pageId: string) => readGenerated(getLeadDetail(project, pageId), leadDetailDto),
   notNow: (project: string, pageId: string) => readGenerated(notNowLead(project, pageId), leadActionDto),
   spam: (project: string, pageId: string) => readGenerated(spamLead(project, pageId), leadActionDto),

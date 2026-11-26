@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { LeadsListRowsItemPassDecision } from './leadsListRowsItemPassDecision';
+import type { LeadsListRowsItemPassDisplay } from './leadsListRowsItemPassDisplay';
 
 export type LeadsListRowsItemPass = {
   decision: LeadsListRowsItemPassDecision;
+  display?: LeadsListRowsItemPassDisplay;
   /** @nullable */
   reason: string | null;
   /** @nullable */

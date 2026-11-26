@@ -23,12 +23,12 @@ export const LEAD_PASS_DISPLAY = ["new", "drafted", "draft_gone", "proposed", "f
 export type LeadPassDisplay = (typeof LEAD_PASS_DISPLAY)[number];
 export const LEAD_PASS_DISPLAY_LABELS: Record<LeadPassDisplay, string> = {
   new: "New",
-  drafted: "Drafted",
-  draft_gone: "Draft gone",
+  drafted: "Reply ready",
+  draft_gone: "Prepare reply again",
   proposed: "Proposed",
-  for_you: "For you",
-  excluded: "Excluded",
-  sent: "Replied",
+  for_you: "Needs decision",
+  excluded: "Review needed",
+  sent: "Answered",
   spam: "Spam",
   not_now: "Not now",
 };

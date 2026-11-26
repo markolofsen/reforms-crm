@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { leadPageParam, leadPassDto, leadRedoneDto, runLeadPassBody } from "@hub/contract/lead-pass";
+import { agentLeadPassBody, leadPageParam, leadPassDto, leadRedoneDto, runLeadPassBody } from "@hub/contract/lead-pass";
 import { slugParam } from "@hub/contract/requests";
 import { LEAD_PASS_DEFAULT_AT, LEAD_PASS_DEFAULT_SCHEDULE, MAIL_PASS_DEFAULT_AT } from "@hub/config/lead-pass";
 import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
@@ -85,15 +85,23 @@ export function leadPassRoutes(ctx: ProjectsContext) {
     })
     // F3 of 3d: `hub mcp`'s `lead_pass_start` (the dock's "process the leads"), a loopback call with the agent send token (decision
     // 0046), never the admin's Origin. It starts the same pass as the button (trigger dock, the same 3 a day) and answers at once.
-    .post("/api/projects/:slug/lead-pass/agent-run", v("param", slugParam), v("json", runLeadPassBody), async (c) => {
+    .post("/api/projects/:slug/lead-pass/agent-run", v("param", slugParam), v("json", agentLeadPassBody), async (c) => {
       if (!ctx.agentToken || !tokenMatches(c.req.header(AGENT_SEND_HEADER), ctx.agentToken)) return c.json({ error: "Refused: only the hub's own MCP server may ask this.", code: "forbidden" as const }, 403);
       const { slug } = c.req.valid("param");
       if (!(await known(slug))) return notFound(c, "project");
       const sch = ctx.leadPass?.schedule;
       if (!sch) return c.json({ error: "This server has no lead pass model: nothing runs here.", code: "wrong_state" as const }, 409);
-      const r = await sch.runNow(slug, "dock", c.req.valid("json").pass ?? "lead");
+      const kind = c.req.valid("json").pass ?? "lead";
+      if (c.req.valid("json").checkOnly) {
+        const result = await repos.leadPass.lastPass(slug, kind);
+        const running = sch.isRunning(slug, kind);
+        return c.json({ ok: true as const, joined: running, state: running ? "running" : result?.finishedAt ? "finished" : "failed", listed: result?.listed ?? null, drafted: result ? result.replied + result.clients : null, failed: result?.failed ?? null }, 202);
+      }
+      const r = await sch.runNow(slug, "dock", kind);
       if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
-      return c.json({ ok: true as const, joined: r.joined }, 202);
+      // Empty passes finish immediately. Report that outcome instead of promising future work.
+      const result = await Promise.race([r.pass, new Promise<null>((resolve) => setTimeout(() => resolve(null), 100))]);
+      return c.json({ ok: true as const, joined: r.joined, state: sch.isRunning(slug, kind) ? "running" : result ? "finished" : "failed", listed: result?.listed ?? null, drafted: result ? result.replied + result.clients : null, failed: result?.failed ?? null }, 202);
     })
     // Redo (verdict 3): the lead's decision is cleared, so the next pass decides it again. Its draft, if any, stays in Mail.
     .post("/api/projects/:slug/leads/:pageId/redo", v("param", leadPageParam), async (c) => {

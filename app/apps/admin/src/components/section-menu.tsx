@@ -24,9 +24,13 @@ export function SectionMenu({ section, children }: { section: SectionId; childre
   if (!parent) return <>{children}</>;
   const pages = [{ key: parent.route, title: ROUTE_TABLE[parent.route].title, to: sectionList(section) }, ...childrenOf(section).map((c) => ({ key: c.route, title: c.title, to: dest(c.route) }))];
   const here = pages.find((p) => p.key === route.route) ?? pages[0];
-  const items = pages.map((p) => ({
+  const groupOf = (key: string) => key === "settings.mail" || key === "settings.messengers" ? "Channels" : key === "settings.agent" ? "Agent" : key === "settings.page" || key === "settings.checks" ? "Sending" : "System";
+  const order = ["Channels", "Agent", "Sending", "System"];
+  const ordered = section === "settings" ? [...pages].sort((a, b) => order.indexOf(groupOf(a.key)) - order.indexOf(groupOf(b.key))) : pages;
+  const items = ordered.map((p) => ({
     id: p.key,
     label: p.title,
+    ...(section === "settings" ? { group: groupOf(p.key) } : {}),
     current: p.key === here?.key,
     render: (content: ReactNode, className: string) => (
       <AppLink aria-current={p.key === here?.key ? "page" : undefined} bare className={className} to={p.to}>

@@ -16,6 +16,9 @@ import { ClaudeSettings } from "./agent-group";
 import { Connectors } from "./connectors";
 import { CLI_TITLE, toolsSentence } from "./labels";
 import { Tools } from "./tools";
+import { AppLink } from "@/components/app-link";
+import { dest } from "@/routes/paths";
+import { useLeadPass } from "@/lib/data/inbound";
 
 type Say = { text: string; kind: "status" | "alert" } | null;
 
@@ -42,6 +45,7 @@ const CLI_BODY: Record<(typeof AGENT_TOOL_CLIS)[number], (slug: string) => React
  * settings, Refresh, the view and Copy; one live region says what Refresh and Copy did.
  */
 export function AgentTools({ slug }: { slug: string }) {
+  const passes = useLeadPass(slug).data;
   const now = useClock()();
   const q = useAgentTools(slug);
   const [say, setSay] = useState<Say>(null);
@@ -52,6 +56,10 @@ export function AgentTools({ slug }: { slug: string }) {
   const copy = (fix: string) => void copyText(fix).then((ok) => setSay(ok ? { text: `Copied: ${fix}`, kind: "status" } : { text: "The browser refused the clipboard: select the line and copy it.", kind: "alert" }));
   return (
     <div className="flex flex-col gap-6" data-testid={`agent-tools-${slug}`}>
+      <SettingsGroup id="automation" title="Automation">
+        <p className="text-sm">Lead processing: {passes ? `${passes.pass.schedule} · ${passes.pass.at}` : "Loading"}. Mail processing: {passes ? `${passes.mail.schedule} · ${passes.mail.at}` : "Loading"}. Times follow this Mac&apos;s schedule.</p>
+        <AppLink to={dest("log.list", { kind: "follow-ups", client: null })}>Follow-up plans</AppLink>
+      </SettingsGroup>
       <div className="flex min-h-(--control-m) min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <QueryView loading={<Skeleton aria-label="Loading the agent checks" className="h-6 w-64 rounded-md" role="status" />} query={q} what="the agent checks">
           {(d) => (

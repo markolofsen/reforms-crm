@@ -122,8 +122,8 @@ test("P138 verdicts 6-7: one views control in the list header with counts, no vi
     await page.setViewportSize({ width, height: 800 });
     await page.goto(at(P, "/mail/leads"));
     const views = page.getByRole("radiogroup", { name: "Lead views" });
-    await expect(views.getByRole("radio")).toHaveText([/^New\s*2/, /^Not now\s*0/, /^Spam\s*0/]);
-    await expect(views.getByRole("radio", { name: /^New/ })).toBeChecked();
+    await expect(views.getByRole("radio").filter({ visible: true })).toHaveText([/^Needs you\s*2/, /^All\s*2/]);
+    await expect(views.getByRole("radio", { name: /^Needs you/ })).toBeChecked();
     await expect(page.getByRole("navigation", { name: "Lead views" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Views" })).toHaveCount(0);
     await expect(page.getByTestId("lead-day").first()).toHaveText(/^(Today|Yesterday)$/);
@@ -133,8 +133,8 @@ test("P138 verdicts 6-7: one views control in the list header with counts, no vi
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
   // A view replaces the history entry and keeps ?view=; the address is the state.
-  await page.getByRole("radiogroup", { name: "Lead views" }).getByRole("radio", { name: /^Spam/ }).click();
-  await expect(page).toHaveURL(/\/mail\/leads\?view=spam$/);
+  await page.getByRole("radiogroup", { name: "Lead views" }).getByRole("radio", { name: /^All/ }).click();
+  await expect(page).toHaveURL(/\/mail\/leads\?view=all$/);
   await page.reload();
-  await expect(page.getByRole("radiogroup", { name: "Lead views" }).getByRole("radio", { name: /^Spam/ })).toBeChecked();
+  await expect(page.getByRole("radiogroup", { name: "Lead views" }).getByRole("radio", { name: /^All/ })).toBeChecked();
 });

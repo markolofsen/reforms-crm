@@ -39,7 +39,7 @@ function useLeadAction(project: string, pageId: string, onDone: () => void) {
     },
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),
   });
-  return act;
+  return { act, restore: undo };
 }
 
 /**
@@ -52,21 +52,22 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
   const q = useLead(project, pageId);
   const now = useClock()();
   const { pasteToAgent } = useTerminal();
-  const act = useLeadAction(project, pageId, onClosed);
+  const { act, restore } = useLeadAction(project, pageId, onClosed);
   return (
     <QueryView frame={(note) => <div className="p-3 lg:p-4">{note}</div>} loading={<EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>} query={q} what="the lead">
-      {(d) => <LeadArticle act={act} d={d} now={now} project={project} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} />}
+      {(d) => <LeadArticle act={act} d={d} now={now} project={project} onRestore={() => void restore().catch((e: unknown) => toastManager.add({ title: "Not restored", description: sentence(e), type: "error" }))} onRetry={() => void q.refetch()} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} />}
     </QueryView>
   );
 }
 
-type Act = ReturnType<typeof useLeadAction>;
+type Act = ReturnType<typeof useLeadAction>["act"];
 
 /** The actions (verdict 5): Prepare reply first, Write on WhatsApp when that is their channel, Not now, Spam; Open in ⋯. */
 function LeadActions({ d, act, onPrepare }: { d: LeadDetailDto; act: Act; onPrepare: (email: string) => void }) {
   const { row, lead } = d;
   const whatsapp = lead?.sheet.channel?.kind === "whatsapp" ? channelDestination(lead.sheet.channel) : null;
-  const prepare = row.open && row.email ? () => onPrepare(row.email ?? "") : null;
+  const recover = row.pass?.display === "draft_gone" || row.pass?.display === "excluded";
+  const prepare = (row.open || recover) && row.email ? () => onPrepare(row.email ?? "") : null;
   useLeadActionKeys({ prepare, notNow: row.open && !act.isPending ? () => act.mutate("notNow") : null, spam: row.open && !act.isPending ? () => act.mutate("spam") : null });
   return (
     <div className="flex flex-wrap gap-2">
@@ -124,7 +125,7 @@ function LeadState({ d }: { d: LeadDetailDto }) {
 }
 
 /** The read lead (verdicts 1-5, 8): the card above owns the read and its states. */
-function LeadArticle({ d, now, act, project, onPrepare }: { d: LeadDetailDto; now: number; act: Act; project: string; onPrepare: (email: string) => void }) {
+function LeadArticle({ d, now, act, project, onPrepare, onRetry, onRestore }: { d: LeadDetailDto; now: number; act: Act; project: string; onPrepare: (email: string) => void; onRetry: () => void; onRestore: () => void }) {
   const { row, lead, note, drafts } = d;
   const email = row.email;
   return (
@@ -149,11 +150,13 @@ function LeadArticle({ d, now, act, project, onPrepare }: { d: LeadDetailDto; no
       <LeadDecision pageId={row.pageId} pass={row.pass} project={project} />
       <LeadActions act={act} d={d} onPrepare={onPrepare} />
       <LeadState d={d} />
+      {row.dismissedReason !== null && <ActionButton onClick={onRestore} size="s" variant="secondary">Return to Needs you</ActionButton>}
       {lead ? (
         <LeadWant message={lead.message} sheet={lead.sheet} />
       ) : (
         <section aria-label="The lead's message" className="measure whitespace-pre-wrap break-words text-base" data-testid="lead-text">
           <span className="text-muted-foreground text-sm">{note ?? "Notion did not show the lead."}</span>
+          <ActionButton onClick={onRetry} size="s" variant="secondary">Retry Notion read</ActionButton>
           {row.preview && <span className="block pt-2">{row.preview}</span>}
         </section>
       )}
