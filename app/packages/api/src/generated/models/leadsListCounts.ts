@@ -11,6 +11,16 @@ export type LeadsListCounts = {
      * @minimum -9007199254740991
      * @maximum 9007199254740991
      */
+  needs_you: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  all: number;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
   new: number;
   /**
      * @minimum -9007199254740991

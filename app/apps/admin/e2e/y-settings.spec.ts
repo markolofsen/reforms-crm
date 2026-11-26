@@ -74,7 +74,8 @@ test("sending: the first viewport at 1280 shows the sentence and Stop sending; t
 test("activity ▸ sends: the history is an item of Activity's kinds column; none yet says so", async ({ page }) => {
   await sendsServer(page, { sends: [], stopped: [] });
   await page.goto(`/${PROJECT}/log`);
-  await page.getByRole("navigation", { name: "Activity kinds" }).getByRole("link", { name: /^Sends/ }).click();
+  await page.getByRole("button", { name: /^Activity filter:/ }).click();
+  await page.getByRole("menuitemradio", { name: /^Sends/ }).click();
   await expect.poll(() => new URL(page.url()).pathname + new URL(page.url()).search).toBe(SENDS);
   await expect(page.getByText("No sends yet")).toBeVisible();
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);

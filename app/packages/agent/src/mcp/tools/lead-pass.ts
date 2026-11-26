@@ -82,7 +82,7 @@ export const leadsOpenTool = defineTool({
       today: at.toISOString().slice(0, 10),
       leads,
       more: Math.max(0, due.total - leads.length),
-      note: leads.length === 0 ? "No open lead waits for a decision: say so in one line." : "Each lead gets one decision with lead_decide (reply, client, spam, not_now, hand_over); a reply or client decision first writes its new-thread draft with draft_write and record.skill lead-pass. Then report and give the Review link. Nothing is sent.",
+      note: leads.length === 0 ? "No open lead waits for a decision: say so in one line." : "Each lead gets one decision with lead_decide (reply, client, spam, not_now, hand_over); a reply or client decision first writes its new-thread draft with draft_write and record.skill lead-pass. Then report the recorded counts and link Needs you. Nothing is sent.",
     };
   },
 });
@@ -145,7 +145,7 @@ export const leadDecideTool = defineTool({
       notion,
       hint,
       changed: r.changed,
-      next: ctx.env.leadPage !== undefined ? "Stop here: the decision is recorded. Write nothing else." : "Go on with the next lead, then report: N drafted, M proposed, H for you, and the Review link (Mail ▸ Leads ▸ Review).",
+      next: ctx.env.leadPage !== undefined ? "Stop here: the decision is recorded. Write nothing else." : "Go on with the next lead, then report: N drafted, M proposed, H for you, and the Review link (Mail ▸ Leads ▸ Needs you (open an available review batch)).",
     };
   },
 });
@@ -161,22 +161,27 @@ export const leadPassStartTool = defineTool({
   name: "lead_pass_start",
   title: "Start the project's lead pass on the server",
   description:
-    "Starts the Hub server's lead pass (or, with pass mail, its mail pass) for this project now (the same as the owner's Run now; at most 3 a day each): one headless turn per open lead or inbound thread, each a draft and a decision, nothing sent. Use it for \"process the leads\" (or \"go through the mail\"); answer with the Review link. Decide one yourself only for \"this lead\" or when fewer than 3 are open.",
-  input: z.object({ pass: z.enum(["lead", "mail"]).optional().describe("mail: the mail pass over Needs you (default lead)") }),
-  output: z.object({ project: z.string(), started: z.boolean(), joined: z.boolean(), review: z.string(), next: z.string() }),
+    "Starts the Hub server's lead pass (or, with pass mail, its mail pass) for this project now (the same as the owner's Run now; at most 3 a day each): one headless turn per open lead or inbound thread, each a draft and a decision, nothing sent. Use it for \"process the leads\" (or \"go through the mail\"); report the actual state and counts, and link Needs you. Decide one yourself only for \"this lead\" or when fewer than 3 are open.",
+  input: z.object({ pass: z.enum(["lead", "mail"]).optional().describe("mail: the mail pass over Needs you (default lead)"), check_only: z.boolean().optional().describe("Read the current/last run's result without starting a new pass; use this to follow a running pass to completion") }),
+  output: z.object({ project: z.string(), started: z.boolean(), joined: z.boolean(), state: z.enum(["running", "finished", "failed", "accepted"]), listed: z.number().nullable(), drafted: z.number().nullable(), failed: z.number().nullable(), review: z.string(), next: z.string() }),
   effect: "draft",
   refusals: ["unavailable", "wrong_state"],
   handler: async ({ env, project }, i) => {
     const slug = project();
     if (!env.leadPassRun) throw new ToolError("unavailable", "This session cannot start the lead pass (the Hub server is not reachable here).");
-    const a = await env.leadPassRun.run(slug, i.pass ?? "lead");
+    const a = await env.leadPassRun.run(slug, i.pass ?? "lead", i.check_only ?? false);
     if (!a.ok) throw a.status === 0 ? unavailableAnswer(a.error) : new ToolError(a.status === 409 ? "wrong_state" : "unavailable", a.error);
+    const state: "running" | "finished" | "failed" | "accepted" = a.state ?? "accepted";
     return {
       project: slug,
-      started: !a.joined,
+      started: !i.check_only && !a.joined,
       joined: a.joined,
-      review: "Mail ▸ Leads: the banner's Review today's replies, once the pass has drafted",
-      next: "Tell the owner in one line that the pass runs on the server (a few minutes) and that its drafts and proposals wait in Mail ▸ Leads ▸ Review; nothing is sent. Do not decide the leads yourself meanwhile.",
+      state,
+      listed: a.listed ?? null,
+      drafted: a.drafted ?? null,
+      failed: a.failed ?? null,
+      review: "Mail ▸ Leads ▸ Needs you. Use a batch review link only when an actual batch exists.",
+      next: a.state === "finished" ? `Report the finished result: ${a.listed ?? 0} eligible, ${a.drafted ?? 0} drafts, ${a.failed ?? 0} failed. Zero eligible means nothing new to process; existing decisions still wait in Needs you. Nothing was sent.` : a.state === "failed" ? "Report that the pass failed; do not promise drafts. Check Activity errors." : "Report only the returned state (running, or accepted when completion is unknown). Follow this run with lead_pass_start(check_only: true); do not start a second pass. Do not promise drafts or a completion time. Existing work is in Mail ▸ Leads ▸ Needs you. Nothing was sent.",
     };
   },
 });

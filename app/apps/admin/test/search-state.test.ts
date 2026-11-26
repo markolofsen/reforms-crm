@@ -35,7 +35,7 @@ describe("search state", () => {
     const lead = resolveRoute("/mail/leads/0123456789abcdef0123456789abcdef", "view=spam");
     expect(searchDest(lead, { view: "not_now" })).toEqual(dest("mail.leads", { view: "not_now" }));
     expect(searchDest(lead, { brand: "Carapis" })).toEqual(dest("mail.leads", { view: "spam", brand: "Carapis" }));
-    expect(searchDest(lead, { q: "bo" })).toBeNull();
+    expect(searchDest(lead, { q: "bo" })).toEqual(dest("mail.leads", { view: "spam", q: "bo" }));
     expect(searchDest(resolveRoute("/log", "kind=skipped&client=4"), { kind: "sends" })).toEqual(dest("log.list", { kind: "sends" }));
   });
 

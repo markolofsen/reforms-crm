@@ -2,7 +2,7 @@ import type { KnowledgeEntryDto, KnowledgeStatus, KnowledgeView } from "@hub/con
 
 /** The View menu of Knowledge, in order, with its words (P70). */
 export const VIEW_ORDER: readonly KnowledgeView[] = ["all", "attention", "expired", "unapproved"];
-export const VIEW_LABEL: Record<KnowledgeView, string> = { all: "All", attention: "Needs a look", expired: "Expired", unapproved: "Not approved" };
+export const VIEW_LABEL: Record<KnowledgeView, string> = { all: "All", attention: "Needs attention", expired: "Expired", unapproved: "Not approved" };
 
 /** A status in words, and how it is shown: nothing for approved (the normal case), a badge otherwise. Total over the contract's union. */
 export const STATUS_LOOK: Record<KnowledgeStatus, { word: string; badge: "error" | "warning" | null }> = {

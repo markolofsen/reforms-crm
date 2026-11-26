@@ -143,6 +143,21 @@ describe("the attended pass", () => {
     expect((await (await connect()).call("lead_pass_start", {})).json.error).toBe("unavailable");
   });
 
+  it("reports an empty completed pass without promising drafts later", async () => {
+    const { call } = await connect({ leadPassRun: { run: async () => ({ ok: true, joined: false, state: "finished", listed: 0, drafted: 0, failed: 0 }) } });
+    const answer = (await call("lead_pass_start", {})).json;
+    expect(answer).toMatchObject({ state: "finished", listed: 0, drafted: 0 });
+    expect(answer.next).toContain("nothing new to process");
+    expect(answer.review).not.toContain("Leads ▸ Review");
+  });
+
+  it("can follow a running pass without starting another one", async () => {
+    const checks: boolean[] = [];
+    const { call } = await connect({ leadPassRun: { run: async (_slug, _pass, checkOnly) => { checks.push(checkOnly ?? false); return { ok: true, joined: true, state: "running" }; } } });
+    expect((await call("lead_pass_start", { check_only: true })).json).toMatchObject({ state: "running", started: false });
+    expect(checks).toEqual([true]);
+  });
+
   it("P147 3n: mail_junk moves to Junk by default or to Trash, says a server refusal is refused, and is unavailable without its port", async () => {
     const asked: string[] = [];
     const { call, client } = await connect({ mailJunk: { junk: async (slug, id, to) => (asked.push(`${slug}:${id}:${to}`), id === 9 ? { ok: false, status: 403, error: "Not moved: ann@example.test has a Clients card in Notion." } : { ok: true, closed: 1 }) } });

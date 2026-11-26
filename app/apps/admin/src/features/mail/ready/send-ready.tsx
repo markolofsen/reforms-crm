@@ -7,7 +7,8 @@ import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Sheet, SheetDescription, SheetHeader, SheetPanel, SheetPopup, SheetTitle } from "@hub/ui/sheet";
 import { toastManager } from "@hub/ui/toast";
-import { useLeadPass, useLeadReview } from "@/lib/data/inbound";
+import { useLeadPass, useLeadReview, useRunMailPass } from "@/lib/data/inbound";
+import { sentence } from "@/lib/api/client";
 import { ReadyList, sentLine } from "@/features/mail/leads/review/review";
 import { SendingLine } from "./sending-line";
 import { useGo } from "@/hooks/use-go";
@@ -104,7 +105,7 @@ export function SendReadyButton() {
   return (
     <ActionButton data-testid="send-ready" onClick={() => ctx.open()} size="s" variant="primary">
       <SendIcon aria-hidden="true" />
-      Send all ready ({ctx.waiting.drafts})
+      {ctx.waiting.drafts > 0 ? `Send all ready (${ctx.waiting.drafts})` : `Review proposals (${ctx.waiting.proposals})`}
     </ActionButton>
   );
 }
@@ -112,11 +113,23 @@ export function SendReadyButton() {
 /** The top of Needs you and Leads: Send all ready and, while it runs, the run's line. */
 export function SendReadyBar() {
   const ctx = useSendReady();
-  if (!ctx || ctx.batchId === null) return null;
+  if (!ctx) return null;
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2" data-testid="send-ready-bar">
       <SendReadyButton />
-      <SendingLine batchId={ctx.batchId} bare project={ctx.project} />
+      <MailPassAction project={ctx.project} />
+      {ctx.batchId !== null && <SendingLine batchId={ctx.batchId} bare project={ctx.project} />}
     </div>
   );
+}
+
+function MailPassAction({ project }: { project: string }) {
+  const pass = useLeadPass(project).data?.mail;
+  const run = useRunMailPass(project);
+  if (!pass) return null;
+  return <>
+    <ActionButton data-testid="mail-pass-run" disabled={pass.runNowOff !== null || run.isPending || pass.running} tooltip={pass.runNowOff ?? undefined} onClick={() => run.mutate()} size="s" variant="secondary">{run.isPending ? "Starting" : pass.running ? "Processing mail" : "Process new mail"}</ActionButton>
+    {pass.last && !pass.running && <span className="text-muted-foreground text-xs">{pass.last.listed === 0 ? "Last run: nothing new to process" : `Last run: ${pass.last.listed} eligible, ${pass.last.replied + pass.last.clients} drafts, ${pass.last.failed} failed`}</span>}
+    {run.isError && <span role="alert" className="text-destructive-foreground text-xs">{sentence(run.error)}</span>}
+  </>;
 }

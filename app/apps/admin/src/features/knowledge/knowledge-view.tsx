@@ -3,6 +3,7 @@ import { phrase } from "@hub/contract/help";
 import { useCallback, type ReactNode } from "react";
 import type { KnowledgeListDto, KnowledgeView as View } from "@hub/contract/knowledge";
 import { SearchField } from "@hub/ui/product/list/search-field";
+import { ListFilterMenu } from "@hub/ui/product/list/toolbar";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/shell/page";
 import { SectionLayout } from "@hub/ui/product/shell/section-layout";
@@ -35,7 +36,7 @@ function KnowledgeNav({ filter, topic, q, counts, items }: { filter: View; topic
         </AppLink>
       );
     };
-  const views: SectionNavItem[] = VIEW_ORDER.map((v) => ({ id: `view-${v}`, label: VIEW_LABEL[v], count: counts?.[v] ?? null, current: v === filter, group: "Show", render: link(dest("knowledge.page", { filter: v, q, topic }), v === filter) }));
+  const views: SectionNavItem[] = VIEW_ORDER.filter((v) => v === "all" || v === "attention" || v === filter).map((v) => ({ id: `view-${v}`, label: VIEW_LABEL[v], count: counts?.[v] ?? null, current: v === filter, group: "Show", render: link(dest("knowledge.page", { filter: v, q, topic }), v === filter) }));
   const all: SectionNavItem = { id: "topic-all", label: "All topics", current: topic === "", group: "Topics", render: link(dest("knowledge.page", { filter, q, topic: "" }), topic === "") };
   const topics: SectionNavItem[] = items.map((t) => ({ id: `topic-${t.topic}`, label: t.label, count: t.count, depth: t.depth, current: t.topic === topic, ...(t.group !== null ? { group: t.group } : {}), render: link(dest("knowledge.page", { filter, q, topic: t.topic }), t.topic === topic) }));
   return <SectionNav items={[...views, all, ...topics]} label="Knowledge topics" />;
@@ -71,6 +72,7 @@ export function KnowledgeView({ project, filter, q, topic }: { project: string; 
   const header = (
     <>
       <SearchField className="control-m sm:w-56" label="Search knowledge" onChange={setQ} placeholder="Search titles and text" value={q} />
+      <ListFilterMenu name="Knowledge filter" options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: d?.counts[v] }))} value={filter} onChange={(v) => setSearch({ filter: VIEW_ORDER.find((x) => x === v) ?? "all" })} />
       <LocalActionButton action="finder.open" args={{ project, key: "knowledge" }} variant="secondary" />
     </>
   );

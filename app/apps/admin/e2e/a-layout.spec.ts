@@ -306,7 +306,7 @@ for (const scheme of ["light", "dark"] as const) {
 // P70: the phone bar is five items (Overview, Mail, Activity, Settings, More); More holds Messengers (P71 M3), Knowledge and Help, each label whole;
 // the rail (640-1279) draws parents only, so no pane is in the Sections nav there. P125 L4-L5: Settings' pages are a menu column (Messengers
 // among them) at every width, compact below 960px of the layout's own width (owner 2026-11-25: always the column, no drawer, no tabs).
-const SETTINGS_PAGES = ["Sending", "Checks", "Mail", "Messengers", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`));
+const SETTINGS_PAGES = ["Mail", "Messengers", "Agent", "Sending", "Checks", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`));
 test("phone bar and rail: parents only, the More menu whole, the Settings pages a column at every width, never a sheet", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/settings/mail"));

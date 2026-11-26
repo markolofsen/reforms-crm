@@ -92,7 +92,7 @@ export function LeadsReadLine({ read, now, older }: { read: LeadsReadDto; now: n
     <div className="flex flex-col gap-1 px-3 py-2 text-muted-foreground text-xs">
       {older && read.older > 0 && (
         <p className="measure" data-testid="leads-older">
-          {plural(read.older, "older lead")} still New (before the last {read.windowDays} days) · open them in Notion
+          {plural(read.older, "older lead")} still New in Notion. Known unresolved requests stay visible; automatic processing covers the last {read.windowDays} days.
         </p>
       )}
       <p data-testid="leads-read" role="status">

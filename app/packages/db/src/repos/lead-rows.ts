@@ -13,7 +13,7 @@ import { leadPassDisplay } from "@hub/config/lead-pass";
 
 export type LeadRow = typeof leadRows.$inferSelect;
 /** One person of the Leads group: their newest open request, and how many open requests share the address (verdict 7). */
-export type LeadItem = LeadRow & { requests: number };
+export type LeadItem = LeadRow & { requests: number; draftStatus?: string | null };
 
 export interface NewLead {
   project: string;
@@ -46,7 +46,7 @@ const fact = (v: string | null | undefined): string | null => (v?.trim() ? v.tri
 export const LEAD_PREVIEW_CHARS = 120;
 /** P134 verdict 7: the views of Mail ▸ Leads (the contract's `LEAD_VIEWS`). */
 /** P147 verdict 15: New splits into New and Drafted (a drafted lead no longer just disappears), and For you holds the hand-overs. */
-export type LeadsView = "new" | "drafted" | "for_you" | "not_now" | "spam" | "replied";
+export type LeadsView = "needs_you" | "all" | "new" | "drafted" | "for_you" | "not_now" | "spam" | "replied";
 export type LeadsCounts = Record<LeadsView, number>;
 
 /**
@@ -57,7 +57,8 @@ export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | 
   if (r.convertedAt) return "replied";
   if (r.dismissedReason === "spam" || r.notionStatus === "Spam") return "spam";
   if (r.dismissedReason === "not_now") return "not_now";
-  if (!inWindow) return null;
+  // Age limits ingestion and pass selection, never resolution of known work.
+  void inWindow;
   // P147: a lead the pass decided is Drafted (a draft, its gone draft, a proposal, an untick) or For you, open or not.
   const d = leadPassDisplay({ ...r, draftStatus });
   if (d === "for_you") return "for_you";
@@ -101,26 +102,31 @@ export function leadRowsRepo(db: Db) {
    * P134 verdicts 6-7: one view of Mail ▸ Leads, one row per person, newest first, paged; every view's count and the brands of this
    * view (neither narrowed by `brand`). New is exactly the Leads group (open, received at or after `from`).
    */
-  async function views(project: string, view: LeadsView, from: string, opts: { brand?: string | null; limit?: number; offset?: number } = {}): Promise<{ rows: LeadItem[]; total: number; counts: LeadsCounts; brands: { name: string; count: number }[] }> {
-    const all = db
+  async function views(project: string, view: LeadsView, from: string, opts: { brand?: string | null; q?: string; limit?: number; offset?: number } = {}): Promise<{ rows: LeadItem[]; total: number; counts: LeadsCounts; brands: { name: string; count: number }[] }> {
+    const stored = db
       .select({ row: leadRows, open: sql<number>`(case when ${SQL_OPEN} then 1 else 0 end)` })
       .from(leadRows)
       .where(eq(leadRows.project, project))
       .orderBy(sql`${leadRows.receivedAt} desc`, sql`${leadRows.id} desc`)
       .all();
+    const brand = opts.brand?.trim().toLowerCase() || null;
+    const search = opts.q?.trim().toLowerCase() ?? "";
+    const all = stored.filter(({ row }) => (brand === null || row.brand?.toLowerCase() === brand) && (!search || [row.name, row.email, row.accountEmail, row.brand, row.site, row.preview].some((v) => v?.toLowerCase().includes(search))));
     const draftIds = all.flatMap((r) => (r.row.passDraftId !== null ? [r.row.passDraftId] : []));
     const status = new Map(draftIds.length ? db.select({ id: drafts.id, status: drafts.status }).from(drafts).where(inArray(drafts.id, draftIds)).all().map((d) => [d.id, d.status]) : []);
     const viewOf = (r: (typeof all)[number]) => leadViewOf(r.row, r.open === 1, r.row.receivedAt >= from, r.row.passDraftId !== null ? (status.get(r.row.passDraftId) ?? null) : null);
-    const of = (v: LeadsView) => byPerson(all.filter((r) => viewOf(r) === v).map((r) => r.row));
-    const counts: LeadsCounts = { new: of("new").length, drafted: of("drafted").length, for_you: of("for_you").length, not_now: of("not_now").length, spam: of("spam").length, replied: of("replied").length };
+    const of = (v: LeadsView) => byPerson(all.filter((r) => {
+      const state = viewOf(r);
+      return v === "all" || (v === "needs_you" ? state === "new" || state === "drafted" || state === "for_you" : state === v);
+    }).map((r) => r.row));
+    const counts: LeadsCounts = { needs_you: of("needs_you").length, all: of("all").length, new: of("new").length, drafted: of("drafted").length, for_you: of("for_you").length, not_now: of("not_now").length, spam: of("spam").length, replied: of("replied").length };
     const inView = of(view);
     const n = new Map<string, number>();
-    for (const r of inView) if (r.brand) n.set(r.brand, (n.get(r.brand) ?? 0) + 1);
+    for (const { row: r } of stored) if (r.brand) n.set(r.brand, (n.get(r.brand) ?? 0) + 1);
     const brands = [...n].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-    const brand = opts.brand?.trim().toLowerCase() || null;
     const shown = brand === null ? inView : inView.filter((r) => r.brand?.toLowerCase() === brand);
     const offset = opts.offset ?? 0;
-    return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit), total: shown.length, counts, brands };
+    return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit).map((r) => ({ ...r, draftStatus: r.passDraftId === null ? null : status.get(r.passDraftId) ?? null })), total: shown.length, counts, brands };
   }
 
   return {
@@ -166,13 +172,15 @@ export function leadRowsRepo(db: Db) {
     open,
     views,
 
-    async get(project: string, pageId: string): Promise<(LeadRow & { open: boolean }) | null> {
+    async get(project: string, pageId: string): Promise<(LeadRow & { open: boolean; draftStatus: string | null }) | null> {
       const r = db
         .select({ row: leadRows, open: sql<number>`(case when ${SQL_OPEN} then 1 else 0 end)` })
         .from(leadRows)
         .where(and(eq(leadRows.project, project), eq(leadRows.pageId, norm(pageId))))
         .get();
-      return r ? { ...r.row, open: r.open === 1 } : null;
+      if (!r) return null;
+      const draft = r.row.passDraftId === null ? null : db.select({ status: drafts.status }).from(drafts).where(eq(drafts.id, r.row.passDraftId)).get();
+      return { ...r.row, open: r.open === 1, draftStatus: draft?.status ?? null };
     },
 
     /** The project's lead rows with this address (reply or account email), newest first: the send's conversion and the new-thread check. */

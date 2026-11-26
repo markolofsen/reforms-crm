@@ -73,13 +73,15 @@ test("activity: the menu column counts decisions by outcome (the server's), narr
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveCount(0);
   const nav = page.getByRole("navigation", { name: "Activity kinds" });
   await expect(nav.getByRole("link", { name: /^All/ })).toHaveAttribute("aria-current", "page");
-  for (const [label, n] of [["All", counts.all], ["Needs you", counts.needs_you], ["Drafts", counts.drafts], ["Skipped", counts.skipped]] as const) await expect(nav.getByRole("link", { name: new RegExp(`^${label}`) })).toContainText(String(n));
-  await nav.getByRole("link", { name: /^Skipped/ }).click();
+  await expect(nav.getByRole("link", { name: /^All/ })).toContainText(String(counts.all));
+  await expect(nav.getByRole("link")).toHaveCount(2);
+  await page.getByRole("button", { name: /^Activity filter:/ }).click();
+  await page.getByRole("menuitemradio", { name: /^Skipped/ }).click();
   await expect.poll(() => address(page)).toBe(`${LOG}?kind=skipped`);
   const skipped = await activity(page, "&view=skipped");
   const lines = daySections(skipped.rows, Date.now()).reduce((n, d) => n + d.groups.length, 0);
   await expect(page.getByRole("table", { name: "Activity" }).locator("tr[data-row]")).toHaveCount(lines);
-  await page.goBack();
+  await nav.getByRole("link", { name: /^All/ }).click();
   await expect.poll(() => address(page)).toBe(LOG);
 });
 

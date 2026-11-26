@@ -9,6 +9,8 @@ import type { ListLeadsView } from './listLeadsView';
 
 export type ListLeadsParams = {
   view?: ListLeadsView;
+  /** @maxLength 200 */
+  q?: string;
   /**
    * @minLength 1
    * @maxLength 100

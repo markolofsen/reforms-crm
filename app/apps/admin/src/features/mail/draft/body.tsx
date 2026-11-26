@@ -109,7 +109,7 @@ export function DraftBody({ d, project, actions, live, onRead, reading, editing 
       ) : (
         // 3m item 2: a click on the text starts editing (Edit in the footer does the same; Enter on the focused text too).
         <div
-          aria-label={start ? "Draft text: click to edit" : undefined}
+          aria-description={start ? "Click or press Enter to edit this draft" : undefined}
           className={start ? "cursor-text rounded-lg border bg-card p-4 hover:border-ring/50" : "rounded-lg border bg-card p-4"}
           data-testid="draft-text"
           onClick={start ? () => !selecting() && onEdit?.(start) : undefined}

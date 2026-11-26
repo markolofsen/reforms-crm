@@ -5,24 +5,24 @@ import { HTTP_TOOL_LIMIT_MS, slowServerText, timedOut } from "../mcp/define";
 // send (decision 0046). The server starts the same pass as the owner's Run lead pass now (trigger dock, the same 3 a day) and
 // answers at once; the pass writes drafts and decisions only. Nothing here sends.
 
-export type LeadPassRunAnswer = { ok: true; joined: boolean } | { ok: false; status: number; error: string };
+export type LeadPassRunAnswer = { ok: true; joined: boolean; state?: "running" | "finished" | "failed"; listed?: number | null; drafted?: number | null; failed?: number | null } | { ok: false; status: number; error: string };
 
 export interface LeadPassPort {
-  run(slug: string, pass?: "lead" | "mail"): Promise<LeadPassRunAnswer>;
+  run(slug: string, pass?: "lead" | "mail", checkOnly?: boolean): Promise<LeadPassRunAnswer>;
 }
 
 export function httpLeadPass(o: { port: () => number; token: () => string | null; fetch?: typeof fetch }): LeadPassPort {
   const f = o.fetch ?? fetch;
   return {
-    async run(slug, pass = "lead") {
+    async run(slug, pass = "lead", checkOnly = false) {
       const token = o.token();
       if (!token) return { ok: false, status: 0, error: "The Hub server has not started (no agent token)." };
       const ms = HTTP_TOOL_LIMIT_MS.read;
       try {
-        const r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/lead-pass/agent-run`, { method: "POST", headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token }, body: JSON.stringify({ pass }), signal: AbortSignal.timeout(ms) });
-        const json = (await r.json().catch(() => null)) as { joined?: unknown; error?: unknown } | null;
+        const r = await f(`http://127.0.0.1:${o.port()}/api/projects/${encodeURIComponent(slug)}/lead-pass/agent-run`, { method: "POST", headers: { "content-type": "application/json", [AGENT_SEND_HEADER]: token }, body: JSON.stringify({ pass, checkOnly }), signal: AbortSignal.timeout(ms) });
+        const json = (await r.json().catch(() => null)) as { joined?: unknown; error?: unknown; state?: unknown; listed?: unknown; drafted?: unknown; failed?: unknown } | null;
         if (!r.ok) return { ok: false, status: r.status, error: typeof json?.error === "string" ? json.error : `The server answered ${r.status}.` };
-        return { ok: true, joined: json?.joined === true };
+        return { ok: true, joined: json?.joined === true, ...(json?.state === "running" || json?.state === "finished" || json?.state === "failed" ? { state: json.state } : {}), listed: typeof json?.listed === "number" ? json.listed : null, drafted: typeof json?.drafted === "number" ? json.drafted : null, failed: typeof json?.failed === "number" ? json.failed : null };
       } catch (e) {
         return { ok: false, status: 0, error: timedOut(e) ? slowServerText(ms) : `The Hub server did not answer (${e instanceof Error ? e.message : String(e)}).` };
       }

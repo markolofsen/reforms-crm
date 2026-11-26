@@ -23,7 +23,8 @@ for (const [verb, done, icon] of [["Skip", "Skipped 2", "Done"], ["Hold", "Held 
     // The count is said once, in a live region that was there before the selection (P48 W4), and the rows did not move.
     await expect(page.getByTestId("list-header").getByRole("status")).toHaveText("2 selected");
     expect(await rows.first().evaluate((e) => e.getBoundingClientRect().top)).toBe(top);
-    await bar.getByRole("button", { name: verb, exact: true }).click();
+    await bar.getByRole("button", { name: "More actions", exact: true }).click();
+    await page.getByRole("menuitem", { name: verb, exact: true }).click();
 
     await expect(page.getByText(done, { exact: true })).toBeVisible();
     await expect(page.getByRole("toolbar", { name: "Selected drafts" })).toHaveCount(0);

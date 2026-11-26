@@ -3,6 +3,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { Page } from "@hub/ui/product/shell/page";
 import { FilterChips, type Chip } from "@hub/ui/product/list/filter-chips";
+import { ListFilterMenu } from "@hub/ui/product/list/toolbar";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { ApiFailure, isNotFound, sentence } from "@/lib/api/client";
@@ -30,13 +31,14 @@ const to = (q: Q, patch: Partial<Q>): Dest => {
  */
 function WatchHeader({ q }: { q: Q }) {
   const go = useGo();
-  const views: Chip<View>[] = VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: null }));
+  const views: Chip<View>[] = VIEW_ORDER.filter((v) => v === "triggers" || v === "moments" || v === "groups").map((v) => ({ value: v, label: VIEW_LABEL[v], count: null }));
   const days: Chip<WatchDays>[] = WATCH_DAYS.map((d) => ({ value: d, label: `${d} days`, count: null }));
   return (
     <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
       <div className="min-w-0 flex-1 basis-80">
         <FilterChips chips={views} label="Watch views" onChange={(v) => go(to(q, { view: v }), { replace: true })} value={q.view} />
       </div>
+      <ListFilterMenu name="Analysis" options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v] }))} value={q.view} onChange={(v) => go(to(q, { view: VIEW_ORDER.find((x) => x === v) ?? "triggers" }), { replace: true })} />
       <div className="w-48 shrink-0">
         <FilterChips chips={days} label="Period" onChange={(d) => go(to(q, { days: Number(d) }), { replace: true })} value={daysKey(q.days)} />
       </div>

@@ -10,6 +10,8 @@ export type ListLeadsView = typeof ListLeadsView[keyof typeof ListLeadsView];
 
 
 export const ListLeadsView = {
+  needs_you: 'needs_you',
+  all: 'all',
   new: 'new',
   drafted: 'drafted',
   for_you: 'for_you',

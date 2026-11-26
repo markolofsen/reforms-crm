@@ -9,6 +9,14 @@ Agents reach Mail and Notion through their own connectors (`mail-mcp` for Apple 
 
 It replaces a hosted helper app and, over time, the screens of a hosted back office that the agent now covers.
 
+## Navigation simplification (P162)
+
+When mail drafts are selected, the toolbar keeps the selected count, Send when available and More actions. Skip, Hold, Spam, Delete and Clear selection are grouped in More actions; their keyboard paths and existing undo behavior remain. Background-run buttons are hidden while selecting, preserving their space so the rows do not move.
+
+Leads has two primary views, Needs you and All; individual states are secondary filters. Needs you retains unresolved work across the reader's time window. The heading names the selected queue, and All explicitly covers locally stored history. List/card state wording comes from one derived display. Batch review stays a concrete batch destination, not a permanent Review tab. Lead and mail processing actions live on their respective lists and report actual last-run counts; schedules appear read only under Settings ▸ Agent.
+
+Mail and Messengers keep Needs you / Waiting / All. Knowledge shows All / Needs attention in its column, with narrower reasons in a filter. Activity shows All / Errors as its main destinations, with event kinds, send history and follow-up plans in a filter; Settings ▸ Agent also links follow-up plans. Watch keeps Signals, Moments and Groups prominent and makes all six existing views available through Analysis. Settings keeps its navigation column and all direct page addresses, grouped under Channels, Agent, Sending and System; these groups do not merge unrelated controls or remove diagnostics. These descriptions supersede older view inventories below.
+
 ## Why local
 - No hosting, no auth layer, no deploy chain: one owner, one Mac.
 - The agent can read and edit the code of the app it serves; a hosted app cannot be changed that way.

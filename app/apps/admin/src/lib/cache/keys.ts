@@ -89,7 +89,7 @@ export const keys = {
   /** P97: one lead's card (its Notion page read now). */
   lead: (project: string, pageId: string) => ["lead", project, pageId] as const,
   /** P134: one view of Mail ▸ Leads: under `inbound`, so every topic that moves the Leads group moves it. */
-  leads: (project: string, view: string, brand: string | null) => ["inbound", project, "leads", view, brand] as const,
+  leads: (project: string, view: string, brand: string | null, q = "") => ["inbound", project, "leads", view, brand, q] as const,
   /** P147: the lead pass line and the day's review (under `inbound`: the inbox, drafts and sends topics read them again). */
   leadPass: (project: string) => ["inbound", project, "lead-pass"] as const,
   /** The review of one batch; `read` tells the stored first paint and a selection's read apart (a prefix of the batch's key). */

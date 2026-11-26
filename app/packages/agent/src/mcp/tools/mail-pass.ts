@@ -44,7 +44,7 @@ export const mailDecideTool = defineTool({
       decision: i.decision,
       draft: r.row.passDraftId,
       changed: r.changed,
-      next: ctx.env.mailInbound !== undefined ? "Stop here: the decision is recorded. Write nothing else." : "Go on with the next thread, then report: N drafted, M proposed, H for you, and the Review link (Mail ▸ Leads ▸ Review).",
+      next: ctx.env.mailInbound !== undefined ? "Stop here: the decision is recorded. Write nothing else." : "Go on with the next thread, then report: N drafted, M proposed, H for you, and the Review link (Mail ▸ Leads ▸ Needs you (open an available review batch)).",
     };
   },
 });

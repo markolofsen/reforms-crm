@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { leadPassDisplay } from "@hub/config/lead-pass";
 import { openDb, type DbHandle } from "../src/client";
 import { createRepos, type Repos } from "../src/repos";
@@ -10,10 +10,13 @@ import type { NewLead } from "../src/repos/lead-rows";
 let h: DbHandle;
 let repos: Repos;
 beforeEach(() => {
+  // The fixture's day and the draft writer's clock must agree after 2026-11-25 too.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-25T09:30:00.000Z"));
   h = openDb(":memory:");
   repos = createRepos(h.db);
 });
-afterEach(() => h.close());
+afterEach(() => { h.close(); vi.useRealTimers(); });
 
 const NOW = new Date("2026-11-25T09:30:00.000Z");
 const FROM = "2026-11-11T09:30:00.000Z";

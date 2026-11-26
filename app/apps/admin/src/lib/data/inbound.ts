@@ -77,10 +77,10 @@ export const useLead = (project: string, pageId: string) => useQuery({ queryKey:
  * P134 verdicts 6-7: one view of Mail ▸ Leads, every lead in it (paged, no cut), the view's brands and every view's count. The
  * last list is kept while another view loads.
  */
-export function useLeads(project: string | null, view: LeadView, brand: string | null) {
+export function useLeads(project: string | null, view: LeadView, brand: string | null, q = "") {
   const query = useInfiniteQuery({
-    queryKey: keys.leads(project ?? "", view, brand),
-    queryFn: ({ pageParam }) => leadsApi.list(project ?? "", view, pageParam, brand),
+    queryKey: keys.leads(project ?? "", view, brand, q),
+    queryFn: ({ pageParam }) => leadsApi.list(project ?? "", view, pageParam, brand, q),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,
     placeholderData: keepPreviousData,
@@ -93,7 +93,7 @@ export function useLeads(project: string | null, view: LeadView, brand: string |
 
 /** The sidebar's Leads count (P134 verdict 6): New of the very query Leads' default view reads, so the two never disagree. */
 export function useNewLeads(project: string | null): number {
-  return useLeads(project, "new", null).head?.counts.new ?? 0;
+  return useLeads(project, "needs_you", null).head?.counts.needs_you ?? 0;
 }
 
 export type LeadAction = "notNow" | "spam";

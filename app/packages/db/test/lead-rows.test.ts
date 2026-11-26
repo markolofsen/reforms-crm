@@ -55,7 +55,21 @@ describe("leadRows", () => {
 
 // P134 verdicts 6-7: Mail ▸ Leads, its four views with their counts and a brand.
 describe("leadRows.views", () => {
-  it("puts every lead in one view, counts each, and narrows by brand without narrowing the counts", async () => {
+  it("keeps old handovers and pending proposals actionable without making them eligible for an automatic pass", async () => {
+    await repos.leadRows.sync([lead("a".repeat(32), { receivedAt: "2026-10-01T10:00:00.000Z" }), lead("b".repeat(32), { email: "b@x.test" })], NOW);
+    await repos.leadPass.decide({ project: "p", pageId: "a".repeat(32), decision: "hand_over", reason: "needs a price", passId: null, at: NOW.toISOString() });
+    await repos.leadPass.decide({ project: "p", pageId: "b".repeat(32), decision: "spam", reason: "suspected junk", passId: null, at: NOW.toISOString() });
+    expect((await repos.leadRows.views("p", "needs_you", FROM)).total).toBe(2);
+    expect((await repos.leadPass.due("p", FROM)).total).toBe(0);
+    await repos.leadRows.dismiss("p", "b".repeat(32), "spam", NOW);
+    expect((await repos.leadRows.views("p", "needs_you", FROM)).total).toBe(1);
+    expect((await repos.leadRows.views("p", "all", FROM)).total).toBe(2);
+    expect((await repos.leadRows.views("other", "all", FROM)).total).toBe(0);
+    await repos.leadRows.undismiss("p", "b".repeat(32));
+    expect((await repos.leadRows.views("p", "needs_you", FROM)).total).toBe(2);
+  });
+
+  it("counts known work and history, with counts following brand and search filters", async () => {
     await repos.leadRows.sync(
       [
         lead("a".repeat(32)),
@@ -69,11 +83,14 @@ describe("leadRows.views", () => {
     await repos.leadRows.dismiss("p", "c".repeat(32), "not_now", NOW);
     const v = await repos.leadRows.views("p", "new", FROM);
     // P147: the pass views Drafted and For you, empty with no pass.
-    expect(v.counts).toEqual({ new: 2, drafted: 0, for_you: 0, not_now: 1, spam: 1, replied: 0 });
-    expect(v.brands).toEqual([{ name: "Carapis", count: 1 }, { name: "Reforms", count: 1 }]);
+    expect(v.counts).toEqual({ needs_you: 3, all: 5, new: 3, drafted: 0, for_you: 0, not_now: 1, spam: 1, replied: 0 });
+    expect(v.brands).toEqual([{ name: "Carapis", count: 4 }, { name: "Reforms", count: 1 }]);
     const reforms = await repos.leadRows.views("p", "new", FROM, { brand: "reforms" });
     expect(reforms.rows.map((r) => r.email)).toEqual(["b@x.test"]);
-    expect(reforms.counts.new).toBe(2);
+    expect(reforms.counts.new).toBe(1);
+    const found = await repos.leadRows.views("p", "all", FROM, { q: "E@X.TEST" });
+    expect(found.rows.map((r) => r.pageId)).toEqual(["e".repeat(32)]);
+    expect(found.counts.all).toBe(1);
     expect((await repos.leadRows.views("p", "new", FROM, { limit: 1, offset: 1 })).rows).toHaveLength(1);
   });
 });

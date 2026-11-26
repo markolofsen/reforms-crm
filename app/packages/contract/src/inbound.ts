@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LEAD_PASS_DECISIONS } from "@hub/config/lead-pass";
+import { LEAD_PASS_DECISIONS, LEAD_PASS_DISPLAY } from "@hub/config/lead-pass";
 
 // The Mail reader's replies (P96 S1): the Inbox view of Mail (the clients who wrote and have no draft yet) and one message's
 // card, its text read from Mail when it is opened. Read-only toward Mail; the only writes are the owner's No reply needed and
@@ -62,7 +62,7 @@ export const leadRowDto = z.strictObject({
   requests: z.number().int(),
   facts: leadFactsDto,
   /** P147 verdict 15: the daily lead pass's decision on this request (the card's chip and Redo), or null when none was made. */
-  pass: z.strictObject({ decision: z.enum(LEAD_PASS_DECISIONS), reason: z.string().nullable(), at: z.string().nullable(), draftId: z.number().int().nullable(), excludedAt: z.string().nullable() }).nullable(),
+  pass: z.strictObject({ decision: z.enum(LEAD_PASS_DECISIONS), display: z.enum(LEAD_PASS_DISPLAY).optional(), reason: z.string().nullable(), at: z.string().nullable(), draftId: z.number().int().nullable(), excludedAt: z.string().nullable() }).nullable(),
 });
 export type LeadRowDto = z.infer<typeof leadRowDto>;
 
@@ -84,13 +84,14 @@ export type LeadsGroupDto = z.infer<typeof leadsGroupDto>;
  * Not now and Spam: the owner's two asides; Replied: the leads a first send answered (they became a client, P97 S4).
  * P147 verdict 15: Drafted holds the leads the daily pass decided with a draft or a proposal; For you its hand-overs.
  */
-export const LEAD_VIEWS = ["new", "drafted", "for_you", "not_now", "spam", "replied"] as const;
+export const LEAD_VIEWS = ["needs_you", "all", "new", "drafted", "for_you", "not_now", "spam", "replied"] as const;
 export type LeadView = (typeof LEAD_VIEWS)[number];
-export const LEAD_VIEW_LABELS: Readonly<Record<LeadView, string>> = { new: "New", drafted: "Drafted", for_you: "For you", not_now: "Not now", spam: "Spam", replied: "Replied" };
+export const LEAD_VIEW_LABELS: Readonly<Record<LeadView, string>> = { needs_you: "Needs you", all: "All", new: "New", drafted: "To review", for_you: "Needs decision", not_now: "Deferred", spam: "Spam", replied: "Answered" };
 
 /** `GET /api/projects/:slug/leads`: one view of the project's leads, one row per person, newest first. */
 export const leadsListQuery = z.object({
-  view: z.enum(LEAD_VIEWS).default("new"),
+  view: z.enum(LEAD_VIEWS).default("needs_you"),
+  q: z.string().trim().max(200).default(""),
   brand: z.string().trim().min(1).max(100).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
@@ -101,7 +102,7 @@ export const leadsListDto = z.strictObject({
   total: z.number().int(),
   nextOffset: z.number().int().nullable(),
   /** Every view's count (never narrowed by the brand). */
-  counts: z.strictObject({ new: z.number().int(), drafted: z.number().int(), for_you: z.number().int(), not_now: z.number().int(), spam: z.number().int(), replied: z.number().int() }),
+  counts: z.strictObject({ needs_you: z.number().int(), all: z.number().int(), new: z.number().int(), drafted: z.number().int(), for_you: z.number().int(), not_now: z.number().int(), spam: z.number().int(), replied: z.number().int() }),
   /** The brands of the view's leads with how many people each, most first; the filter shows them only with two or more. */
   brands: z.array(z.strictObject({ name: z.string(), count: z.number().int() })),
   read: leadsReadDto,
