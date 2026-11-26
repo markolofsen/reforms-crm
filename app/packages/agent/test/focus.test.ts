@@ -64,6 +64,10 @@ beforeEach(async () => {
   ids.otherMdraft = (await w.messengers.createDraft({ project: "beta", channel: "telegram_user", chatId: "777", text: "Beta secret", createdBy: "agent" })).id;
   ro = openDbReadOnly(path.join(dir, "app.db"));
   repos = createRepos(ro.db);
+  await w.leadRows.sync([
+    { project: "acme", pageId: "a".repeat(32), name: "Lead Acme", email: "lead@acme.test", accountEmail: null, brand: null, receivedAt: NOW.toISOString(), preview: "API access", notionStatus: "New", hasClient: false },
+    { project: "beta", pageId: "b".repeat(32), name: "Lead Beta", email: "lead@beta.test", accountEmail: null, brand: null, receivedAt: NOW.toISOString(), preview: "Other project", notionStatus: "New", hasClient: false },
+  ]);
 });
 afterEach(() => {
   ro.close();
@@ -99,8 +103,8 @@ describe("readFocus", () => {
   });
 
   it("every kind resolves inside the bound project and drops another project's id", async () => {
-    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme", chat: String(ids.chat), mdraft: String(ids.mdraft), inbound: String(ids.inbound) };
-    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta", chat: String(ids.otherChat), mdraft: String(ids.otherMdraft), inbound: String(ids.otherInbound) };
+    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme", chat: String(ids.chat), mdraft: String(ids.mdraft), inbound: String(ids.inbound), lead: "a".repeat(32) };
+    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta", chat: String(ids.otherChat), mdraft: String(ids.otherMdraft), inbound: String(ids.otherInbound), lead: "b".repeat(32) };
     const ctx = { repos, slug: "acme", today: "2026-11-18" };
     for (const kind of REF_KINDS) {
       expect(await RESOLVERS[kind](ctx, own[kind]), kind).not.toBeNull();
@@ -108,6 +112,12 @@ describe("readFocus", () => {
     }
     put({ route: "log.list", title: "Activity", subject: `run:${ids.run}` });
     expect((await read()).subject).toMatchObject({ ref: `run:${ids.run}`, kind: "run", status: "ok", title: expect.stringMatching(new RegExp(`^run ${ids.run} · triage-mail`)) });
+  });
+
+  it("the open lead stays the focus subject and uses the same manual state as its card", async () => {
+    await createRepos(rw.db).leadRows.dismiss("acme", "a".repeat(32), "not_now", NOW);
+    put({ route: "mail.lead", title: "Leads", subject: `lead:${"a".repeat(32)}` });
+    expect((await read()).this).toMatchObject({ kind: "lead", status: "Not now", title: expect.stringContaining("Lead Acme") });
   });
 
   it("a chat and a messenger draft name the client and the channel, and read with messenger_history (P71 M3)", async () => {

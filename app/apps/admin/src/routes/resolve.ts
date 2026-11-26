@@ -129,6 +129,8 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
   const p = parseRef(ref);
   if (!p) return null;
   switch (p.kind) {
+    case "lead":
+      return dest("mail.lead", { page: p.id }, { view: "all" });
     case "draft":
     case "inbound":
       return dest("mail.list", { filter: "all" });

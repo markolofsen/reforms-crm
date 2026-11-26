@@ -19,6 +19,9 @@ const sample = (id: (typeof ROUTE_IDS)[number]): string => {
 };
 
 describe("deriveFocus", () => {
+  it("a lead card names the Notion request, including while its live read is unavailable", () => {
+    expect(derive("/acme/mail/leads/41806f306f14812a8a42000b3b9c3ee4", "view=all")).toMatchObject({ subject: "lead:41806f306f14812a8a42000b3b9c3ee4", view: { view: "all" } });
+  });
   it("every route of the table derives a post the server accepts, with its own non-empty title and its route id", () => {
     for (const id of ROUTE_IDS) {
       const f = derive(sample(id));

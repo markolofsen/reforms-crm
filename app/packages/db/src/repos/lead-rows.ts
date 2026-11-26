@@ -13,7 +13,7 @@ import { leadPassDisplay } from "@hub/config/lead-pass";
 
 export type LeadRow = typeof leadRows.$inferSelect;
 /** One person of the Leads group: their newest open request, and how many open requests share the address (verdict 7). */
-export type LeadItem = LeadRow & { requests: number; draftStatus?: string | null };
+export type LeadItem = LeadRow & { requests: number; draftStatus?: string | null; open?: boolean };
 
 export interface NewLead {
   project: string;
@@ -54,13 +54,12 @@ export type LeadsCounts = Record<LeadsView, number>;
  * the window; Replied once a first send converted it; Spam and Not now the owner's asides (a Spam Status set in Notion too).
  */
 export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | "notionStatus" | "passDecision" | "passReason" | "passDraftId" | "passExcludedAt">, open: boolean, inWindow: boolean, draftStatus: string | null = null): LeadsView | null {
-  if (r.convertedAt) return "replied";
-  if (r.dismissedReason === "spam" || r.notionStatus === "Spam") return "spam";
-  if (r.dismissedReason === "not_now") return "not_now";
   // Age limits ingestion and pass selection, never resolution of known work.
   void inWindow;
   // P147: a lead the pass decided is Drafted (a draft, its gone draft, a proposal, an untick) or For you, open or not.
-  const d = leadPassDisplay({ ...r, draftStatus });
+  const d = leadPassDisplay({ ...r, draftStatus, open });
+  if (d === "spam") return "spam";
+  if (d === "not_now") return "not_now";
   if (d === "for_you") return "for_you";
   if (d === "drafted" || d === "draft_gone" || d === "proposed" || d === "excluded") return "drafted";
   if (d === "sent") return "replied";
@@ -126,7 +125,8 @@ export function leadRowsRepo(db: Db) {
     const brands = [...n].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
     const shown = brand === null ? inView : inView.filter((r) => r.brand?.toLowerCase() === brand);
     const offset = opts.offset ?? 0;
-    return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit).map((r) => ({ ...r, draftStatus: r.passDraftId === null ? null : status.get(r.passDraftId) ?? null })), total: shown.length, counts, brands };
+    const openById = new Map(all.map((r) => [r.row.id, r.open === 1]));
+    return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit).map((r) => ({ ...r, open: openById.get(r.id) ?? false, draftStatus: r.passDraftId === null ? null : status.get(r.passDraftId) ?? null })), total: shown.length, counts, brands };
   }
 
   return {

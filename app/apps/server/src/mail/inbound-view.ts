@@ -16,7 +16,7 @@ export const rowDto = (r: InboundRow & { messages?: number }): InboundRowDto => 
   threadDraftId: r.threadDraftId,
 });
 
-export const leadDto = (r: LeadRow & { requests?: number; draftStatus?: string | null }): LeadRowDto => ({
+export const leadDto = (r: LeadRow & { requests?: number; draftStatus?: string | null; open?: boolean }): LeadRowDto => ({
   pageId: r.pageId,
   name: r.name,
   email: r.email,
@@ -26,6 +26,7 @@ export const leadDto = (r: LeadRow & { requests?: number; draftStatus?: string |
   preview: r.preview,
   requests: r.requests ?? 1,
   facts: { site: r.site, country: r.country, segment: r.segment, volume: r.volume },
+  display: leadPassDisplay({ ...r, draftStatus: r.draftStatus ?? null }),
   pass: r.passDecision ? { decision: r.passDecision, display: leadPassDisplay({ ...r, draftStatus: r.draftStatus ?? null }), reason: r.passReason, at: r.passAt, draftId: r.passDraftId, excludedAt: r.passExcludedAt } : null,
 });
 /** How much of the answering draft's text the card shows (the stored body; Mail holds the full draft). */

@@ -170,7 +170,8 @@ test("terminal: the tab's tips (P63): its CLI's rows and the Hub's, from one lis
   await page.getByRole("button", { name: "Tips for Claude Code" }).click();
   const tips = page.getByTestId("terminal-tips");
   await expect(tips.getByRole("heading", { name: "Tips for Claude Code" })).toBeVisible();
-  await expect(tips.locator("[data-tip]")).toHaveCount(6);
+  await expect(tips.locator("[data-tip]")).toHaveCount(7);
+  await expect(tips.locator('[data-tip="hub:tool-offers"]')).toContainText("A service's offer is not the agent's advice");
   await expect(tips.locator('[data-tip="claude:voice"]')).toContainText("/voice");
   await expect(tips.locator('[data-tip="claude:desktop"]')).toContainText("The Hub does not offer it");
   await expect(tips.locator('[data-tip^="codex:"]')).toHaveCount(0);

@@ -8,7 +8,7 @@ import { isEntryPath } from "./local";
 // P71 M3: `chat` is a linked messenger chat (`messenger_chats.id`), `mdraft` a messenger draft (`messenger_drafts.id`), the rows
 // of the Messengers panel; a mail draft stays `draft`.
 // P98: `inbound` is a client's message the server's Mail reader stored (`inbound_mail.id`), the rows and the card of Mail ▸ Inbox.
-export const REF_KINDS = ["draft", "client", "run", "knowledge", "project", "chat", "mdraft", "inbound"] as const;
+export const REF_KINDS = ["draft", "client", "run", "knowledge", "project", "chat", "mdraft", "inbound", "lead"] as const;
 export type RefKind = (typeof REF_KINDS)[number];
 
 export const NUMERIC_ID = /^[1-9]\d{0,9}$/;
@@ -23,6 +23,7 @@ const ID_OK: Record<RefKind, (id: string) => boolean> = {
   chat: (id) => NUMERIC_ID.test(id),
   mdraft: (id) => NUMERIC_ID.test(id),
   inbound: (id) => NUMERIC_ID.test(id),
+  lead: (id) => /^[0-9a-f]{32}$/.test(id),
 };
 const isKind = (k: string): k is RefKind => (REF_KINDS as readonly string[]).includes(k);
 

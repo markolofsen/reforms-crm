@@ -19,7 +19,7 @@ export const LEAD_PASS_DECISION_LABELS: Record<LeadPassDecision, string> = { rep
  * awaiting the owner; `for_you` hand_over; `sent` converted at the send; `spam` and `not_now` the owner's click; `excluded` he
  * unticked it in the review.
  */
-export const LEAD_PASS_DISPLAY = ["new", "drafted", "draft_gone", "proposed", "for_you", "excluded", "sent", "spam", "not_now"] as const;
+export const LEAD_PASS_DISPLAY = ["new", "drafted", "draft_gone", "proposed", "for_you", "excluded", "sent", "spam", "not_now", "notion", "in_mail"] as const;
 export type LeadPassDisplay = (typeof LEAD_PASS_DISPLAY)[number];
 export const LEAD_PASS_DISPLAY_LABELS: Record<LeadPassDisplay, string> = {
   new: "New",
@@ -31,6 +31,8 @@ export const LEAD_PASS_DISPLAY_LABELS: Record<LeadPassDisplay, string> = {
   sent: "Answered",
   spam: "Spam",
   not_now: "Not now",
+  notion: "Managed in Notion",
+  in_mail: "Continue in Mail",
 };
 
 /** The facts of one lead row the display state reads. `draftStatus`: the pass draft's status, null when the row is gone. */
@@ -44,6 +46,8 @@ export interface LeadPassFacts {
   dismissedReason: "not_now" | "spam" | null;
   notionStatus: string | null;
   draftStatus: string | null;
+  /** Whether the stored request remains open independently of an agent decision. */
+  open?: boolean;
 }
 
 /** 3i P3: the reason a draft with an `[Owner: …]` placeholder is recorded with. */
@@ -55,7 +59,10 @@ export function leadPassDisplay(r: LeadPassFacts): LeadPassDisplay {
   if (r.convertedAt) return "sent";
   if (r.dismissedReason === "spam" || r.notionStatus === "Spam") return "spam";
   if (r.dismissedReason === "not_now") return "not_now";
-  if (!r.passDecision) return "new";
+  if (!r.passDecision) {
+    if (r.notionStatus && r.notionStatus !== "New") return "notion";
+    return r.open === false ? "in_mail" : "new";
+  }
   if (r.passExcludedAt) return "excluded";
   if (r.passDecision === "hand_over") return "for_you";
   if (r.passDecision === "spam" || r.passDecision === "not_now") return "proposed";

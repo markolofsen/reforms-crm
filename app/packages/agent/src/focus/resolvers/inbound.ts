@@ -1,4 +1,5 @@
 import { answeringDraft } from "@hub/db";
+import { LEAD_PASS_DECISION_LABELS, LEAD_PASS_DISPLAY_LABELS, leadPassDisplay } from "@hub/config/lead-pass";
 import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
@@ -14,4 +15,13 @@ export const inbound: Resolver = async ({ repos, slug }, id) => {
   const answer = clientId === undefined ? null : answeringDraft(row, await repos.drafts.ofClient(slug, clientId));
   const status = row.open ? "waiting for a reply" : answer ? `answered by draft ${answer.id} (${answer.status})` : row.dismissedAt ? "no reply needed" : "closed";
   return { title: cut(`${row.name} <${row.email}> · ${row.subject || "(no subject)"} · received ${row.receivedAt}`), status, read: { server: "hub", tool: "message_show", args: { inbound: row.id } } };
+};
+
+/** A Notion lead's page id, resolved only within the session's project, including manual decisions and history. */
+export const lead: Resolver = async ({ repos, slug }, id) => {
+  const row = await repos.leadRows.get(slug, id);
+  if (!row) return null;
+  const display = leadPassDisplay(row);
+  const status = display === "proposed" && row.passDecision ? LEAD_PASS_DECISION_LABELS[row.passDecision] : LEAD_PASS_DISPLAY_LABELS[display];
+  return { title: cut(`${row.name}${row.email ? ` <${row.email}>` : ""} · ${row.preview}`), status, read: null };
 };

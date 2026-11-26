@@ -158,6 +158,14 @@ describe("the attended pass", () => {
     expect(checks).toEqual([true]);
   });
 
+  it("the mail pass points to its own queue and preserves its kind in a status follow-up", async () => {
+    const { call } = await connect({ leadPassRun: { run: async () => ({ ok: true, joined: false, state: "running" }) } });
+    const answer = (await call("lead_pass_start", { pass: "mail" })).json;
+    expect(answer.review).toBe("Mail ▸ Needs you. Use a batch review link only when an actual batch exists.");
+    expect(answer.next).toContain('pass: "mail"');
+    expect(answer.next).not.toContain("Leads");
+  });
+
   it("P147 3n: mail_junk moves to Junk by default or to Trash, says a server refusal is refused, and is unavailable without its port", async () => {
     const asked: string[] = [];
     const { call, client } = await connect({ mailJunk: { junk: async (slug, id, to) => (asked.push(`${slug}:${id}:${to}`), id === 9 ? { ok: false, status: 403, error: "Not moved: ann@example.test has a Clients card in Notion." } : { ok: true, closed: 1 }) } });

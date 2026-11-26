@@ -59,7 +59,7 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   // P128 X5: chats_unlinked and chats_propose_hide (the agent's proposed hides). P136: maps_due (the weekly map review).
   // P142: follow_ups_due and follow_up_plan. link_fetch (ea0d7a1). 05b7d48: a session the owner started is attended, so it
   // also has decision 0046's one send, messenger_send (HUB_MCP_ATTENDED_TOOLS); only a background run lacks it.
-  expect(agent.tools).toEqual(["chat_link", "chats_propose_hide", "chats_unlinked", "client_create", "client_map", "client_record", "client_show", "conversation_done", "draft_show", "draft_write", "focus", "follow_up_plan", "follow_ups_due", "highlight", "knowledge_get", "knowledge_search", "link_fetch", "mail_list", "maps_due", "message_show", "messenger_draft_write", "messenger_history", "messenger_send", "project_show"]);
+  expect(agent.tools).toEqual(["bug_report", "chat_link", "chats_propose_hide", "chats_unlinked", "client_create", "client_map", "client_record", "client_show", "conversation_done", "draft_show", "draft_write", "focus", "follow_up_plan", "follow_ups_due", "highlight", "knowledge_get", "knowledge_search", "lead_decide", "lead_pass_start", "leads_open", "link_fetch", "mail_decide", "mail_junk", "mail_list", "maps_due", "message_show", "messenger_draft_write", "messenger_history", "messenger_send", "project_show"]);
   expect(agent.focused).toBe(fiona.draftId);
   expect(agent.recorded).toMatchObject({ ok: true, action: "updated", draftId: fiona.draftId });
   // The open card says so by itself (P50), and the list still has one Fiona.

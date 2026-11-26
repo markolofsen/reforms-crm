@@ -5,6 +5,7 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { LeadsListRowsItemDisplay } from './leadsListRowsItemDisplay';
 import type { LeadsListRowsItemFacts } from './leadsListRowsItemFacts';
 import type { LeadsListRowsItemPass } from './leadsListRowsItemPass';
 
@@ -25,5 +26,6 @@ export type LeadsListRowsItem = {
      */
   requests: number;
   facts: LeadsListRowsItemFacts;
+  display: LeadsListRowsItemDisplay;
   pass: LeadsListRowsItemPass;
 };

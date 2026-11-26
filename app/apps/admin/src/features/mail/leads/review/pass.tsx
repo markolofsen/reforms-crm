@@ -17,16 +17,8 @@ import { formatTime } from "@/lib/format";
 // now, the pass line), each row's decision chip, and the card's decision with Redo. The pass's decisions are the agent's notes:
 // nothing here sends; the review's one click is the owner's.
 
-type Pass = NonNullable<LeadRowDto["pass"]>;
-
 const isLeadDecision = (d: string): d is LeadPassDecision => d in LEAD_PASS_DECISION_LABELS;
 const decisionLabel = (d: string): string => (isLeadDecision(d) ? LEAD_PASS_DECISION_LABELS[d] : d);
-
-/** The chip of a row's decision: what the pass decided, Excluded once the owner unticked it. */
-export function passChipText(p: Pass): string {
-  if (p.display) return p.display === "proposed" ? decisionLabel(p.decision) : LEAD_PASS_DISPLAY_LABELS[p.display];
-  return p.excludedAt ? "Excluded" : decisionLabel(p.decision);
-}
 
 /** The pass line: "Lead pass 09:32 · 4 drafted · 2 proposed · 1 for you · next 26 Nov 09:30", or why it is off or stopped. */
 export function passLine(d: LeadPassDto): string {
@@ -85,28 +77,29 @@ export function LeadPassBar({ project }: { project: string }) {
 }
 
 /** A row's decision chip (and the reason as its title). */
-export function PassChip({ pass }: { pass: LeadRowDto["pass"] }) {
-  if (!pass) return null;
+export function PassChip({ pass, display }: { pass: LeadRowDto["pass"]; display: LeadRowDto["display"] }) {
   return (
-    <Badge data-testid="lead-pass-chip" title={pass.reason ?? undefined} variant={pass.decision === "hand_over" ? "default" : "outline"}>
-      {passChipText(pass)}
+    <Badge data-testid="lead-pass-chip" title={pass?.reason ?? undefined} variant={display === "for_you" ? "default" : "outline"}>
+      {display === "proposed" && pass ? decisionLabel(pass.decision) : LEAD_PASS_DISPLAY_LABELS[display]}
     </Badge>
   );
 }
 
 /** The card's decision: what the pass decided and why, its draft, and Redo (the next pass decides the lead again). */
-export function LeadDecision({ project, pageId, pass }: { project: string; pageId: string; pass: LeadRowDto["pass"] }) {
+export function LeadDecision({ project, pageId, pass, display }: { project: string; pageId: string; pass: LeadRowDto["pass"]; display: LeadRowDto["display"] }) {
   const redo = useRedoLead(project, pageId, { onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }) });
-  if (!pass) return null;
+  if (!pass) return <p className="text-muted-foreground text-sm" data-testid="lead-decision">{LEAD_PASS_DISPLAY_LABELS[display]}</p>;
   return (
     <section aria-label="The lead pass decision" className="flex flex-col gap-1 rounded-md border p-3 text-sm" data-testid="lead-decision">
       <p className="flex flex-wrap items-center gap-2">
         <BotIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <span className="font-medium">{passChipText(pass)}</span>
+        <span className="font-medium">{display === "proposed" ? decisionLabel(pass.decision) : LEAD_PASS_DISPLAY_LABELS[display]}</span>
         {pass.at && <span className="text-muted-foreground text-xs">{formatTime(pass.at)}</span>}
       </p>
       {pass.reason && <p className="measure break-words">{pass.reason}</p>}
-      {pass.draftId !== null && <p className="text-muted-foreground text-xs">Its draft {pass.draftId} waits in today’s review.</p>}
+      {pass.draftId !== null && (display === "drafted" || display === "for_you") && <p className="text-muted-foreground text-xs">Draft {pass.draftId} is unsent. Open it below to review the reply.</p>}
+      {display === "draft_gone" && <p className="text-muted-foreground text-xs">The recorded draft is unavailable. Prepare the reply again.</p>}
+      {display === "excluded" && <p className="text-muted-foreground text-xs">Excluded from batch review. Prepare the reply again when you want to continue.</p>}
       <div>
         <ActionButton data-testid="lead-redo" disabled={redo.isPending} onClick={() => redo.mutate()} size="s" variant="quiet">
           Redo

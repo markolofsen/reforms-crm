@@ -61,6 +61,8 @@ export const leadRowDto = z.strictObject({
   /** Open requests sharing the address (verdict 7: one person, "2 requests"). */
   requests: z.number().int(),
   facts: leadFactsDto,
+  /** The current work state, including owner actions made without an agent decision. */
+  display: z.enum(LEAD_PASS_DISPLAY),
   /** P147 verdict 15: the daily lead pass's decision on this request (the card's chip and Redo), or null when none was made. */
   pass: z.strictObject({ decision: z.enum(LEAD_PASS_DECISIONS), display: z.enum(LEAD_PASS_DISPLAY).optional(), reason: z.string().nullable(), at: z.string().nullable(), draftId: z.number().int().nullable(), excludedAt: z.string().nullable() }).nullable(),
 });

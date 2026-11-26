@@ -18,7 +18,7 @@ test("X selects, Esc clears, Shift+A selects every open draft", async ({ page })
   await expect(page.getByRole("toolbar", { name: "Selected drafts" })).toHaveCount(0);
   await first.focus();
   await page.keyboard.press("Shift+A");
-  await expect(said).toHaveText(/^[2-9]\d* selected$/);
+  await expect(said).toHaveText(/^(?:[2-9]|[1-9]\d+) selected$/);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("toolbar", { name: "Selected drafts" })).toHaveCount(0);
 });
