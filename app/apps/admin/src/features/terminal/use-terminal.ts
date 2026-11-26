@@ -154,6 +154,8 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const full = sessions.length >= MAX_SESSIONS;
   const [notice, setNotice] = useState<string | null>(null);
   const [why, setWhy] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<string | null>(null);
+  const closingId = useRef<string | null>(null);
   const { focus, register, paste } = useFocus();
 
   const setList = useCallback((fn: (list: TerminalSessionDto[]) => TerminalSessionDto[]) => qc.setQueryData<TerminalStateDto | null>(TERMINAL_KEY, (old) => old && { ...old, sessions: fn(old.sessions) }), [qc]);
@@ -188,7 +190,8 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   });
   const closing = useMutation({
     mutationFn: (id: string) => terminalApi.close(id),
-    onMutate: () => setNotice(null),
+    onMutate: (id) => { closingId.current = id; setNotice(null); },
+    onSettled: () => { closingId.current = null; },
     onSuccess: (_ok, id) => {
       const rest = sessions.filter((s) => s.id !== id);
       setList((list) => list.filter((s) => s.id !== id));
@@ -217,13 +220,14 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     );
   };
   // Each time the column becomes visible the list is read fresh (a session closed elsewhere, or a restarted server, must not
-  // leave an empty column): this project's session gets the focus, else the server starts its pick, once per page load.
+  // leave an empty column): this project's session gets the focus, else the server starts its pick. A lost backend PTY permits another attempt.
   useAutoStart({
     open,
     // P66: with a problem nothing starts by itself; the column says why instead.
     ready: state !== null && state.problem === null && known,
     project,
     remembered: storedTab,
+    recovery,
     fresh: () => qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then((s) => s.sessions, () => sessions),
     ensure: () => ensuring.mutate(),
     show: (s) => {
@@ -238,7 +242,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const patch = useCallback(
     (id: string, change: Partial<TerminalSessionDto> | null) => {
       if (change) setList((list) => list.map((s) => (s.id === id ? { ...s, ...change } : s)));
-      else void qc.invalidateQueries({ queryKey: TERMINAL_KEY });
+      else if (closingId.current !== id) void qc.invalidateQueries({ queryKey: TERMINAL_KEY }).then(() => setRecovery(id));
     },
     [qc, setList],
   );
