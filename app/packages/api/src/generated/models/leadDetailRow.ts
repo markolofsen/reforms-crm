@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { LeadDetailRowDismissedReason } from './leadDetailRowDismissedReason';
+import type { LeadDetailRowDisplay } from './leadDetailRowDisplay';
 import type { LeadDetailRowFacts } from './leadDetailRowFacts';
 import type { LeadDetailRowPass } from './leadDetailRowPass';
 
@@ -26,6 +27,7 @@ export type LeadDetailRow = {
      */
   requests: number;
   facts: LeadDetailRowFacts;
+  display: LeadDetailRowDisplay;
   pass: LeadDetailRowPass;
   open: boolean;
   /** @nullable */

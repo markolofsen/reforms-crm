@@ -66,7 +66,7 @@ type Act = ReturnType<typeof useLeadAction>["act"];
 function LeadActions({ d, act, onPrepare }: { d: LeadDetailDto; act: Act; onPrepare: (email: string) => void }) {
   const { row, lead } = d;
   const whatsapp = lead?.sheet.channel?.kind === "whatsapp" ? channelDestination(lead.sheet.channel) : null;
-  const recover = row.pass?.display === "draft_gone" || row.pass?.display === "excluded";
+  const recover = row.display === "draft_gone" || row.display === "excluded";
   const prepare = (row.open || recover) && row.email ? () => onPrepare(row.email ?? "") : null;
   useLeadActionKeys({ prepare, notNow: row.open && !act.isPending ? () => act.mutate("notNow") : null, spam: row.open && !act.isPending ? () => act.mutate("spam") : null });
   return (
@@ -110,11 +110,8 @@ function LeadState({ d }: { d: LeadDetailDto }) {
   return (
     <>
       {!row.email && <p className="text-sm" data-testid="lead-no-email">No email: reply on {lead?.otherContact ?? (lead?.phone ? `the phone ${lead.phone}` : "the channel they gave")}.</p>}
-      {!row.open && (
-        <p className="text-muted-foreground text-sm">
-          {row.dismissedReason === "spam" ? "Marked as spam." : row.dismissedReason === "not_now" ? "Not now." : row.convertedAt ? "Answered: the first reply was sent." : "A draft to this lead exists, or its Status changed in Notion: it left the group."}
-        </p>
-      )}
+      {row.display === "notion" && <p className="text-muted-foreground text-sm">Notion status: {row.notionStatus}. Open the Notion page from More lead actions to continue.</p>}
+      {row.display === "in_mail" && <p className="text-muted-foreground text-sm">A reply to this address was recorded in Mail. Open the conversation below to continue.</p>}
       {row.convertNote && (
         <p className="text-sm" data-testid="lead-convert-note" role="status">
           Needs you: {row.convertNote}
@@ -147,7 +144,7 @@ function LeadArticle({ d, now, act, project, onPrepare, onRetry, onRestore }: { 
         </p>
       )}
       <LeadNotes notes={d.notes} />
-      <LeadDecision pageId={row.pageId} pass={row.pass} project={project} />
+      <LeadDecision display={row.display} pageId={row.pageId} pass={row.pass} project={project} />
       <LeadActions act={act} d={d} onPrepare={onPrepare} />
       <LeadState d={d} />
       {row.dismissedReason !== null && <ActionButton onClick={onRestore} size="s" variant="secondary">Return to Needs you</ActionButton>}

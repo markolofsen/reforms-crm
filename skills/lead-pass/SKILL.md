@@ -49,4 +49,6 @@ A wrong call is fixed by calling `lead_decide` again (F2): it changes the decisi
 ## 5. Report (dock session, Russian)
 After starting a server pass that is still running, follow its result with `lead_pass_start` and `check_only: true` (same pass kind). This reads status without another start or another daily allowance. Do not present an accepted start as completed work. Report the final counts once finished, or the actual failure.
 
+The status read describes the project's current or latest run of that kind, not an arbitrary historical run. A finished ledger row with an error is a failed run. The focus can identify a lead as `lead:<page id>` even after it leaves New: use that request, its current state and the stored preview; an unavailable live Notion read is not a resolution of the work.
+
 Table `# | лид | бренд | решение | черновик | причина`, then "Нужно от тебя" (each hand-over first), then recorded counts and Mail ▸ Leads ▸ Needs you. Link a review batch only if its id is known and it exists. If no drafts were created, say so; otherwise say they are in Mail. Nothing was sent. A lead turn reports nothing: the decision and the Activity line are its record.

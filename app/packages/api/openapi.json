@@ -17563,6 +17563,22 @@
                       ],
                       "additionalProperties": false
                     },
+                    "display": {
+                      "type": "string",
+                      "enum": [
+                        "new",
+                        "drafted",
+                        "draft_gone",
+                        "proposed",
+                        "for_you",
+                        "excluded",
+                        "sent",
+                        "spam",
+                        "not_now",
+                        "notion",
+                        "in_mail"
+                      ]
+                    },
                     "pass": {
                       "anyOf": [
                         {
@@ -17589,7 +17605,9 @@
                                 "excluded",
                                 "sent",
                                 "spam",
-                                "not_now"
+                                "not_now",
+                                "notion",
+                                "in_mail"
                               ]
                             },
                             "reason": {
@@ -17648,6 +17666,7 @@
                     "preview",
                     "requests",
                     "facts",
+                    "display",
                     "pass"
                   ],
                   "additionalProperties": false
@@ -18108,6 +18127,22 @@
                   ],
                   "additionalProperties": false
                 },
+                "display": {
+                  "type": "string",
+                  "enum": [
+                    "new",
+                    "drafted",
+                    "draft_gone",
+                    "proposed",
+                    "for_you",
+                    "excluded",
+                    "sent",
+                    "spam",
+                    "not_now",
+                    "notion",
+                    "in_mail"
+                  ]
+                },
                 "pass": {
                   "anyOf": [
                     {
@@ -18134,7 +18169,9 @@
                             "excluded",
                             "sent",
                             "spam",
-                            "not_now"
+                            "not_now",
+                            "notion",
+                            "in_mail"
                           ]
                         },
                         "reason": {
@@ -18193,6 +18230,7 @@
                 "preview",
                 "requests",
                 "facts",
+                "display",
                 "pass"
               ],
               "additionalProperties": false
@@ -18418,6 +18456,22 @@
                 ],
                 "additionalProperties": false
               },
+              "display": {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "drafted",
+                  "draft_gone",
+                  "proposed",
+                  "for_you",
+                  "excluded",
+                  "sent",
+                  "spam",
+                  "not_now",
+                  "notion",
+                  "in_mail"
+                ]
+              },
               "pass": {
                 "anyOf": [
                   {
@@ -18444,7 +18498,9 @@
                           "excluded",
                           "sent",
                           "spam",
-                          "not_now"
+                          "not_now",
+                          "notion",
+                          "in_mail"
                         ]
                       },
                       "reason": {
@@ -18550,6 +18606,7 @@
               "preview",
               "requests",
               "facts",
+              "display",
               "pass",
               "open",
               "notionStatus",
@@ -23651,7 +23708,9 @@
                     "excluded",
                     "sent",
                     "spam",
-                    "not_now"
+                    "not_now",
+                    "notion",
+                    "in_mail"
                   ]
                 },
                 "draftId": {

@@ -1,11 +1,13 @@
 "use client";
 
 import type { LeadRowDto, LeadsReadDto } from "@hub/contract/inbound";
+import { refOf } from "@hub/contract/focus";
 import { Badge } from "@hub/ui/badge";
 import { cn } from "@hub/ui/cn";
 import { ConversationList } from "@hub/ui/product/conversation";
 import { AppLink } from "@/components/app-link";
 import { ago, plural } from "@/lib/format";
+import { agentRef } from "@/lib/focus";
 import type { Dest } from "@/routes/paths";
 import { factChips, isNewSince, leadDays } from "./groups";
 import { PassChip } from "./review/pass";
@@ -20,7 +22,7 @@ export function leadsReadText(r: LeadsReadDto, now: number): string {
 function LeadRow({ r, open, now, to, fresh }: { r: LeadRowDto; open: boolean; now: number; to: Dest; fresh: boolean }) {
   const chips = factChips(r.facts);
   return (
-    <li className={cn("relative border-b", open && "bg-accent")} data-lead={r.pageId} data-new={fresh || undefined} data-open={open} data-testid="lead-row">
+    <li {...agentRef(refOf("lead", r.pageId))} className={cn("relative border-b", open && "bg-accent")} data-lead={r.pageId} data-new={fresh || undefined} data-open={open} data-testid="lead-row">
       {open && <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-primary" />}
       <AppLink
         aria-current={open ? "true" : undefined}
@@ -41,17 +43,15 @@ function LeadRow({ r, open, now, to, fresh }: { r: LeadRowDto; open: boolean; no
         <span className="w-full min-w-0 truncate" data-testid="lead-site">
           {r.facts.site ?? r.email ?? "No email: reply on the channel they gave"}
         </span>
-        {(chips.length > 0 || r.requests > 1 || r.pass) && (
-          <span className="flex w-full min-w-0 flex-wrap gap-1" data-testid="lead-chips">
-            <PassChip pass={r.pass} />
+        <span className="flex w-full min-w-0 flex-wrap gap-1" data-testid="lead-chips">
+            <PassChip display={r.display} pass={r.pass} />
             {chips.map((c) => (
               <Badge key={c} variant="secondary">
                 {c}
               </Badge>
             ))}
             {r.requests > 1 && <Badge variant="outline">{r.requests} requests</Badge>}
-          </span>
-        )}
+        </span>
         {chips.length === 0 && r.preview && (
           <span className="w-full min-w-0 truncate text-muted-foreground text-xs" data-testid="lead-preview">
             {r.preview}

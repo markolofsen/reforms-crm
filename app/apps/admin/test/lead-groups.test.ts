@@ -3,7 +3,7 @@ import type { LeadRowDto } from "@hub/contract/inbound";
 import { factChips, isNewSince, leadDays, newestOf, nextVisit, parseSeen } from "../src/features/mail/leads/groups";
 import { typoLine } from "../src/features/mail/leads/lead-notes";
 
-const row = (pageId: string, receivedAt: string): LeadRowDto => ({ pageId, name: pageId, email: null, accountEmail: null, brand: null, receivedAt, preview: "", requests: 1, facts: { site: null, country: null, segment: null, volume: null }, pass: null });
+const row = (pageId: string, receivedAt: string): LeadRowDto => ({ pageId, name: pageId, email: null, accountEmail: null, brand: null, receivedAt, preview: "", requests: 1, display: "new", facts: { site: null, country: null, segment: null, volume: null }, pass: null });
 
 describe("Leads by day and since the last visit (P138 verdict 6)", () => {
   const now = new Date(2026, 10, 24, 15, 0).getTime();

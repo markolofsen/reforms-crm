@@ -172,6 +172,7 @@ export const leadPassStartTool = defineTool({
     const a = await env.leadPassRun.run(slug, i.pass ?? "lead", i.check_only ?? false);
     if (!a.ok) throw a.status === 0 ? unavailableAnswer(a.error) : new ToolError(a.status === 409 ? "wrong_state" : "unavailable", a.error);
     const state: "running" | "finished" | "failed" | "accepted" = a.state ?? "accepted";
+    const place = i.pass === "mail" ? "Mail ▸ Needs you" : "Mail ▸ Leads ▸ Needs you";
     return {
       project: slug,
       started: !i.check_only && !a.joined,
@@ -180,8 +181,8 @@ export const leadPassStartTool = defineTool({
       listed: a.listed ?? null,
       drafted: a.drafted ?? null,
       failed: a.failed ?? null,
-      review: "Mail ▸ Leads ▸ Needs you. Use a batch review link only when an actual batch exists.",
-      next: a.state === "finished" ? `Report the finished result: ${a.listed ?? 0} eligible, ${a.drafted ?? 0} drafts, ${a.failed ?? 0} failed. Zero eligible means nothing new to process; existing decisions still wait in Needs you. Nothing was sent.` : a.state === "failed" ? "Report that the pass failed; do not promise drafts. Check Activity errors." : "Report only the returned state (running, or accepted when completion is unknown). Follow this run with lead_pass_start(check_only: true); do not start a second pass. Do not promise drafts or a completion time. Existing work is in Mail ▸ Leads ▸ Needs you. Nothing was sent.",
+      review: `${place}. Use a batch review link only when an actual batch exists.`,
+      next: state === "finished" ? `Report the finished result: ${a.listed ?? 0} eligible, ${a.drafted ?? 0} drafts, ${a.failed ?? 0} failed. Zero eligible means nothing new to process; existing decisions still wait in ${place}. Nothing was sent.` : state === "failed" ? "Report that the pass failed; do not promise drafts. Check Activity errors." : `Report only the returned state (running, or accepted when completion is unknown). Read the current/latest result with lead_pass_start(check_only: true, pass: "${i.pass ?? "lead"}"); do not start a second pass. Do not promise drafts or a completion time. Existing work is in ${place}. Nothing was sent.`,
     };
   },
 });

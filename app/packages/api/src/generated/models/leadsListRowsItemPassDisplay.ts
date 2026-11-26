@@ -19,4 +19,6 @@ export const LeadsListRowsItemPassDisplay = {
   sent: 'sent',
   spam: 'spam',
   not_now: 'not_now',
+  notion: 'notion',
+  in_mail: 'in_mail',
 } as const;

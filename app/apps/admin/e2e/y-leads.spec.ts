@@ -13,7 +13,7 @@ const API = `**/api/projects/${P}/leads/${PAGE}`;
 const detail = {
   row: {
     pageId: PAGE, name: "Harbor Bikes", email: "info@almirsolutions.vom", accountEmail: null, brand: null, receivedAt: new Date(Date.now() - 3_600_000).toISOString(),
-    preview: "We run three shops.", requests: 1, pass: null, facts: { site: "harbor-bikes.test", country: "Portugal", segment: "Retail", volume: "3 shops" },
+    preview: "We run three shops.", requests: 1, display: "new", pass: null, facts: { site: "harbor-bikes.test", country: "Portugal", segment: "Retail", volume: "3 shops" },
     open: true, notionStatus: "New", dismissedAt: null, dismissedReason: null, convertedAt: null, clientPageId: null, convertNote: null,
   },
   lead: {
@@ -42,6 +42,25 @@ const detail = {
   drafts: [],
 };
 
+for (const [display, label, decision, unsent] of [
+  ["not_now", "Not now", null, false], ["spam", "Spam", null, false],
+  ["drafted", "Reply ready", "reply", true], ["sent", "Answered", "reply", false],
+  ["draft_gone", "Prepare reply again", "reply", false], ["excluded", "Review needed", "reply", false],
+] as const) {
+  test(`P162: ${display} agrees between list and card and describes only an available unsent draft`, async ({ page }) => {
+    const row = { ...detail.row, display, open: false, dismissedReason: decision === null ? display : null, pass: decision ? { decision, display, reason: "Fixture decision", at: null, draftId: 123, excludedAt: display === "excluded" ? "2026-11-26" : null } : null };
+    const listRow = { pageId: row.pageId, name: row.name, email: row.email, accountEmail: row.accountEmail, brand: row.brand, receivedAt: row.receivedAt, preview: row.preview, requests: row.requests, facts: row.facts, display, pass: row.pass };
+    await page.route(`**/api/projects/${P}/leads?*`, (r) => r.fulfill({ json: { rows: [listRow], total: 1, nextOffset: null, counts: { needs_you: 0, all: 1, new: 0, drafted: 0, for_you: 0, not_now: 0, spam: 0, replied: 0 }, brands: [], read: { at: null, reason: null, reading: false, older: 0, windowDays: 14 } } }));
+    await page.route(API, (r) => r.fulfill({ json: { ...detail, row } }));
+    await page.goto(at(P, `/mail/leads/${PAGE}?view=all`));
+    await expect(page.getByTestId("lead-row").getByTestId("lead-pass-chip")).toHaveText(label);
+    await expect(page.getByTestId("lead-card").getByTestId("lead-decision")).toContainText(label);
+    await expect(page.getByText("Draft 123 is unsent.", { exact: false })).toHaveCount(unsent ? 1 : 0);
+    await expect(page.getByText(/today’s review|it left the group/)).toHaveCount(0);
+    if (decision === null) await expect(page.getByRole("button", { name: "Return to Needs you" })).toBeVisible();
+  });
+}
+
 async function patchLead(page: Page, posts: string[] = []) {
   await page.route(API, (r) => r.fulfill({ json: detail }));
   await page.route(`${API}/*`, (r) => {
@@ -49,6 +68,27 @@ async function patchLead(page: Page, posts: string[] = []) {
     return r.fulfill({ json: { ok: true, pageId: PAGE, notion: "none", note: null } });
   });
 }
+
+test("P162: a Notion outage preserves the request, its focus identity and a retry path", async ({ page }) => {
+  let reads = 0;
+  const focused: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/focus" && request.method() === "POST") {
+      const body = request.postDataJSON() as { subject?: string };
+      if (body.subject) focused.push(body.subject);
+    }
+  });
+  await page.route(API, (r) => r.fulfill({ json: ++reads === 1 ? { ...detail, lead: null, note: "Notion temporarily unavailable" } : detail }));
+  await page.goto(at(P, `/mail/leads/${PAGE}`));
+  const card = page.getByTestId("lead-card");
+  await expect(card).toContainText("We run three shops.");
+  await expect(card).toContainText("Notion temporarily unavailable");
+  await expect.poll(() => focused).toContain(`lead:${PAGE}`);
+  await card.getByRole("button", { name: "Retry Notion read" }).click();
+  await expect(card.getByTestId("lead-want")).toBeVisible();
+  await expect(card.getByTestId("lead-read")).toContainText("Dealer in the UAE");
+  expect(reads).toBe(2);
+});
 
 test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "ignoreErrors" });

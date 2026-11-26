@@ -16,6 +16,7 @@ export type FocusParts = {
 
 /** The record the address itself names: the client of an open conversation (P99), the open chat (P143), the client Activity is narrowed to (`?client=1`, P73). */
 function addressSubject(r: Resolved): string | null {
+  if (r.route === "mail.lead") return refOf("lead", r.params.page.replace(/-/g, "").toLowerCase());
   // P99 verdict 11: a conversation is `client:<id>`; its focus title names the open draft and their newest message, so the agent
   // never loses its anchor (P98 showed it guessing from "Message 10").
   // P103: an `id-<n>` key names the client row; an email key leaves the subject to the open card (it knows the row).

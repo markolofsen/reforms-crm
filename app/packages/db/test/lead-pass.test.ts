@@ -133,6 +133,10 @@ describe("leadPassDisplay (verdict 2)", () => {
   const base = { passDecision: null, passDraftId: null, passExcludedAt: null, convertedAt: null, dismissedReason: null, notionStatus: "New", draftStatus: null } as const;
   it("the owner's marks come first, then the decision", () => {
     expect(leadPassDisplay(base)).toBe("new");
+    expect(leadPassDisplay({ ...base, dismissedReason: "spam" })).toBe("spam");
+    expect(leadPassDisplay({ ...base, dismissedReason: "not_now" })).toBe("not_now");
+    expect(leadPassDisplay({ ...base, notionStatus: "In progress", open: false })).toBe("notion");
+    expect(leadPassDisplay({ ...base, open: false })).toBe("in_mail");
     expect(leadPassDisplay({ ...base, convertedAt: "x", passDecision: "reply" })).toBe("sent");
     expect(leadPassDisplay({ ...base, dismissedReason: "spam", passDecision: "spam" })).toBe("spam");
     expect(leadPassDisplay({ ...base, passDecision: "hand_over" })).toBe("for_you");

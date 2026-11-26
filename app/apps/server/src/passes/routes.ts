@@ -95,13 +95,13 @@ export function leadPassRoutes(ctx: ProjectsContext) {
       if (c.req.valid("json").checkOnly) {
         const result = await repos.leadPass.lastPass(slug, kind);
         const running = sch.isRunning(slug, kind);
-        return c.json({ ok: true as const, joined: running, state: running ? "running" : result?.finishedAt ? "finished" : "failed", listed: result?.listed ?? null, drafted: result ? result.replied + result.clients : null, failed: result?.failed ?? null }, 202);
+        return c.json({ ok: true as const, joined: running, state: running ? "running" : result?.finishedAt && !result.error ? "finished" : "failed", listed: result?.listed ?? null, drafted: result ? result.replied + result.clients : null, failed: result?.failed ?? null }, 202);
       }
       const r = await sch.runNow(slug, "dock", kind);
       if ("refused" in r) return c.json({ error: `${r.refused}.`, code: "wrong_state" as const }, 409);
       // Empty passes finish immediately. Report that outcome instead of promising future work.
       const result = await Promise.race([r.pass, new Promise<null>((resolve) => setTimeout(() => resolve(null), 100))]);
-      return c.json({ ok: true as const, joined: r.joined, state: sch.isRunning(slug, kind) ? "running" : result ? "finished" : "failed", listed: result?.listed ?? null, drafted: result ? result.replied + result.clients : null, failed: result?.failed ?? null }, 202);
+      return c.json({ ok: true as const, joined: r.joined, state: result ? result.error ? "failed" : "finished" : sch.isRunning(slug, kind) ? "running" : "failed", listed: result?.listed ?? null, drafted: result ? result.replied + result.clients : null, failed: result?.failed ?? null }, 202);
     })
     // Redo (verdict 3): the lead's decision is cleared, so the next pass decides it again. Its draft, if any, stays in Mail.
     .post("/api/projects/:slug/leads/:pageId/redo", v("param", leadPageParam), async (c) => {
