@@ -99,18 +99,53 @@ const rollout = (instructions: string): string =>
   ].join("\n");
 
 describe("chooseResume", () => {
-  it("Codex is resumed only when its first developer message equals today's instructions (Codex never replaces it)", () => {
+  it("Codex is resumed only when its initial instructions include today's project binding", () => {
     const t = setup();
     const home = path.join(t.root, "codex", "acme");
     const file = t.transcript(X, "codex/acme/sessions");
     writeFileSync(file, rollout("RULES v1"));
-    expect(rolloutInstructions(file)).toBe("RULES v1");
+    expect(rolloutInstructions(file)).toEqual(["RULES v1", "<skills_instructions>", "<permissions instructions>"]);
     t.write(t.session({ id: X, cli: "codex", start: ago(1), prompts: [ago(1)], transcript: file }));
     const q = { project: "acme", cli: "codex" as const, now: NOW, within: home };
     expect(chooseResume(t.store, { ...q, instructions: "RULES v1" }).session?.session).toBe(X);
     expect(chooseResume(t.store, { ...q, instructions: "RULES v2" })).toEqual({ session: null, why: CODEX_RULES_CHANGED });
     expect(chooseResume(t.store, q)).toEqual({ session: null, why: CODEX_RULES_CHANGED });
   });
+  it("resumes modern Codex with model rules first and the Hub binding among several text blocks", () => {
+    const t = setup();
+    const file = t.transcript(X, "codex/acme/sessions");
+    const message = (role: string, ...text: string[]) => JSON.stringify({ type: "response_item", payload: { type: "message", role, content: text.map((text) => ({ type: "input_text", text })) } });
+    writeFileSync(file, [
+      JSON.stringify({ type: "session_meta", payload: { id: X } }),
+      message("developer", "CODEX MODEL RULES"),
+      message("developer", "SKILLS", "RULES v1", "PERMISSIONS"),
+      message("user", "environment"),
+      JSON.stringify({ type: "turn_context", payload: { turn_id: "turn" } }),
+      message("user", "owner prompt"),
+      message("developer", "RULES v2"),
+    ].join("\n"));
+    t.write(t.session({ id: X, cli: "codex", start: ago(1), prompts: [ago(1)], transcript: file }));
+    const q = { project: "acme", cli: "codex" as const, now: NOW, within: path.join(t.root, "codex/acme") };
+    expect(rolloutInstructions(file)).toEqual(["CODEX MODEL RULES", "SKILLS", "RULES v1", "PERMISSIONS"]);
+    expect(chooseResume(t.store, { ...q, instructions: "RULES v1" }).session?.session).toBe(X);
+    expect(chooseResume(t.store, { ...q, id: X, instructions: "RULES v1" }).session?.session).toBe(X);
+    // A later hook or model update cannot authenticate changed original rules.
+    expect(chooseResume(t.store, { ...q, instructions: "RULES v2" })).toEqual({ session: null, why: CODEX_RULES_CHANGED });
+  });
+
+  it("stops at the first turn even without an initial user context, and fails closed on missing or truncated data", () => {
+    const t = setup();
+    const file = t.transcript(X);
+    const developer = rollout("RULES v1");
+    writeFileSync(file, JSON.stringify({ type: "turn_context", payload: {} }) + "\n" + developer);
+    expect(rolloutInstructions(file)).toEqual([]);
+    writeFileSync(file, '{"type":"response_item","payload":');
+    expect(rolloutInstructions(file)).toEqual([]);
+    expect(rolloutInstructions(path.join(t.root, "missing"))).toEqual([]);
+    writeFileSync(file, developer);
+    expect(rolloutInstructions(file, 10)).toEqual([]);
+  });
+
   it("with an id: that session of this project and CLI, else why not", () => {
     const t = setup();
     t.write(t.session({ id: A, start: ago(1), prompts: [ago(1)] }));

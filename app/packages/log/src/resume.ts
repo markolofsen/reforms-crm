@@ -92,8 +92,8 @@ export function resumableSession(store: LogStore, q: ResumeQuery): LoggedSession
   return null;
 }
 
-/** The first developer instruction text a Codex rollout recorded (the session's binding prompt), or null. Reads the head only. */
-export function rolloutInstructions(file: string, maxBytes = 1_048_576): string | null {
+/** Initial developer blocks. Modern Codex adds model rules first; older rollouts can start with a user environment block. */
+export function rolloutInstructions(file: string, maxBytes = 1_048_576): string[] {
   let text = "";
   try {
     const fd = openSync(file, "r");
@@ -102,18 +102,21 @@ export function rolloutInstructions(file: string, maxBytes = 1_048_576): string 
       const n = readSync(fd, buf, 0, maxBytes, 0);
       text = buf.subarray(0, n).toString("utf8");
     } finally { closeSync(fd); }
-  } catch { return null; }
+  } catch { return []; }
+  const instructions: string[] = [];
   for (const line of text.split("\n")) {
-    if (!line.includes('"developer"')) continue;
     try {
       const j = JSON.parse(line) as { type?: string; payload?: { type?: string; role?: string; content?: Array<{ type?: string; text?: unknown }> } };
+      if (j.type === "turn_context") break;
       const p = j.payload;
-      if (j.type !== "response_item" || p?.type !== "message" || p.role !== "developer") continue;
-      const first = p.content?.find((c) => c.type === "input_text" && typeof c.text === "string");
-      return first ? String(first.text) : null;
+      if (j.type !== "response_item" || p?.type !== "message") continue;
+      // A later focus hook, model change or pasted transcript must not authenticate the session's original rules.
+      if (p.role === "user" && instructions.length > 0) break;
+      if (p.role !== "developer") continue;
+      for (const c of p.content ?? []) if (c.type === "input_text" && typeof c.text === "string") instructions.push(c.text);
     } catch { /* a torn last line */ }
   }
-  return null;
+  return instructions;
 }
 
 /** The line a Codex session that cannot be resumed for its rules says (P64: Codex keeps the instructions it started with). */
@@ -124,7 +127,7 @@ export type ResumeChoice = { session: LoggedSession; why: null } | { session: nu
 /**
  * The one decision, for the server's automatic start and for `hub agent` (P64). Without `id`: the project's last resumable
  * session of this CLI, or none (`why` null: nothing to resume). With `id`: that session, when the log has it for this project
- * and CLI and it can still be resumed. Codex also needs `instructions` equal to the rollout's first developer message.
+ * and CLI and it can still be resumed. Codex also needs an initial developer block exactly equal to today's `instructions`.
  */
 export function chooseResume(store: LogStore, q: ResumeQuery & { id?: string; instructions?: string }): ResumeChoice {
   let s: LoggedSession | null;
@@ -137,6 +140,6 @@ export function chooseResume(store: LogStore, q: ResumeQuery & { id?: string; in
     s = resumableSession(store, q);
     if (!s) return { session: null, why: null };
   }
-  if (q.cli === "codex" && (q.instructions === undefined || !s.transcript || rolloutInstructions(s.transcript) !== q.instructions)) return { session: null, why: CODEX_RULES_CHANGED };
+  if (q.cli === "codex" && (q.instructions === undefined || !s.transcript || !rolloutInstructions(s.transcript).includes(q.instructions))) return { session: null, why: CODEX_RULES_CHANGED };
   return { session: s, why: null };
 }

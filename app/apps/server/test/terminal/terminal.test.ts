@@ -367,4 +367,20 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     expect(spawned[0]?.args.slice(-2)).toEqual(["--resume", ID]);
     expect(r.session.title).toBe("acme · Codex · resumed");
   });
+  it("P164: restarting the terminal service preserves a modern Codex conversation despite preceding model instructions", async () => {
+    const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);
+    logSession({ cli: "codex", transcript: rollout });
+    const developer = (...text: string[]) => JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: text.map((text) => ({ type: "input_text", text })) } });
+    writeFileSync(rollout, [developer("Codex model instructions"), developer("CLI skill instructions", sessionInstructions(paths.home, paths.projects, "acme"), "CLI permissions"), JSON.stringify({ type: "turn_context", payload: {} })].join("\n"));
+    for (let restart = 0; restart < 2; restart++) {
+      const { call, terminal } = setup({ clock: soon, facts: [fact("claude", "missing"), fact("codex", "ready")] });
+      const res = await call("POST", "/api/terminal/ensure", { project: "acme" });
+      expect(res.status).toBe(201); // A new PTY process continues the existing native conversation.
+      const r = (await res.json()) as { session: { title: string }; why: string };
+      expect(spawned.at(-1)?.args.slice(-2)).toEqual(["--resume", ID]);
+      expect(r.session.title).toBe("acme · Codex · resumed");
+      expect(r.why).toContain("Resumed the Codex session");
+      terminal.stop();
+    }
+  });
 });

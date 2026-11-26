@@ -252,6 +252,23 @@ describe("P64: resolveResume reads the session log; a refusal starts fresh and s
     const plan: AgentPlan = { mode: "new", project: "acme", extra: [] };
     expect(resolveResume(plan, "claude", { paths, instructions: "x" })).toEqual({ plan, line: null });
   });
+  it("P164: the launcher's second check keeps a modern Codex resume id and the native resume argv", () => {
+    const { paths } = setup();
+    const transcript = path.join(paths.codexHomes, "acme", "sessions", `${ID}.jsonl`);
+    mkdirSync(path.dirname(transcript), { recursive: true });
+    const message = (...text: string[]) => JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: text.map((text) => ({ type: "input_text", text })) } });
+    writeFileSync(transcript, [message("Codex model rules"), message("CLI skills", "CURRENT HUB RULES", "CLI permissions")].join("\n"));
+    appendEvents(logStoreOf(paths), [
+      { ts: "2026-11-19T06:02:48.000Z", project: "acme", session: ID, cli: "codex", kind: "session", data: { phase: "start", transcript } },
+      { ts: "2026-11-19T06:03:02.000Z", project: "acme", session: ID, cli: "codex", kind: "prompt", data: { text: "remember this" } },
+    ], new Date("2026-11-19T06:03:02.000Z"));
+    for (const mode of ["continue", "resume"] as const) {
+      const r = resolveResume({ mode, project: "acme", resume: ID, extra: [] }, "codex", { paths, instructions: "CURRENT HUB RULES" });
+      expect(r.line).toBeNull();
+      expect(r.plan).toMatchObject({ mode: "resume", resume: ID });
+      expect(buildCodexArgs(r.plan, paths).slice(0, 2)).toEqual(["resume", ID]);
+    }
+  });
 });
 
 describe("P64: startWithFallback", () => {
