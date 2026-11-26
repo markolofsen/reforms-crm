@@ -13,7 +13,7 @@ const API = `**/api/projects/${P}/leads/${PAGE}`;
 const detail = {
   row: {
     pageId: PAGE, name: "Harbor Bikes", email: "info@almirsolutions.vom", accountEmail: null, brand: null, receivedAt: new Date(Date.now() - 3_600_000).toISOString(),
-    preview: "We run three shops.", requests: 1, facts: { site: "harbor-bikes.test", country: "Portugal", segment: "Retail", volume: "3 shops" },
+    preview: "We run three shops.", requests: 1, pass: null, facts: { site: "harbor-bikes.test", country: "Portugal", segment: "Retail", volume: "3 shops" },
     open: true, notionStatus: "New", dismissedAt: null, dismissedReason: null, convertedAt: null, clientPageId: null, convertNote: null,
   },
   lead: {

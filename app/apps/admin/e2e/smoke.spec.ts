@@ -16,7 +16,7 @@ test("Mail list loads with counts and only people with mail", async ({ page }) =
   await expect(cards(page).filter({ hasText: "Rita Falsa" })).toHaveCount(0);
   // P134: the counts live in the sidebar's Mail views and the title names the view; Replies owed and High value are not views.
   await expect(listTitle(page)).toHaveText(/^All · 13$/);
-  await expect(mailViews(page).getByRole("link")).toHaveText([/^Needs you\s*\d+/, /^Waiting/, /^All\s*13/, /^Leads/]);
+  await expect(mailViews(page).getByRole("link")).toHaveText([/^Needs you\s*\d+/, /^Waiting/, /^All\s*13/, /^Leads/, /^Sent/]);
 });
 
 test("Open the draft in Mail links the Mail draft by its own Message-ID; the client's mail is in the More menu (P58 R1)", async ({ page }) => {

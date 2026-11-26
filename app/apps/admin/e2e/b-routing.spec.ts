@@ -200,7 +200,7 @@ test("the nested nav: the seven panes in the sub-nav of every pane, none in the 
   await page.goto(at(P, "/mail"));
   await expect(cards(page).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
-  const panes = [["Sending", at(P, "/settings")], ["Checks", at(P, "/settings/checks")], ["Mail", at(P, "/settings/mail")], ["Messengers", at(P, "/settings/messengers")], ["Agent", at(P, "/settings/agent")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
+  const panes = [["Mail", at(P, "/settings/mail")], ["Messengers", at(P, "/settings/messengers")], ["Agent", at(P, "/settings/agent")], ["Sending", at(P, "/settings")], ["Checks", at(P, "/settings/checks")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
   const tab = (name: string) => new RegExp(`(^|needs you ?)${name}$`);
   for (const [name, path] of panes) {
     await page.goto(path);
