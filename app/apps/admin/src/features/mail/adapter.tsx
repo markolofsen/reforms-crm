@@ -232,7 +232,8 @@ export function MailWorkspace({ source, header: headerOf, onView, search, client
       busy={query.isFetching && !query.isPending}
       channel={channel}
       listBottom={listBottom}
-      listTop={status}
+      // Keep rows still while selecting; background-run controls do not compete with selection actions.
+      listTop={<div className={sel.picked.length > 0 ? "[&_button]:invisible" : undefined}>{status}</div>}
       notice={<Notices notice={actions.notice} />}
       rows={
         <PeopleRows

@@ -1,6 +1,7 @@
 import { ListChecksIcon } from "lucide-react";
 import type { RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { SearchField } from "@hub/ui/product/list/search-field";
 import { ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
 import { ListViewTitle } from "@/components/conversation/list-title";
@@ -41,25 +42,20 @@ function SelectionLine({ count, busy, onSkip, onHold, onClear, send, move }: Sel
           Send {send.count}
         </ActionButton>
       )}
-      {move && move.count > 0 && (
-        <>
-          <ActionButton data-testid="selection-spam" disabled={busy} onClick={() => move.onMove("junk")} size="s" variant="secondary">
-            Spam {move.count}
-          </ActionButton>
-          <ActionButton data-testid="selection-delete" disabled={busy} onClick={() => move.onMove("trash")} size="s" variant="secondary">
-            Delete {move.count}
-          </ActionButton>
-        </>
-      )}
-      <ActionButton disabled={busy} onClick={onSkip} size="s" variant="secondary">
-        Skip
-      </ActionButton>
-      <ActionButton disabled={busy} onClick={onHold} size="s" variant="secondary">
-        Hold
-      </ActionButton>
-      <ActionButton onClick={onClear} size="s" variant="quiet">
-        Clear
-      </ActionButton>
+      <Menu>
+        <MenuTrigger render={<ActionButton disabled={busy} size="s" variant="secondary" />}>More actions</MenuTrigger>
+        <MenuPopup align="end">
+          <MenuItem disabled={busy} onClick={onSkip}>Skip</MenuItem>
+          <MenuItem disabled={busy} onClick={onHold}>Hold</MenuItem>
+          {move && move.count > 0 && <>
+            <MenuSeparator />
+            <MenuItem data-testid="selection-spam" disabled={busy} onClick={() => move.onMove("junk")}>Spam {move.count}</MenuItem>
+            <MenuItem data-testid="selection-delete" disabled={busy} onClick={() => move.onMove("trash")}>Delete {move.count}</MenuItem>
+          </>}
+          <MenuSeparator />
+          <MenuItem onClick={onClear}>Clear selection</MenuItem>
+        </MenuPopup>
+      </Menu>
     </div>
   );
 }
