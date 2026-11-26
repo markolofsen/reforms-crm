@@ -94,17 +94,19 @@ export function LeadDecision({ project, pageId, pass, display }: { project: stri
       <p className="flex flex-wrap items-center gap-2">
         <BotIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         <span className="font-medium">{display === "proposed" ? decisionLabel(pass.decision) : LEAD_PASS_DISPLAY_LABELS[display]}</span>
-        {pass.at && <span className="text-muted-foreground text-xs">{formatTime(pass.at)}</span>}
+        {pass.at && <span className="text-muted-foreground text-xs">Decision {formatTime(pass.at)}</span>}
       </p>
       {pass.reason && <p className="measure break-words">{pass.reason}</p>}
       {pass.draftId !== null && (display === "drafted" || display === "for_you") && <p className="text-muted-foreground text-xs">Draft {pass.draftId} is unsent. Open it below to review the reply.</p>}
       {display === "draft_gone" && <p className="text-muted-foreground text-xs">The recorded draft is unavailable. Prepare the reply again.</p>}
       {display === "excluded" && <p className="text-muted-foreground text-xs">Excluded from batch review. Prepare the reply again when you want to continue.</p>}
-      <div>
-        <ActionButton data-testid="lead-redo" disabled={redo.isPending} onClick={() => redo.mutate()} size="s" variant="quiet">
-          Redo
-        </ActionButton>
-      </div>
+      {display !== "sent" && display !== "spam" && display !== "not_now" && (
+        <div>
+          <ActionButton data-testid="lead-redo" disabled={redo.isPending} onClick={() => redo.mutate()} size="s" variant="quiet">
+            Redo
+          </ActionButton>
+        </div>
+      )}
     </section>
   );
 }
