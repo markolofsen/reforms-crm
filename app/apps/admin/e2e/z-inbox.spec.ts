@@ -57,7 +57,7 @@ test("inbox: the arrival is Needs you, the clients who wrote are its people with
   // P128 X0 (F5): Mail's Needs you count, not who wrote (its own test below checks the number). P103/P104: with the sidebar open
   // it is the Needs you child's; the parent's badge is the collapsed rail's only.
   const sections = page.getByRole("navigation", { name: "Sections" }).first();
-  await expect(sections.getByRole("list", { name: "Mail views" }).getByRole("link")).toHaveText([/^Needs you/, /^Waiting/, /^All/, /^Leads/]);
+  await expect(sections.getByRole("list", { name: "Mail views" }).getByRole("link")).toHaveText([/^Needs you/, /^Waiting/, /^All/, /^Leads/, /^Sent/]);
   await expect(sections.getByTestId("nav-count-mail-needs_you")).toContainText("need you");
   await expect(listTitle(page)).toHaveText(`Needs you · ${await cards(page).count()}`);
 });

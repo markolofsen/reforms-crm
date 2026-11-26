@@ -102,6 +102,7 @@ test("follow-ups: Overview says today's line with Run follow-ups now, and Activi
   await expect(part).toContainText("Follow-ups today:");
   await expect(part.getByRole("button", { name: "Run follow-ups now" })).toBeVisible();
   await page.goto(at(P, "/log?kind=follow-ups"));
-  await expect(page.getByRole("link", { name: /Follow-ups/ }).first()).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: /^Activity filter: Follow-ups/ })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Activity kinds" }).getByRole("link")).toHaveCount(2);
   await expect(page.getByTestId("follow-ups-view")).toBeVisible();
 });
