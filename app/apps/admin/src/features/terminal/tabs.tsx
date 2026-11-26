@@ -16,10 +16,11 @@ import { AgentPoints } from "./agent-points";
 import { panelId, tabId } from "./session";
 import { useTerminal } from "./use-terminal";
 
-/** A tab's name: the session's title, with the project's slug when the title does not carry it, and the exit code once it ended. */
+const TAB_LABELS: Record<TerminalPreset, string> = { claude: "Claude", codex: "Codex", shell: "Shell" };
+
+/** Compact display only: the PTY keeps its full title and project binding. */
 export function tabTitle(s: TerminalSessionDto): string {
-  const title = s.project && !s.title.includes(s.project) ? `${s.title} · ${s.project}` : s.title;
-  return s.state === "exited" ? `${title} (exit ${s.exitCode ?? "?"})` : title;
+  return TAB_LABELS[s.preset];
 }
 
 /** What the `+` menu says of a CLI the detector found not ready (P57 2j); a ready or unchecked one says nothing. */
@@ -159,6 +160,7 @@ export function ProblemLine({ problem }: { problem: TerminalProblemDto }) {
 
 /** Left and Right move between tabs (and open the one they land on), Home and End go to the ends: the tabs pattern. */
 function onTabKeys(e: KeyboardEvent<HTMLDivElement>, ids: string[], active: string | null, pick: (id: string) => void) {
+  if (!(e.target instanceof Element) || !e.target.closest('[role="tab"]')) return;
   const at = active ? ids.indexOf(active) : -1;
   const to = e.key === "ArrowRight" ? at + 1 : e.key === "ArrowLeft" ? at - 1 : e.key === "Home" ? 0 : e.key === "End" ? ids.length - 1 : null;
   if (to === null || ids.length === 0) return;
@@ -171,7 +173,7 @@ function onTabKeys(e: KeyboardEvent<HTMLDivElement>, ids: string[], active: stri
 
 /**
  * The column's header: the tabs (one tab stop; Left and Right move), the open tab's tips (P63; "Open in Claude Desktop", disabled
- * with its reason, sits in its handoff row), Close for the open tab (it ends the session), the `+`
+ * with its reason, sits in its handoff row), Close inside each tab (it ends that session), the `+`
  * menu, and Hide (the sessions keep running). In the narrow layer it is titled "Terminal". The agent mode is not shown here:
  * it is set in the config and shown on Settings ▸ Agent.
  */
@@ -187,18 +189,18 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
           {sessions.map((s) => {
             const on = s.id === t.active;
             return (
-              <ActionButton aria-controls={panelId(s.id)} aria-selected={on} className={cn("max-w-[14rem] shrink-0 justify-start", on ? "bg-accent text-foreground" : "text-muted-foreground")} id={tabId(s.id)} key={s.id} onClick={() => t.setActive(s.id)} role="tab" size="s" tabIndex={on ? 0 : -1} variant="quiet">
-                <span className="truncate">{tabTitle(s)}</span>
-              </ActionButton>
+              <div className={cn("flex shrink-0 items-center rounded-md", on ? "bg-accent text-foreground" : "text-muted-foreground")} key={s.id} role="presentation">
+                <ActionButton aria-controls={panelId(s.id)} aria-selected={on} className="justify-start pe-1" id={tabId(s.id)} onClick={() => t.setActive(s.id)} role="tab" size="s" tabIndex={on ? 0 : -1} tooltip={s.title} variant="quiet">
+                  {tabTitle(s)}
+                </ActionButton>
+                <ActionButton aria-label={`Close ${tabTitle(s)}`} disabled={t.closing !== null} icon onClick={() => t.close(s.id)} size="s" tabIndex={on ? 0 : -1} tooltip={`Close ${tabTitle(s)}`} variant="quiet">
+                  <XIcon aria-hidden="true" />
+                </ActionButton>
+              </div>
             );
           })}
         </div>
         {current && <TipsButton preset={current.preset} />}
-        {current && (
-              <ActionButton aria-label={`Close ${tabTitle(current)}`} className="shrink-0" disabled={t.closing === current.id} icon onClick={() => t.close(current.id)} size="s" tooltip={`Close ${tabTitle(current)}`} variant="quiet">
-            <XIcon aria-hidden="true" />
-          </ActionButton>
-        )}
         <NewMenu />
         <ActionButton aria-label="Hide the terminal" className="shrink-0" icon={!layer} onClick={() => t.setOpen(false)} size="s" tooltip={{ content: "Hide the terminal", hotkey: "Meta/Ctrl + J" }} variant="quiet">
           {layer ? "Hide" : <PanelRightCloseIcon aria-hidden="true" />}
