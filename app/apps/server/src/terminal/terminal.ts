@@ -7,7 +7,7 @@ import { codexHome } from "@hub/agent/codex";
 import { MEASURED_VERSIONS } from "@hub/agent/session";
 import { sessionInstructions } from "@hub/agent/session-rules";
 import { logStoreOf } from "@hub/log/store";
-import { chooseResume, type LoggedSession, type ResumeChoice } from "@hub/log/resume";
+import { chooseResume, resumableSession, type LoggedSession, type ResumeChoice } from "@hub/log/resume";
 import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { nodePty, nodePtyRoot, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, tabShell, terminalEnv, terminalReadiness, terminalSocketServer, type PtySpawn, type SessionManager, type TerminalProblem } from "@hub/terminal";
@@ -55,6 +55,20 @@ export function resumedLine(s: LoggedSession, cli: "claude" | "codex"): string {
   const t = new Date(s.lastAt);
   const hhmm = Number.isNaN(t.getTime()) ? s.lastAt : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
   return `Resumed the ${cli === "claude" ? "Claude Code" : "Codex"} session of ${hhmm} (${s.session.slice(0, 8)}). + starts a new one.`;
+}
+
+/** A restart continues the project's most recently used CLI; the configured default owns a first start or a tie. */
+function preferredCli(paths: HubPaths, slug: string | null, fallback: LoggedSession["cli"], now: Date): LoggedSession["cli"] {
+  if (!slug) return fallback;
+  try {
+    const order: LoggedSession["cli"][] = fallback === "codex" ? ["codex", "claude"] : ["claude", "codex"];
+    const store = logStoreOf(paths);
+    const recent = order.flatMap((cli) => {
+      const s = resumableSession(store, { project: slug, cli, now, ...(cli === "codex" ? { within: codexHome(paths, slug) } : {}) });
+      return s ? [s] : [];
+    }).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+    return recent[0]?.cli ?? fallback;
+  } catch { return fallback; }
 }
 
 /** The detector the server shares between the terminal and Agent tools: fixed ready facts with a fake shell or fake Agent tools. */
@@ -190,7 +204,7 @@ export function createTerminal(o: TerminalOptions) {
       if (running) return { session: running, created: false, why: null };
       refuseIfProblem();
       const facts = await factsWithin(ENSURE_DETECT_MS);
-      const pick = pickPreset(facts, features().agent.default, !!slug);
+      const pick = pickPreset(facts, preferredCli(o.paths, slug, features().agent.default, o.now?.() ?? new Date()), !!slug);
       const choice: ResumeChoice = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : { session: null, why: null };
       const said = choice.session ? resumedLine(choice.session, pick.preset as "claude" | "codex") : choice.why ? `Not resumed: ${choice.why}. A fresh session.` : null;
       return { session: await create(pick.preset, project, theme, choice.session?.session), created: true, why: [pick.why, said].filter(Boolean).join(" · ") || null };

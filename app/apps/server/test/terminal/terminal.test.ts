@@ -306,7 +306,7 @@ describe("ensure (P57): the column starts the best ready CLI itself, at most one
 describe("P64: ensure resumes the project's last session; + always starts fresh", () => {
   const ID = "8d31964d-2edc-490c-91a8-dfb10ffb47de";
   const at = new Date("2026-11-19T06:03:02.000Z");
-  const logSession = (o: { project?: string; cli?: "claude" | "codex"; transcript?: string } = {}) => {
+  const logSession = (o: { project?: string; cli?: "claude" | "codex"; transcript?: string; last?: string } = {}) => {
     mkdirSync(paths.secrets, { recursive: true });
     const transcript = o.transcript ?? join(home, "claude-projects", `${ID}.jsonl`);
     mkdirSync(join(transcript, ".."), { recursive: true });
@@ -314,7 +314,7 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     const env = { project: o.project ?? "acme", session: ID, cli: o.cli ?? ("claude" as const) };
     appendEvents(logStoreOf(paths), [
       { ...env, ts: "2026-11-19T06:02:48.000Z", kind: "session", data: { phase: "start", transcript } },
-      { ...env, ts: at.toISOString(), kind: "prompt", data: { text: "о чем мы?" } },
+      { ...env, ts: o.last ?? at.toISOString(), kind: "prompt", data: { text: "о чем мы?" } },
     ], at);
   };
   const soon = () => new Date(at.getTime() + 3_600_000);
@@ -356,7 +356,7 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     expect(r.session.preset).toBe("codex");
     expect(spawned[0]?.args).not.toContain("--resume");
     expect(r.session.title).toBe("acme · Codex");
-    expect(r.why).toBe(`Codex: Claude Code is not installed · fix claude · Not resumed: ${CODEX_RULES_CHANGED}. A fresh session.`);
+    expect(r.why).toBe(`Not resumed: ${CODEX_RULES_CHANGED}. A fresh session.`);
   });
   it("Codex: a rollout with today's rules is resumed", async () => {
     const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);
@@ -373,7 +373,7 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     const developer = (...text: string[]) => JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: text.map((text) => ({ type: "input_text", text })) } });
     writeFileSync(rollout, [developer("Codex model instructions"), developer("CLI skill instructions", sessionInstructions(paths.home, paths.projects, "acme"), "CLI permissions"), JSON.stringify({ type: "turn_context", payload: {} })].join("\n"));
     for (let restart = 0; restart < 2; restart++) {
-      const { call, terminal } = setup({ clock: soon, facts: [fact("claude", "missing"), fact("codex", "ready")] });
+      const { call, terminal } = setup({ clock: soon, facts: [fact("claude", "ready"), fact("codex", "ready")] });
       const res = await call("POST", "/api/terminal/ensure", { project: "acme" });
       expect(res.status).toBe(201); // A new PTY process continues the existing native conversation.
       const r = (await res.json()) as { session: { title: string }; why: string };
@@ -382,5 +382,37 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
       expect(r.why).toContain("Resumed the Codex session");
       terminal.stop();
     }
+  });
+  it.each(["claude", "codex"] as const)("P164: a first start without project history uses the configured %s default", async (cli) => {
+    config({ agent: { default: cli } });
+    const { call } = setup({ clock: soon });
+    const r = await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json();
+    expect(r).toMatchObject({ session: { preset: cli }, why: null });
+    expect(spawned.at(-1)?.args).not.toContain("--resume");
+  });
+  it("P164: a more recently used Claude conversation wins over the configured Codex default", async () => {
+    config({ agent: { default: "codex" } });
+    logSession({ cli: "codex", transcript: join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`) });
+    logSession({ last: "2026-11-19T06:04:00.000Z" });
+    const { call } = setup({ clock: soon });
+    const r = await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json();
+    expect(r).toMatchObject({ session: { preset: "claude", title: "acme · Claude Code · resumed" } });
+    expect(spawned.at(-1)?.args.slice(-2)).toEqual(["--resume", ID]);
+  });
+  it("P164: equal activity timestamps keep the configured default", async () => {
+    config({ agent: { default: "codex" } });
+    logSession();
+    const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);
+    logSession({ cli: "codex", transcript: rollout });
+    writeFileSync(rollout, JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: [{ type: "input_text", text: sessionInstructions(paths.home, paths.projects, "acme") }] } }));
+    const { call } = setup({ clock: soon });
+    expect(await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()).toMatchObject({ session: { preset: "codex", title: "acme · Codex · resumed" } });
+  });
+  it("P164: history never bypasses CLI readiness", async () => {
+    logSession({ cli: "codex", transcript: join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`) });
+    const { call } = setup({ clock: soon, facts: [fact("claude", "ready"), fact("codex", "missing")] });
+    const r = await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json();
+    expect(r).toMatchObject({ session: { preset: "claude" } });
+    expect(r.why).toContain("Codex is not installed");
   });
 });
