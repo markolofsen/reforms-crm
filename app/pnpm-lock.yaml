@@ -648,6 +648,9 @@ importers:
       '@hub/config':
         specifier: workspace:*
         version: link:../config
+      '@hub/contract':
+        specifier: workspace:*
+        version: link:../contract
       '@hub/log':
         specifier: workspace:*
         version: link:../log
@@ -844,6 +847,9 @@ importers:
       '@hub/config':
         specifier: workspace:*
         version: link:../config
+      '@hub/contract':
+        specifier: workspace:*
+        version: link:../contract
       '@hub/connections':
         specifier: workspace:*
         version: link:../connections
@@ -868,6 +874,9 @@ importers:
       qrcode-generator:
         specifier: 2.0.4
         version: 2.0.4
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@22.20.5)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

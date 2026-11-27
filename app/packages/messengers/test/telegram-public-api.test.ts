@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mintAuthorization, textHash } from "../src/authorization";
 import { mtcuteSessionClient } from "../src/telegram-user-api";
+import { reviewedPublicPayloadHash } from "../src/public-replies/payload";
+import type { PreparedPublicPhoto } from "../src/public-reply";
+import { PHOTO, PHOTO_BYTES } from "./public-replies/photo-fixture";
 
 const sdk = vi.hoisted(() => ({
   history: vi.fn(),
@@ -11,6 +14,10 @@ const sdk = vi.hoisted(() => ({
   fullChat: vi.fn(),
   member: vi.fn(),
   messages: vi.fn(),
+  upload: vi.fn(),
+  rpc: vi.fn(),
+  resolvePeer: vi.fn(),
+  sendMedia: vi.fn(),
 }));
 
 // Exercise the real public adapter at its SDK boundary, without a connection, session or Telegram request.
@@ -23,6 +30,10 @@ vi.mock("@mtcute/node", () => ({
     getMessages = sdk.messages;
     joinChat = sdk.join;
     sendText = sdk.send;
+    sendMedia = sdk.sendMedia;
+    uploadFile = sdk.upload;
+    call = sdk.rpc;
+    resolvePeer = sdk.resolvePeer;
     readHistory = sdk.markRead;
   },
 }));
@@ -187,5 +198,115 @@ describe("public membership and guarded reply provider boundary", () => {
     sdk.messages.mockRejectedValueOnce(Object.assign(new Error("read refused"), { code: 403, text: "CHANNEL_PRIVATE" }));
     await expect(sender.send(authorizedPublic())).rejects.toMatchObject({ outcome: "uncertain", messageId: 500, code: "CHANNEL_PRIVATE" });
     expect(sdk.send).toHaveBeenCalledTimes(1);
+  });
+});
+
+const photoIdentity = (): PreparedPublicPhoto => ({ account: "123456", assetHash: PHOTO.sha256, photoId: "9001", accessHash: "1234", fileReference: "AQID" });
+const authorizedPhoto = (preparedPhoto: PreparedPublicPhoto | null = null) => mintAuthorization({
+  ...authorizedPublic(), photo: PHOTO, payloadHash: reviewedPublicPayloadHash("A reviewed reply", PHOTO), preparedPhoto,
+});
+const savedPhoto = (id = 500) => ({ ...publicMessage(id, true), text: "A reviewed reply", media: { type: "photo", id: 9001n } });
+const prepare = async (bytes = PHOTO_BYTES) => {
+  const sender = publicSender();
+  if (!sender.preparePhoto) throw new Error("photo preparation missing");
+  return sender.preparePhoto(authorizedPhoto(), bytes);
+};
+
+describe("exact public photo provider boundary", () => {
+  beforeEach(() => {
+    for (const mock of [sdk.upload, sdk.rpc, sdk.resolvePeer, sdk.sendMedia, sdk.messages, sdk.fullChat, sdk.member]) mock.mockReset();
+    sdk.resolvePeer.mockResolvedValue({ _: "inputPeerChannel", channelId: 1234567890, accessHash: 1234n });
+    sdk.upload.mockResolvedValue({ inputFile: { _: "inputFile", id: 10n, parts: 1, name: PHOTO.blobRef, md5Checksum: "" } });
+    sdk.rpc.mockResolvedValue({ _: "messageMediaPhoto", photo: { _: "photo", id: 9001n, accessHash: 1234n, fileReference: Buffer.from([1, 2, 3]) } });
+    sdk.sendMedia.mockResolvedValue({ id: 500 });
+    sdk.messages.mockResolvedValue([savedPhoto()]);
+  });
+
+  it("prepares the exact bytes with bounded uploadMedia, without sending a chat message", async () => {
+    expect(await prepare()).toEqual(photoIdentity());
+    expect(sdk.upload).toHaveBeenCalledExactlyOnceWith({ file: PHOTO_BYTES, fileName: PHOTO.blobRef, fileMime: PHOTO.mime, abortSignal: expect.any(AbortSignal) });
+    expect(sdk.rpc).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      _: "messages.uploadMedia", peer: expect.objectContaining({ _: "inputPeerChannel" }),
+      media: expect.objectContaining({ _: "inputMediaUploadedPhoto", file: expect.objectContaining({ name: PHOTO.blobRef }) }),
+    }), { abortSignal: expect.any(AbortSignal), timeout: 20_000, maxRetryCount: 0, floodSleepThreshold: 0 });
+    expect(sdk.resolvePeer).toHaveBeenCalledExactlyOnceWith(peer.id);
+    expect(sdk.send).not.toHaveBeenCalled();
+    expect(sdk.sendMedia).not.toHaveBeenCalled();
+  });
+
+  it("rejects changed bytes before upload and treats an unknown upload as non-public, without a retry", async () => {
+    await expect(prepare(PHOTO_BYTES.subarray(0, 10))).rejects.toMatchObject({ outcome: "refused", code: "PHOTO_CHANGED" });
+    expect(sdk.upload).not.toHaveBeenCalled();
+    sdk.rpc.mockRejectedValueOnce(new Error("connection lost"));
+    await expect(prepare()).rejects.toMatchObject({ outcome: "refused", code: "PHOTO_UPLOAD_UNKNOWN" });
+    expect(sdk.upload).toHaveBeenCalledTimes(1);
+    expect(sdk.rpc).toHaveBeenCalledTimes(1);
+    expect(sdk.sendMedia).not.toHaveBeenCalled();
+  });
+
+  it("honours individual and parent photo restrictions from both self and group defaults", async () => {
+    sdk.fullChat.mockResolvedValue({ ...chat(), pinnedMsgId: null });
+    sdk.messages.mockResolvedValue([publicMessage(42)]);
+    const allowed = { canSendMessages: true, canSendText: true, canSendMedia: true, canSendPhotos: true };
+    const sender = publicSender();
+    sdk.member.mockResolvedValue({ status: "member", restrictions: allowed, isMember: true });
+    expect(await sender.inspect(peer, 42)).toMatchObject({ canSendText: true, canSendPhotos: true });
+    for (const restrictions of [{ ...allowed, canSendMedia: false }, { ...allowed, canSendMessages: false }, { ...allowed, canSendPhotos: false }]) {
+      sdk.member.mockResolvedValue({ status: "restricted", restrictions, isMember: true });
+      expect(await sender.inspect(peer, 42)).toMatchObject({ canSendPhotos: false });
+    }
+    sdk.member.mockResolvedValue({ status: "member", restrictions: null, isMember: true });
+    sdk.fullChat.mockResolvedValue({ ...chat(), pinnedMsgId: null, defaultPermissions: { ...allowed, canSendMedia: false } });
+    expect(await sender.inspect(peer, 42)).toMatchObject({ canSendText: true, canSendPhotos: false });
+    sdk.member.mockResolvedValue({ status: "admin", restrictions: null, isMember: true });
+    expect(await sender.inspect(peer, 42)).toMatchObject({ canSendPhotos: true });
+    expect(sdk.sendMedia).not.toHaveBeenCalled();
+  });
+
+  it("sends only the prepared photo reference, exact caption and persistent reply/topic/random id", async () => {
+    const auth = authorizedPhoto(photoIdentity());
+    expect(await publicSender().send(auth)).toMatchObject({ messageId: 500, mediaType: "photo", photoId: "9001", text: auth.text, replyToMessageId: 42, threadId: 20 });
+    const call = sdk.sendMedia.mock.calls[0];
+    expect(call?.[0]).toBe(peer.id);
+    const media: unknown = call?.[1];
+    expect(media).toMatchObject({ _: "inputMediaPhoto", id: { _: "inputPhoto", fileReference: Buffer.from([1, 2, 3]) } });
+    if (typeof media !== "object" || media === null) throw new Error("media was not prepared");
+    const id: unknown = Reflect.get(media, "id");
+    if (typeof id !== "object" || id === null) throw new Error("photo identity missing");
+    expect(String(Reflect.get(id, "id"))).toBe("9001");
+    const params: unknown = call?.[2];
+    expect(params).toMatchObject({ caption: auth.text, replyTo: 42, threadId: 20, mustReply: true, abortSignal: expect.any(AbortSignal) });
+    expect(typeof params === "object" && params !== null ? String(Reflect.get(params, "randomId")) : "").toBe(auth.randomId);
+    expect(params).not.toHaveProperty("commentTo");
+    expect(sdk.upload).not.toHaveBeenCalled();
+    expect(sdk.rpc).not.toHaveBeenCalled();
+    expect(sdk.send).not.toHaveBeenCalled();
+  });
+
+  it("a missing or expired prepared reference cannot trigger a fresh upload or a fallback text post", async () => {
+    await expect(publicSender().send(authorizedPhoto())).rejects.toMatchObject({ outcome: "refused", code: "PHOTO_NOT_PREPARED" });
+    expect(sdk.sendMedia).not.toHaveBeenCalled();
+    sdk.sendMedia.mockRejectedValueOnce(Object.assign(new Error("expired"), { code: 400, text: "FILE_REFERENCE_EXPIRED" }));
+    await expect(publicSender().send(authorizedPhoto(photoIdentity()))).rejects.toMatchObject({ outcome: "refused", code: "FILE_REFERENCE_EXPIRED" });
+    expect(sdk.sendMedia).toHaveBeenCalledTimes(1);
+    expect(sdk.upload).not.toHaveBeenCalled();
+    expect(sdk.send).not.toHaveBeenCalled();
+  });
+
+  it("never adopts a returned different message id and keeps a known-id receipt error unresolved", async () => {
+    sdk.messages.mockResolvedValue([savedPhoto(501)]);
+    const sender = publicSender();
+    expect(await sender.receipt(peer, 500)).toBeNull();
+    await expect(sender.send(authorizedPhoto(photoIdentity()))).rejects.toMatchObject({ outcome: "uncertain", code: "RECEIPT_NOT_READABLE", messageId: 500 });
+    sdk.messages.mockRejectedValueOnce(Object.assign(new Error("read refused"), { code: 403, text: "CHANNEL_PRIVATE" }));
+    await expect(sender.send(authorizedPhoto(photoIdentity()))).rejects.toMatchObject({ outcome: "uncertain", code: "CHANNEL_PRIVATE", messageId: 500 });
+    expect(sdk.upload).not.toHaveBeenCalled();
+  });
+
+  it("an ambiguous media send is held, never retried by this adapter", async () => {
+    sdk.sendMedia.mockRejectedValueOnce(Object.assign(new Error("metadata flood"), { code: 420, text: "FLOOD_WAIT_90", seconds: 90 }));
+    await expect(publicSender().send(authorizedPhoto(photoIdentity()))).rejects.toMatchObject({ outcome: "uncertain", code: "FLOOD_WAIT_90", retryAfterSeconds: 90 });
+    expect(sdk.sendMedia).toHaveBeenCalledTimes(1);
+    expect(sdk.upload).not.toHaveBeenCalled();
   });
 });

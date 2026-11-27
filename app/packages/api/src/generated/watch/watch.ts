@@ -9,13 +9,41 @@ import type {
   ApiErrorResponse,
   GetWatchContextParams,
   GetWatchParams,
+  ListWatchProposalsParams,
   Watch,
   WatchContext,
   WatchJoin,
-  WatchProjects
+  WatchProjects,
+  WatchReplyResult,
+  WatchReview,
+  WatchReviewList,
+  WatchReviewPrepareBody,
+  WatchReviewPrepared,
+  WatchReviewReconcileBody,
+  WatchReviewSendBody
 } from '../models';
 
 import { hubMutator } from '../../runtime/mutator';
+
+const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
+  const seen = new Set<string>();
+  const layers: [string, string | readonly string[]][][] = [];
+  for (const source of sources.reverse()) {
+    if (!source) continue;
+    const entries = source instanceof Headers
+      ? source.entries()
+      : Symbol.iterator in source
+        ? Array.from(source as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string])
+        : Object.entries<string | readonly string[] | undefined>(source);
+    const layer: [string, string | readonly string[]][] = [];
+    for (const [name, value] of entries) {
+      if (value !== undefined && !seen.has(name.toLowerCase())) layer.push([name, value]);
+    }
+    for (const [name] of layer) seen.add(name.toLowerCase());
+    layers.push(layer);
+  }
+  return Object.fromEntries(layers.reverse().flat()) as Extract<RequestInit['headers'], Record<string, unknown>>;
+};
 
 export type listWatchProjectsResponse200 = {
   data: WatchProjects
@@ -224,6 +252,390 @@ export const joinWatchGroup = async (slug: string,
     method: 'POST'
 
 
+  }
+);}
+
+
+export type listWatchProposalsResponse200 = {
+  data: WatchReviewList
+  status: 200
+}
+
+export type listWatchProposalsResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type listWatchProposalsResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type listWatchProposalsResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type listWatchProposalsResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type listWatchProposalsResponseSuccess = (listWatchProposalsResponse200) & {
+  headers: Headers;
+};
+export type listWatchProposalsResponseError = (listWatchProposalsResponse400 | listWatchProposalsResponse404 | listWatchProposalsResponse409 | listWatchProposalsResponse503) & {
+  headers: Headers;
+};
+
+export type listWatchProposalsResponse = (listWatchProposalsResponseSuccess | listWatchProposalsResponseError)
+
+export const getListWatchProposalsUrl = (slug: string,
+    params: ListWatchProposalsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals?${stringifiedParams}` : `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals`
+}
+
+/**
+ * @summary Read bounded immutable proposals for one exact Watch source
+ */
+export const listWatchProposals = async (slug: string,
+    params: ListWatchProposalsParams, options?: Parameters<typeof hubMutator>[1]): Promise<listWatchProposalsResponse> => {
+
+  return hubMutator<listWatchProposalsResponse>(getListWatchProposalsUrl(slug,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getWatchProposalReviewResponse200 = {
+  data: WatchReview
+  status: 200
+}
+
+export type getWatchProposalReviewResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type getWatchProposalReviewResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getWatchProposalReviewResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type getWatchProposalReviewResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type getWatchProposalReviewResponseSuccess = (getWatchProposalReviewResponse200) & {
+  headers: Headers;
+};
+export type getWatchProposalReviewResponseError = (getWatchProposalReviewResponse400 | getWatchProposalReviewResponse404 | getWatchProposalReviewResponse409 | getWatchProposalReviewResponse503) & {
+  headers: Headers;
+};
+
+export type getWatchProposalReviewResponse = (getWatchProposalReviewResponseSuccess | getWatchProposalReviewResponseError)
+
+export const getGetWatchProposalReviewUrl = (slug: string,
+    id: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals/${encodeURIComponent(String(id))}`
+}
+
+/**
+ * @summary Read a public proposal's eligibility and durable outcome
+ */
+export const getWatchProposalReview = async (slug: string,
+    id: string, options?: Parameters<typeof hubMutator>[1]): Promise<getWatchProposalReviewResponse> => {
+
+  return hubMutator<getWatchProposalReviewResponse>(getGetWatchProposalReviewUrl(slug,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getWatchProposalPhotoResponse200 = {
+  data: Blob
+  status: 200
+}
+
+export type getWatchProposalPhotoResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type getWatchProposalPhotoResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getWatchProposalPhotoResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type getWatchProposalPhotoResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type getWatchProposalPhotoResponseSuccess = (getWatchProposalPhotoResponse200) & {
+  headers: Headers;
+};
+export type getWatchProposalPhotoResponseError = (getWatchProposalPhotoResponse400 | getWatchProposalPhotoResponse404 | getWatchProposalPhotoResponse409 | getWatchProposalPhotoResponse503) & {
+  headers: Headers;
+};
+
+export type getWatchProposalPhotoResponse = (getWatchProposalPhotoResponseSuccess | getWatchProposalPhotoResponseError)
+
+export const getGetWatchProposalPhotoUrl = (slug: string,
+    id: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals/${encodeURIComponent(String(id))}/photo`
+}
+
+/**
+ * @summary Read only the verified photo bound to this immutable proposal
+ */
+export const getWatchProposalPhoto = async (slug: string,
+    id: string, options?: Parameters<typeof hubMutator>[1]): Promise<getWatchProposalPhotoResponse> => {
+
+  return hubMutator<getWatchProposalPhotoResponse>(getGetWatchProposalPhotoUrl(slug,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type prepareWatchProposalResponse200 = {
+  data: WatchReviewPrepared
+  status: 200
+}
+
+export type prepareWatchProposalResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type prepareWatchProposalResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type prepareWatchProposalResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type prepareWatchProposalResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type prepareWatchProposalResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type prepareWatchProposalResponseSuccess = (prepareWatchProposalResponse200) & {
+  headers: Headers;
+};
+export type prepareWatchProposalResponseError = (prepareWatchProposalResponse400 | prepareWatchProposalResponse403 | prepareWatchProposalResponse404 | prepareWatchProposalResponse409 | prepareWatchProposalResponse503) & {
+  headers: Headers;
+};
+
+export type prepareWatchProposalResponse = (prepareWatchProposalResponseSuccess | prepareWatchProposalResponseError)
+
+export const getPrepareWatchProposalUrl = (slug: string,
+    id: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals/${encodeURIComponent(String(id))}/prepare`
+}
+
+/**
+ * @summary Check the reviewed payload without publishing and issue one short owner ticket
+ */
+export const prepareWatchProposal = async (slug: string,
+    id: string,
+    watchReviewPrepareBody: WatchReviewPrepareBody, options?: Parameters<typeof hubMutator>[1]): Promise<prepareWatchProposalResponse> => {
+
+  return hubMutator<prepareWatchProposalResponse>(getPrepareWatchProposalUrl(slug,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(watchReviewPrepareBody)
+  }
+);}
+
+
+export type sendWatchProposalResponse200 = {
+  data: WatchReplyResult
+  status: 200
+}
+
+export type sendWatchProposalResponse202 = {
+  data: WatchReplyResult
+  status: 202
+}
+
+export type sendWatchProposalResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type sendWatchProposalResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type sendWatchProposalResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type sendWatchProposalResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type sendWatchProposalResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type sendWatchProposalResponseSuccess = (sendWatchProposalResponse200 | sendWatchProposalResponse202) & {
+  headers: Headers;
+};
+export type sendWatchProposalResponseError = (sendWatchProposalResponse400 | sendWatchProposalResponse403 | sendWatchProposalResponse404 | sendWatchProposalResponse409 | sendWatchProposalResponse503) & {
+  headers: Headers;
+};
+
+export type sendWatchProposalResponse = (sendWatchProposalResponseSuccess | sendWatchProposalResponseError)
+
+export const getSendWatchProposalUrl = (slug: string,
+    id: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals/${encodeURIComponent(String(id))}/send`
+}
+
+/**
+ * @summary Confirm this exact reviewed public payload once through the existing door
+ */
+export const sendWatchProposal = async (slug: string,
+    id: string,
+    watchReviewSendBody: WatchReviewSendBody, options?: Parameters<typeof hubMutator>[1]): Promise<sendWatchProposalResponse> => {
+
+  return hubMutator<sendWatchProposalResponse>(getSendWatchProposalUrl(slug,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(watchReviewSendBody)
+  }
+);}
+
+
+export type reconcileWatchProposalResponse200 = {
+  data: WatchReplyResult
+  status: 200
+}
+
+export type reconcileWatchProposalResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type reconcileWatchProposalResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type reconcileWatchProposalResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type reconcileWatchProposalResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type reconcileWatchProposalResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type reconcileWatchProposalResponseSuccess = (reconcileWatchProposalResponse200) & {
+  headers: Headers;
+};
+export type reconcileWatchProposalResponseError = (reconcileWatchProposalResponse400 | reconcileWatchProposalResponse403 | reconcileWatchProposalResponse404 | reconcileWatchProposalResponse409 | reconcileWatchProposalResponse503) & {
+  headers: Headers;
+};
+
+export type reconcileWatchProposalResponse = (reconcileWatchProposalResponseSuccess | reconcileWatchProposalResponseError)
+
+export const getReconcileWatchProposalUrl = (slug: string,
+    id: string,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/watch/proposals/${encodeURIComponent(String(id))}/reconcile`
+}
+
+/**
+ * @summary Reconcile a stored provider receipt without sending or retrying
+ */
+export const reconcileWatchProposal = async (slug: string,
+    id: string,
+    watchReviewReconcileBody: WatchReviewReconcileBody, options?: Parameters<typeof hubMutator>[1]): Promise<reconcileWatchProposalResponse> => {
+
+  return hubMutator<reconcileWatchProposalResponse>(getReconcileWatchProposalUrl(slug,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(watchReviewReconcileBody)
   }
 );}
 

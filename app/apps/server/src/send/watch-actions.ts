@@ -1,71 +1,41 @@
-import { createHash } from "node:crypto";
-import { join } from "node:path";
-import { readWatch } from "@hub/watch/config";
-import { applyPublicReply, proposePublicReply, reconcilePublicReply, publicReplyHashes, type PublicReplyDoorDeps, type PublicReplyPolicy } from "@hub/messengers/door";
-import { AdapterError, publicReplyError } from "@hub/messengers";
+import { applyPublicReply, assessPublicReply, proposePublicReply, reconcilePublicReply, publicReplyHashes } from "@hub/messengers/door";
+import { publicReplyError } from "@hub/messengers";
 import type { WatchProposalInput } from "@hub/contract/watch-actions";
-import { messengerPolicy } from "./messenger-policy";
 import type { SendContext } from "./context";
+import { watchActionRuntime } from "./watch-review/runtime";
+import { knownReceiptId, publicProposalDto, publicReviewDto } from "./watch-review/projection";
+import { reviewSource } from "./watch-review/source";
 
 const refused = (reason: string) => ({ refused: [reason] });
-const unavailable = (reason: string): PublicReplyPolicy => ({ refusal: reason, generation: "unavailable", revision: 0, requestRef: "", strategyHash: "", repliesPerDay: 0 });
 
-/** Decision 0061: external review input only. This service neither writes strategy nor generates/schedules a reply. */
+/** External proposals and browser review share one immutable record and the same owner-granted public door. */
 export function watchActions(services: SendContext) {
-  const { repos, sender, watch, messengers } = services;
-  if (!sender || !watch) return null;
-  const basePolicy = messengerPolicy(sender);
-  const now = sender.now ?? (() => new Date());
-  const policy: PublicReplyDoorDeps["policy"] = (project, scope) => {
-    const config = readWatch(join(sender.projectsDir, project));
-    if (config.state !== "ok") return unavailable("the current watch configuration is unavailable");
-    const direction = scope.direction === "default" ? config.config : config.config.directions?.find((d) => d.id === scope.direction);
-    if (!config.config.on || !direction?.on || !direction.groups.includes(scope.groupUsername)) return unavailable("this source/direction is not enabled in the current watch list");
-    if (watch.accountFor(project) !== scope.account || (config.config.account !== "default" && config.config.account !== scope.account)) return unavailable("the granted account is not the connected source account");
-    const grant = watch.policyFor(project);
-    if (grant.state !== "ok") return unavailable(grant.state === "invalid" ? grant.reason : "no protected owner grant for public actions");
-    const allowed = grant.policy.directions[scope.direction];
-    if (!grant.policy.enabled || grant.policy.account !== scope.account || !allowed?.reply || !allowed.groups.includes(scope.groupUsername) || !allowed.strategy) return unavailable("the protected owner grant does not permit replies to this source");
-    const p = basePolicy(project);
-    const reason = p.lifecycle ?? p.recipients(`telegram:${scope.chatId}`);
-    const generation = createHash("sha256").update(JSON.stringify([grant.generation, p.generation, config.config.account, scope.direction, direction.groups])).digest("hex");
-    return { refusal: reason, generation, revision: grant.policy.revision, requestRef: grant.policy.approval.requestRef,
-      strategyHash: allowed.strategy.sha256, repliesPerDay: grant.policy.limits.repliesPerDay };
-  };
-  const deps: PublicReplyDoorDeps = {
-    repos, policy, now,
-    sender: (account) => messengers?.publicSender?.(account),
-    async failed(account, error) {
-      if (/^FLOOD_/.test(error.code)) watch.queueForAccount(account)?.park(error.retryAfterSeconds ?? 60, "history");
-      // A group-specific ban/slow mode never labels the whole owner account banned.
-      const loggedOut = /^(AUTH_KEY_UNREGISTERED|AUTH_KEY_INVALID|SESSION_REVOKED|SESSION_EXPIRED|AUTH_KEY_DUPLICATED|USER_DEACTIVATED)$/.test(error.code);
-      const banned = /^(PHONE_NUMBER_BANNED|USER_DEACTIVATED_BAN)$/.test(error.code);
-      if (loggedOut || banned) await messengers?.failed?.("telegram_user", account, new AdapterError(loggedOut ? "logged_out" : "banned", error.code));
-    },
-  };
-  const locate = (project: string, direction: string, group: string) => {
-    const p = watch.project(project);
-    const account = watch.accountFor(project);
-    const g = p?.state === "ready" ? p.store.group(group) : null;
-    const id = g?.peerId === null || g?.peerId === undefined ? NaN : Number(g.peerId);
-    if (!account || !g || !Number.isSafeInteger(id) || id >= 0) return null;
-    const scope = { direction, groupUsername: group, account, chatId: id };
-    return { scope, target: { id, accessHash: g.accessHash }, policy: policy(project, scope) };
-  };
-  const queued = async <T>(account: string, action: () => Promise<T>): Promise<T | { refused: string[] }> => {
-    const queue = watch.queueForAccount(account);
-    if (!queue) return refused("the source account queue is unavailable");
-    try {
-      // Keep fresh provider reads, final policy checks, audit and send in ONE queue operation.
-      // Nothing waits behind a later join after its audit was already committed.
-      return await queue.run("history", action);
-    } catch (error) {
-      const safe = publicReplyError(error);
-      await deps.failed?.(account, safe);
-      return refused(queue.parkedUntil() ? `the account is parked until ${queue.parkedUntil()}` : `the account operation did not complete: ${safe.code}; inspect proposal status before any next action`);
-    }
+  const runtime = watchActionRuntime(services);
+  if (!runtime) return null;
+  const { repos, watch, now, assets, deps, locate, queued, queueReason, projectsDir } = runtime;
+  const review = async (project: string, id: string, fresh = false) => {
+    const p = await repos.sends.publicProposal(project, id);
+    if (!p) return null;
+    const read = async () => {
+      const a = await assessPublicReply(deps, project, id, { fresh });
+      return a ? publicReviewDto(a, now().toISOString(), queueReason(p.account)) : null;
+    };
+    return fresh ? queued(p.account, read) : read();
   };
   return {
+    review,
+    async list(project: string, input: { direction: string; group: string; messageId: number }) {
+      const source = reviewSource(watch, projectsDir, project, input.direction, input.group);
+      if ("refused" in source) return source;
+      const rows = await repos.sends.publicProposalsForSource({ project, direction: input.direction, groupUsername: input.group,
+        account: source.account, chatId: source.chatId, messageId: input.messageId, limit: 20 });
+      const items = [];
+      for (const row of rows) {
+        const a = await assessPublicReply(deps, project, row.id, { fresh: false });
+        if (a) items.push(publicReviewDto(a, now().toISOString(), queueReason(row.account)));
+      }
+      return { project, ...input, observedAt: now().toISOString(), items };
+    },
     async context(project: string, direction: string, group: string, messageId: number) {
       const found = locate(project, direction, group);
       if (!found) return refused("this source has not been resolved by the configured connected account");
@@ -83,7 +53,7 @@ export function watchActions(services: SendContext) {
         } catch (error) {
           const safe = publicReplyError(error);
           await deps.failed?.(found.scope.account, safe);
-          return refused(`the public source/permissions cannot be read: ${safe.code}`);
+          return refused("the public source/permissions cannot be read: " + safe.code);
         }
       });
     },
@@ -92,24 +62,37 @@ export function watchActions(services: SendContext) {
       if (!found) return refused("this source has not been resolved by the configured connected account");
       return queued(found.scope.account, () => proposePublicReply(deps, { project, direction: input.direction, groupUsername: input.group,
         account: found.scope.account, target: found.target, messageId: input.messageId, text: input.text,
-        sourceHash: input.sourceHash, rulesHash: input.rulesHash, reviewRef: input.review.ref, reviewedAt: input.review.at }));
+        sourceHash: input.sourceHash, rulesHash: input.rulesHash, reviewRef: input.review.ref, reviewedAt: input.review.at,
+        ...(input.photo ? { photo: input.photo } : {}) }));
     },
     async get(project: string, id: string) {
       const p = await repos.sends.publicProposal(project, id);
-      if (!p) return null;
-      const attempt = await repos.sends.publicAttempt(id);
-      // Transport identifiers stay inside the server. The full reviewed text and all proof hashes remain reviewable.
-      const { accessHash: _accessHash, randomId: _randomId, targetKey: _targetKey, ...visible } = p;
-      return { ...visible, attempt: attempt ? { id: attempt.id, status: attempt.status, messageId: attempt.sentMessageId, reason: attempt.error } : null };
+      return p ? publicProposalDto(p, await repos.sends.publicAttempt(id)) : null;
     },
-    async send(project: string, id: string, textHash: string) {
+    async photo(project: string, id: string) {
+      const p = await repos.sends.publicProposal(project, id);
+      if (!p?.photo) return null;
+      try {
+        return await assets.read(project, p.photo);
+      } catch {
+        return refused("The reviewed photo is unavailable or its bytes changed.");
+      }
+    },
+    async send(project: string, id: string, payloadHash: string) {
       const p = await repos.sends.publicProposal(project, id);
       if (!p) return refused("the reviewed public proposal does not exist");
-      return queued(p.account, () => applyPublicReply(deps, project, id, textHash));
+      return queued(p.account, () => applyPublicReply(deps, project, id, payloadHash));
     },
     async reconcile(project: string, id: string, messageId?: number) {
       const p = await repos.sends.publicProposal(project, id);
       if (!p) return refused("the reviewed public proposal does not exist");
+      return queued(p.account, () => reconcilePublicReply(deps, project, id, messageId));
+    },
+    async reconcileKnown(project: string, id: string) {
+      const p = await repos.sends.publicProposal(project, id);
+      if (!p) return refused("the reviewed public proposal does not exist");
+      const messageId = knownReceiptId(await repos.sends.publicAttempt(p.id));
+      if (messageId === null) return refused("No unresolved provider message id is stored. Refresh the status or use the supported CLI with an exact observed id; do not resend.");
       return queued(p.account, () => reconcilePublicReply(deps, project, id, messageId));
     },
   };

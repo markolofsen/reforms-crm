@@ -23,6 +23,8 @@ Scope: safety: dispatch, agent sessions and every door that writes Hub state or 
 
 17. MUST (decision 0061, P167): public Watch membership and reviewed replies require the protected `state/projects/<slug>/watch-policy.json` owner grant: exact real account, source/direction scope, provenance and generation. Readability is not membership. Durable membership attempts and account waits survive restart; pending requests are inspected, manual gates are not bypassed. A public reply uses a real immutable public proposal and the distinct `watch_review` authority; the private door refuses that authority. Assessment and final checks re-read policy, lifecycle, source identity/content, permissions and exact draft hash. The shared audit transaction reserves the stable account/peer/reply target and provider random id before one delivery; ambiguity is held for reconciliation, never a fresh-id retry. No public author becomes a client, no private-chat sender is reused and no existing inbound or draft-write path gains delivery. The control CLI talks to the guarded server and creates no Telegram client/model/timer. Source strategy and review belong to the external operation, not a new Hub autopilot.
 
+18. MUST (decision 0062, P167 continuation): the browser reads only existing immutable public proposals for the exact configured source/project/account/peer. Its review routes require the exact admin origin and a single-use 60-second ticket bound to proposal, full payload and current combined policy, consumed before asynchronous work. The browser cannot create proposals, supply source-rule acceptance or mint owner authority. Delivery still uses `watch_review`; no automatic retry or new ticket follows an uncertain request. A durable sending/uncertain row after reload is unresolved, and only a matching provider receipt is sent. Optional photo delivery additionally requires an explicit `photoReplies` grant, a verified project-local immutable JPEG/PNG and the reviewed caption. Bind the complete asset descriptor and caption to the payload; prepare and persist the provider photo identity before send reservation, then repeat every guard after upload. Preview and list never upload or send, and reconciliation verifies the prepared identity instead of Telegram's re-encoded bytes. No provider secrets or local paths enter browser DTOs.
+
 ## Enforcement
 
 | Rule | Check |
@@ -38,6 +40,7 @@ Scope: safety: dispatch, agent sessions and every door that writes Hub state or 
 | 10-11 | `test/send-boundary.test.ts`; `apps/server/test/batch-send.test.ts`; `apps/server/test/draft-only.test.ts` (the door is the only caller of the senders) |
 | 12 | `apps/server/test/messenger-send.test.ts`, `apps/server/test/whatsapp-send.test.ts` |
 | 15 | `packages/messengers/test/door.test.ts`, `packages/messengers/test/human.test.ts`, `apps/server/test/draft-only.test.ts` |
+| 18 | public asset/preparation/receipt tests, browser review/ticket/scope tests and inline Watch review scenarios |
 | 17 | public-door, Watch policy/membership, public-adapter and public-action tests; `apps/server/test/draft-only.test.ts`; integration receipt review |
 | 13 | `apps/server/test/draft-mail.test.ts`; review |
 | 14 | `apps/server/test/send.test.ts` |

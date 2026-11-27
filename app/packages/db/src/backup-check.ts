@@ -1,4 +1,6 @@
 import Database from "better-sqlite3";
+import { SLUG } from "@hub/contract/refs";
+import { watchPhotoAsset, type PublicPhotoAsset } from "@hub/contract/watch-media";
 import { copyFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { openDb } from "./client";
@@ -76,4 +78,29 @@ export function restoreCheck(snapshotDb: string, tmpDir: string): RestoreCheck {
   openDb(copy, { migrate: true }).close();
   const after = inspectCopy(copy);
   return { before, after, migrationsApplied: ledger(after) - ledger(before) };
+}
+
+export interface PublicPhotoBackupReference { project: string; photo: PublicPhotoAsset }
+
+/** Read only the public asset descriptors from an existing database; never migrates it or exposes prepared provider credentials. */
+export function publicPhotoBackupReferences(file: string): PublicPhotoBackupReference[] {
+  const db = new Database(file, { readonly: true, fileMustExist: true });
+  try {
+    if (!db.prepare("SELECT 1 FROM pragma_table_info('watch_public_proposals') WHERE name = 'photo'").get()) return [];
+    const references: PublicPhotoBackupReference[] = [];
+    for (const row of db.prepare("SELECT project, photo FROM watch_public_proposals WHERE photo IS NOT NULL").iterate()) {
+      if (typeof row !== "object" || row === null) throw new Error("Invalid public photo backup reference");
+      const project: unknown = Reflect.get(row, "project");
+      const raw: unknown = Reflect.get(row, "photo");
+      if (typeof project !== "string" || !SLUG.test(project) || project.length > 100 || typeof raw !== "string") {
+        throw new Error("Invalid public photo backup reference");
+      }
+      const parsed = watchPhotoAsset.safeParse(JSON.parse(raw));
+      if (!parsed.success) throw new Error("Invalid stored public photo descriptor");
+      references.push({ project, photo: parsed.data });
+    }
+    return references;
+  } finally {
+    db.close();
+  }
 }

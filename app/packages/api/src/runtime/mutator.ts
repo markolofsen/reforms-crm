@@ -20,7 +20,7 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 
 /**
  * P137 L1: a write is the owner's action; it names itself (`x-hub-action`), so the server's lines, the session it may start and
- * the Notion and Mail writes it makes carry one id. The busy retry sends the same id. A read carries none: the server gives it one.
+ * the Notion and Mail writes it makes carry one id. Writes are never replayed here. A read carries none: the server gives it one.
  */
 function withAction(options: RequestInit): RequestInit {
   const method = (options.method ?? "GET").toUpperCase();
@@ -42,7 +42,8 @@ export async function hubMutator<T extends GeneratedEnvelope>(url: string, optio
     throw new HubApiError("Cannot reach the local server. Is it running? Start it with `hub up`.", "server", 0);
   }
 
-  if (response.status === 503) {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (response.status === 503 && (method === "GET" || method === "HEAD")) {
     await wait(BUSY_RETRY_MS);
     try {
       response = await fetch(url, { ...options, credentials: "same-origin" });

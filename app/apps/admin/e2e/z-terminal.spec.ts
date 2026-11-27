@@ -162,7 +162,11 @@ test("terminal: on a project's screen the presets are Claude Code, Codex, Shell;
   await expect(page.getByRole("tab")).toHaveCount(2);
   await expect(page.getByRole("tab")).toHaveText(["Claude", "Codex"]);
   await expect(page.getByRole("tab", { selected: true })).toHaveText("Codex");
-  await page.getByRole("tablist", { name: "Terminal sessions" }).getByRole("button", { name: "Close Claude", exact: true }).click();
+  const tablist = page.getByRole("tablist", { name: "Terminal sessions" });
+  await expect(tablist.getByRole("tab")).toHaveCount(2);
+  await expect(tablist.getByRole("button")).toHaveCount(0);
+  // Closing an inactive tab stays available beside it without becoming an owned tablist control.
+  await dock(page).getByRole("button", { name: "Close Claude", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveText(["Codex"]);
   await expect(page.getByRole("tab", { selected: true })).toHaveText("Codex");
   await expect.poll(async () => (await sessions(page)).map((s) => s.preset)).toEqual(["codex"]);

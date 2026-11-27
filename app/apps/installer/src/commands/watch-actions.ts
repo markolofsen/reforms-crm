@@ -5,6 +5,7 @@ import { AGENT_SEND_HEADER, readAgentSendToken } from "@hub/agent/send-token";
 import { instancePorts } from "@hub/config/paths";
 import { watchActionParam, watchActionQuery, watchProposalBody, watchProposalParam, watchReplyBody, watchReconcileBody } from "@hub/contract/watch-actions";
 import { readWatchPolicy, watchPolicyFile } from "@hub/watch/policy";
+import { publicPhotoAssets } from "@hub/messengers/door";
 import type { Ctx } from "../context";
 import { ctxOf } from "./shared";
 import { setWatchPolicy } from "./watch-policy";
@@ -40,6 +41,12 @@ export function registerWatchActions(watch: Command): void {
     });
 
   const reply = watch.command("reply").description("Externally reviewed public reply through the CRM send door; no automatic content generation.");
+  reply.command("import-photo").description("Validate and import one project-relative JPEG/PNG as an immutable reviewed asset; never uploads to Telegram.")
+    .requiredOption("--project <slug>").requiredOption("--file <project-relative-path>")
+    .action(async (o: { project: string; file: string }) => {
+      watchActionParam.parse({ slug: o.project });
+      print(await publicPhotoAssets(ctxOf().paths).import(o.project, o.file));
+    });
   reply.command("context").description("Read exact source, current permissions and description/latest pinned message; sends nothing.")
     .requiredOption("--project <slug>").requiredOption("--direction <id>").requiredOption("--group <username>").requiredOption("--message <id>")
     .action(async (o: { project: string; direction: string; group: string; message: string }) => {
@@ -47,7 +54,7 @@ export function registerWatchActions(watch: Command): void {
       const query = new URLSearchParams({ direction: q.direction, group: q.group, messageId: String(q.messageId) });
       print(await callWatchAction(ctxOf(), o.project, "GET", `context?${query}`));
     });
-  reply.command("propose").description("Store immutable reviewed text and source/rules hashes; sends nothing.")
+  reply.command("propose").description("Store immutable reviewed text, optional exact photo and source/rules hashes; never uploads or sends.")
     .requiredOption("--project <slug>").requiredOption("--file <json>").action(async (o: { project: string; file: string }) => {
       const body = watchProposalBody.parse(JSON.parse(readFileSync(o.file, "utf8")));
       print(await callWatchAction(ctxOf(), o.project, "POST", "proposals", body));
@@ -57,11 +64,11 @@ export function registerWatchActions(watch: Command): void {
       const p = watchProposalParam.parse({ slug: o.project, id: o.proposal });
       print(await callWatchAction(ctxOf(), p.slug, "GET", `proposals/${p.id}`));
     });
-  reply.command("send").description("Send this exact reviewed text once, subject to the protected grant, fresh provider checks, Stop and shared account caps.")
-    .requiredOption("--project <slug>").requiredOption("--proposal <id>").requiredOption("--text-hash <sha256>")
-    .action(async (o: { project: string; proposal: string; textHash: string }) => {
+  reply.command("send").description("Send this exact reviewed payload once; confirm with --payload-hash, or legacy --text-hash for plain text.")
+    .requiredOption("--project <slug>").requiredOption("--proposal <id>").option("--text-hash <sha256>").option("--payload-hash <sha256>")
+    .action(async (o: { project: string; proposal: string; textHash?: string; payloadHash?: string }) => {
       const p = watchProposalParam.parse({ slug: o.project, id: o.proposal });
-      const body = watchReplyBody.parse({ textHash: o.textHash });
+      const body = watchReplyBody.parse({ ...(o.textHash === undefined ? {} : { textHash: o.textHash }), ...(o.payloadHash === undefined ? {} : { payloadHash: o.payloadHash }) });
       print(await callWatchAction(ctxOf(), p.slug, "POST", `proposals/${p.id}/send`, body));
     });
   reply.command("reconcile").description("Prove an unresolved delivery against its exact provider message; never sends or retries.")

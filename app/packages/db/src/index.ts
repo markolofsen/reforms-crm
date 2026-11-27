@@ -5,7 +5,7 @@ import { openDb, openDbReadOnly } from "./client";
 import { recordCleanedReply } from "./repos/runs";
 import { agentSettingsOf } from "./repos/agent-settings";
 export { draftCountsReadOnly } from "./status";
-export { copyAndVerify, inspectCopy, restoreCheck, type CopyCheck, type RestoreCheck } from "./backup-check";
+export { copyAndVerify, inspectCopy, restoreCheck, publicPhotoBackupReferences, type CopyCheck, type RestoreCheck, type PublicPhotoBackupReference } from "./backup-check";
 export { DbBehindError, defaultDbPath, openDb, openDbReadOnly, type Db, type DbHandle, type OpenDbOptions } from "./client";
 export { migrationsIn, openOwnFile, openSqliteReadOnly, type OwnFileHandle, type SqliteClient } from "./own-file";
 export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rename";
@@ -139,4 +139,4 @@ export function recordCleanedReplyAt(dbPath: string, o: Parameters<typeof record
   }
 }
 
-export type { PublicReplyProposalRow, NewPublicReplyProposal } from "./repos/sends";
+export type { PublicReplyProposalRow, NewPublicReplyProposal, PreparedPublicPhotoRow } from "./repos/sends";

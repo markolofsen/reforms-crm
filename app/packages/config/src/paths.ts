@@ -276,3 +276,8 @@ export function instanceFeatures(paths: Pick<HubPaths, "configFile">): InstanceF
   const agent = readInstanceConfig(paths).config.agent;
   return { agent: { default: agent?.default ?? "claude" } };
 }
+
+/** Durable, project-local reviewed photo blobs. Only a content-addressed basename can be resolved here. */
+export function watchPhotoFolder(paths: Pick<HubPaths, "projects">, project: string): string {
+  return join(paths.projects, project, "assets", "watch-replies");
+}

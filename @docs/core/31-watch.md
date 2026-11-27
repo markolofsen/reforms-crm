@@ -79,10 +79,24 @@ An external supervisor can poll these local read APIs on its schedule and propos
 
 Who may change these files: the owner and his attended sessions (the `watch` skill). The unattended turns (autopilot, the lead and mail passes, the follow-up sweep) have no file tool at all (`--tools ""`, pinned by `packages/agent/test/unattended-no-files.test.ts`): they read untrusted text, and the lens is code the server runs.
 
+## Existing public proposals and exact photos
+
+Decision 0062 adds inline review inside an existing moment's source context. The browser can read up to 20 immutable proposal versions for that exact project/account/peer/source message. The server projects eligibility, expiry, refusal reasons and durable outcome. Opening the context does not prepare a proposal, inspect Telegram or grant permission. Proposal writes and send-log changes invalidate the same query through the existing live stream.
+
+Review freshly assesses one saved proposal. A separate 60-second single-use ticket binds the project, proposal, full payload hash and current combined policy; exact admin Origin, same-origin fetch metadata and loopback Host guard every browser mutation. Confirm enters the existing `watch_review` door and repeats its guards. The browser supplies neither strategy/source-rule acceptance nor editable copy. A failed request reads the saved outcome instead of reminting a ticket. Stored sending or uncertain remains unresolved after reload; sent requires a matching durable provider receipt. Reconcile never sends and, in the browser, uses only the already stored provider message id.
+
+An optional direction `photoReplies` capability defaults to false by interpretation; the parser preserves an omitted field so existing text-policy generations do not change. A supported photo proposal has one immutable project-scoped JPEG/PNG, at most 8 MiB, with its reviewed nonempty caption. Import verifies the complete image, containment, regular-file/no-symlink constraints and digest. Preview resolves by the scoped proposal id, verifies the same bytes and sends no-store/nosniff headers; it exposes no local path or provider credential.
+
+Only actual apply prepares a Telegram photo without publishing and persists its provider identity. After upload it freshly repeats source, rules, policy, expiry, rights, Stop and budget checks, commits the ordinary send reservation and delivers once. The receipt binds that prepared photo identity plus outgoing target, caption, reply and topic. Telegram may re-encode image bytes, so an original-file hash cannot prove the received photo's identity. Text and photo sends share the same account/peer/reply-target deduplication and account limits.
+
+The ordinary manual backup includes immutable photo assets, the protected project Watch policy and its pinned strategy files, together with app.db's prepared photo identities/send journal and the Watch database. It also preserves the optional bounded `data/watch/_accounts.json` account-wide membership/FloodWait journal without its lock, so recovery does not silently forget the shared quota or pause. A missing, changed or unsafe pinned asset/strategy prevents a complete snapshot. Verification checks the snapshot without changing live policy. Before rolling back after a real delivery, retain the newest audit, target reservations, preparation identities and assets so an older database cannot erase evidence and permit duplicates. A pre-photo core must not read a database containing photo proposals because it cannot interpret their media descriptor. Restore only a compatible code/database pair without losing newer delivery evidence; otherwise fix forward.
+
+The external operator owns asset creation and substantive review. This is a single-photo delivery capability, not an image generator, browser upload flow, album sender or second Telegram runtime. Detailed command and receipt contracts are in `app/packages/messengers/PUBLIC_REPLIES.md`.
+
 ## What is kept
 
 - Messages: 30 days. Moments and day counts: as long as the store lives.
-- A moment's author handle and id: blanked after 180 days. Public group members are private people: the Hub never contacts them, never makes a client row of them, and shows them read only.
+- A moment's author handle and id: blanked after 180 days. Public group members are private people: the Hub never creates client rows or initiates private contact from public authors. Explicitly granted public replies use the separate reviewed door above.
 
 ## The account
 

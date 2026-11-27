@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@hub/config": "workspace:*",
+    "@hub/contract": "workspace:*",
     "@hub/log": "workspace:*",
     "@hub/sequences": "workspace:*",
     "better-sqlite3": "13.1.1",

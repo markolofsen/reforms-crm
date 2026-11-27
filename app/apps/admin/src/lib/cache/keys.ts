@@ -97,6 +97,8 @@ export const keys = {
   watchProjects: () => ["watch"] as const,
   watch: (project: string, direction: string, days: number, trigger: string | null, group: string | null) => ["watch", project, direction, "view", days, trigger, group] as const,
   watchContext: (project: string, direction: string, group: string, messageId: number) => ["watch", project, direction, "context", group, messageId] as const,
+  watchPublic: (project: string | null) => project === null ? (["watch"] as const) : (["watch", project, "public"] as const),
+  watchPublicSource: (project: string, direction: string, group: string, messageId: number) => ["watch", project, "public", "source", direction, group, messageId] as const,
   leadReview: (project: string, batchId: number, read?: string) => (read === undefined ? (["inbound", project, "lead-review", batchId] as const) : (["inbound", project, "lead-review", batchId, read] as const)),
 };
 
@@ -143,7 +145,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   clients: (p) => [drafts(p), notByEmail(p), enrollments(p), messengerChats(p), overview()],
   activity: (p) => [activity(p), project(p), overview()],
   // P87: a send is a row of Activity ▸ All too (decision 0037 as amended).
-  sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), project(p), overview(), scheme(), inbound(p)],
+  sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), project(p), overview(), scheme(), inbound(p), keys.watchPublic(p)],
   inbox: (p) => [notByEmail(p), drafts(p), overview(), inbound(p)],
   sequences: (p) => [enrollments(p), drafts(p)],
   // P142: a plan or a sweep moved: the follow-up rows, the conversation headers and Overview's part.

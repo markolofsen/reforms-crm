@@ -7,7 +7,10 @@ export function trackedPublicSender(sender: PublicReplySender | undefined, activ
     activity.busy += 1;
     try { return await call(); } finally { activity.busy -= 1; }
   };
+  const prepare = sender.preparePhoto;
+  const preparePhoto: PublicReplySender["preparePhoto"] = prepare ? (authorization, bytes) => track(() => prepare.call(sender, authorization, bytes)) : undefined;
   return {
+    ...(preparePhoto ? { preparePhoto } : {}),
     inspect: (target, id) => track(() => sender.inspect(target, id)),
     receipt: (target, id) => track(() => sender.receipt(target, id)),
     send: (authorization) => track(() => sender.send(authorization)),

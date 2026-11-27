@@ -46,7 +46,10 @@
     "./settings": "./src/settings.ts",
     "./lens": "./src/lens.ts",
     "./watch": "./src/watch.ts",
-    "./watch-actions": "./src/watch-actions.ts"
+    "./watch-actions": "./src/watch-actions.ts",
+    "./watch-media": "./src/watch/media.ts",
+    "./watch-review": "./src/watch/review.ts",
+    "./refs": "./src/refs.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -1,4 +1,5 @@
 import { copyAndVerify } from "@hub/db";
+import { copyWatchBackupFiles, watchBackupFiles } from "./watch-files";
 import { projectStore } from "@hub/projects/store";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -94,6 +95,12 @@ async function snapshot(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
       else if (d) lines.push(`- notion ${p.slug}: copy the newest dump ${d.date} (${d.ageDays} day(s) old${d.ageDays > MAX_AGE_DAYS ? `, WARN: over ${MAX_AGE_DAYS} days; ${fixLine(p)}` : ""})`);
       else lines.push(`- notion ${p.slug}: no dump exists yet, nothing to copy; ${fixLine(p)}`);
     }
+    try {
+      const files = watchBackupFiles(ctx.paths, ctx.paths.db);
+      for (const file of files) lines.push(`- ${file.path}: verified public-workflow input (${kb(file.size)}), copied under --apply`);
+    } catch (error) {
+      return { ok: false, lines: [...lines, error instanceof Error ? error.message : "Public-workflow recovery inputs are invalid"] };
+    }
     const names = secretNames(ctx);
     lines.push(`- manifest.json: timestamp, core ${readCoreVersion(ctx.paths.home) ?? "unknown"}, instance ${t.instance}, sha256 and size of every file; secret file NAMES only (${names.length ? names.join(", ") : "none"}); no secret is read or copied`);
     lines.push(doomed.length ? `- retention: keep the newest ${KEEP}; would delete ${doomed.map((s) => s.name).join(", ")}` : `- retention: keep the newest ${KEEP}; ${existing.length} snapshot(s) exist, nothing to delete`);
@@ -149,6 +156,10 @@ async function snapshot(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
       notion.push({ project: p.slug, status: "copied", detail: `dump ${d.date}, ${d.ageDays} day(s) old${d.errors ? `, ${d.errors} database error(s)` : ""}` });
       lines.push(`notion ${p.slug}: copied dump ${d.date} (${d.ageDays} day(s) old${d.errors ? `, with ${d.errors} database error(s)` : ""})${d.ageDays > MAX_AGE_DAYS ? ` WARN: older than ${MAX_AGE_DAYS} days; ${fixLine(p)}` : ""}`);
     }
+
+    const publicFiles = watchBackupFiles(ctx.paths, existsSync(path.join(stage, "data", "app.db")) ? path.join(stage, "data", "app.db") : undefined);
+    copyWatchBackupFiles(stage, publicFiles);
+    if (publicFiles.length) lines.push(`public workflow: copied ${publicFiles.length} verified asset/policy/pinned-strategy/account-journal file(s); provider identities remain in app.db`);
 
     const files: ManifestFile[] = walk(stage).map((f) => ({ path: f, sha256: sha256File(path.join(stage, f)), size: statSync(path.join(stage, f)).size }));
     const manifest: Manifest = { format: 1, created: now.toISOString(), instance: t.instance, core_version: readCoreVersion(ctx.paths.home) ?? null, files, secrets_expected: secretNames(ctx), ...(dbCounts ? { db: dbCounts } : {}), notion };

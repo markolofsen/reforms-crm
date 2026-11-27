@@ -1,3 +1,4 @@
+import type { PublicPhotoAsset } from "@hub/contract/watch-media";
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { drafts } from "./drafts";
@@ -30,6 +31,9 @@ export const watchPublicProposals = sqliteTable("watch_public_proposals", {
   targetKey: text("target_key").notNull(),
   text: text("text").notNull(),
   textHash: text("text_hash").notNull(),
+  /** Null on pre-media rows: their complete payload hash is text_hash. */
+  payloadHash: text("payload_hash"),
+  photo: text("photo", { mode: "json" }).$type<PublicPhotoAsset>(),
   sourceHash: text("source_hash").notNull(),
   sourceAt: text("source_at").notNull(),
   rulesHash: text("rules_hash").notNull(),
@@ -41,7 +45,20 @@ export const watchPublicProposals = sqliteTable("watch_public_proposals", {
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
   randomId: text("random_id").notNull(),
-}, (t) => [index("watch_public_proposals_project_created").on(t.project, t.createdAt)]);
+}, (t) => [index("watch_public_proposals_project_created").on(t.project, t.createdAt),
+  index("watch_public_proposals_source").on(t.project, t.direction, t.groupUsername, t.account, t.chatId, t.replyToMessageId, t.createdAt)]);
+
+/** Private provider preparation; never projected to browser/CLI. Upload itself publishes no message. */
+export const watchPublicPhotos = sqliteTable("watch_public_photos", {
+  proposalId: text("proposal_id").primaryKey().references(() => watchPublicProposals.id),
+  project: text("project").notNull(),
+  account: text("account").notNull(),
+  assetHash: text("asset_hash").notNull(),
+  photoId: text("photo_id").notNull(),
+  accessHash: text("access_hash").notNull(),
+  fileReference: text("file_reference").notNull(),
+  createdAt: text("created_at").notNull(),
+});
 
 export const sendLog = sqliteTable(
   "send_log",

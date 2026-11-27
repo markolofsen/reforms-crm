@@ -17,10 +17,11 @@ export function invalidateTopics(qc: QueryClient, project: string | null, touche
  * One write of a screen: `run` posts it, and on success and on failure (a refusal can still have changed a row) the touched topics
  * are invalidated. The mutation's `isPending` disables the control and its `error` is said inline (state rule 6).
  */
-export function useCommand<V, R>(o: { project: string | null; touches: readonly LiveTopic[]; run: (v: V) => Promise<R>; onSuccess?: (r: R, v: V) => void; onError?: (e: unknown) => void }) {
+export function useCommand<V, R>(o: { project: string | null; touches: readonly LiveTopic[]; run: (v: V) => Promise<R>; retry?: false; onSuccess?: (r: R, v: V) => void; onError?: (e: unknown) => void }) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: o.run,
+    retry: o.retry,
     onSuccess: o.onSuccess,
     onError: o.onError,
     onSettled: () => invalidateTopics(qc, o.project, o.touches),

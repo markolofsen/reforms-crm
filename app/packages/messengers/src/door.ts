@@ -225,5 +225,6 @@ export async function applyMessenger(deps: MessengerDoorDeps, project: string, d
 }
 
 // Decision 0061: the public target specialization uses this door\'s authority mint and shared transactional account audit.
-export { applyPublicReply, reconcilePublicReply, proposePublicReply, publicReplyHashes, type PublicReplyDoorDeps, type PublicReplyPolicy } from "./public-door";
-export type { PublicReplySnapshot, PublicReplySender, PublicReplyReceipt } from "./public-reply";
+export { applyPublicReply, reconcilePublicReply, proposePublicReply, assessPublicReply, publicReplyHashes, publicReplyPayloadHash, type PublicReplyDoorDeps, type PublicReplyPolicy, type PublicReplyAssessment } from "./public-door";
+export { publicPhotoAssets, type PublicPhotoAssets, type VerifiedPublicPhoto } from "./public-replies/assets";
+export type { PublicReplySnapshot, PublicReplySender, PublicReplyReceipt, PreparedPublicPhoto } from "./public-reply";

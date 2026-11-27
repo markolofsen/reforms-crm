@@ -9,6 +9,7 @@ import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useWatchContext } from "@/lib/data/project";
 import { formatTime } from "@/lib/format";
 import type { Dest } from "@/routes/paths";
+import { PublicReplyReview } from "./review/panel";
 
 /** Source ids describe relationships without pretending the bounded neighbourhood is a complete thread. */
 export function ContextMessages({ data }: { data: WatchContextDto }) {
@@ -66,6 +67,7 @@ export function MomentContext({ project, direction, group, messageId, close }: {
               <OpenLinkButton to={data.sourceLink} />
             </div>
             <ContextMessages data={data} />
+            <PublicReplyReview key={`${project}:${direction}:${group}:${messageId}`} direction={direction} group={group} messageId={messageId} project={project} />
           </>
         )}
       </QueryView>

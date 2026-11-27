@@ -1,3 +1,4 @@
+import { SLUG } from "@hub/contract/refs";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
@@ -7,13 +8,14 @@ import { DIRECTION_ID } from "./config";
 /** Owner-granted public actions. The server reads this policy; discussion text never changes it. */
 export const WATCH_POLICY_FILE = "watch-policy.json";
 export const watchPolicyFile = (stateProjectsDir: string, slug: string): string => {
-  if (!/^[a-z0-9][a-z0-9_-]*$/.test(slug)) throw new Error("Invalid project slug");
+  if (!SLUG.test(slug) || slug.length > 100) throw new Error("Invalid project slug");
   return join(stateProjectsDir, slug, WATCH_POLICY_FILE);
 };
 const username = z.string().regex(/^[a-z][a-z0-9_]{3,31}$/);
 const strategy = z.strictObject({ path: z.string().min(1).max(300), sha256: z.string().regex(/^[a-f0-9]{64}$/) });
-const direction = z.strictObject({ groups: z.array(username).min(1).max(100), join: z.boolean(), reply: z.boolean(), strategy: strategy.optional() })
+const direction = z.strictObject({ groups: z.array(username).min(1).max(100), join: z.boolean(), reply: z.boolean(), photoReplies: z.boolean().optional(), strategy: strategy.optional() })
   .refine((d) => !d.reply || d.strategy !== undefined, "A reply grant requires a strategy path and digest.")
+  .refine((d) => !d.photoReplies || d.reply, "Photo replies require a reply grant.")
   .refine((d) => new Set(d.groups).size === d.groups.length, "Group usernames must be unique.");
 export const watchPolicySchema = z.strictObject({
   version: z.literal(1), revision: z.number().int().min(1), enabled: z.boolean(),

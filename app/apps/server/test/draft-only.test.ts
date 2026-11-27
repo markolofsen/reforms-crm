@@ -6,6 +6,7 @@ import { openDb, createRepos, type DbHandle, type Repos } from "@hub/db";
 import { API_VERSION } from "@hub/contract/health";
 import { testApp } from "./support/runtime";
 import { captureOps } from "@hub/log/ops";
+import { FakeMailer } from "@hub/send/mailer";
 
 // Ordinary draft/inbound paths remain draft-only. Explicit decisions add named guarded delivery entry points:
 // owner-confirmed sends, attended owner-word sends and protected public Watch review (0061), never a raw agent sender.
@@ -47,17 +48,18 @@ async function seedBatch(clientIds: number[]) {
 }
 
 describe("only declared guarded routes send", () => {
-  it("has exactly one route that sends per kind of draft (Mail's, and a messenger's since P71 M4), each a POST that names its project and draft", () => {
+  it("has exactly the declared project-scoped POST delivery routes for drafts and reviewed public proposals", () => {
     const paths = [...new Set(app.routes.map((r) => `${r.method} ${r.path}`))];
     expect(paths.length).toBeGreaterThan(15);
     expect(paths.filter((p) => /deliver|dispatch|smtp|outbox/i.test(p))).toEqual([]);
     // `.../sends` (history) and `.../sends/stop|resume|cancel` only read or remove work; the ones that send are below. P85b: a
     // batch's Send all Checked is the third (its GET reads the run's progress, its `/send/stop` only removes work). Decision 0046:
-    // the fourth is the agent's send of one messenger draft on the owner's word, the same door (`applyMessenger`) as the third.
-    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/agent-send", "POST /api/projects/:slug/messengers/drafts/:id/send", "POST /api/projects/:slug/watch/actions/proposals/:id/send"]);
+    // the fourth is the agent's send of one messenger draft on the owner's word. Decisions 0061/0062 add the protected CLI
+    // and exact-origin browser confirmation of an immutable public proposal, both through the same public door.
+    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/agent-send", "POST /api/projects/:slug/messengers/drafts/:id/send", "POST /api/projects/:slug/watch/actions/proposals/:id/send", "POST /api/projects/:slug/watch/proposals/:id/send"]);
   });
 
-  it("decision 0061: public Watch actions refuse ordinary browser/agent requests before any audit write", async () => {
+  it("decisions 0061/0062: mounted public Watch doors refuse untrusted requests before any audit write", async () => {
     const id = "a".repeat(64);
     for (const path of [
       "/api/projects/p/watch/actions/proposals",
@@ -65,6 +67,13 @@ describe("only declared guarded routes send", () => {
       `/api/projects/p/watch/actions/proposals/${id}/reconcile`,
     ]) expect((await post(path, { textHash: "b".repeat(64) })).status).toBe(403);
     expect((await get("/api/projects/p/watch/actions/context?direction=default&group=public_group&messageId=1")).status).toBe(403);
+    // Exercise the mounted browser door with a sender configured: missing exact admin origin must refuse before its service.
+    const browser = testApp(repos, { sender: { mailer: new FakeMailer(), kind: "fake", projectsDir: "/fixture/projects",
+      policyDir: "/fixture/state/projects", allowList: [], adminPort: 5173 } });
+    const denied = await browser.request(`http://127.0.0.1:4317/api/projects/p/watch/proposals/${id}/send`, {
+      method: "POST", headers: H, body: JSON.stringify({ ticket: "invented", payloadHash: "b".repeat(64), policyGeneration: "c".repeat(64) }),
+    });
+    expect(denied.status).toBe(403);
     expect(handle.db.$client.prepare("select count(*) as n from send_log").get()).toEqual({ n: 0 });
   });
 

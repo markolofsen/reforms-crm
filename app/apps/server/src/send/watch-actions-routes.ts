@@ -39,7 +39,8 @@ export function watchActionRoutes(services: SendContext) {
     .post("/api/projects/:slug/watch/actions/proposals/:id/send", authorized, v("param", watchProposalParam), v("json", watchReplyBody), async (c) => {
       if (!actions) return c.json({ error: "Public reply actions are unavailable.", code: "wrong_state" }, 409);
       const { slug, id } = c.req.valid("param");
-      const r = watchReplyResultDto.parse(await actions.send(slug, id, c.req.valid("json").textHash));
+      const body = c.req.valid("json");
+      const r = watchReplyResultDto.parse(await actions.send(slug, id, "payloadHash" in body ? body.payloadHash : body.textHash));
       return c.json(r, "refused" in r ? 409 : r.status === "sent" ? 200 : 202);
     })
     .post("/api/projects/:slug/watch/actions/proposals/:id/reconcile", authorized, v("param", watchProposalParam), v("json", watchReconcileBody), async (c) => {

@@ -4,13 +4,14 @@ import { MARKS, type Mark, type SafetyResult } from "@hub/config";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { evaluateSafety } from "../safety";
-import { clients, drafts, mailVersions, marks, sendControl, sendLog, type watchPublicProposals, type MessengerChannel, type SendStatus } from "../schema";
+import { clients, drafts, mailVersions, marks, sendControl, sendLog, type watchPublicProposals, type watchPublicPhotos, type MessengerChannel, type SendStatus } from "../schema";
 import { findingsOf, loadRules, nowIso, parseJson } from "./bulk-shared";
 import { write, type WriteTx } from "../tx";
 
 export type SendRow = typeof sendLog.$inferSelect;
 export type PublicReplyProposalRow = typeof watchPublicProposals.$inferSelect;
 export type NewPublicReplyProposal = typeof watchPublicProposals.$inferInsert;
+export type PreparedPublicPhotoRow = typeof watchPublicPhotos.$inferSelect;
 export type DraftRow = typeof drafts.$inferSelect;
 
 /** What a send attempt records. `body` is the full text; nothing is truncated. */

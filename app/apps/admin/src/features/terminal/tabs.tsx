@@ -18,6 +18,19 @@ import { useTerminal } from "./use-terminal";
 
 const TAB_LABELS: Record<TerminalPreset, string> = { claude: "Claude", codex: "Codex", shell: "Shell" };
 
+// MAX_SESSIONS is eight. Close stays visually beside its tab, but outside the tablist's owned controls.
+// Static classes keep the display order without inline styling or a nested interactive tab.
+const TAB_ORDER = [
+  { tab: "order-0", close: "order-1" },
+  { tab: "order-2", close: "order-3" },
+  { tab: "order-4", close: "order-5" },
+  { tab: "order-6", close: "order-7" },
+  { tab: "order-8", close: "order-9" },
+  { tab: "order-10", close: "order-11" },
+  { tab: "order-12", close: "order-13" },
+  { tab: "order-14", close: "order-15" },
+] as const;
+
 /** Compact display only: the PTY keeps its full title and project binding. */
 export function tabTitle(s: TerminalSessionDto): string {
   return TAB_LABELS[s.preset];
@@ -173,7 +186,7 @@ function onTabKeys(e: KeyboardEvent<HTMLDivElement>, ids: string[], active: stri
 
 /**
  * The column's header: the tabs (one tab stop; Left and Right move), the open tab's tips (P63; "Open in Claude Desktop", disabled
- * with its reason, sits in its handoff row), Close inside each tab (it ends that session), the `+`
+ * with its reason, sits in its handoff row), Close visually beside each tab (it ends that session), the `+`
  * menu, and Hide (the sessions keep running). In the narrow layer it is titled "Terminal". The agent mode is not shown here:
  * it is set in the config and shown on Settings ▸ Agent.
  */
@@ -185,18 +198,25 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
     <div className="flex min-w-0 shrink-0 flex-col border-b">
       <div className="flex min-h-11 min-w-0 items-center gap-1 ps-2 pe-1">
         {layer && <h2 className="shrink-0 pe-2 font-heading font-semibold text-base">Terminal</h2>}
-        <div aria-label="Terminal sessions" className="scroll-strip flex min-w-0 flex-1 items-center gap-0.5" onKeyDown={(e) => onTabKeys(e, sessions.map((s) => s.id), t.active, t.setActive)} role="tablist">
-          {sessions.map((s) => {
-            const on = s.id === t.active;
-            return (
-              <div className={cn("flex shrink-0 items-center rounded-md", on ? "bg-accent text-foreground" : "text-muted-foreground")} key={s.id} role="presentation">
-                <ActionButton aria-controls={panelId(s.id)} aria-selected={on} className="justify-start pe-1" id={tabId(s.id)} onClick={() => t.setActive(s.id)} role="tab" size="s" tabIndex={on ? 0 : -1} tooltip={s.title} variant="quiet">
+        <div className="scroll-strip flex min-w-0 flex-1 items-center">
+          <div aria-label="Terminal sessions" className="contents" onKeyDown={(e) => onTabKeys(e, sessions.map((s) => s.id), t.active, t.setActive)} role="tablist">
+            {sessions.map((s, index) => {
+              const on = s.id === t.active;
+              return (
+                <ActionButton aria-controls={panelId(s.id)} aria-selected={on} className={cn("shrink-0 justify-start rounded-e-none pe-1", TAB_ORDER[index]?.tab, on ? "bg-accent text-foreground" : "text-muted-foreground")} id={tabId(s.id)} key={s.id} onClick={() => t.setActive(s.id)} role="tab" size="s" tabIndex={on ? 0 : -1} tooltip={s.title} variant="quiet">
                   {tabTitle(s)}
                 </ActionButton>
-                <ActionButton aria-label={`Close ${tabTitle(s)}`} disabled={t.closing !== null} icon onClick={() => t.close(s.id)} size="s" tabIndex={on ? 0 : -1} tooltip={`Close ${tabTitle(s)}`} variant="quiet">
+              );
+            })}
+          </div>
+          {sessions.map((s, index) => {
+            const on = s.id === t.active;
+            return (
+              <span className={cn("me-0.5 flex shrink-0 items-center rounded-e-md", TAB_ORDER[index]?.close, on ? "bg-accent text-foreground" : "text-muted-foreground")} key={s.id}>
+                <ActionButton aria-controls={panelId(s.id)} aria-label={`Close ${tabTitle(s)}`} className="rounded-s-none" disabled={t.closing !== null} icon onClick={() => t.close(s.id)} size="s" tabIndex={on ? 0 : -1} tooltip={`Close ${tabTitle(s)}`} variant="quiet">
                   <XIcon aria-hidden="true" />
                 </ActionButton>
-              </div>
+              </span>
             );
           })}
         </div>

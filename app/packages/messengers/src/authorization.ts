@@ -1,3 +1,5 @@
+import type { PublicPhotoAsset } from "@hub/contract/watch-media";
+import type { PreparedPublicPhoto } from "./public-reply";
 import { createHash } from "node:crypto";
 import type { AGENT_WORD_SEND_ACTOR } from "@hub/config";
 import type { AUTOPILOT_SEND_ACTOR } from "@hub/config/autopilot";
@@ -102,6 +104,9 @@ export interface PublicReplyAuthorization {
   readonly threadId: number | null;
   readonly text: string;
   readonly textHash: string;
+  readonly payloadHash?: string;
+  readonly photo?: Readonly<PublicPhotoAsset> | null;
+  readonly preparedPhoto?: Readonly<PreparedPublicPhoto> | null;
   readonly randomId: string;
   readonly policyGeneration: string;
 }
@@ -112,7 +117,10 @@ export function mintAuthorization(f: Omit<SendAuthorization, typeof authorizedBr
 export function mintAuthorization(f: PublicAuthorizationFields): PublicReplyAuthorization;
 export function mintAuthorization(f: Omit<SendAuthorization, typeof authorizedBrand> | PublicAuthorizationFields): SendAuthorization | PublicReplyAuthorization {
   if ("targetKind" in f) {
-    const fields: PublicReplyAuthorization = { ...f, authority: Object.freeze({ ...f.authority }), [publicBrand]: true };
+    const fields: PublicReplyAuthorization = { ...f, payloadHash: f.payloadHash ?? f.textHash,
+      photo: f.photo ? Object.freeze({ ...f.photo }) : null,
+      preparedPhoto: f.preparedPhoto ? Object.freeze({ ...f.preparedPhoto }) : null,
+      authority: Object.freeze({ ...f.authority }), [publicBrand]: true };
     const a = Object.freeze(fields);
     minted.add(a);
     publicMinted.add(a);

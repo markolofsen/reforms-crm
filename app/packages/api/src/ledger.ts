@@ -29,7 +29,7 @@ export const GENERATED_OPERATIONS = {
   send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "getLeadReview", "confirmLeadReview", "listSends", "cancelSend", "stopSends", "resumeSends"],
   agent: ["getAgentFeed", "getAgentTools", "refreshAgentTools", "postFocus", "getPointer"],
   terminal: ["getTerminal", "createTerminalSession", "ensureTerminalSession", "dropTerminalFiles", "closeTerminalSession", "createTerminalTicket"],
-  watch: ["listWatchProjects", "getWatch", "getWatchContext", "joinWatchGroup"],
+  watch: ["listWatchProjects", "getWatch", "getWatchContext", "joinWatchGroup", "listWatchProposals", "getWatchProposalReview", "getWatchProposalPhoto", "prepareWatchProposal", "sendWatchProposal", "reconcileWatchProposal"],
 } as const;
 
 export type GeneratedOperation = (typeof GENERATED_OPERATIONS)[keyof typeof GENERATED_OPERATIONS][number];
@@ -38,6 +38,7 @@ export type GeneratedOperation = (typeof GENERATED_OPERATIONS)[keyof typeof GENE
 export const URL_HELPERS: Readonly<Partial<Record<GeneratedOperation, { file: string; why: string }>>> = {
   streamLive: { file: "lib/api/instance.ts", why: "server-sent events, opened with EventSource (architecture rule 16)" },
   getInstanceLogo: { file: "lib/api/instance.ts", why: "an image file, the brand's <img> source" },
+  getWatchProposalPhoto: { file: "lib/api/project/watch-review.ts", why: "the verified immutable photo of a reviewed public proposal" },
   dropTerminalFiles: { file: "lib/api/terminal.ts", why: "a multipart form of files (P76)" },
   postFocus: { file: "lib/api/terminal.ts", why: "the clear at page close, a keepalive beacon that outlives the page" },
 };
@@ -54,6 +55,7 @@ export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
   "lib/api/terminal.ts": ["createTerminalTicket", "postFocus"],
   // P144: Join asks Telegram to add the owner's account to one public group, on his click only.
   "lib/api/project/watch.ts": ["joinWatchGroup"],
+  "lib/api/project/watch-review.ts": ["prepareWatchProposal", "sendWatchProposal", "reconcileWatchProposal"],
 };
 
 export const generatedOperations = (): readonly GeneratedOperation[] => Object.values(GENERATED_OPERATIONS).flat();

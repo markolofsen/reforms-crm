@@ -10,9 +10,10 @@ import { operations as projects } from "../projects/openapi";
 import { operations as send } from "../send/openapi";
 import { operations as terminal } from "../terminal/openapi";
 import { operations as watch } from "../watch/openapi";
+import { operations as watchReview } from "../send/watch-review/openapi";
 
 /** Every operation the server declares, by domain (P120 W2): the whole browser API, so the document needs no hand-kept base. */
-export const OPERATIONS: readonly Operation[] = [...instance, ...overview, ...projects, ...mail, ...messengers, ...send, ...agent, ...terminal, ...local, ...live, ...watch];
+export const OPERATIONS: readonly Operation[] = [...instance, ...overview, ...projects, ...mail, ...messengers, ...send, ...agent, ...terminal, ...local, ...live, ...watch, ...watchReview];
 
 /**
  * The routes that are not browser operations, each with its reason: `http/openapi.test.ts` fails on a route that is neither

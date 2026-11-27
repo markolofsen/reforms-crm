@@ -17,5 +17,5 @@ export { cancelSend, confirmLeadReview, createBatchSendTicket, createSendTicket,
 export { getPointer, postFocus, getPostFocusUrl } from "./generated/agent/agent";
 export { closeTerminalSession, createTerminalSession, createTerminalTicket, ensureTerminalSession, getTerminal, getDropTerminalFilesUrl } from "./generated/terminal/terminal";
 export { getStreamLiveUrl } from "./generated/live/live";
-export { getWatch, getWatchContext, joinWatchGroup, listWatchProjects } from "./generated/watch/watch";
+export { getWatch, getWatchContext, joinWatchGroup, listWatchProjects, getWatchProposalReview, listWatchProposals, prepareWatchProposal, reconcileWatchProposal, sendWatchProposal, getGetWatchProposalPhotoUrl } from "./generated/watch/watch";
 export type { GetConversationTextParams } from "./generated/models";
