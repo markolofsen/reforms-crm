@@ -156,12 +156,25 @@ export function notionPageDestination(id: string | null | undefined): Destinatio
   return parsed.success ? notionDestination(`https://www.notion.so/${parsed.data}`) : null;
 }
 
+/** Public source and receipt links keep the exact post in both the web and app destination. */
+function telegramMessageDestination(url: string): Destination | null {
+  const match = /^https:\/\/t\.me\/([A-Za-z0-9_]+)\/([1-9]\d*)$/.exec(url)
+    ?? /^tg:\/\/resolve\?domain=([A-Za-z0-9_]+)&post=([1-9]\d*)$/.exec(url);
+  if (!match) return null;
+  const username = match[1];
+  const post = match[2];
+  if (!username || !TG_USERNAME.test(username) || !post || !Number.isSafeInteger(Number(post))) return null;
+  return { kind: "telegram", web: `https://t.me/${username}/${post}`, app: `tg://resolve?domain=${username}&post=${post}` };
+}
+
 /** Any link the table knows, in either form: Notion, Telegram, WhatsApp; Mail's `message:` and `mailto:` (app only). Null otherwise. */
 export function destinationOf(url: string): Destination | null {
   if (/[\s\u0000-\u001f]/.test(url)) return null;
   if (/^(message|mailto):/i.test(url)) return { kind: "mail", web: null, app: url };
   const notion = notionDestination(url);
   if (notion) return notion;
+  const telegramMessage = telegramMessageDestination(url);
+  if (telegramMessage) return telegramMessage;
   const tme = /^https:\/\/t\.me\/([A-Za-z0-9_]+)$/.exec(url);
   if (tme) return telegramDestination({ username: tme[1] });
   const tg = /^tg:\/\/resolve\?(domain|phone)=([A-Za-z0-9_+]+)$/.exec(url);

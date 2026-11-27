@@ -104,6 +104,36 @@ describe("the destinations table (P131 O1)", () => {
     for (const u of ["https://t.me/anna_k", "tg://resolve?domain=anna_k", "tg://resolve?phone=351912345678"]) expect(urlRefusal(u), u).toBeNull();
     for (const u of ["tg://resolve?domain=anna_k&text=hi", "https://t.me/anna_k?text=hi", "tg://msg?text=hi"]) expect(urlRefusal(u), u).not.toBeNull();
   });
+  it.each(["42", "58", "1", "9007199254740991"])("Telegram public source/receipt message %s keeps its exact target in web and app links", (post) => {
+    const web = `https://t.me/sample_group/${post}`;
+    const app = `tg://resolve?domain=sample_group&post=${post}`;
+    const destination = destinationOf(web);
+    expect(destination).toEqual({ kind: "telegram", web, app });
+    expect(destinationOf(app)).toEqual(destination);
+    expect(urlRefusal(web)).toBeNull();
+    expect(urlRefusal(app)).toBeNull();
+    expect(openLinkOf(destination, NO_APPS, true)).toEqual({ href: web, newTab: true, inApp: false, label: "Open in Telegram (web)" });
+    expect(openLinkOf(destination, { ...NO_APPS, telegram: true }, true)).toEqual({ href: app, newTab: false, inApp: true, label: "Open in Telegram" });
+    expect(openLinkOf(destination, { ...NO_APPS, telegram: true }, false)?.href).toBe(web);
+  });
+  it("Telegram message links refuse non-canonical ids, other paths and extra arguments instead of opening another target", () => {
+    for (const url of [
+      "https://t.me/sample_group/0", "https://t.me/sample_group/042", "https://t.me/sample_group/-1",
+      "https://t.me/sample_group/+1", "https://t.me/sample_group/1.5", "https://t.me/sample_group/1e2",
+      "https://t.me/sample_group/9007199254740992", "https://t.me/sample_group/%34%32",
+      "https://t.me/sample_group/42/", "https://t.me/sample_group/42/58", "https://t.me/sample_group/../42",
+      "https://t.me/sample_group/42?text=hi", "https://t.me/sample_group/42?thread=7", "https://t.me/sample_group/42#58",
+      "https://t.me/c/1234/42", "https://t.me/x/42", "https://t.me/1234/42",
+      "http://t.me/sample_group/42", "https://t.me:443/sample_group/42", "https://t.me.evil.example/sample_group/42",
+      "tg://resolve?domain=sample_group&post=0", "tg://resolve?domain=sample_group&post=042",
+      "tg://resolve?domain=sample_group&post=9007199254740992", "tg://resolve?domain=sample_group&post=42&text=hi",
+      "tg://resolve?domain=sample_group&post=42&thread=7", "tg://resolve?domain=sample_group&post=42#58",
+      "tg://resolve?phone=351912345678&post=42", "tg://resolve?domain=x&post=42",
+    ]) {
+      expect(destinationOf(url), url).toBeNull();
+      expect(urlRefusal(url), url).not.toBeNull();
+    }
+  });
   it("WhatsApp: a number opens wa.me or whatsapp://send?phone=, digits with the country code; text is never prefilled", () => {
     expect(whatsappDestination("+351 (912) 345-678")).toEqual({ kind: "whatsapp", web: "https://wa.me/351912345678", app: "whatsapp://send?phone=351912345678" });
     expect(whatsappDestination("12345")).toBeNull();
