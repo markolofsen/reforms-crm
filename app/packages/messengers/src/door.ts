@@ -1,3 +1,4 @@
+import type { PublicReplySender } from "./public-reply";
 import { unresolvedMarkers } from "@hub/config";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { AUTOPILOT_ACCOUNT_SHARE } from "@hub/config/autopilot";
@@ -31,6 +32,8 @@ export type { MessengerAuthority } from "./authorization";
 /** The live send of each connected account, from the server's supervisors; nothing else holds one. */
 export interface MessengerSenders {
   sender(channel: MessengerChannel, account: string): SendingAdapter | undefined;
+  /** Decision 0061: a separate public target capability, still held only by this door. */
+  publicSender?(account: string): PublicReplySender | undefined;
   /** A send Telegram or WhatsApp refused with a park (logged out, banned, a long flood wait): the supervisor parks the account. */
   failed?(channel: MessengerChannel, account: string, err: AdapterError): Promise<void>;
 }
@@ -201,6 +204,7 @@ export type MessengerApply = { sendId: number } | { refused: string[] } | { fail
  * outcome is one ops line (P137: it carries the request's action id): refused with its stage, sent, or failed.
  */
 export async function applyMessenger(deps: MessengerDoorDeps, project: string, draftId: number, confirm: { chatId: string; text: string }, authority: MessengerAuthority): Promise<MessengerApply> {
+  if (authority.kind === "watch_review") return { refused: ["a public reply authority cannot send a private messenger draft"] };
   const what = { project, messengerDraft: draftId, actor: actorOf(authority) };
   const refuse = (stage: string, r: Refused): Refused => {
     log.warn("messenger door: refused", { ...what, stage, reasons: r.refused });
@@ -219,3 +223,7 @@ export async function applyMessenger(deps: MessengerDoorDeps, project: string, d
   if ("refused" in row) return refuse("audit", row);
   return deliver(deps, auth, row.row, adapter);
 }
+
+// Decision 0061: the public target specialization uses this door\'s authority mint and shared transactional account audit.
+export { applyPublicReply, reconcilePublicReply, proposePublicReply, publicReplyHashes, type PublicReplyDoorDeps, type PublicReplyPolicy } from "./public-door";
+export type { PublicReplySnapshot, PublicReplySender, PublicReplyReceipt } from "./public-reply";

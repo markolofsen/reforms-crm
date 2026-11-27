@@ -1,5 +1,5 @@
-import { getWatch, joinWatchGroup, listWatchProjects } from "@hub/api";
-import { watchDto, watchJoinDto, watchProjectsDto } from "@hub/contract/watch";
+import { getWatch, getWatchContext, joinWatchGroup, listWatchProjects } from "@hub/api";
+import { watchContextDto, watchDto, watchJoinDto, watchProjectsDto } from "@hub/contract/watch";
 import { readGenerated } from "../client";
 
 /**
@@ -9,7 +9,9 @@ import { readGenerated } from "../client";
  */
 export const watchApi = {
   projects: () => readGenerated(listWatchProjects(), watchProjectsDto),
-  get: (project: string, q: { days: number; trigger: string | null; group: string | null }) =>
-    readGenerated(getWatch(project, { days: q.days, ...(q.trigger ? { trigger: q.trigger } : {}), ...(q.group ? { group: q.group } : {}) }), watchDto),
+  get: (project: string, q: { direction: string; days: number; trigger: string | null; group: string | null }) =>
+    readGenerated(getWatch(project, { ...(q.direction ? { direction: q.direction } : {}), days: q.days, ...(q.trigger ? { trigger: q.trigger } : {}), ...(q.group ? { group: q.group } : {}) }), watchDto),
+  context: (project: string, q: { direction: string; group: string; messageId: number }) =>
+    readGenerated(getWatchContext(project, { ...(q.direction ? { direction: q.direction } : {}), group: q.group, messageId: q.messageId }), watchContextDto),
   join: (project: string, username: string) => readGenerated(joinWatchGroup(project, username), watchJoinDto),
 };

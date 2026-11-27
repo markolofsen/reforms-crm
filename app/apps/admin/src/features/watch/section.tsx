@@ -9,5 +9,5 @@ export function WatchScreen() {
   const { project } = useProjectScope();
   const route = useRoute("watch.page");
   if (!route) return null;
-  return <WatchView days={Number(route.search.days)} group={route.search.group || null} project={project} trigger={route.search.trigger || null} view={route.search.view} />;
+  return <WatchView project={project} q={route.search} />;
 }

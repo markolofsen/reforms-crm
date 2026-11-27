@@ -9,4 +9,9 @@
 export type WatchLens = {
   id: string;
   title: string;
+  /**
+     * @minimum -9007199254740991
+     * @maximum 9007199254740991
+     */
+  version?: number;
 } | null;

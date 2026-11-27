@@ -30,3 +30,11 @@ singleton, and it never owns cache invalidation or send permissions.
 React Query remains in the admin app. Streams, terminal sessions, file uploads,
 local bridges, MCP and send authorization keep their own owners: their JSON
 calls are declared operations, but the facade owns the lifecycle and the door.
+
+## Local Watch action surface
+
+Decision 0061's public reply operations are listed separately in `LOCAL_CLI_WATCH_ACTIONS` in the endpoint ledger.
+They are intentionally absent from the browser OpenAPI/generated client: the supported `hub watch reply` CLI presents
+the local action token and the server separately validates the protected scoped grant. The server names each route
+and this reason in `composition/operations.ts:NOT_DECLARED`; schemas are in `@hub/contract/watch-actions`.
+See [Public replies](../messengers/PUBLIC_REPLIES.md) for the exact contract, owner grant and receipt handling.

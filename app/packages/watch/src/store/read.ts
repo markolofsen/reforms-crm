@@ -52,6 +52,7 @@ export interface MomentFilter {
   trigger?: string;
   minIntensity?: number;
   group?: string;
+  groups?: readonly string[];
   limit?: number;
 }
 
@@ -76,19 +77,21 @@ const Mood = z.object({ group_username: z.string(), mood: z.string().nullable() 
 
 const split = (s: string): string[] => [...new Set(s.split("\u001f").filter(Boolean))].sort();
 
-export function createReads(c: SqliteClient, p: string): WatchReads {
+export function createReads(c: SqliteClient, p: string, direction = "default", groups?: readonly string[]): WatchReads {
+  const groupArgs = groups ?? [];
+  const inGroups = (column = "group_username") => groups === undefined ? "" : groups.length === 0 ? " AND 0" : ` AND ${column} IN (${groups.map(() => "?").join(",")})`;
   return {
     triggers(since) {
       const rows = c
         .prepare(
-          "SELECT trigger, CASE WHEN trigger = 'other' THEN lower(trim(trigger_other)) ELSE '' END AS other, count(*) AS n, avg(intensity) AS avg, sum(intensity >= 4) AS strong FROM moments WHERE project = ? AND at >= ? GROUP BY 1, 2 ORDER BY n DESC, trigger",
+          `SELECT trigger, CASE WHEN trigger = 'other' THEN lower(trim(trigger_other)) ELSE '' END AS other, count(*) AS n, avg(intensity) AS avg, sum(intensity >= 4) AS strong FROM moments WHERE project = ? AND direction = ? AND at >= ?${inGroups()} GROUP BY 1, 2 ORDER BY n DESC, trigger`,
         )
-        .all(p, since);
+        .all(p, direction, since, ...groupArgs);
       return parseRows(Triggers, rows).map((r) => ({ trigger: r.trigger, triggerOther: r.other, moments: r.n, avgIntensity: Math.round((r.avg ?? 0) * 10) / 10, strong: r.strong }));
     },
     topics(since, limit = 30) {
       const counts = new Map<string, { topic: string; windows: number }>();
-      for (const w of parseRows(WindowRow, c.prepare("SELECT * FROM windows WHERE project = ? AND last_at >= ?").all(p, since))) {
+      for (const w of parseRows(WindowRow, c.prepare(`SELECT * FROM windows WHERE project = ? AND direction = ? AND last_at >= ?${inGroups()}`).all(p, direction, since, ...groupArgs))) {
         for (const t of new Set(w.topics.map((x) => x.trim()).filter(Boolean))) {
           const k = t.toLowerCase();
           const cur = counts.get(k) ?? { topic: t, windows: 0 };
@@ -99,19 +102,21 @@ export function createReads(c: SqliteClient, p: string): WatchReads {
       return [...counts.values()].sort((a, b) => b.windows - a.windows || a.topic.localeCompare(b.topic)).slice(0, limit);
     },
     moments(f) {
-      const where = ["project = ?", "at >= ?"];
-      const args: Array<string | number> = [p, f.since ?? ""];
+      if (f.groups?.length === 0) return [];
+      const where = ["project = ?", "direction = ?", `at >= ?${inGroups()}`];
+      const args: Array<string | number> = [p, direction, f.since ?? "", ...groupArgs];
       if (f.trigger) (where.push("trigger = ?"), args.push(f.trigger));
       if (f.minIntensity) (where.push("intensity >= ?"), args.push(f.minIntensity));
       if (f.group) (where.push("group_username = ?"), args.push(f.group));
+      if (f.groups) { where.push(`group_username IN (${f.groups.map(() => "?").join(",")})`); args.push(...f.groups); }
       return parseRows(MomentRow, c.prepare(`SELECT * FROM moments WHERE ${where.join(" AND ")} ORDER BY at DESC, message_id DESC LIMIT ?`).all(...args, Math.min(500, f.limit ?? 100)));
     },
     people(since, limit = 50) {
       const rows = c
         .prepare(
-          "SELECT author_id, max(author_handle) AS handle, count(*) AS n, sum(intensity) AS s, group_concat(trigger, char(31)) AS triggers, group_concat(group_username, char(31)) AS groups, max(at) AS last_at FROM moments WHERE project = ? AND at >= ? AND author_id IS NOT NULL GROUP BY author_id ORDER BY s DESC, n DESC LIMIT ?",
+          `SELECT author_id, max(author_handle) AS handle, count(*) AS n, sum(intensity) AS s, group_concat(trigger, char(31)) AS triggers, group_concat(group_username, char(31)) AS groups, max(at) AS last_at FROM moments WHERE project = ? AND direction = ? AND at >= ? AND author_id IS NOT NULL${inGroups()} GROUP BY author_id ORDER BY s DESC, n DESC LIMIT ?`,
         )
-        .all(p, since, limit);
+        .all(p, direction, since, ...groupArgs, limit);
       return parseRows(People, rows).map((r) => ({ authorId: r.author_id, handle: r.handle, moments: r.n, intensitySum: r.s, triggers: split(r.triggers), groups: split(r.groups), lastAt: r.last_at }));
     },
     groupStats(since) {
@@ -121,18 +126,18 @@ export function createReads(c: SqliteClient, p: string): WatchReads {
           `SELECT g.username AS username,
              (SELECT sum(messages) FROM group_days d WHERE d.project = g.project AND d.group_username = g.username AND d.day >= ?) AS messages,
              (SELECT count(*) FROM group_days d WHERE d.project = g.project AND d.group_username = g.username AND d.day >= ?) AS days,
-             (SELECT count(*) FROM moments m WHERE m.project = g.project AND m.group_username = g.username AND m.at >= ?) AS moments,
-             (SELECT sum(cost_micro_usd) FROM windows w WHERE w.project = g.project AND w.group_username = g.username AND w.last_at >= ?) AS cost
-           FROM groups g WHERE g.project = ? ORDER BY g.added_at, g.username`,
+             (SELECT count(*) FROM moments m WHERE m.project = g.project AND m.group_username = g.username AND m.direction = ? AND m.at >= ?) AS moments,
+             (SELECT sum(cost_micro_usd) FROM windows w WHERE w.project = g.project AND w.group_username = g.username AND w.direction = ? AND w.last_at >= ?) AS cost
+           FROM groups g WHERE g.project = ?${inGroups("g.username")} ORDER BY g.added_at, g.username`,
         )
-        .all(day, day, since, since, p);
-      const moods = new Map(parseRows(Mood, c.prepare("SELECT group_username, mood FROM windows w WHERE project = ? AND last_at = (SELECT max(last_at) FROM windows x WHERE x.project = w.project AND x.group_username = w.group_username)").all(p)).map((m) => [m.group_username, m.mood]));
+        .all(day, day, direction, since, direction, since, p, ...groupArgs);
+      const moods = new Map(parseRows(Mood, c.prepare(`SELECT group_username, mood FROM windows w WHERE project = ? AND direction = ?${inGroups("w.group_username")} AND last_at = (SELECT max(last_at) FROM windows x WHERE x.project = w.project AND x.direction = w.direction AND x.group_username = w.group_username)`).all(p, direction, ...groupArgs)).map((m) => [m.group_username, m.mood]));
       return parseRows(Groups, rows).map((r) => ({ username: r.username, messages: r.messages ?? 0, days: r.days, moments: r.moments, costMicroUsd: r.cost ?? 0, lastMood: moods.get(r.username) ?? null }));
     },
     trend(since) {
-      return parseRows(Trend, c.prepare("SELECT substr(at, 1, 10) AS day, trigger, count(*) AS n FROM moments WHERE project = ? AND at >= ? GROUP BY 1, 2 ORDER BY 1, 2").all(p, since)).map((r) => ({ day: r.day, trigger: r.trigger, moments: r.n }));
+      return parseRows(Trend, c.prepare(`SELECT substr(at, 1, 10) AS day, trigger, count(*) AS n FROM moments WHERE project = ? AND direction = ? AND at >= ?${inGroups()} GROUP BY 1, 2 ORDER BY 1, 2`).all(p, direction, since, ...groupArgs)).map((r) => ({ day: r.day, trigger: r.trigger, moments: r.n }));
     },
-    spend: (since) => Total.parse(c.prepare("SELECT sum(cost_micro_usd) AS n FROM windows WHERE project = ? AND analysed_at >= ?").get(p, since)).n ?? 0,
-    windowCount: (since) => Total.parse(c.prepare("SELECT count(*) AS n FROM windows WHERE project = ? AND analysed_at >= ?").get(p, since)).n ?? 0,
+    spend: (since) => Total.parse(c.prepare(`SELECT sum(cost_micro_usd) AS n FROM windows WHERE project = ? AND direction = ? AND analysed_at >= ?${inGroups()}`).get(p, direction, since, ...groupArgs)).n ?? 0,
+    windowCount: (since) => Total.parse(c.prepare(`SELECT count(*) AS n FROM windows WHERE project = ? AND direction = ? AND analysed_at >= ?${inGroups()}`).get(p, direction, since, ...groupArgs)).n ?? 0,
   };
 }

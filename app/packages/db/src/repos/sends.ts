@@ -1,13 +1,16 @@
+import { publicRepliesRepo } from "./public-replies/repo";
 import { and, desc, eq, gte, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import { MARKS, type Mark, type SafetyResult } from "@hub/config";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { evaluateSafety } from "../safety";
-import { clients, drafts, mailVersions, marks, sendControl, sendLog, type MessengerChannel, type SendStatus } from "../schema";
+import { clients, drafts, mailVersions, marks, sendControl, sendLog, type watchPublicProposals, type MessengerChannel, type SendStatus } from "../schema";
 import { findingsOf, loadRules, nowIso, parseJson } from "./bulk-shared";
 import { write, type WriteTx } from "../tx";
 
 export type SendRow = typeof sendLog.$inferSelect;
+export type PublicReplyProposalRow = typeof watchPublicProposals.$inferSelect;
+export type NewPublicReplyProposal = typeof watchPublicProposals.$inferInsert;
 export type DraftRow = typeof drafts.$inferSelect;
 
 /** What a send attempt records. `body` is the full text; nothing is truncated. */
@@ -53,6 +56,8 @@ export type NewMessengerSend = {
   ownerWord?: string | null;
 };
 
+export type NewPublicReplySend = Omit<NewMessengerSend, "messengerDraftId" | "ownerWord"> & { publicProposalId: string; publicTargetKey: string };
+
 /** What one messenger account has used: live rows of the last 24 h (the cap) and its newest attempt of any outcome (the spacing). */
 export type MessengerUsage = { sentLastDay: number; lastAttemptAt: string | null };
 
@@ -96,17 +101,17 @@ export function usageRefusal(u: MessengerUsage, limits: { dailyCap: number; spac
  * The write of `beginMessage`, inside its transaction: Stop sending, the account's cap and spacing, the actor's share of the cap and
  * the owner's word are read again here, then the `sending` row is inserted.
  */
-function insertMessengerSend(tx: WriteTx, input: NewMessengerSend): SendRow {
+function insertMessengerSend(tx: WriteTx, input: NewMessengerSend | NewPublicReplySend): SendRow {
   refuseWhenStopped(tx, input.project, "Stop sending is on");
   const refused = usageRefusal(usage(tx, input.channel, input.account, input.at), input.limits, input.at);
   if (refused) throw new RepoError("wrong_state", refused);
   if (input.limits.actorCap !== undefined) refuseOverActorCap(tx, input, input.limits.actorCap);
-  const word = input.ownerWord ?? null;
+  const word = "ownerWord" in input ? input.ownerWord ?? null : null;
   if (word !== null && tx.select({ id: sendLog.id }).from(sendLog).where(eq(sendLog.ownerWord, word)).get()) throw new RepoError("wrong_state", "this word of the owner was already used for a send: one send per word");
   try {
     return tx
       .insert(sendLog)
-      .values({ project: input.project, channel: input.channel, messengerDraftId: input.messengerDraftId, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text, ownerWord: word })
+      .values({ project: input.project, channel: input.channel, messengerDraftId: "messengerDraftId" in input ? input.messengerDraftId : null, publicProposalId: "publicProposalId" in input ? input.publicProposalId : null, publicTargetKey: "publicTargetKey" in input ? input.publicTargetKey : null, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text, ownerWord: word })
       .returning()
       .get();
   } catch (e) {
@@ -116,7 +121,7 @@ function insertMessengerSend(tx: WriteTx, input: NewMessengerSend): SendRow {
 }
 
 /** Decision 0048: this actor's own live rows on the account in 24 h stop at its share of the cap. */
-function refuseOverActorCap(tx: WriteTx, input: NewMessengerSend, cap: number): void {
+function refuseOverActorCap(tx: WriteTx, input: NewMessengerSend | NewPublicReplySend, cap: number): void {
   const since = new Date(new Date(input.at).getTime() - DAY_MS).toISOString();
   const mine = tx.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(eq(sendLog.channel, input.channel), eq(sendLog.sender, input.account), eq(sendLog.actor, input.actor), inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
   const n = Number(mine?.n ?? 0);
@@ -167,6 +172,7 @@ export function sendsRepo(db: Db) {
   const row = (id: number) => db.select().from(sendLog).where(eq(sendLog.id, id)).get() ?? null;
 
   return {
+    ...publicRepliesRepo(db, insertMessengerSend),
     async get(id: number): Promise<SendRow | null> {
       return row(id);
     },

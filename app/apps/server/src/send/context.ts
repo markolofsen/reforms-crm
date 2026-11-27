@@ -1,3 +1,4 @@
+import type { WatchDomain } from "../watch/start";
 import type { Repos } from "@hub/db";
 import type { Mailer } from "@hub/send/mailer";
 import type { SendDeps } from "@hub/send/assess";
@@ -49,6 +50,8 @@ export type SendContext = {
   repos: Repos;
   sender?: SenderOptions;
   messengers?: MessengerSenders;
+  /** Decision 0061: configured public sources and the shared account queue; never an automatic reply trigger. */
+  watch?: WatchDomain;
   /** P147 L5: the Leads reader, for the lead review's ticked Spam proposals (written in Notion). */
   leads?: LeadsHandle;
 };

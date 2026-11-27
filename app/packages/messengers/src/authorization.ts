@@ -24,7 +24,8 @@ import { MessengersError } from "./errors";
 export type MessengerAuthority =
   | { readonly kind: "owner_click"; readonly actor: "admin" }
   | { readonly kind: "owner_word"; readonly actor: typeof AGENT_WORD_SEND_ACTOR; readonly ownerWord: string }
-  | { readonly kind: "autopilot"; readonly actor: typeof AUTOPILOT_SEND_ACTOR; readonly turn: string; readonly reason?: typeof FOLLOW_UP_SEND_REASON };
+  | { readonly kind: "autopilot"; readonly actor: typeof AUTOPILOT_SEND_ACTOR; readonly turn: string; readonly reason?: typeof FOLLOW_UP_SEND_REASON }
+  | { readonly kind: "watch_review"; readonly actor: "watch_review"; readonly requestRef: string; readonly policyGeneration: string; readonly policyRevision: number; readonly reviewRef: string };
 
 /** The `send_log.actor` (and the draft's `confirmed_by`) of an authority. */
 export function actorOf(a: MessengerAuthority): string {
@@ -34,6 +35,7 @@ export function actorOf(a: MessengerAuthority): string {
     case "owner_word":
       return a.actor;
     case "autopilot":
+    case "watch_review":
       return a.actor;
     default:
       return unreachable(a);
@@ -49,6 +51,8 @@ export function referenceOf(a: MessengerAuthority): string | null {
       return a.ownerWord;
     case "autopilot":
       return a.turn;
+    case "watch_review":
+      return null;
     default:
       return unreachable(a);
   }
@@ -82,11 +86,50 @@ export interface SendAuthorization {
 const minted = new WeakSet<object>();
 
 /** The door's only: called once the assessment and the caller's confirmation agree. */
-export function mintAuthorization(f: Omit<SendAuthorization, typeof authorizedBrand>): SendAuthorization {
+const publicBrand: unique symbol = Symbol("public_reply_authorized");
+
+/** The public specialization of the same door: an exact reply, never a private messenger draft. */
+export interface PublicReplyAuthorization {
+  readonly [publicBrand]: true;
+  readonly targetKind: "public_reply";
+  readonly authority: Extract<MessengerAuthority, { kind: "watch_review" }>;
+  readonly project: string;
+  readonly proposalId: string;
+  readonly account: string;
+  readonly chatId: number;
+  readonly accessHash: string | null;
+  readonly replyToMessageId: number;
+  readonly threadId: number | null;
+  readonly text: string;
+  readonly textHash: string;
+  readonly randomId: string;
+  readonly policyGeneration: string;
+}
+type PublicAuthorizationFields = Omit<PublicReplyAuthorization, typeof publicBrand>;
+const publicMinted = new WeakSet<object>();
+
+export function mintAuthorization(f: Omit<SendAuthorization, typeof authorizedBrand>): SendAuthorization;
+export function mintAuthorization(f: PublicAuthorizationFields): PublicReplyAuthorization;
+export function mintAuthorization(f: Omit<SendAuthorization, typeof authorizedBrand> | PublicAuthorizationFields): SendAuthorization | PublicReplyAuthorization {
+  if ("targetKind" in f) {
+    const fields: PublicReplyAuthorization = { ...f, authority: Object.freeze({ ...f.authority }), [publicBrand]: true };
+    const a = Object.freeze(fields);
+    minted.add(a);
+    publicMinted.add(a);
+    return a;
+  }
   const a = Object.freeze({ ...f });
   minted.add(a);
   return a as unknown as SendAuthorization;
 }
+
+/** Only the public send adapter checks this; callers cannot forge or mutate a send after the audit. */
+export function assertPublicAuthorized(a: unknown): asserts a is PublicReplyAuthorization {
+  if (typeof a !== "object" || a === null || !minted.has(a) || !publicMinted.has(a)) {
+    throw new MessengersError("not_authorized", "not_authorized: a public reply needs the same send door's authorization");
+  }
+}
+
 
 /**
  * The check of the confirm and of the send: a minted authorization for exactly this row (project, draft, channel, chat) whose text

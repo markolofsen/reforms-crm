@@ -1,12 +1,14 @@
 import { Hono, type Context } from "hono";
-import { watchDto, watchJoinDto, watchJoinParam, watchProjectsDto, watchQuery, type WatchDto } from "@hub/contract/watch";
+import { watchDto, watchJoinDto, watchJoinParam, watchProjectsDto, watchQuery, watchContextDto, watchContextQuery, type WatchDto } from "@hub/contract/watch";
 import { slugParam } from "@hub/contract/requests";
-import { ANALYSE_AFTER_MESSAGES, ANALYSE_EVERY_MS } from "@hub/watch/analyse";
+import { ANALYSE_AFTER_MESSAGES } from "@hub/watch/analyse";
 import { ACCESS_WORDS, type WatchStore } from "@hub/watch/store";
 import { gateRefusal } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import type { WatchProject } from "./start";
 import type { WatchContext } from "./context";
+import { directionInfo, selectDirection } from "./directions";
+import { membershipView } from "./membership/read";
 
 // P144 W6: the Watch section's reads and the owner's Join. Reads are behind the general guard; Join takes the admin's exact
 // Origin, a loopback Host and `Sec-Fetch-Site: same-origin` (it asks Telegram to join one group, on the owner's word only). No
@@ -15,40 +17,49 @@ import type { WatchContext } from "./context";
 const DAY = 86_400_000;
 const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-function nextAnalysis(store: WatchStore, now: number): string | null {
+function nextAnalysis(store: WatchStore, now: number, groups: string[], minutes: number): string | null {
   let next: number | null = null;
-  for (const g of store.groups()) {
-    if (g.newSinceAnalysis === 0) continue;
-    const at = g.newSinceAnalysis >= ANALYSE_AFTER_MESSAGES ? now : Date.parse(g.lastAnalysisAt ?? g.addedAt) + ANALYSE_EVERY_MS;
+  for (const g of store.analysisGroups()) {
+    if (g.newSinceAnalysis === 0 || !groups.includes(g.username)) continue;
+    const at = g.newSinceAnalysis >= ANALYSE_AFTER_MESSAGES ? now : Date.parse(g.lastAnalysisAt ?? g.addedAt) + minutes * 60_000;
     next = next === null ? at : Math.min(next, at);
   }
   return next === null ? null : new Date(Math.max(next, now)).toISOString();
 }
 
-export async function watchBody(ctx: WatchContext, p: Extract<WatchProject, { state: "ready" }>, q: { days?: number | undefined; trigger?: string | undefined; minIntensity?: number | undefined; group?: string | undefined }): Promise<WatchDto> {
+export async function watchBody(ctx: WatchContext, p: Extract<WatchProject, { state: "ready" }>, q: { days?: number | undefined; trigger?: string | undefined; minIntensity?: number | undefined; group?: string | undefined; direction?: string | undefined }): Promise<WatchDto> {
   const now = ctx.now().getTime();
   const days = q.days ?? 30;
   const since = new Date(now - days * DAY).toISOString();
-  const s = p.store;
+  const selected = selectDirection(p, q.direction);
+  if (!selected.ok) throw new Error(selected.reason);
+  const { store: s, lens } = selected;
   const dayList = Array.from({ length: days }, (_, k) => dayOf(now - (days - 1 - k) * DAY));
   const trend = s.trend(since);
   const series = [...new Set(trend.map((t) => t.trigger))].sort().map((trigger) => ({ trigger, counts: dayList.map((d) => trend.find((t) => t.trigger === trigger && t.day === d)?.moments ?? 0) }));
-  const listed = new Set(p.config.groups);
+  const listed = new Set(selected.groups);
   const groups = s.groupStats(since).filter((g) => listed.has(g.username));
   const meta = new Map(s.groups().map((g) => [g.username, g]));
+  const analysis = s.analysisGroups().filter((g) => listed.has(g.username));
+  const lastAnalyses = analysis.flatMap((g) => g.lastAnalysisAt ? [g.lastAnalysisAt] : []).sort();
+  const membership = membershipView(ctx.domain, p, selected.id, selected.groups, selected.on);
   return {
     slug: p.slug,
-    lens: { id: p.lens.id, title: p.lens.title },
-    standing: ctx.domain?.standing(p) ?? { state: "off", reason: null, until: null },
-    notice: p.notice,
-    labels: Object.fromEntries(p.lens.triggers.map((t) => [t, p.lens.labels[t] ?? t])),
+    direction: selected.id,
+    directions: directionInfo(p),
+    freshness: { lastMessageAt: s.latestMessageAt(selected.groups), lastStoredAt: s.latestMessageAt(selected.groups, "stored"), pendingMessages: analysis.reduce((n, g) => n + g.newSinceAnalysis, 0), lastAnalysisAt: lastAnalyses.at(-1) ?? null },
+    lens: { id: lens.id, title: lens.title, version: lens.task.version },
+    membership: membership.summary,
+    standing: selected.on ? ctx.domain?.standing(p) ?? { state: "off", reason: null, until: null } : { state: "off", reason: "This watch direction is off.", until: null },
+    notice: selected.notice ?? p.notice,
+    labels: Object.fromEntries(lens.triggers.map((t) => [t, lens.labels[t] ?? t])),
     days,
-    spend: { monthMicroUsd: await ctx.monthCost(p.lens.task.name), budgetMicroUsd: Math.round((p.lens.task.budget?.monthlyUsd ?? 0) * 1e6) },
-    nextAnalysis: p.config.on ? nextAnalysis(s, now) : null,
+    spend: { monthMicroUsd: await ctx.monthCost(lens.task.name), budgetMicroUsd: Math.round((lens.task.budget?.monthlyUsd ?? 0) * 1e6) },
+    nextAnalysis: selected.on ? nextAnalysis(s, now, selected.groups, selected.analysisMinutes) : null,
     triggers: s.triggers(since).map((t) => ({ ...t, daily: series.find((x) => x.trigger === t.trigger)?.counts ?? dayList.map(() => 0) })),
     topics: s.topics(since),
     moods: groups.flatMap((g) => (g.lastMood ? [{ group: g.username, mood: g.lastMood }] : [])),
-    moments: s.moments({ since, ...(q.trigger ? { trigger: q.trigger } : {}), ...(q.minIntensity ? { minIntensity: q.minIntensity } : {}), ...(q.group ? { group: q.group } : {}), limit: 200 }).map((m) => ({
+    moments: s.moments({ since, groups: selected.groups, ...(q.trigger ? { trigger: q.trigger } : {}), ...(q.minIntensity ? { minIntensity: q.minIntensity } : {}), ...(q.group ? { group: q.group } : {}), limit: 200 }).map((m) => ({
       group: m.groupUsername,
       messageId: m.messageId,
       trigger: m.trigger,
@@ -77,7 +88,7 @@ export async function watchBody(ctx: WatchContext, p: Extract<WatchProject, { st
         moments: g.moments,
         costMicroUsd: g.costMicroUsd,
         lastPolledAt: row?.lastPolledAt ?? null,
-        canJoin: access === "join_required",
+        ...membership.group(g.username, access),
       };
     }),
     trend: { days: dayList, series },
@@ -98,7 +109,25 @@ export function watchRoutes(ctx: WatchContext) {
       const p = ctx.domain?.project(c.req.valid("param").slug);
       if (!p) return notFound(c, "watch list");
       if (p.state !== "ready") return c.json({ error: p.reason, code: "unavailable" as const }, 503);
+      const selected = selectDirection(p, c.req.valid("query").direction);
+      if (!selected.ok) return selected.state === "unknown" ? notFound(c, "watch direction") : c.json({ error: selected.reason, code: "unavailable" as const }, 503);
       return c.json(watchDto.parse(await watchBody(ctx, p, c.req.valid("query"))));
+    })
+    .get("/api/projects/:slug/watch/context", v("param", slugParam), v("query", watchContextQuery), (c) => {
+      const { slug } = c.req.valid("param");
+      const q = c.req.valid("query");
+      const p = ctx.domain?.project(slug);
+      if (!p) return notFound(c, "watch list");
+      if (p.state !== "ready") return c.json({ error: p.reason, code: "unavailable" as const }, 503);
+      const selected = selectDirection(p, q.direction);
+      if (!selected.ok) return selected.state === "unknown" ? notFound(c, "watch direction") : c.json({ error: selected.reason, code: "unavailable" as const }, 503);
+      if (!selected.groups.includes(q.group)) return notFound(c, "watched group");
+      const messages = selected.store.messageContext(q.group, q.messageId);
+      if (messages.length === 0) return notFound(c, "cached source message");
+      return c.json(watchContextDto.parse({ slug, direction: selected.id, group: q.group, messageId: q.messageId,
+        contextKind: "chronological", lastPolledAt: selected.store.group(q.group)?.lastPolledAt ?? null,
+        sourceLink: `https://t.me/${q.group}/${q.messageId}`, messages: messages.map((m) => ({ messageId: m.messageId, text: m.text, sentAt: m.sentAt,
+          author: m.senderHandle, replyToMessageId: m.replyToMessageId, threadId: m.threadId })) }));
     })
     .post("/api/projects/:slug/watch/groups/:username/join", v("param", watchJoinParam), async (c) => {
       const refused = door(c);

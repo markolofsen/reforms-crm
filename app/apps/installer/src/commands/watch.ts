@@ -1,3 +1,4 @@
+import { registerWatchActions } from "./watch-actions";
 // P144 W3: `hub watch import <audience.sqlite> --project <slug>`: the experiment's corpus into a project's watch store, so the
 // Watch section can be read and measured with no Telegram account. The lens named in the project's watch.md supplies the task
 // version. Reads the experiment's file read-only; writes only `data/watch/<slug>.db` (a behind file is refused: the server migrates).
@@ -35,5 +36,6 @@ export function register(parent: Command): Command {
         store.close();
       }
     });
+  registerWatchActions(program);
   return program;
 }

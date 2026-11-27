@@ -34,10 +34,10 @@ export interface GroupAnalysis {
 }
 
 /** Whether a group is due: enough new messages, or something new and the last analysis (or its adding) long enough ago. */
-export function analysisDue(g: { newSinceAnalysis: number; lastAnalysisAt: string | null; addedAt: string }, now: Date): boolean {
+export function analysisDue(g: { newSinceAnalysis: number; lastAnalysisAt: string | null; addedAt: string }, now: Date, everyMs = ANALYSE_EVERY_MS): boolean {
   if (g.newSinceAnalysis >= ANALYSE_AFTER_MESSAGES) return true;
   if (g.newSinceAnalysis === 0) return false;
-  return now.getTime() - Date.parse(g.lastAnalysisAt ?? g.addedAt) >= ANALYSE_EVERY_MS;
+  return now.getTime() - Date.parse(g.lastAnalysisAt ?? g.addedAt) >= everyMs;
 }
 
 /** The keep-filter: every condition holds (for crypto, the speaker's own position and no promoter). */
@@ -84,7 +84,7 @@ export async function analyseGroup(d: { llm: Llm; store: WatchStore; lens: Loade
   const firstNew = all.findIndex((m) => m.messageId > done);
   const out: GroupAnalysis = { windows: 0, failedWindows: 0, moments: 0, scriptAuthors: 0, costMicroUsd: 0, stopped: null };
   if (firstNew < 0) {
-    d.store.setGroup(username, { newSinceAnalysis: 0, lastAnalysisAt: d.now().toISOString() });
+    d.store.completeAnalysis(username, d.now(), done);
     return out;
   }
   // The script rule reads every stored message of the group: a template shows across days, not inside one window.
@@ -98,7 +98,8 @@ export async function analyseGroup(d: { llm: Llm; store: WatchStore; lens: Loade
     if (!w.ok) {
       out.failedWindows += 1;
       if (STOPS.includes(w.error.code)) out.stopped = w.error.code;
-      continue;
+      // Later results cannot move the cursor past a failed window: that gap must be retried.
+      break;
     }
     const first = byId.get(w.itemIds[0] ?? "");
     const last = byId.get(w.itemIds.at(-1) ?? "");
@@ -117,6 +118,7 @@ export async function analyseGroup(d: { llm: Llm; store: WatchStore; lens: Loade
     out.costMicroUsd += w.costMicroUsd;
   }
   // A run the cap or the key stopped leaves the count, so the next due run asks again; otherwise the group is up to date.
-  if (out.stopped === null) d.store.setGroup(username, { newSinceAnalysis: 0, lastAnalysisAt: d.now().toISOString() });
+  // The raw end includes deduplicated tail messages. No result means too little context, not an analysed window.
+  if (results.length > 0 && out.stopped === null && out.failedWindows === 0) d.store.completeAnalysis(username, d.now(), all.at(-1)?.messageId ?? done);
   return out;
 }

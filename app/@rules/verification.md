@@ -18,7 +18,7 @@ Scope: what "done" means for core work. History: decision 0047.
 7. MUST: every route is dynamic: the root layout keeps `dynamic = "force-dynamic"` (`architecture-and-ownership.md` rule 9), and the build needs no API.
 8. SHOULD: a new screen adds a flow to `apps/admin/e2e`; a flow that creates data is named `z-*.spec.ts`.
 9. SHOULD: a failure in an unrelated area is reported, not fixed in passing.
-10. MUST: the final gate shows that inbound messenger events and agent sessions can create unsent drafts but cannot call an adapter, mint a background `HumanActor` or `SendAuthorization` (P112 S2) or write a messenger `send_log` row.
+10. MUST: the final gate shows that ordinary inbound messenger events and Hub agent sessions can create unsent drafts but cannot call an adapter, mint a background `HumanActor` or `SendAuthorization` (P112 S2) or write a messenger `send_log` row. The explicitly owner-granted public Watch path (decision 0061) separately proves the protected policy, exact public source and reviewed text, fresh source/rules/permissions, shared Stop and account caps, and persisted delivery evidence without blind retries.
 
 ## Enforcement
 
@@ -31,4 +31,4 @@ Scope: what "done" means for core work. History: decision 0047.
 | 3 | `e2e/a-layout.spec.ts`, `e2e/c-console.spec.ts`, `e2e/z-keyboard.spec.ts`, `e2e/b-routing.spec.ts` |
 | 6 | `playwright.config.ts`, `e2e/stacks.ts`; `test/proxy.test.ts`; `e2e/d-guards.spec.ts` |
 | 7 | `e2e/d-build.spec.ts` |
-| 10 | `apps/server/test/draft-only.test.ts`; `packages/agent/test/deny-modes.test.ts` |
+| 10 | `apps/server/test/draft-only.test.ts`; `packages/agent/test/deny-modes.test.ts`; `packages/messengers/test/public-door.test.ts`; `apps/server/test/watch-actions.test.ts` |

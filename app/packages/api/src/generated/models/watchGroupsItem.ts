@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { WatchGroupsItemAccess } from './watchGroupsItemAccess';
+import type { WatchGroupsItemMembership } from './watchGroupsItemMembership';
 
 export type WatchGroupsItem = {
   username: string;
@@ -28,4 +29,5 @@ export type WatchGroupsItem = {
   /** @nullable */
   lastPolledAt: string | null;
   canJoin: boolean;
+  membership?: WatchGroupsItemMembership;
 };

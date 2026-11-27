@@ -35,7 +35,7 @@ The owner's own account (decision 0036; he connects his main number, the risk of
 
 Privacy (decision 0049, which amends 0036 point 3): with `cacheUnlinked` (the server's setting) every private chat's messages are cached for `CACHE_DAYS` (30) and the chat becomes known on its first inbound message; without it, a message of a chat that is not known is dropped in the event handler (and again at the drain), leaving no row, no counter and no log line. In both cases only its identity (id, name, phone, username) goes to `onUnlinked` for the autolink (P84, section below). A chat is linked by `linkUserChat` (the owner's pick in the dialog picker), `linkUserChatToRecord` (his Link of a Notion record) or the autolink's `autoLinkUserChat`, each of which also imports its last 30 days. The picker reads dialogs on demand; suggestions match a dialog's Telegram id or phone against the client's identifiers (`client_identifiers` has no username kind, so a username is never a suggestion source). Its `send` (P71 M4) takes only a `ConfirmedDraft` for a known chat (`chat_not_known` otherwise) and maps Telegram's refusal like a poll error; a park it reports parks the account.
 
-`@mtcute/node` depends on better-sqlite3 12; its native build is refused in `pnpm-workspace.yaml` (`allowBuilds: better-sqlite3: false`) because `MemoryStorage` never loads it. The server's supervisor is `apps/server/src/messengers/accounts/telegram-user.ts`.
+`@mtcute/node` depends on better-sqlite3 12; its native build is refused in `pnpm-workspace.yaml` (`allowBuilds: better-sqlite3: false`) because `MemoryStorage` never loads it. The server's supervisor is `apps/server/src/messengers/accounts/telegram-user.ts`. The public watch reader shares this connection: its first read takes the newest bounded page; later reads use an explicit reverse-history offset after the stored message id. `minId` alone with `reverse: true` returns an empty page in mtcute 0.32.8. Public reply and topic ids are retained; an id quoted from another chat is never treated as a local reply. Regression coverage: `test/telegram-public-api.test.ts`.
 
 ## WhatsApp as a linked device (P71 M5)
 
@@ -123,3 +123,9 @@ A **new** bot from @BotFather, token alone in `state/secrets/telegram-bot-token`
 `pnpm --filter @hub/messengers test`: Vitest, the `FakeAdapter`, `FakeMtClient`, `FakeLoginClient` and `FakeWaSocket`, an in-memory database. No network, no real token, no Telegram login, no WhatsApp socket (one test loads the real Baileys for its auth state and message mapping and builds no socket).
 
 Update this page when the architecture changes.
+
+## Reviewed public replies
+
+[Public replies](./PUBLIC_REPLIES.md) documents decision 0061's separate public target specialization of the shared send door.
+The public reader/join port has no sender. Externally reviewed text is stored immutably in `app.db`, then the same account
+Stop/cap/spacing audit gates the public reply capability; no private client/chat is created and no watcher timer generates replies.

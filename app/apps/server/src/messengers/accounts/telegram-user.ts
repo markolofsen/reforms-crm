@@ -1,3 +1,4 @@
+import { runningPublicSender, trackedPublicSender } from "./public-sender";
 import { offMode } from "@hub/config/modes";
 import type { TelegramUserAccountDto, TelegramUserStatusDto } from "@hub/contract/messengers";
 import type { Repos } from "@hub/db";
@@ -18,6 +19,7 @@ import {
   sessionsDir,
   type MtClient,
   type MtPublic,
+  type PublicReplySender,
   type MtLoginClient,
   type LoginCredentials,
   type DialogIdentity,
@@ -87,6 +89,7 @@ interface Slot {
   adapter: TelegramUserSendingAdapter | null;
   /** P144: the connection's public reads for the watcher, while it is connected. */
   public: MtPublic | null;
+  publicSender: PublicReplySender | null;
   /** P144: the owner's own calls on this connection in flight (polls, read-throughs, sends): the watcher waits while any is. */
   busy: number;
   done: Promise<void>;
@@ -127,6 +130,8 @@ export interface TelegramUserHandle {
   readThrough(project: string, chatId: string, budgetMs?: number): Promise<"live" | "saved">;
   /** The same account's send, for the server's send door only (P71 M4); undefined while the account is parked, stopped or absent. */
   sender(account: string): TelegramUserSendingAdapter | undefined;
+  /** Guarded public replies only; never handed to Watch ingestion. */
+  publicSender?(account: string): PublicReplySender | undefined;
   /** A send that Telegram answered with a park (logged out, banned, a long flood wait) parks the account as a poll would (0036 point 2). */
   sendFailed(account: string, err: AdapterError): Promise<void>;
   /** The login flows; a finished login writes the session and connects the account. */
@@ -167,7 +172,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
   async function open(account: string, p: string): Promise<void> {
     const st = blank(account);
     const ac = new AbortController();
-    const slot: Slot = { st, ac, adapter: null, public: null, busy: 0, done: Promise.resolve() };
+    const slot: Slot = { st, ac, adapter: null, public: null, publicSender: null, busy: 0, done: Promise.resolve() };
     slots.set(account, slot);
     const parked = parkedOf((await o.repos.messengers.account(p, CHANNEL, account))?.lastError);
     if (parked) return void park(st, parked);
@@ -199,6 +204,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
       try {
         client = (await clientsNow()).session(read.session);
         slot.public = client.public ?? null;
+        slot.publicSender = trackedPublicSender(client.publicSender, slot);
         // Decision 0049 (P141 U1): a private chat that writes becomes known unless the owner hid it; its cache keeps 30 days, since
         // opening the chat reads it through from Telegram.
         const adapter = createTelegramUserAdapter({ client: counted(client, slot), account, knownChats: () => knownChats(p), cacheUnlinked: true, cacheDays: CACHE_DAYS, ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}) });
@@ -214,6 +220,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
       } finally {
         slot.adapter = null;
         slot.public = null;
+        slot.publicSender = null;
         await client?.close().catch(() => undefined);
       }
     })();
@@ -277,6 +284,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
     adapter: (account) => live(account),
     // The same live adapter, typed with its send: only `app.ts` hands it on, to the send door.
     sender: (account) => (live(account) ? (slots.get(account)?.adapter ?? undefined) : undefined),
+    publicSender: (account) => runningPublicSender(slots.get(account)),
     async sendFailed(account, err) {
       const s = slots.get(account);
       if (!project || !s || !isParkedCode(err.code)) return;

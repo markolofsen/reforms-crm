@@ -1,3 +1,4 @@
+import { watchActionRoutes } from "./watch-actions-routes";
 import { Hono, type Context } from "hono";
 import { assess } from "@hub/send/assess";
 import { BATCH_LIMITS, batchTicketKey, planBatch, type BatchLimits } from "@hub/send/batch";
@@ -120,6 +121,7 @@ export function sendRoutes(services: SendContext) {
 
   return new Hono()
     .route("/", agentSendRoute(services))
+    .route("/", watchActionRoutes(services))
     // P147 L5 (decision 0055 point 2): the lead review and its one click, minting from this store; the run is the batch apply below.
     .route("/", leadReviewRoutes({ repos, deps, tickets, limits, adminPort: sender?.adminPort, projectsDir: sender?.projectsDir, leads: services.leads }))
     // P147 3n: the owner's Spam and Delete of one inbound message, and the agent's \`mail_junk\` (refused for someone we know).

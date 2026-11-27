@@ -1,11 +1,12 @@
+import { telegramPublicSender } from "./telegram-public-reply";
 import { Long, MemoryStorage, toggleChannelIdMark, type tl } from "@mtcute/core";
-import { TelegramClient, type Message, type Peer } from "@mtcute/node";
-import type { MtClient, MtMessage, MtPeer, MtPublic, MtPublicTarget } from "./telegram-user";
+import { TelegramClient, type Chat, type Message, type Peer } from "@mtcute/node";
+import type { MtClient, MtMessage, MtPeer, MtPublic, MtPublicChat, MtPublicTarget } from "./telegram-user";
 import type { LoginCredentials, MtLoginClient } from "./telegram-user-login";
 import type { UserSession } from "./sessions";
 
 /**
- * The real mtcute client (0.32.8, P71 M0 verdict a). The only file that imports mtcute, so tests and types never touch MTProto.
+ * The real mtcute client (0.32.8, P71 M0 verdict a). The provider boundary (with telegram-public-reply.ts); tests and domain types never touch MTProto.
  * Storage is `MemoryStorage`: the session lives in the one file `sessions.ts` writes (`exportSession` / `importSession`), and
  * better-sqlite3 12, which `@mtcute/node` depends on, is never loaded (its build is refused in `pnpm-workspace.yaml`). mtcute's own
  * log is off (level 0): its debug lines may name peers, and nothing of an unlinked chat may reach a log (decision 0036 point 3).
@@ -69,25 +70,59 @@ const NOT_PUBLIC = /USERNAME_NOT_OCCUPIED|USERNAME_INVALID|CHANNEL_INVALID|PEER_
 const inputOf = (t: MtPublicTarget): tl.TypeInputPeer | number =>
   t.accessHash !== null && t.id < -1_000_000_000_000 ? { _: "inputPeerChannel", channelId: toggleChannelIdMark(t.id), accessHash: Long.fromString(t.accessHash) } : t.id;
 
+const publicChatOf = (chat: Chat): MtPublicChat => ({
+  id: chat.id,
+  title: chat.title,
+  accessHash: chat.inputPeer._ === "inputPeerChannel" ? chat.inputPeer.accessHash.toString() : null,
+  isMember: chat.isMember,
+  kind: chat.chatType === "group" || chat.chatType === "supergroup" ? "group" : "channel",
+  canonicalUsername: chat.username?.toLowerCase() ?? null,
+  hasJoinRequests: chat.hasJoinRequests,
+});
+
 function publicOf(tg: TelegramClient): MtPublic {
   return {
     async resolve(username) {
       try {
         const chat = await tg.getChat(username);
-        const peer = chat.inputPeer;
-        return { id: chat.id, title: chat.title, accessHash: peer._ === "inputPeerChannel" ? peer.accessHash.toString() : null };
+        return publicChatOf(chat);
       } catch (e) {
         if (e instanceof Error && NOT_PUBLIC.test(e.message)) return null;
         throw e;
       }
     },
     async history(chat, o) {
-      const rows = await tg.getHistory(inputOf(chat), { limit: o.limit, ...(o.minId > 0 ? { minId: o.minId } : {}), reverse: true });
-      return rows.map((m) => ({ id: m.id, date: m.date, text: m.text, senderId: m.sender.type === "user" ? m.sender.id : null, senderUsername: m.sender.type === "user" ? m.sender.username : null }));
+      // mtcute's reverse history requires an explicit offset; minId alone silently returns no messages.
+      // Bootstrap from the newest bounded page, then drain newer messages oldest first without skipping a busy group's backlog.
+      const options = o.minId > 0 ? { limit: o.limit, minId: o.minId, offset: { id: o.minId + 1, date: 0 }, reverse: true } : { limit: o.limit };
+      const rows = await tg.getHistory(inputOf(chat), options);
+      return rows.filter((m) => m.id > o.minId).map((m) => ({
+        id: m.id,
+        date: m.date,
+        text: m.text,
+        senderId: m.sender.type === "user" ? m.sender.id : null,
+        senderUsername: m.sender.type === "user" ? m.sender.username : null,
+        // A quoted message in another chat has an unrelated id; never treat it as a local reply.
+        replyToMessageId: m.replyToMessage?.origin === "same_chat" ? m.replyToMessage.id : null,
+        threadId: m.replyToMessage?.threadId ?? null,
+      })).sort((a, b) => a.id - b.id);
+    },
+    async inspect(chat) {
+      try {
+        return publicChatOf(await tg.getChat(inputOf(chat)));
+      } catch (e) {
+        if (e instanceof Error && NOT_PUBLIC.test(e.message)) return null;
+        throw e;
+      }
     },
     async join(chat) {
-      const r = await tg.joinChat(inputOf(chat));
-      return r.status === "ok" ? "joined" : "pending";
+      try {
+        const r = await tg.joinChat(inputOf(chat));
+        return r.status === "ok" ? "joined" : r.status === "webview" ? "manual_required" : "pending";
+      } catch (e) {
+        if (typeof e === "object" && e !== null && Reflect.get(e, "text") === "USER_ALREADY_PARTICIPANT") return "joined";
+        throw e;
+      }
     },
   };
 }
@@ -137,6 +172,7 @@ export function mtcuteSessionClient(s: UserSession): MtClient {
       await tg.sendTyping(chatId, "typing");
     },
     public: publicOf(tg),
+    publicSender: telegramPublicSender(tg, inputOf),
     async close() {
       if (handlers) {
         tg.onNewMessage.remove(handlers.message);

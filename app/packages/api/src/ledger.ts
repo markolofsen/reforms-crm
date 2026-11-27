@@ -29,7 +29,7 @@ export const GENERATED_OPERATIONS = {
   send: ["createSendTicket", "createBatchSendTicket", "sendOneMailDraft", "sendMessengerDraft", "getBatchSend", "runBatchSend", "stopBatchSend", "getLeadReview", "confirmLeadReview", "listSends", "cancelSend", "stopSends", "resumeSends"],
   agent: ["getAgentFeed", "getAgentTools", "refreshAgentTools", "postFocus", "getPointer"],
   terminal: ["getTerminal", "createTerminalSession", "ensureTerminalSession", "dropTerminalFiles", "closeTerminalSession", "createTerminalTicket"],
-  watch: ["listWatchProjects", "getWatch", "joinWatchGroup"],
+  watch: ["listWatchProjects", "getWatch", "getWatchContext", "joinWatchGroup"],
 } as const;
 
 export type GeneratedOperation = (typeof GENERATED_OPERATIONS)[keyof typeof GENERATED_OPERATIONS][number];
@@ -57,3 +57,15 @@ export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
 };
 
 export const generatedOperations = (): readonly GeneratedOperation[] => Object.values(GENERATED_OPERATIONS).flat();
+
+
+/** Decision 0061: explicit local CLI-only operations. No browser function/client is generated for these doors.
+ * Server coverage is pinned by composition/operations.ts NOT_DECLARED; request/reply schemas live in @hub/contract/watch-actions.
+ */
+export const LOCAL_CLI_WATCH_ACTIONS = {
+  "get /api/projects/:slug/watch/actions/context": "fresh public source/permissions/rules snapshot",
+  "post /api/projects/:slug/watch/actions/proposals": "store an immutable externally reviewed proposal; no send",
+  "get /api/projects/:slug/watch/actions/proposals/:id": "review exact text and durable attempt/receipt status",
+  "post /api/projects/:slug/watch/actions/proposals/:id/send": "scoped watch_review authority through the shared messenger door",
+  "post /api/projects/:slug/watch/actions/proposals/:id/reconcile": "read an exact provider receipt; no retry or send",
+} as const;

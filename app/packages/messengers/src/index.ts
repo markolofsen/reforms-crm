@@ -81,3 +81,6 @@ export {
 export { CREDS as WA_CREDS, readWaAuth, waFolderOf, WaAuthFiles, type WaAuthRead } from "./whatsapp-auth";
 export { FakeBoom, FakeWaSocket } from "./fake-wa";
 export { openWaAppReader, WA_APP_DB, WA_APP_FIX, type WaAppReader, type WaAppSession, type WaAppState } from "./wa-app-reader";
+
+export type { PublicReplySender, PublicReplySnapshot, PublicReplyReceipt } from "./public-reply";
+export { PublicReplyError, publicReplyError } from "./public-reply";

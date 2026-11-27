@@ -2,6 +2,9 @@ import { join, resolve } from "node:path";
 import { openOwnFile, type SqliteClient } from "@hub/db";
 import { GroupRow, MessageRow, parseRows, type GroupAccess, type WatchGroup, type WatchMessage } from "./rows";
 import { createReads, type WatchReads } from "./read";
+import { DEFAULT_DIRECTION, DIRECTION_ID } from "../config";
+import { analysisGroups, completeAnalysis } from "./analysis";
+import { membershipStore, type MembershipStore } from "./membership";
 
 /**
  * The watch store of one project (P144 W3, verdict 12): its own file `data/watch/<slug>.db` through `@hub/db`'s `openOwnFile`,
@@ -11,6 +14,7 @@ import { createReads, type WatchReads } from "./read";
 
 export { GROUP_ACCESS, type GroupAccess, type WatchGroup, type WatchMessage, type WatchMoment, type WatchWindow } from "./rows";
 export type { WatchReads, TriggerStat, TopicStat, PersonStat, GroupStat, TrendDay, MomentFilter } from "./read";
+export { MEMBERSHIP_STATES, type WatchMembership, type MembershipPatch } from "./membership";
 
 const MIGRATIONS = resolve(import.meta.dirname, "..", "..", "migrations");
 
@@ -27,6 +31,8 @@ export interface NewMessage {
   senderHandle: string | null;
   text: string;
   sentAt: string;
+  replyToMessageId?: number | null;
+  threadId?: number | null;
 }
 
 export interface NewWindow {
@@ -75,8 +81,17 @@ const COLUMN: Record<keyof GroupPatch, string> = {
   lastAnalysisAt: "last_analysis_at",
 };
 
-export interface WatchStore extends WatchReads {
+export interface WatchStore extends WatchReads, MembershipStore {
   readonly project: string;
+  readonly direction: string;
+  /** Shared source rows, isolated analysis; closing a view never closes the owning connection. */
+  forDirection(id: string): WatchStore;
+  forGroups(usernames: readonly string[]): WatchStore;
+  analysisGroups(): WatchGroup[];
+  completeAnalysis(username: string, now: Date, throughMessageId: number): void;
+  /** Bounded chronological neighbours, never an inferred thread. */
+  messageContext(username: string, messageId: number): WatchMessage[];
+  latestMessageAt(usernames: readonly string[], kind?: "sent" | "stored"): string | null;
   /** The watch list's groups, added once (removing a username from watch.md keeps its rows; it is simply not polled). */
   ensureGroups(usernames: readonly string[], now: Date): void;
   groups(): WatchGroup[];
@@ -106,12 +121,31 @@ export function openWatchStore(file: string, o: { project: string; migrate?: boo
   return storeOn(h.client, o.project, h.close);
 }
 
-export function storeOn(c: SqliteClient, project: string, close: () => void = () => c.close()): WatchStore {
+export function storeOn(c: SqliteClient, project: string, close: () => void = () => c.close(), direction = DEFAULT_DIRECTION, groups?: readonly string[]): WatchStore {
   const p = project;
-  const reads = createReads(c, p);
+  if (!DIRECTION_ID.test(direction)) throw new Error("Invalid watch direction");
+  const reads = createReads(c, p, direction, groups);
   return {
     ...reads,
+    ...membershipStore(c, p),
     project: p,
+    direction,
+    forDirection: (id) => storeOn(c, p, () => undefined, id, groups),
+    forGroups: (usernames) => storeOn(c, p, () => undefined, direction, usernames),
+    analysisGroups: () => analysisGroups(c, p, direction),
+    completeAnalysis: (username, now, throughMessageId) => completeAnalysis(c, p, direction, username, now, throughMessageId),
+    latestMessageAt(usernames, kind = "sent") {
+      if (usernames.length === 0) return null;
+      const row: unknown = c.prepare(`SELECT max(${kind === "stored" ? "stored_at" : "sent_at"}) AS at FROM messages WHERE project=? AND group_username IN (${usernames.map(() => "?").join(",")})`).get(p, ...usernames);
+      return typeof row === "object" && row !== null && typeof Reflect.get(row, "at") === "string" ? String(Reflect.get(row, "at")) : null;
+    },
+    messageContext(username, messageId) {
+      const target = c.prepare("SELECT * FROM messages WHERE project=? AND group_username=? AND message_id=?").get(p, username, messageId);
+      if (target === undefined) return [];
+      const before = parseRows(MessageRow, c.prepare("SELECT * FROM messages WHERE project=? AND group_username=? AND message_id<? ORDER BY message_id DESC LIMIT 6").all(p, username, messageId)).reverse();
+      const after = parseRows(MessageRow, c.prepare("SELECT * FROM messages WHERE project=? AND group_username=? AND message_id>? ORDER BY message_id LIMIT 6").all(p, username, messageId));
+      return [...before, MessageRow.parse(target), ...after];
+    },
     ensureGroups(usernames, now) {
       const ins = c.prepare("INSERT INTO groups (project, username, added_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING");
       c.transaction(() => {
@@ -137,14 +171,14 @@ export function storeOn(c: SqliteClient, project: string, close: () => void = ()
       c.prepare("INSERT INTO resolve_days (project, day, resolves) VALUES (?, ?, 1) ON CONFLICT (project, day) DO UPDATE SET resolves = resolves + 1").run(p, d);
     },
     addMessages(username, messages, now) {
-      const ins = c.prepare("INSERT INTO messages (project, group_username, message_id, sender_id, sender_handle, text, sent_at, stored_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");
+      const ins = c.prepare("INSERT INTO messages (project, group_username, message_id, sender_id, sender_handle, text, sent_at, stored_at, reply_to_message_id, thread_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");
       const perDay = c.prepare("INSERT INTO group_days (project, group_username, day, messages) VALUES (?, ?, ?, 1) ON CONFLICT (project, group_username, day) DO UPDATE SET messages = messages + 1");
       return c.transaction(() => {
         let n = 0;
         let top = 0;
         for (const m of messages) {
           top = Math.max(top, m.messageId);
-          if (ins.run(p, username, m.messageId, m.senderId, m.senderHandle, m.text, m.sentAt, now.toISOString()).changes === 0) continue;
+          if (ins.run(p, username, m.messageId, m.senderId, m.senderHandle, m.text, m.sentAt, now.toISOString(), m.replyToMessageId ?? null, m.threadId ?? null).changes === 0) continue;
           n += 1;
           perDay.run(p, username, day(m.sentAt));
         }
@@ -159,18 +193,18 @@ export function storeOn(c: SqliteClient, project: string, close: () => void = ()
       );
     },
     windowsLastMessage(username) {
-      const r: unknown = c.prepare("SELECT coalesce(max(last_message_id), 0) AS n FROM windows WHERE project = ? AND group_username = ?").get(p, username);
+      const r: unknown = c.prepare("SELECT max(coalesce((SELECT max(last_message_id) FROM windows WHERE project=? AND direction=? AND group_username=?),0),coalesce((SELECT processed_through FROM analysis_state WHERE project=? AND direction=? AND group_username=?),0)) AS n").get(p, direction, username, p, direction, username);
       return r && typeof r === "object" && "n" in r && typeof r.n === "number" ? r.n : 0;
     },
-    hasWindow: (key) => c.prepare("SELECT 1 FROM windows WHERE project = ? AND window_key = ?").get(p, key) !== undefined,
+    hasWindow: (key) => c.prepare("SELECT 1 FROM windows WHERE project = ? AND direction = ? AND window_key = ?").get(p, direction, key) !== undefined,
     recordWindow(w, moments, now) {
-      const insW = c.prepare("INSERT INTO windows (project, window_key, group_username, first_message_id, last_message_id, messages, task_version, model, cost_micro_usd, topics, mood, first_at, last_at, analysed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");
-      const insM = c.prepare("INSERT INTO moments (project, group_username, message_id, trigger, trigger_other, intensity, quote, author_id, author_handle, reactors, reactor_handles, context, why, window_key, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");
+      const insW = c.prepare("INSERT INTO windows (project, direction, window_key, group_username, first_message_id, last_message_id, messages, task_version, model, cost_micro_usd, topics, mood, first_at, last_at, analysed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");
+      const insM = c.prepare("INSERT INTO moments (project, direction, group_username, message_id, trigger, trigger_other, intensity, quote, author_id, author_handle, reactors, reactor_handles, context, why, window_key, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING");
       return c.transaction(() => {
-        insW.run(p, w.windowKey, w.groupUsername, w.firstMessageId, w.lastMessageId, w.messages, w.taskVersion, w.model, Math.max(0, Math.round(w.costMicroUsd)), JSON.stringify(w.topics), w.mood, w.firstAt, w.lastAt, now.toISOString());
+        insW.run(p, direction, w.windowKey, w.groupUsername, w.firstMessageId, w.lastMessageId, w.messages, w.taskVersion, w.model, Math.max(0, Math.round(w.costMicroUsd)), JSON.stringify(w.topics), w.mood, w.firstAt, w.lastAt, now.toISOString());
         let n = 0;
         for (const m of moments) {
-          n += insM.run(p, m.groupUsername, m.messageId, m.trigger, m.triggerOther, Math.round(m.intensity), m.quote, m.authorId, m.authorHandle, m.reactorHandles.length, JSON.stringify(m.reactorHandles), m.context, m.why, m.windowKey, m.at).changes;
+          n += insM.run(p, direction, m.groupUsername, m.messageId, m.trigger, m.triggerOther, Math.round(m.intensity), m.quote, m.authorId, m.authorHandle, m.reactorHandles.length, JSON.stringify(m.reactorHandles), m.context, m.why, m.windowKey, m.at).changes;
         }
         return n;
       })();
@@ -189,9 +223,9 @@ export function storeOn(c: SqliteClient, project: string, close: () => void = ()
 /** The access words a group's row shows (the Groups view). */
 export const ACCESS_WORDS: Record<GroupAccess, string> = {
   unknown: "not read yet",
-  open: "read without joining",
+  open: "history available",
   join_required: "this group must be joined to be read",
   pending: "join request waiting for the group's admin",
-  joined: "joined, read",
+  joined: "history available",
   refused: "Telegram refused to show it",
 };

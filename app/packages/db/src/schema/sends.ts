@@ -16,6 +16,33 @@ export type SendChannel = (typeof SEND_CHANNELS)[number];
 
 export type SendStatus = (typeof SEND_STATUSES)[number];
 
+/** Decision 0061: an immutable reviewed public reply; no private chat or client is manufactured. */
+export const watchPublicProposals = sqliteTable("watch_public_proposals", {
+  id: text("id").primaryKey(),
+  project: text("project").notNull(),
+  direction: text("direction").notNull(),
+  account: text("account").notNull(),
+  groupUsername: text("group_username").notNull(),
+  chatId: integer("chat_id").notNull(),
+  accessHash: text("access_hash"),
+  replyToMessageId: integer("reply_to_message_id").notNull(),
+  threadId: integer("thread_id"),
+  targetKey: text("target_key").notNull(),
+  text: text("text").notNull(),
+  textHash: text("text_hash").notNull(),
+  sourceHash: text("source_hash").notNull(),
+  sourceAt: text("source_at").notNull(),
+  rulesHash: text("rules_hash").notNull(),
+  policyGeneration: text("policy_generation").notNull(),
+  policyRevision: integer("policy_revision").notNull(),
+  strategyHash: text("strategy_hash").notNull(),
+  reviewRef: text("review_ref").notNull(),
+  reviewedAt: text("reviewed_at").notNull(),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  randomId: text("random_id").notNull(),
+}, (t) => [index("watch_public_proposals_project_created").on(t.project, t.createdAt)]);
+
 export const sendLog = sqliteTable(
   "send_log",
   {
@@ -44,11 +71,16 @@ export const sendLog = sqliteTable(
     // Decision 0046 (migration 0034): the session-log reference of the owner's word an agent send went out on
     // (`<session>@<ts>`), null for every other send. Unique: one send per word.
     ownerWord: text("owner_word"),
+    // A public proposal uses its own identity and immutable target, never messenger_draft_id.
+    publicProposalId: text("public_proposal_id").references(() => watchPublicProposals.id),
+    publicTargetKey: text("public_target_key"),
   },
   (t) => [
     uniqueIndex("send_log_owner_word").on(t.ownerWord).where(sql`${t.ownerWord} is not null`),
     uniqueIndex("send_log_draft_live").on(t.draftId).where(sql`${t.status} in ('queued','sending','sent')`),
     uniqueIndex("send_log_messenger_draft_live").on(t.messengerDraftId).where(sql`${t.status} in ('queued','sending','sent')`),
+    uniqueIndex("send_log_public_proposal").on(t.publicProposalId).where(sql`${t.publicProposalId} is not null`),
+    uniqueIndex("send_log_public_target_live").on(t.publicTargetKey).where(sql`${t.publicTargetKey} is not null and ${t.status} in ('queued','sending','sent')`),
     index("send_log_project_created").on(t.project, t.createdAt),
     index("send_log_due").on(t.status, t.dueAt),
     index("send_log_channel_sender").on(t.channel, t.sender, t.createdAt),

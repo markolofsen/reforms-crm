@@ -95,7 +95,8 @@ export const keys = {
   /** The review of one batch; `read` tells the stored first paint and a selection's read apart (a prefix of the batch's key). */
   /** P144: the projects that watch public groups (the nav shows Watch only when one does), and one project's Watch page. */
   watchProjects: () => ["watch"] as const,
-  watch: (project: string, days: number, trigger: string | null, group: string | null) => ["watch", project, days, trigger, group] as const,
+  watch: (project: string, direction: string, days: number, trigger: string | null, group: string | null) => ["watch", project, direction, "view", days, trigger, group] as const,
+  watchContext: (project: string, direction: string, group: string, messageId: number) => ["watch", project, direction, "context", group, messageId] as const,
   leadReview: (project: string, batchId: number, read?: string) => (read === undefined ? (["inbound", project, "lead-review", batchId] as const) : (["inbound", project, "lead-review", batchId, read] as const)),
 };
 

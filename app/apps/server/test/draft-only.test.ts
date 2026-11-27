@@ -7,9 +7,8 @@ import { API_VERSION } from "@hub/contract/health";
 import { testApp } from "./support/runtime";
 import { captureOps } from "@hub/log/ops";
 
-// The draft-only invariant (`@rules/README.md` rule 3, amended by decision 0011): the agent makes drafts and has no send
-// tool; a person sends, from the admin's confirmed Send. This file is the test that the one send route is the only
-// one, no status says sent, and nothing in the API can set one.
+// Ordinary draft/inbound paths remain draft-only. Explicit decisions add named guarded delivery entry points:
+// owner-confirmed sends, attended owner-word sends and protected public Watch review (0061), never a raw agent sender.
 
 let handle: DbHandle;
 let repos: Repos;
@@ -47,7 +46,7 @@ async function seedBatch(clientIds: number[]) {
   return batchId;
 }
 
-describe("no route sends", () => {
+describe("only declared guarded routes send", () => {
   it("has exactly one route that sends per kind of draft (Mail's, and a messenger's since P71 M4), each a POST that names its project and draft", () => {
     const paths = [...new Set(app.routes.map((r) => `${r.method} ${r.path}`))];
     expect(paths.length).toBeGreaterThan(15);
@@ -55,7 +54,18 @@ describe("no route sends", () => {
     // `.../sends` (history) and `.../sends/stop|resume|cancel` only read or remove work; the ones that send are below. P85b: a
     // batch's Send all Checked is the third (its GET reads the run's progress, its `/send/stop` only removes work). Decision 0046:
     // the fourth is the agent's send of one messenger draft on the owner's word, the same door (`applyMessenger`) as the third.
-    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/agent-send", "POST /api/projects/:slug/messengers/drafts/:id/send"]);
+    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/agent-send", "POST /api/projects/:slug/messengers/drafts/:id/send", "POST /api/projects/:slug/watch/actions/proposals/:id/send"]);
+  });
+
+  it("decision 0061: public Watch actions refuse ordinary browser/agent requests before any audit write", async () => {
+    const id = "a".repeat(64);
+    for (const path of [
+      "/api/projects/p/watch/actions/proposals",
+      `/api/projects/p/watch/actions/proposals/${id}/send`,
+      `/api/projects/p/watch/actions/proposals/${id}/reconcile`,
+    ]) expect((await post(path, { textHash: "b".repeat(64) })).status).toBe(403);
+    expect((await get("/api/projects/p/watch/actions/context?direction=default&group=public_group&messageId=1")).status).toBe(403);
+    expect(handle.db.$client.prepare("select count(*) as n from send_log").get()).toEqual({ n: 0 });
   });
 
   it("only the confirmed send route imports the sender, and only send/mailer.ts names the real Mailer", () => {
@@ -84,6 +94,10 @@ describe("no route sends", () => {
     expect(deliver).toMatch(/kind: "autopilot", actor: AUTOPILOT_SEND_ACTOR/);
     expect(deliver).not.toMatch(/owner_click|owner_word|\.sender\(/);
     expect(src.filter((f) => /\.sender\(account\)/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/messenger-senders.ts"]);
+    // Decision 0061: only the public action service calls the staged public specialization; ordinary handlers cannot mint it.
+    expect(src.filter((f) => /\bapplyPublicReply\(/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/watch-actions.ts"]);
+    const publicActions = readFileSync(join(dir, "send/watch-actions.ts"), "utf8");
+    expect(publicActions).not.toMatch(/humanActor|mintAuthorization|owner_click|owner_word/);
   });
 
   it("calls a messenger's confirmed send from the server's door only, in every package and app (P126 D0)", () => {

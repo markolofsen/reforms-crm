@@ -47,8 +47,8 @@ export const GroupRow = z
 export type WatchGroup = z.output<typeof GroupRow>;
 
 export const MessageRow = z
-  .object({ group_username: z.string(), message_id: z.number().int(), sender_id: z.string().nullable(), sender_handle: z.string().nullable(), text: z.string(), sent_at: z.string() })
-  .transform((r) => ({ groupUsername: r.group_username, messageId: r.message_id, senderId: r.sender_id, senderHandle: r.sender_handle, text: r.text, sentAt: r.sent_at }));
+  .object({ group_username: z.string(), message_id: z.number().int(), sender_id: z.string().nullable(), sender_handle: z.string().nullable(), text: z.string(), sent_at: z.string(), reply_to_message_id: z.number().int().nullable().optional(), thread_id: z.number().int().nullable().optional() })
+  .transform((r) => ({ groupUsername: r.group_username, messageId: r.message_id, senderId: r.sender_id, senderHandle: r.sender_handle, text: r.text, sentAt: r.sent_at, replyToMessageId: r.reply_to_message_id ?? null, threadId: r.thread_id ?? null }));
 export type WatchMessage = z.output<typeof MessageRow>;
 
 export const MomentRow = z

@@ -45,7 +45,8 @@
     "./inbox": "./src/inbox.ts",
     "./settings": "./src/settings.ts",
     "./lens": "./src/lens.ts",
-    "./watch": "./src/watch.ts"
+    "./watch": "./src/watch.ts",
+    "./watch-actions": "./src/watch-actions.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -3,7 +3,7 @@ import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } f
 import { keyText, parseClientKey } from "@hub/contract/client-key";
 import { LEAD_VIEWS, type LeadView } from "@hub/contract/inbound";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
-import { WATCH_VIEWS, type WatchView } from "@hub/contract/watch";
+import { WATCH_VIEWS, watchContextQuery, watchQuery, type WatchView } from "@hub/contract/watch";
 import { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView } from "@hub/contract/messenger-panel";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
@@ -131,7 +131,20 @@ export const MESSENGERS_SEARCH = { filter: view(MESSENGER_VIEWS, "needs_you"), l
 /** P144: Watch's view (Triggers, the default; Topics, Moments, People, Groups, Trend), its period in days, a trigger and a group (`moments` narrows to them). */
 export const WATCH_DAYS = ["7", "30", "90"] as const;
 const name: SearchKeySpec<string> = { read: (v) => (v !== undefined && /^[a-z0-9_]{1,64}$/.test(v) ? v : ""), fallback: "" };
-export const WATCH_SEARCH = { view: view(WATCH_VIEWS, "triggers"), days: view(WATCH_DAYS, "30"), trigger: name, group: name } as const;
+/** Direction and context names use the API's validators; malformed deep links reset safely. */
+const watchDirection: SearchKeySpec<string> = {
+  read: (v) => { const parsed = watchQuery.shape.direction.safeParse(v); return parsed.success ? (parsed.data ?? "") : ""; },
+  fallback: "",
+};
+const contextGroup: SearchKeySpec<string> = {
+  read: (v) => { const parsed = watchContextQuery.shape.group.safeParse(v); return parsed.success ? parsed.data : ""; },
+  fallback: "",
+};
+const watchMessageId: SearchKeySpec<number | null> = {
+  read: (v) => { const id = positiveInt(v); return id !== null && Number.isSafeInteger(id) ? id : null; },
+  fallback: null,
+};
+export const WATCH_SEARCH = { view: view(WATCH_VIEWS, "triggers"), days: view(WATCH_DAYS, "30"), trigger: name, group: name, direction: watchDirection, contextGroup, messageId: watchMessageId } as const;
 export { WATCH_VIEWS, type WatchView };
 
 export { KNOWLEDGE_VIEWS, type KnowledgeView };

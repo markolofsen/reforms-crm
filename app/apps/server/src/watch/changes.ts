@@ -15,6 +15,7 @@ export function configChanges(a: WatchConfig, b: WatchConfig): string[] {
   if (removed.length) out.push(`-${plural(removed.length, "group")} (${list(removed, (g) => `@${g}`)})`);
   if (a.on !== b.on) out.push(b.on ? "switched on" : "switched off");
   if (a.pollMinutes !== b.pollMinutes) out.push(`polled every ${b.pollMinutes} min`);
+  if (JSON.stringify(a.directions ?? []) !== JSON.stringify(b.directions ?? [])) out.push("directions changed");
   return out;
 }
 

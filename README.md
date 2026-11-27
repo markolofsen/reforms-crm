@@ -65,6 +65,7 @@ The one index. Every page below owns its facts; others link to it.
 | Live panels: how the admin updates by itself within a second while an agent writes (`GET /api/live`, the database triggers) | [`@docs/core/06-local-admin-app.md`, Live updates](@docs/core/06-local-admin-app.md#live-updates-p50-decision-0028-in-the-owners-plan-repo) |
 | The stack and where files live (`HUB_HOME`) | [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md) |
 | Messengers (optional Telegram, receive only) | [`app/packages/messengers/README.md`](app/packages/messengers/README.md) |
+| Public Telegram Watch: shared reads, independent directions, cached context and owner-granted public actions | [`@docs/core/31-watch.md`](@docs/core/31-watch.md) |
 | Bulk drafts, the review queue and Sent detection | [`@docs/core/14-bulk-send-interface.md`](@docs/core/14-bulk-send-interface.md) |
 | The skill and pack that deploy a CRM into Notion | [`@docs/core/15-notion-project-deploy-skill.md`](@docs/core/15-notion-project-deploy-skill.md) |
 | `project.md` schema v1, knowledge, routing, setup interview | [`@docs/core/16-projects-and-knowledge.md`](@docs/core/16-projects-and-knowledge.md) |

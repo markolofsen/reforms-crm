@@ -12,4 +12,5 @@ export type WatchJoinAccess = typeof WatchJoinAccess[keyof typeof WatchJoinAcces
 export const WatchJoinAccess = {
   joined: 'joined',
   pending: 'pending',
+  manual_required: 'manual_required',
 } as const;

@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     "./config": "./src/config.ts",
+    "./policy": "./src/policy.ts",
+    "./account-state": "./src/reader/account-state.ts",
     "./lens": "./src/lens/load.ts",
     "./store": "./src/store/repo.ts",
     "./analyse": "./src/analyse/job.ts",

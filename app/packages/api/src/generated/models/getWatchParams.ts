@@ -7,6 +7,8 @@
  */
 
 export type GetWatchParams = {
+  /** @pattern ^[a-z][a-z0-9-]{0,62}$ */
+  direction?: string;
   /**
    * @minimum 1
    * @maximum 180

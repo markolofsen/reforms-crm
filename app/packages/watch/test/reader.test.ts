@@ -72,10 +72,10 @@ function fakeReader(o: { joinRequired?: string[]; flood?: number; messages?: num
 const config = (groups: string[], on = true): WatchConfig => ({ lens: "watch-acme", on, account: "default", pollMinutes: 5, groups });
 
 describe("the public reader", () => {
-  it("has exactly resolve, history and join: no send, reaction, mark-read, member list or search", () => {
+  it("has exactly resolve, inspect, history and join: no send, reaction, mark-read, member list or search", () => {
     // A key added to PublicReader fails this file's typecheck (the record must name every key) and this assertion.
-    const keys: Record<keyof PublicReader, true> = { resolve: true, history: true, join: true };
-    expect(Object.keys(keys).sort()).toEqual(["history", "join", "resolve"]);
+    const keys: Record<keyof PublicReader, true> = { resolve: true, inspect: true, history: true, join: true };
+    expect(Object.keys(keys).sort()).toEqual(["history", "inspect", "join", "resolve"]);
   });
 });
 

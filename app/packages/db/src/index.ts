@@ -138,3 +138,5 @@ export function recordCleanedReplyAt(dbPath: string, o: Parameters<typeof record
     return false;
   }
 }
+
+export type { PublicReplyProposalRow, NewPublicReplyProposal } from "./repos/sends";

@@ -11,6 +11,10 @@ export interface PublicPeer {
   title: string | null;
   /** The channel's access hash for this account (P153 D4), so a read after a restart needs no resolve; null when unknown. */
   accessHash?: string | null;
+  isMember?: boolean;
+  kind?: "group" | "channel";
+  canonicalUsername?: string | null;
+  hasJoinRequests?: boolean;
 }
 
 export interface PublicMessage {
@@ -21,6 +25,8 @@ export interface PublicMessage {
   senderHandle: string | null;
   text: string;
   sentAt: string;
+  replyToMessageId?: number | null;
+  threadId?: number | null;
 }
 
 export type HistoryRead =
@@ -28,11 +34,13 @@ export type HistoryRead =
   /** Telegram shows this group's history only to members (`join_required`), or not at all (`private`). */
   | { ok: false; reason: "join_required" | "private" };
 
-export type JoinResult = "joined" | "pending";
+export type JoinResult = "joined" | "pending" | "manual_required";
 
 export interface PublicReader {
   /** The peer of a public username, or null when no public group or channel has it. */
   resolve(username: string): Promise<PublicPeer | null>;
+  /** Fresh membership metadata by cached peer, without another username lookup. */
+  inspect?(peer: PublicPeer): Promise<PublicPeer | null>;
   /** Messages newer than `minId`, oldest first, at most `limit`; read without marking anything read. */
   history(peer: PublicPeer, o: { minId: number; limit: number }): Promise<HistoryRead>;
   /** Joins (or asks to join) one group: only from the owner's Join button. */

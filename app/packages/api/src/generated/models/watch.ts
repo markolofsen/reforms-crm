@@ -5,9 +5,12 @@
  * Emitted by the server from its declared operations and the @hub/contract schemas (P120). Streams and files are declared for their URL only.
  * OpenAPI spec version: 0.2.0
  */
+import type { WatchDirectionsItem } from './watchDirectionsItem';
+import type { WatchFreshness } from './watchFreshness';
 import type { WatchGroupsItem } from './watchGroupsItem';
 import type { WatchLabels } from './watchLabels';
 import type { WatchLens } from './watchLens';
+import type { WatchMembership } from './watchMembership';
 import type { WatchMomentsItem } from './watchMomentsItem';
 import type { WatchMoodsItem } from './watchMoodsItem';
 import type { WatchPeopleItem } from './watchPeopleItem';
@@ -19,7 +22,11 @@ import type { WatchTriggersItem } from './watchTriggersItem';
 
 export interface Watch {
   slug: string;
+  direction?: string;
+  directions?: WatchDirectionsItem[];
+  freshness?: WatchFreshness;
   lens: WatchLens;
+  membership?: WatchMembership;
   standing: WatchStanding;
   /** @nullable */
   notice: string | null;

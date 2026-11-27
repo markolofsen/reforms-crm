@@ -28,6 +28,7 @@ export const WATCH_VIEWS = ["triggers", "topics", "moments", "people", "groups",
 export type WatchView = (typeof WATCH_VIEWS)[number];
 
 export const watchQuery = z.object({
+  direction: z.string().regex(/^[a-z][a-z0-9-]{0,62}$/).optional(),
   /** Days back, 1 to 180 (default 30). */
   days: z.coerce.number().int().min(1).max(180).optional(),
   trigger: z.string().max(64).optional(),
@@ -36,6 +37,10 @@ export const watchQuery = z.object({
 });
 
 export const GROUP_ACCESS_STATES = ["unknown", "open", "join_required", "pending", "joined", "refused"] as const;
+export const watchMembershipDto = z.strictObject({
+  state: z.enum(["unknown", "not_member", "queued", "joining", "joined", "pending", "manual_required", "refused"]),
+  checkedAt: z.string().nullable(), joinedAt: z.string().nullable(), queuedAt: z.string().nullable(), nextAttemptAt: z.string().nullable(), reason: z.string().nullable(),
+});
 
 const momentDto = z.strictObject({
   group: z.string(),
@@ -57,7 +62,11 @@ export type WatchMomentDto = z.infer<typeof momentDto>;
 
 export const watchDto = z.strictObject({
   slug: z.string(),
-  lens: z.strictObject({ id: z.string(), title: z.string() }).nullable(),
+  direction: z.string().optional(),
+  directions: z.array(z.strictObject({ id: z.string(), title: z.string(), lens: z.string(), enabled: z.boolean(), state: z.enum(["ready", "lens"]), reason: z.string().nullable() })).optional(),
+  freshness: z.strictObject({ lastMessageAt: z.string().nullable(), lastStoredAt: z.string().nullable().optional(), pendingMessages: z.number().int(), lastAnalysisAt: z.string().nullable() }).optional(),
+  lens: z.strictObject({ id: z.string(), title: z.string(), version: z.number().int().optional() }).nullable(),
+  membership: z.strictObject({ enabled: z.boolean(), reason: z.string().nullable(), dailyLimit: z.number().int(), usedToday: z.number().int(), queued: z.number().int(), nextJoinAt: z.string().nullable() }).optional(),
   standing: watchStandingDto,
   /**
    * P153: what the server could not take from a changed watch.md or lens.json (the running list or lens is kept), or that the
@@ -89,6 +98,7 @@ export const watchDto = z.strictObject({
       costMicroUsd: z.number().int(),
       lastPolledAt: z.string().nullable(),
       canJoin: z.boolean(),
+      membership: watchMembershipDto.optional(),
     }),
   ),
   trend: z.strictObject({ days: z.array(z.string()), series: z.array(z.strictObject({ trigger: z.string(), counts: z.array(z.number().int()) })) }),
@@ -96,5 +106,18 @@ export const watchDto = z.strictObject({
 export type WatchDto = z.infer<typeof watchDto>;
 
 export const watchJoinParam = z.object({ slug: z.string().min(1), username: z.string().regex(/^[a-z][a-z0-9_]{3,31}$/) });
-export const watchJoinDto = z.strictObject({ access: z.enum(["joined", "pending"]) });
+export const watchJoinDto = z.strictObject({ access: z.enum(["joined", "pending", "manual_required"]) });
 export type WatchJoinDto = z.infer<typeof watchJoinDto>;
+
+export const watchContextQuery = z.object({
+  direction: z.string().regex(/^[a-z][a-z0-9-]{0,62}$/).optional(),
+  group: z.string().regex(/^[a-z][a-z0-9_]{3,31}$/),
+  messageId: z.coerce.number().int().positive(),
+});
+export const watchContextDto = z.strictObject({
+  slug: z.string(), direction: z.string(), group: z.string(), messageId: z.number().int(),
+  contextKind: z.literal("chronological"), lastPolledAt: z.string().nullable(), sourceLink: z.string(),
+  messages: z.array(z.strictObject({ messageId: z.number().int(), text: z.string(), sentAt: z.string(), author: z.string().nullable(),
+    replyToMessageId: z.number().int().nullable(), threadId: z.number().int().nullable() })).max(13),
+});
+export type WatchContextDto = z.infer<typeof watchContextDto>;

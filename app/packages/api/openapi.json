@@ -6984,6 +6984,15 @@
             }
           },
           {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            }
+          },
+          {
             "name": "days",
             "in": "query",
             "required": false,
@@ -7029,6 +7038,76 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Watch"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/watch/context": {
+      "get": {
+        "operationId": "getWatchContext",
+        "summary": "Read bounded chronological source context for one selected direction",
+        "tags": [
+          "watch"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{3,31}$"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read bounded chronological source context for one selected direction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchContext"
                 }
               }
             }
@@ -25336,6 +25415,85 @@
           "slug": {
             "type": "string"
           },
+          "direction": {
+            "type": "string"
+          },
+          "directions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "lens": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "ready",
+                    "lens"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "lens",
+                "enabled",
+                "state",
+                "reason"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "freshness": {
+            "type": "object",
+            "properties": {
+              "lastMessageAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "lastStoredAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pendingMessages": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "lastAnalysisAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "lastMessageAt",
+              "pendingMessages",
+              "lastAnalysisAt"
+            ],
+            "additionalProperties": false
+          },
           "lens": {
             "anyOf": [
               {
@@ -25346,6 +25504,11 @@
                   },
                   "title": {
                     "type": "string"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
                   }
                 },
                 "required": [
@@ -25358,6 +25521,50 @@
                 "type": "null"
               }
             ]
+          },
+          "membership": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dailyLimit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "usedToday": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "queued": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "nextJoinAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "enabled",
+              "reason",
+              "dailyLimit",
+              "usedToday",
+              "queued",
+              "nextJoinAt"
+            ],
+            "additionalProperties": false
           },
           "standing": {
             "type": "object",
@@ -25688,6 +25895,63 @@
                 },
                 "canJoin": {
                   "type": "boolean"
+                },
+                "membership": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "not_member",
+                        "queued",
+                        "joining",
+                        "joined",
+                        "pending",
+                        "manual_required",
+                        "refused"
+                      ]
+                    },
+                    "checkedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "joinedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "queuedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "nextAttemptAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "checkedAt",
+                    "joinedAt",
+                    "queuedAt",
+                    "nextAttemptAt",
+                    "reason"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -25765,6 +26029,108 @@
         ],
         "additionalProperties": false
       },
+      "WatchContext": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "contextKind": {
+            "type": "string",
+            "const": "chronological"
+          },
+          "lastPolledAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceLink": {
+            "type": "string"
+          },
+          "messages": {
+            "maxItems": 13,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "messageId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "text": {
+                  "type": "string"
+                },
+                "sentAt": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "replyToMessageId": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "threadId": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "messageId",
+                "text",
+                "sentAt",
+                "author",
+                "replyToMessageId",
+                "threadId"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "slug",
+          "direction",
+          "group",
+          "messageId",
+          "contextKind",
+          "lastPolledAt",
+          "sourceLink",
+          "messages"
+        ],
+        "additionalProperties": false
+      },
       "WatchJoin": {
         "type": "object",
         "properties": {
@@ -25772,7 +26138,8 @@
             "type": "string",
             "enum": [
               "joined",
-              "pending"
+              "pending",
+              "manual_required"
             ]
           }
         },

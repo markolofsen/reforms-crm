@@ -5,6 +5,7 @@ import { readWatch } from "@hub/watch/config";
 import { lensDataFile, lensFile, redeclareLens, stampOf, type LensModuleFn } from "@hub/watch/lens";
 import { configChanges, lensChanges } from "./changes";
 import type { WatchProject } from "./start";
+import { loadDirections } from "./directions";
 
 // P153 (plan verdict 4, D2): one ready project's change check. A valid watch.md or lens.json is taken while running and written
 // as one Activity line; an invalid one keeps what runs and says why (`notice`); a change to the lens's code waits for a restart.
@@ -72,4 +73,12 @@ export async function reloadReady(c: ChangeCtx, p: Extract<WatchProject, { state
   }
   const codeStamp = stampOf(lensFile(c.paths.instancePackages, lensName));
   if (codeStamp !== src.codeStamp && p.notice === null) p.notice = `The code of lens ${lensName} changed: restart the server to load it. The running lens is kept.`;
+  const previous = JSON.stringify(p.directions?.map((d) => [d.config, d.lens?.task.version, d.source.dataStamp, d.notice]));
+  p.directions = await loadDirections(c.paths.instancePackages, p.config, p.directions);
+  const current = JSON.stringify(p.directions.map((d) => [d.config, d.lens?.task.version, d.source.dataStamp, d.notice]));
+  if (previous !== current) {
+    p.watcher.update({ config: p.config }, { timers: c.timers });
+    c.bump(p.slug);
+    await c.activity(p.slug, "Watch directions updated", "The shared reader kept its source cursors; each direction keeps its own analysis.");
+  }
 }

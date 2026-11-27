@@ -7,8 +7,10 @@
  */
 import type {
   ApiErrorResponse,
+  GetWatchContextParams,
   GetWatchParams,
   Watch,
+  WatchContext,
   WatchJoin,
   WatchProjects
 } from '../models';
@@ -102,6 +104,67 @@ export const getWatch = async (slug: string,
     params?: GetWatchParams, options?: Parameters<typeof hubMutator>[1]): Promise<getWatchResponse> => {
 
   return hubMutator<getWatchResponse>(getGetWatchUrl(slug,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getWatchContextResponse200 = {
+  data: WatchContext
+  status: 200
+}
+
+export type getWatchContextResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type getWatchContextResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getWatchContextResponse503 = {
+  data: ApiErrorResponse
+  status: 503
+}
+
+export type getWatchContextResponseSuccess = (getWatchContextResponse200) & {
+  headers: Headers;
+};
+export type getWatchContextResponseError = (getWatchContextResponse400 | getWatchContextResponse404 | getWatchContextResponse503) & {
+  headers: Headers;
+};
+
+export type getWatchContextResponse = (getWatchContextResponseSuccess | getWatchContextResponseError)
+
+export const getGetWatchContextUrl = (slug: string,
+    params: GetWatchContextParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/projects/${encodeURIComponent(String(slug))}/watch/context?${stringifiedParams}` : `/api/projects/${encodeURIComponent(String(slug))}/watch/context`
+}
+
+/**
+ * @summary Read bounded chronological source context for one selected direction
+ */
+export const getWatchContext = async (slug: string,
+    params: GetWatchContextParams, options?: Parameters<typeof hubMutator>[1]): Promise<getWatchContextResponse> => {
+
+  return hubMutator<getWatchContextResponse>(getGetWatchContextUrl(slug,params),
   {
     ...options,
     method: 'GET'

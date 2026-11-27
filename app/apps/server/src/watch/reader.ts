@@ -29,21 +29,28 @@ const ADMIN_ONLY = /CHAT_ADMIN_REQUIRED/;
 
 /** The stored peer as the client reads it: the id, with the access hash when the watch file has one (no resolve after a restart). */
 const targetOf = (peer: PublicPeer) => ({ id: Number(peer.peerId), accessHash: peer.accessHash ?? null });
+const publicPeer = (chat: NonNullable<Awaited<ReturnType<MtPublic["resolve"]>>>): PublicPeer => ({ peerId: String(chat.id), title: chat.title, accessHash: chat.accessHash,
+  ...(chat.isMember !== undefined ? { isMember: chat.isMember } : {}), ...(chat.kind ? { kind: chat.kind } : {}),
+  ...(chat.canonicalUsername !== undefined ? { canonicalUsername: chat.canonicalUsername } : {}), ...(chat.hasJoinRequests !== undefined ? { hasJoinRequests: chat.hasJoinRequests } : {}) });
 
 export function publicReaderOf(mt: MtPublic): PublicReader {
   return {
     async resolve(username) {
       try {
         const chat = await mt.resolve(username);
-        return chat ? { peerId: String(chat.id), title: chat.title, accessHash: chat.accessHash } : null;
+        return chat ? publicPeer(chat) : null;
       } catch (e) {
         throw floodOr(e);
       }
     },
+    ...(mt.inspect ? { async inspect(peer: PublicPeer) {
+      try { const chat = await mt.inspect?.(targetOf(peer)); return chat ? publicPeer(chat) : null; }
+      catch (e) { throw floodOr(e); }
+    } } : {}),
     async history(peer, o) {
       try {
         const rows = await mt.history(targetOf(peer), o);
-        return { ok: true, messages: rows.map((m) => ({ id: m.id, senderId: m.senderId === null ? null : String(m.senderId), senderHandle: m.senderUsername ? `@${m.senderUsername}` : null, text: m.text, sentAt: m.date.toISOString() })) };
+        return { ok: true, messages: rows.map((m) => ({ id: m.id, senderId: m.senderId === null ? null : String(m.senderId), senderHandle: m.senderUsername ? `@${m.senderUsername}` : null, text: m.text, sentAt: m.date.toISOString(), replyToMessageId: m.replyToMessageId ?? null, threadId: m.threadId ?? null })) };
       } catch (e) {
         const r = rpcOf(e);
         if (MEMBERS_ONLY.test(r.text)) return { ok: false, reason: "join_required" };

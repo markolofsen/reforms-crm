@@ -115,4 +115,22 @@ describe("live reload of a watch list and its lens", () => {
     expect(s.ready().lens.id).toBe("acme");
     expect(await s.lines()).toHaveLength(1);
   });
+
+  it("reloads named directions independently and keeps their rows when removed", async () => {
+    const s = await setup();
+    const named = "\n## Direction tools\n| lens | watch-acme |\n| on | yes |\n| analysis_minutes | 60 |\n### Groups\n- @tools_only\n";
+    write(s.watchMd, list(["garden_talk"], "| on | yes |") + named);
+    await domain?.reload();
+    expect(s.ready().directions?.[0]).toMatchObject({ config: { id: "tools", analysisMinutes: 60 }, lens: { id: "acme" } });
+    expect(s.ready().store.group("tools_only")).not.toBeNull();
+    const previousLens = s.ready().lens;
+    write(s.watchMd, list(["garden_talk"], "| on | yes |") + named.replace("watch-acme", "watch-missing"));
+    await domain?.reload();
+    expect(s.ready().lens).toBe(previousLens);
+    expect(s.ready().directions?.[0]?.lens).toBeNull();
+    write(s.watchMd, list(["garden_talk"], "| on | yes |"));
+    await domain?.reload();
+    expect(s.ready().directions).toEqual([]);
+    expect(s.ready().store.group("tools_only")).not.toBeNull();
+  });
 });

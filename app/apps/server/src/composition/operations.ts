@@ -19,6 +19,11 @@ export const OPERATIONS: readonly Operation[] = [...instance, ...overview, ...pr
  * declared nor named here, so coverage is total by construction.
  */
 export const NOT_DECLARED: Readonly<Record<string, string>> = {
+  "get /api/projects/:slug/watch/actions/context": "the supported local Watch CLI with its token and protected scoped grant (decision 0061); never a browser or inbound operation",
+  "post /api/projects/:slug/watch/actions/proposals": "the supported local Watch CLI with its token and protected scoped grant (decision 0061); never a browser or inbound operation",
+  "get /api/projects/:slug/watch/actions/proposals/:id": "the supported local Watch CLI with its token and protected scoped grant (decision 0061); never a browser or inbound operation",
+  "post /api/projects/:slug/watch/actions/proposals/:id/send": "the supported local Watch CLI with its token and protected scoped grant (decision 0061); never a browser or inbound operation",
+  "post /api/projects/:slug/watch/actions/proposals/:id/reconcile": "the supported local Watch CLI with its token and protected scoped grant (decision 0061); never a browser or inbound operation",
   "post /api/projects/:slug/messengers/drafts/:id/agent-send": "the agent's send on the owner's word (decision 0046): `hub mcp` calls it with its token, the browser never",
   "post /api/projects/:slug/messengers/autolink/agent-unlinked": "the agent's `chats_unlinked` tool (P128 X5), called by `hub mcp`",
   "post /api/projects/:slug/messengers/autolink/agent-proposals": "the agent's `chats_propose_hide` tool (P128 X5), called by `hub mcp`",

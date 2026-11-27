@@ -58,6 +58,7 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   safety_rules: "rules",
   send_control: "sends",
   send_log: "sends",
+  watch_public_proposals: "watch",
 };
 
 const isTable = (t: string): t is LiveTable => Object.hasOwn(TABLE_TOPIC, t);

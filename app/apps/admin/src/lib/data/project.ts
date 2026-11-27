@@ -145,8 +145,12 @@ export const useSetFollowUp = (project: string, on: CommandEvents<Awaited<Return
 /** P144: the projects that watch public groups (the nav shows Watch only when one does), one project's Watch page, and Join. */
 export const useWatchProjects = () => useQuery({ queryKey: keys.watchProjects(), queryFn: () => watchApi.projects(), staleTime: 60_000 });
 
-export const useWatch = (project: string, days: number, trigger: string | null, group: string | null) =>
-  useQuery({ queryKey: keys.watch(project, days, trigger, group), queryFn: () => watchApi.get(project, { days, trigger, group }), placeholderData: keepPreviousData });
+export const useWatch = (project: string, direction: string, days: number, trigger: string | null, group: string | null) =>
+  useQuery({ queryKey: keys.watch(project, direction, days, trigger, group), queryFn: () => watchApi.get(project, { direction, days, trigger, group }) });
+
+/** Stored chronological neighbours of one source message; a direction change never reuses another direction's data. */
+export const useWatchContext = (project: string, direction: string, group: string, messageId: number) =>
+  useQuery({ queryKey: keys.watchContext(project, direction, group, messageId), queryFn: () => watchApi.context(project, { direction, group, messageId }) });
 
 /** Join one public group on the owner's click (the only write of the section): the server asks Telegram, nothing is posted. */
 export const useJoinWatchGroup = (project: string) => useCommand({ project, touches: ["watch"], run: (username: string) => watchApi.join(project, username) });

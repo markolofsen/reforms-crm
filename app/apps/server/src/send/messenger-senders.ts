@@ -7,6 +7,7 @@ import type { WhatsAppHandle } from "../messengers/accounts/whatsapp";
 export const messengerSenders = (tg: TelegramUserHandle | undefined, wa: WhatsAppHandle | undefined): MessengerSenders | undefined =>
   tg || wa
     ? {
+        publicSender: (account) => tg?.publicSender?.(account),
         sender: (channel, account) => (channel === "telegram_user" ? tg?.sender(account) : channel === "whatsapp" ? wa?.sender(account) : undefined),
         failed: (channel, account, err) => (channel === "telegram_user" ? tg?.sendFailed(account, err) : channel === "whatsapp" ? wa?.sendFailed(account, err) : undefined) ?? Promise.resolve(),
       }

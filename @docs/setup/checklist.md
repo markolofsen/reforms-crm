@@ -157,8 +157,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - You: Read the row: it names the first thing that failed (page, field, endpoint reference, CSP, Turnstile, endpoint route, canary). Fix it in the site that owns the form, deploy, and run `hub doctor --only Leads` again (`--canary` before you report done).
 ## Watch
 
-- [ ] **Each watch list names a lens that loads** (`watch.lens`)
-  - Proves: Every `projects/<slug>/watch.md` reads (a lens name, the on switch, the account, the poll minutes, at most 15 public group usernames), and its lens loads and passes the check: `packages/<lens>/lens.json` (version, title, prompt, triggers, keep, window, budget) and `packages/<lens>/src/index.ts` (declaration, strict schema, facets). PASS when no project has a watch list.
+- [ ] **Every watch direction names a lens that loads** (`watch.lens`)
+  - Proves: Every `projects/<slug>/watch.md` reads (shared account, poll minutes, optional source_cap from 15 by default up to 60, directions with lens, switch and analysis minutes), and every lens including disabled directions loads and passes the check. An existing protected `state/projects/<slug>/watch-policy.json` must validate, including the strategy digest for enabled replies. Reads no database or Telegram history. PASS when no project has a watch list.
   - You: Fix the line the row names: in watch.md, in the lens's `lens.json`, or in its code (`packages/<lens>/src/index.ts`). Run `./run.sh doctor --only watch.lens` again. The running server takes a fixed watch.md or lens.json within seconds; a change to the lens's code needs a server restart.
 ## Agent
 

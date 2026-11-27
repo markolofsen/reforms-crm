@@ -1,3 +1,4 @@
+import type { PublicReplySender } from "./public-reply";
 import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
 import { isConfirmed, type ConfirmedDraft } from "./confirmed";
 import type { DialogIdentity } from "./autolink";
@@ -62,6 +63,8 @@ export interface MtClient {
    * session). Read-only except `join`, which runs only on the owner's Join. Its messages go to the watch store, never to ingest.
    */
   public?: MtPublic;
+  /** Separate guarded send capability, never handed to the watcher or private ingest. */
+  publicSender?: PublicReplySender;
 }
 
 /** A public group or channel, as the watcher's reader sees it. */
@@ -70,6 +73,11 @@ export interface MtPublicChat {
   title: string;
   /** The channel's access hash for this account, as decimal text (P153 D4); null for a basic group. */
   accessHash: string | null;
+  /** Current membership metadata, when the adapter supports it. */
+  isMember?: boolean;
+  kind?: "group" | "channel";
+  canonicalUsername?: string | null;
+  hasJoinRequests?: boolean;
 }
 
 /** A public group to read: its marked id and, when known, its access hash (no resolve needed after a restart). */
@@ -85,14 +93,20 @@ export interface MtPublicMessage {
   text: string;
   senderId: number | null;
   senderUsername: string | null;
+  /** The replied-to message in this same public chat; absent on older adapters. */
+  replyToMessageId?: number | null;
+  /** The replies thread or forum topic id, when Telegram supplies it. */
+  threadId?: number | null;
 }
 
 export interface MtPublic {
   /** A public group or channel by username; null when the username is not one (or not found). */
   resolve(username: string): Promise<MtPublicChat | null>;
-  /** Messages newer than `minId`, oldest first, at most `limit`; never marks anything read. Throws Telegram's error as is. */
+  /** Newest bounded page at minId=0, then newer messages oldest first; never marks read. Throws Telegram's error as is. */
   history(chat: MtPublicTarget, o: { minId: number; limit: number }): Promise<MtPublicMessage[]>;
-  join(chat: MtPublicTarget): Promise<"joined" | "pending">;
+  /** Refresh membership by cached peer; this does not resolve a username or join. */
+  inspect?(chat: MtPublicTarget): Promise<MtPublicChat | null>;
+  join(chat: MtPublicTarget): Promise<"joined" | "pending" | "manual_required">;
 }
 
 /** The bounded queue: past it the queue is cleared and the next poll reads the linked chats' history from the cursor instead. */
